@@ -1,4 +1,4 @@
-# Open City Map
+# Open City Planner
 
 Produktionsnaher GIS-Monorepo-Scaffold mit Nuxt 4, TailwindCSS 4, MapLibre, Terra Draw, FastAPI, Cookie-basierter Authentifizierung und PostgreSQL/PostGIS.
 
