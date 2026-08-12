@@ -1,0 +1,5 @@
+Hallo {{ name }},
+
+willkommen bei der Open City Map des OK Lab Flensburg.
+
+OK Lab Flensburg

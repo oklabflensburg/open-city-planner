@@ -1,0 +1,16 @@
+.DS_Store
+.env
+*.pyc
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+node_modules/
+.nuxt/
+.output/
+dist/
+coverage/
+*.log
+data/
+

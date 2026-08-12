@@ -1,0 +1,10 @@
+Hallo {{ name }},
+
+vielen Dank für deine Registrierung.
+
+Bitte bestätige deine E-Mail-Adresse über folgenden Link:
+{{ link }}
+
+Der Link ist nur begrenzt gültig. Wenn du kein Konto erstellt hast, kannst du diese Nachricht ignorieren.
+
+OK Lab Flensburg
