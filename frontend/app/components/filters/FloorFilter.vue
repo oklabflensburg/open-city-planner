@@ -5,7 +5,7 @@
       <button
         v-for="floor in floors"
         :key="floor"
-        class="min-h-10 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
+        class="min-h-11 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] lg:min-h-10"
         :class="{ '!border-[#6f9fbd] !bg-[#edf4f8] !text-[#154d73] shadow-sm': filter.selectedFloor === floor }"
         type="button"
         @click="filter.selectedFloor = floor"

@@ -1,6 +1,6 @@
 <template>
   <button
-    class="flex min-h-9 w-full cursor-pointer items-start gap-2 rounded-lg px-1.5 py-2 text-left text-xs text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
+    class="flex min-h-11 w-full cursor-pointer items-start gap-2 rounded-lg px-1.5 py-2 text-left text-xs text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] lg:min-h-9"
     type="button"
     :aria-pressed="active"
     role="checkbox"

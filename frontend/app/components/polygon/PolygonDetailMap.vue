@@ -1,15 +1,15 @@
 <template>
   <section class="overflow-hidden rounded-xl border border-[#dfe4e6] bg-white" aria-labelledby="polygon-map-heading">
-    <div class="flex items-center justify-between gap-4 border-b border-[#dfe4e6] px-5 py-4">
+    <div class="flex flex-col items-stretch justify-between gap-3 border-b border-[#dfe4e6] px-4 py-4 sm:flex-row sm:items-center sm:px-5">
       <h2 id="polygon-map-heading" class="text-lg font-bold text-[#202427]">Karte</h2>
-      <div class="flex flex-wrap justify-end gap-2">
-        <button type="button" class="min-h-10 rounded-md border border-slate-300 px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" @click="fitPolygon">
+      <div class="grid grid-cols-1 gap-2 min-[390px]:grid-cols-2 sm:flex sm:flex-wrap sm:justify-end">
+        <button type="button" class="min-h-11 rounded-xl border border-slate-300 px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" @click="fitPolygon">
           Polygon zentrieren
         </button>
         <button
           v-if="editable"
           type="button"
-          class="min-h-10 rounded-md bg-[#154d73] px-4 text-sm font-bold text-white"
+          class="min-h-11 rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white"
           @click="editing ? finishEditing() : startEditing()"
         >
           {{ editing ? 'Bearbeitung abschließen' : 'Polygon bearbeiten' }}
@@ -17,13 +17,13 @@
       </div>
     </div>
     <div class="relative">
-      <div ref="mapElement" class="h-[420px] min-h-[360px] w-full sm:h-[480px] lg:h-[520px]" />
+      <div ref="mapElement" class="h-[clamp(320px,46dvh,480px)] w-full sm:h-[480px] lg:h-[520px]" />
       <p v-if="mapError" class="absolute inset-x-4 top-4 z-10 rounded-lg bg-white px-4 py-3 text-sm font-semibold text-rose-700 shadow" role="alert">
         {{ mapError }}
       </p>
     </div>
-    <p v-if="editing" class="border-t border-[#dfe4e6] px-5 py-3 text-sm text-[#687176]">
-      Punkte verschieben und anschließend „Bearbeitung abschließen“ wählen. Erst dann wird gespeichert.
+    <p v-if="editing" class="border-t border-[#dfe4e6] px-4 py-3 text-sm leading-6 text-[#687176] sm:px-5">
+      Punkte per Touch oder Maus verschieben und anschließend „Bearbeitung abschließen“ wählen. Währenddessen ist das Verschieben der Karte gesperrt. Erst dann wird gespeichert.
     </p>
   </section>
 </template>
@@ -197,6 +197,8 @@ function startEditing() {
     editorFeatureId.value = featureId
   }
   editing.value = true
+  map.value?.dragPan.disable()
+  map.value?.touchZoomRotate.disable()
   setStaticPolygonVisibility(false)
   terra.selectFeature(featureId)
 }
@@ -204,6 +206,8 @@ function startEditing() {
 function finishEditing() {
   if (!editing.value) return
   editing.value = false
+  map.value?.dragPan.enable()
+  map.value?.touchZoomRotate.enable()
   const geometry = draftGeometry.value
   const terra = draw.value
   const featureId = editorFeatureId.value

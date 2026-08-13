@@ -208,7 +208,7 @@ export const documentationPages: DocumentationPage[] = [
         title: 'Neue Fläche anlegen',
         audience: 'login',
         blocks: [
-          { type: 'paragraph', text: 'Angemeldete aktive Konten erreichen den Erstellungsbereich über „Neue Fläche“ im Kopf- beziehungsweise Kontomenü. Die öffentliche Kartenübersicht bleibt dabei vollständig schreibgeschützt.' },
+          { type: 'paragraph', text: 'Angemeldete aktive Konten erreichen den Erstellungsbereich über „Neue Fläche“ direkt in der Kartenoberfläche. Die öffentliche Kartenübersicht bleibt dabei vollständig schreibgeschützt.' },
           { type: 'code', code: '/flaechen/neu', language: 'Route' },
           { type: 'steps', items: [{ title: 'Polygon zeichnen', text: 'Setzen Sie auf der Karte mindestens drei Eckpunkte und schließen Sie die Form am ersten Punkt.' }, { title: 'Angaben ergänzen', text: 'Wählen Sie Etage und Kategorie und vergeben Sie einen Titel.' }, { title: 'Fläche erstellen', text: 'Die Schaltfläche wird erst mit einer fertigen Geometrie aktiv. Der erste Speichervorgang ist ein einmaliges Erstellen, noch kein Autosave.' }, { title: 'Details weiterpflegen', text: 'Nach erfolgreicher Erstellung öffnet die Anwendung die dauerhafte Detailseite. Ab dort gilt das normale Autosave.' }] },
           { type: 'links', items: [{ label: 'Neue Fläche öffnen', to: '/flaechen/neu', description: 'Anmeldung erforderlich.' }] }

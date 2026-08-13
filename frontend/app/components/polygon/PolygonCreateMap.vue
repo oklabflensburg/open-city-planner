@@ -1,16 +1,16 @@
 <template>
   <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="create-map-heading">
-    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
-      <div>
+    <div class="flex flex-col items-stretch justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:px-5">
+      <div class="min-w-0">
         <h2 id="create-map-heading" class="font-bold text-slate-950">Fläche zeichnen</h2>
         <p class="mt-1 text-sm text-slate-600">Setzen Sie mindestens drei Eckpunkte und schließen Sie das Polygon am ersten Punkt.</p>
       </div>
-      <button v-if="geometry" class="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50" type="button" @click="resetDrawing">Neu zeichnen</button>
+      <button v-if="geometry" class="min-h-11 shrink-0 rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50" type="button" @click="resetDrawing">Neu zeichnen</button>
     </div>
     <div class="relative">
-      <div ref="mapElement" class="h-[52vh] min-h-[380px] w-full sm:h-[560px]" />
+      <div ref="mapElement" class="h-[clamp(320px,50dvh,520px)] w-full sm:h-[560px]" />
       <p v-if="mapError" class="absolute inset-x-4 top-4 z-10 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-rose-700 shadow" role="alert">{{ mapError }}</p>
-      <div class="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-xl border border-slate-200 bg-white/95 px-4 py-2 text-center text-xs font-semibold text-slate-700 shadow-lg backdrop-blur">
+      <div class="pointer-events-none absolute bottom-12 left-1/2 z-10 w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-center text-xs font-semibold leading-5 text-slate-700 shadow-lg backdrop-blur sm:bottom-4 sm:px-4">
         {{ geometry ? 'Polygon ist bereit. Sie können es neu zeichnen oder die Fläche erstellen.' : 'Klicken oder tippen Sie, um Eckpunkte zu setzen.' }}
       </div>
     </div>

@@ -15,10 +15,6 @@ body,
   margin: 0;
 }
 
-body {
-  overflow-x: hidden;
-}
-
 button,
 input,
 select,
@@ -97,25 +93,33 @@ textarea {
   height: 34px !important;
 }
 
+@media (max-width: 1023px) {
+  .maplibregl-ctrl button {
+    width: 44px !important;
+    height: 44px !important;
+  }
+}
+
 .maplibregl-map {
   width: 100% !important;
 }
 
-@media (max-width: 767px) {
-  body.mobile-nav-open {
-    overflow: hidden;
-  }
+body.mobile-nav-open {
+  overflow: hidden;
+}
+
+body.drawer-open {
+  overflow: hidden;
 }
 
 .mobile-navigation-enter-active,
 .mobile-navigation-leave-active {
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: opacity 160ms ease;
 }
 
 .mobile-navigation-enter-from,
 .mobile-navigation-leave-to {
   opacity: 0;
-  transform: translateY(-6px);
 }
 
 @media (prefers-reduced-motion: reduce) {

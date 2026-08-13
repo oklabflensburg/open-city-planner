@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 export type DrawingMode = 'select' | 'polygon' | 'edit' | 'delete'
+export type MobilePanel = 'filter' | 'analytics' | null
 
 export const useMapStore = defineStore('map', {
   state: () => ({
@@ -10,8 +11,8 @@ export const useMapStore = defineStore('map', {
     pitch: 0,
     activeMode: 'select' as DrawingMode,
     mapLoaded: false,
-    filterDrawerOpen: false,
-    analysisDrawerOpen: false,
+    activeMobilePanel: null as MobilePanel,
+    polygonPreviewOpen: false,
     categoryHighlight: null as string | null
   }),
   actions: {
@@ -29,7 +30,17 @@ export const useMapStore = defineStore('map', {
       this.zoom = zoom
       this.bearing = 0
       this.pitch = 0
+    },
+    openMobilePanel(panel: Exclude<MobilePanel, null>) {
+      this.polygonPreviewOpen = false
+      this.activeMobilePanel = panel
+    },
+    closeMobilePanel() {
+      this.activeMobilePanel = null
+    },
+    closeMobilePanels() {
+      this.activeMobilePanel = null
+      this.polygonPreviewOpen = false
     }
   }
 })
-

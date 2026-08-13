@@ -4,14 +4,14 @@
         <li v-for="(step, index) in steps" :key="step" class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"><span class="grid size-7 shrink-0 place-items-center rounded-full bg-[#154d73] text-xs font-bold text-white">{{ index + 1 }}</span>{{ step }}</li>
       </ol>
 
-      <form class="mt-8 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]" @submit.prevent="submit">
+      <form class="mt-6 grid min-w-0 items-start gap-6 sm:mt-8 xl:grid-cols-[minmax(0,1fr)_360px]" @submit.prevent="submit">
         <PolygonCreateMap :color="categoryColor" @update:geometry="geometry = $event" />
 
         <Card class="p-5 sm:p-6 xl:sticky xl:top-24">
           <h2 class="text-lg font-bold text-slate-950">Erste Angaben</h2>
           <div class="mt-5 space-y-5">
-            <label class="block"><span class="field-label">Titel</span><input v-model.trim="name" class="field-input" maxlength="160" required placeholder="Zum Beispiel Ladenfläche Holm"></label>
             <label class="block"><span class="field-label">Etage</span><select v-model="floor" class="field-input"><option v-for="item in floors" :key="item" :value="item">{{ item }}</option></select></label>
+            <label class="block"><span class="field-label">Titel</span><input v-model.trim="name" class="field-input" maxlength="160" required placeholder="Zum Beispiel Ladenfläche Holm"></label>
             <label class="block"><span class="field-label">Kategorie</span><select v-model="category" class="field-input"><option v-for="industry in industries" :key="industry.key" :value="industry.key">{{ industry.label }}</option></select></label>
             <PolygonCategoryBadge :category="category" />
           </div>

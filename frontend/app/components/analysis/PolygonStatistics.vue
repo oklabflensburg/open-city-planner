@@ -56,6 +56,7 @@ watch(polygon, (selected) => {
 
 function closeSelection() {
   store.clearSelection()
-  mapStore.analysisDrawerOpen = false
+  mapStore.activeMobilePanel = null
+  mapStore.polygonPreviewOpen = false
 }
 </script>

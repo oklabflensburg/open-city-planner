@@ -19,7 +19,12 @@ export const useFilterStore = defineStore('filter', {
     },
     toggleAll() {
       this.activeCategories = this.allCategoriesActive ? [] : [...defaultActiveIndustries]
+    },
+    reset() {
+      this.favoriteOnly = false
+      this.selectedSize = 'M'
+      this.selectedFloor = 'EG'
+      this.activeCategories = [...defaultActiveIndustries]
     }
   }
 })
-

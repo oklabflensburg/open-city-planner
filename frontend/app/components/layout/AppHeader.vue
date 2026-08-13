@@ -35,9 +35,6 @@
         </nav>
 
         <template v-if="authStore.authenticated">
-          <NuxtLink class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#154d73] px-3 text-sm font-bold text-[#154d73] transition hover:bg-[#edf4f8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]" to="/flaechen/neu">
-            <Plus class="size-4" aria-hidden="true" /> Neue Fläche
-          </NuxtLink>
           <div class="relative">
             <button
               ref="accountButton"
@@ -107,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronDown, Menu, Plus, X } from 'lucide-vue-next'
+import { ChevronDown, Menu, X } from 'lucide-vue-next'
 import { hasVerwaltungRole } from '~/utils/roles'
 
 const route = useRoute()
@@ -119,12 +116,11 @@ const accountButton = ref<HTMLElement | null>(null)
 const accountMenu = ref<HTMLElement | null>(null)
 const { primaryNavigation, legalNavigation } = useSiteNavigation()
 const accountNavigation = computed(() => [
-  { label: 'Neue Fläche', to: '/flaechen/neu' },
   { label: 'Profil', to: '/profil' },
   { label: 'Meine Flächen', to: '/meine-flaechen' },
+  { label: 'Sicherheit', to: '/profil/sicherheit' },
   ...(hasVerwaltungRole(authStore.user) ? [{ label: 'Kennzahlen verwalten', to: '/verwaltung/kennzahlen' }] : []),
-  ...(authStore.user?.is_superuser ? [{ label: 'Administration', to: '/admin/benutzer' }] : []),
-  { label: 'Sicherheit', to: '/profil/sicherheit' }
+  ...(authStore.user?.is_superuser ? [{ label: 'Administration', to: '/admin/benutzer' }] : [])
 ])
 
 function isActive(path: string) {

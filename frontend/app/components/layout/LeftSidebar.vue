@@ -1,6 +1,6 @@
 <template>
-  <aside class="flex h-full min-h-0 flex-col gap-3">
-    <section class="min-h-0 overflow-y-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+  <aside class="flex min-w-0 flex-col gap-3 lg:h-full lg:min-h-0">
+    <section class="min-h-0 rounded-2xl border border-slate-200/80 bg-white shadow-sm lg:overflow-y-auto">
       <header class="flex items-center gap-2 border-b border-slate-100 px-4 py-4">
         <ListFilter class="size-4 text-[#154d73]" aria-hidden="true" />
         <h2 class="text-sm font-bold text-slate-800">Filter &amp; Ansichten</h2>

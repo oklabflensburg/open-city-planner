@@ -1,7 +1,7 @@
 <template>
   <div class="pointer-events-auto">
     <button
-      class="grid min-h-11 min-w-11 place-items-center rounded-[10px] border border-[#e5e5e5] bg-white shadow-[0_1px_8px_rgba(20,24,28,0.12)] hover:bg-[#f5f5f5] md:min-h-[34px] md:min-w-[34px]"
+      class="grid min-h-11 min-w-11 place-items-center rounded-[10px] border border-[#e5e5e5] bg-white shadow-[0_1px_8px_rgba(20,24,28,0.12)] hover:bg-[#f5f5f5] lg:min-h-[34px] lg:min-w-[34px]"
       type="button"
       aria-label="Kartenlayer"
       title="Kartenlayer"
