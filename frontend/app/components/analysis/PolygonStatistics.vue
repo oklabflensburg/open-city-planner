@@ -38,12 +38,12 @@
 
 <script setup lang="ts">
 import { ArrowRight, X } from 'lucide-vue-next'
-import { industries } from '~/utils/industries'
+import { getIndustryLabel } from '~/utils/industries'
 
 const store = usePolygonStore()
 const mapStore = useMapStore()
 const polygon = computed(() => store.selectedPolygon)
-const industryLabel = computed(() => industries.find(item => item.key === polygon.value?.category)?.label || polygon.value?.category || 'Nicht angegeben')
+const industryLabel = computed(() => getIndustryLabel(polygon.value?.category))
 const osm = usePolygonOsmInfo()
 
 watch(polygon, (selected) => {

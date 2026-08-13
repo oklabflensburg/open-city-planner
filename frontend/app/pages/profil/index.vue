@@ -1,9 +1,9 @@
 <template>
-  <main class="mx-auto max-w-3xl px-5 py-12 sm:px-6 lg:px-8">
-    <h1 class="text-3xl font-bold text-[#202427]">Profil</h1>
-    <AvatarUploader class="mt-8" />
-    <OAuthAccountList class="mt-8" />
-    <section class="mt-8 rounded-lg border border-[#dfe4e6] bg-white p-6">
+  <ContentPageShell title="Profil" description="Persönliche Angaben, Profilbild und verbundene Konten verwalten." eyebrow="Konto" :breadcrumbs="[{ label: 'Startseite', to: '/' }, { label: 'Profil' }]" max-width="reading">
+    <div class="space-y-6 sm:space-y-8">
+    <AvatarUploader />
+    <OAuthAccountList />
+    <Card class="p-5 sm:p-7">
       <dl class="grid gap-3 text-sm sm:grid-cols-2">
         <div><dt class="font-semibold text-[#687176]">E-Mail</dt><dd>{{ authStore.user?.email }}</dd></div>
         <div><dt class="font-semibold text-[#687176]">E-Mail bestätigt</dt><dd>{{ authStore.user?.is_verified ? 'Ja' : 'Nein' }}</dd></div>
@@ -15,10 +15,11 @@
         <FormField id="last-name" v-model="lastName" label="Nachname" autocomplete="family-name" />
         <FormField id="display-name" v-model="displayName" label="Anzeigename" autocomplete="name" />
         <p v-if="message" class="rounded-md bg-[#edf4f8] px-3 py-2 text-sm font-semibold text-[#154d73]">{{ message }}</p>
-        <button class="min-h-11 rounded-md bg-[#154d73] px-4 text-sm font-bold text-white" type="submit">Profil speichern</button>
+        <button class="page-button-primary" type="submit">Profil speichern</button>
       </form>
-    </section>
-  </main>
+    </Card>
+    </div>
+  </ContentPageShell>
 </template>
 
 <script setup lang="ts">

@@ -1,17 +1,17 @@
 <template>
-  <main class="px-4 py-12">
+  <AuthPageShell label="Passwort zurücksetzen">
     <AuthCard eyebrow="Sicherheit" title="Passwort zurücksetzen">
       <form class="grid gap-4" @submit.prevent="submit">
         <FormField id="password" v-model="password" label="Neues Passwort" type="password" autocomplete="new-password" required :disabled="loading" />
         <FormField id="password-confirm" v-model="passwordConfirm" label="Neues Passwort wiederholen" type="password" autocomplete="new-password" required :disabled="loading" />
         <p v-if="message" class="rounded-md bg-[#edf4f8] px-3 py-2 text-sm font-semibold text-[#154d73]">{{ message }}</p>
         <p v-if="error" class="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{{ error }}</p>
-        <button class="min-h-11 rounded-md bg-[#154d73] px-4 text-sm font-bold text-white disabled:opacity-60" type="submit" :disabled="loading">
+        <button class="page-button-primary disabled:opacity-60" type="submit" :disabled="loading">
           Passwort speichern
         </button>
       </form>
     </AuthCard>
-  </main>
+  </AuthPageShell>
 </template>
 
 <script setup lang="ts">

@@ -29,7 +29,7 @@ def settings(**overrides: object) -> SimpleNamespace:
     values: dict[str, object] = {
         "osm_external_fallback_enabled": False,
         "overpass_api_url": None,
-        "overpass_user_agent": "Stadtplanner tests",
+        "overpass_user_agent": "Stadtplaner tests",
         "overpass_timeout_seconds": 1.0,
         "osm_lookup_cache_ttl_seconds": 60,
         "osm_external_min_interval_seconds": 0.0,
@@ -188,7 +188,7 @@ async def test_overpass_uses_geojson_mapping_and_normalizes_response(
     ))
     def client_factory(**kwargs: object) -> Client:
         assert kwargs["headers"] == {
-            "User-Agent": "Stadtplanner tests",
+            "User-Agent": "Stadtplaner tests",
             "Accept": "application/json",
         }
         return Client()

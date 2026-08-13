@@ -1,8 +1,9 @@
 <template>
-  <label class="grid min-w-0 gap-1 text-sm font-semibold text-[#30363a]">
+  <label class="grid min-w-0 gap-1.5 text-sm font-semibold text-slate-700">
     <span>{{ label }}</span>
     <input
-      class="min-h-11 w-full min-w-0 rounded-md border border-[#d7dddf] px-3 text-sm font-normal text-[#202427] outline-none transition focus:border-[#154d73] focus:ring-2 focus:ring-[#154d73]/20 disabled:bg-[#f4f6f6]"
+      :id="id"
+      class="min-h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm font-normal text-slate-950 outline-none transition focus:border-[#154d73] focus:ring-2 focus:ring-[#154d73]/20 disabled:bg-slate-100"
       :type="type"
       :autocomplete="autocomplete"
       :value="modelValue"

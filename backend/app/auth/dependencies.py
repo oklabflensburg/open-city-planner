@@ -48,6 +48,15 @@ async def get_current_active_user(user: Annotated[User, Depends(get_current_user
     return user
 
 
+async def get_csrf_protected_active_user(
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
+    """Active authenticated user for mutations that do not require email verification."""
+    validate_csrf(request)
+    return user
+
+
 async def get_verified_user(request: Request, user: Annotated[User, Depends(get_current_active_user)]) -> User:
     validate_csrf(request)
     if not user.is_verified:
@@ -71,6 +80,17 @@ def has_role(user: User, role: str) -> bool:
 
 
 def can_edit_polygon(user: User, created_by_user_id: uuid.UUID | None) -> bool:
+    return (
+        has_role(user, "VERWALTUNG")
+        or (created_by_user_id is not None and created_by_user_id == user.id)
+    )
+
+
+def can_create_polygon(user: User) -> bool:
+    return bool(user.is_active)
+
+
+def can_delete_polygon(user: User, created_by_user_id: uuid.UUID | None) -> bool:
     return (
         has_role(user, "VERWALTUNG")
         or (created_by_user_id is not None and created_by_user_id == user.id)

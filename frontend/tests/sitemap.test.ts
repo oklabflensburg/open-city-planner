@@ -26,4 +26,9 @@ describe('XML sitemap', () => {
       expect(xml).not.toContain(excluded)
     }
   })
+
+  it('keeps the public Open Data collection address stable', async () => {
+    const source = await import('../server/routes/sitemap.xml.ts?raw').then(module => module.default)
+    expect(source).toContain("'/open-data'")
+  })
 })

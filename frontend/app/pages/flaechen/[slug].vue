@@ -1,14 +1,9 @@
 <template>
-  <article class="mx-auto max-w-5xl px-5 py-12 sm:px-6 lg:px-8">
-    <nav class="text-sm text-[#687176]" aria-label="Brotkrümelnavigation">
-      <ol class="flex flex-wrap items-center gap-2">
-        <li><NuxtLink class="font-semibold text-[#154d73]" to="/">Karte</NuxtLink></li>
-        <li aria-hidden="true">/</li>
-        <li aria-current="page">{{ polygonData.name }}</li>
-      </ol>
-    </nav>
+  <article class="bg-slate-50 py-8 sm:py-12">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <PageBreadcrumbs :items="[{ label: 'Karte', to: '/' }, { label: polygonData.name }]" />
 
-    <div v-if="canEditPublicFields || canEditVerwaltung" class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#dfe4e6] bg-white px-4 py-3">
+    <div v-if="canEditPublicFields || canEditVerwaltung" class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
       <span class="text-sm font-semibold" :class="saveStatusClass">{{ saveStatusLabel }}</span>
       <button v-if="autosaveStatus === 'error' || autosaveStatus === 'conflict'" type="button" class="text-sm font-bold text-[#154d73] underline" @click="autosave.retry()">
         Erneut versuchen
@@ -18,85 +13,86 @@
       Die Fläche wurde zwischenzeitlich von jemand anderem geändert. Bitte lade die Seite neu, bevor du erneut speicherst.
     </p>
 
-    <header class="mt-6 max-w-3xl">
-      <p class="text-xs font-bold uppercase tracking-wide text-[#687176]">Öffentliche Fläche</p>
-      <template v-if="canEditPublicFields">
-        <label class="mt-3 block">
+    <header class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="h-1.5" :style="{ backgroundColor: categoryColor }" />
+      <div class="p-5 sm:p-8">
+        <PolygonCategoryBadge :category="polygonData.category" />
+        <h1 v-if="canEditPublicFields" class="sr-only">{{ polygonData.name }}</h1>
+        <label v-if="canEditPublicFields" class="mt-5 block max-w-3xl">
           <span class="field-label">Titel</span>
-          <input v-model="polygonData.name" class="field-input text-xl font-bold" maxlength="160" @input="autosave.schedulePublic({ name: polygonData.name })">
+          <input v-model="polygonData.name" class="field-input text-2xl font-black sm:text-3xl" maxlength="160" @input="autosave.schedulePublic({ name: polygonData.name })">
         </label>
-        <label class="mt-4 block">
-          <span class="field-label">Beschreibung</span>
-          <textarea v-model="polygonData.description" class="field-input min-h-32" @input="autosave.schedulePublic({ description: polygonData.description || null })" />
-        </label>
-      </template>
-      <template v-else>
-        <h1 class="mt-2 text-3xl font-bold text-[#202427]">{{ polygonData.name }}</h1>
-        <p v-if="polygonData.description" class="mt-4 text-base leading-7 text-[#4f575c]">{{ polygonData.description }}</p>
-      </template>
+        <h1 v-else class="mt-5 break-words text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{{ polygonData.name }}</h1>
+        <p class="mt-3 flex items-start gap-2 text-base text-slate-600"><MapPin class="mt-0.5 size-5 shrink-0" aria-hidden="true" />{{ publicAddress }}</p>
+
+        <dl class="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <PolygonMetricCard label="Fläche" :value="`${formatMetric(polygonData.area_m2)} m²`" :icon="Ruler" />
+          <PolygonMetricCard label="Etage" :value="polygonData.floor || 'Nicht angegeben'" :icon="Layers3" />
+          <PolygonMetricCard label="Kategorie" :value="categoryLabel" :icon="Tags" />
+          <PolygonMetricCard label="Umfang" :value="`${formatMetric(polygonData.perimeter_m)} m`" :icon="RouteIcon" />
+        </dl>
+      </div>
     </header>
 
-    <section class="mt-8 rounded-xl border border-[#dfe4e6] bg-white p-6" aria-labelledby="polygon-details">
-      <h2 id="polygon-details" class="text-lg font-bold text-[#202427]">Flächendaten</h2>
-      <dl class="mt-5 grid gap-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <dt class="font-semibold text-[#687176]">Kategorie</dt>
-          <dd v-if="!canEditPublicFields" class="mt-1 text-[#202427]">{{ categoryLabel }}</dd>
-          <dd v-else class="mt-1">
+    <div class="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.8fr)]">
+      <PolygonDetailMap
+        :geometry="polygonData.geometry"
+        :bbox="polygonData.bbox"
+        :editable="canEditPublicFields"
+        :color="categoryColor"
+        @geometry-complete="saveGeometry"
+      />
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="polygon-details">
+        <h2 id="polygon-details" class="text-lg font-bold text-slate-950">Details</h2>
+        <dl class="mt-5 space-y-5 text-sm">
+          <div>
+            <dt class="font-semibold text-slate-500">Kategorie</dt>
+            <dd v-if="!canEditPublicFields" class="mt-1 text-slate-950">{{ categoryLabel }}</dd>
+            <dd v-else class="mt-1">
             <select v-model="polygonData.category" class="field-input" @change="autosave.schedulePublic({ category: polygonData.category }, true)">
               <option v-for="industry in industries" :key="industry.key" :value="industry.key">{{ industry.label }}</option>
             </select>
-          </dd>
-        </div>
-        <div>
-          <dt class="font-semibold text-[#687176]">Etage</dt>
-          <dd v-if="!canEditPublicFields" class="mt-1 text-[#202427]">{{ polygonData.floor || 'Nicht angegeben' }}</dd>
-          <dd v-else class="mt-1">
+            </dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-slate-500">Etage</dt>
+            <dd v-if="!canEditPublicFields" class="mt-1 text-slate-950">{{ polygonData.floor || 'Nicht angegeben' }}</dd>
+            <dd v-else class="mt-1">
             <select v-model="polygonData.floor" class="field-input" @change="autosave.schedulePublic({ floor: polygonData.floor || null }, true)">
               <option :value="null">Nicht angegeben</option>
               <option v-for="floor in floors" :key="floor" :value="floor">{{ floor }}</option>
             </select>
-          </dd>
-        </div>
-        <div>
-          <dt class="font-semibold text-[#687176]">Größenklasse</dt>
-          <dd v-if="!canEditPublicFields" class="mt-1 text-[#202427]">{{ polygonData.area_size || 'Nicht angegeben' }}</dd>
-          <dd v-else class="mt-1">
+            </dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-slate-500">Größenklasse</dt>
+            <dd v-if="!canEditPublicFields" class="mt-1 text-slate-950">{{ polygonData.area_size || 'Nicht angegeben' }}</dd>
+            <dd v-else class="mt-1">
             <select v-model="polygonData.area_size" class="field-input" @change="autosave.schedulePublic({ area_size: polygonData.area_size || null }, true)">
               <option :value="null">Nicht angegeben</option>
               <option v-for="size in areaSizes" :key="size" :value="size">{{ size }}</option>
             </select>
-          </dd>
-        </div>
-        <div>
-          <dt class="font-semibold text-[#687176]">Fläche</dt>
-          <dd class="mt-1 text-[#202427]">{{ formatMetric(polygonData.area_m2) }} m²</dd>
-        </div>
-        <div>
-          <dt class="font-semibold text-[#687176]">Umfang</dt>
-          <dd class="mt-1 text-[#202427]">{{ formatMetric(polygonData.perimeter_m) }} m</dd>
-        </div>
-      </dl>
+            </dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-slate-500">Adresse</dt>
+            <dd class="mt-1 leading-6 text-slate-950">{{ publicAddress }}</dd>
+            <dd class="mt-1 text-xs leading-5 text-slate-500">Automatisch aus einem Punkt innerhalb der Fläche ermittelt.</dd>
+          </div>
+        </dl>
+        <p v-if="polygonData.address_lookup_status === 'failed'" class="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">Daten gespeichert. Die Adresse konnte momentan nicht aktualisiert werden.</p>
+      </section>
+    </div>
+
+    <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="polygon-description">
+      <h2 id="polygon-description" class="text-lg font-bold text-slate-950">Beschreibung</h2>
+      <label v-if="canEditPublicFields" class="mt-4 block"><span class="sr-only">Beschreibung</span><textarea v-model="polygonData.description" class="field-input min-h-36" placeholder="Öffentliche Beschreibung der Fläche" @input="autosave.schedulePublic({ description: polygonData.description || null })" /></label>
+      <p v-else-if="polygonData.description" class="mt-4 whitespace-pre-line leading-7 text-slate-700">{{ polygonData.description }}</p>
+      <p v-else class="mt-4 text-slate-500">Für diese Fläche ist noch keine Beschreibung hinterlegt.</p>
     </section>
 
-    <section class="mt-8 rounded-xl border border-[#dfe4e6] bg-white p-6" aria-labelledby="polygon-location">
-      <h2 id="polygon-location" class="text-lg font-bold text-[#202427]">Adresse</h2>
-      <p class="mt-2 text-[#202427]">{{ publicAddress }}</p>
-      <p class="mt-1 text-sm text-[#687176]">Automatisch aus einem Punkt innerhalb der Polygonfläche ermittelt.</p>
-      <p v-if="polygonData.address_lookup_status === 'failed'" class="mt-3 text-sm font-semibold text-amber-700">
-        Daten gespeichert. Die Adresse konnte momentan nicht aktualisiert werden.
-      </p>
-    </section>
-
-    <PolygonOsmInfo class="mt-8" :info="osm.data.value" :loading="osm.loading.value" :error="osm.error.value" @retry="osm.retry" />
-
-    <PolygonDetailMap
-      class="mt-8"
-      :geometry="polygonData.geometry"
-      :bbox="polygonData.bbox"
-      :editable="canEditPublicFields"
-      @geometry-complete="saveGeometry"
-    />
+    <PolygonOsmInfo class="mt-8 rounded-2xl shadow-sm" :info="osm.data.value" :loading="osm.loading.value" :error="osm.error.value" @retry="osm.retry" />
 
     <PolygonManagementForm
       v-if="verwaltungData && canViewVerwaltung"
@@ -105,13 +101,17 @@
       @change="scheduleManagement"
     />
 
+    <PolygonDeleteSection v-if="canDelete" class="mt-8" :name="polygonData.name" :loading="deleting" :error="deleteError" @confirm="removePolygon" />
+
     <p class="mt-8 text-sm text-[#687176]">Zuletzt aktualisiert: {{ formatDate(polygonData.updated_at) }}</p>
+    </div>
   </article>
 </template>
 
 <script setup lang="ts">
+import { Layers3, MapPin, Route as RouteIcon, Ruler, Tags } from 'lucide-vue-next'
 import type { PolygonEditorDetail, PolygonGeometry, PolygonVerwaltungDetail, PublicPolygonDetail } from '~/types/geo'
-import { industries } from '~/utils/industries'
+import { getIndustryColor, getIndustryLabel, industries } from '~/utils/industries'
 
 const route = useRoute()
 const slugParam = Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug
@@ -139,8 +139,10 @@ const osm = usePolygonOsmInfo()
 const editorData = ref<PolygonEditorDetail | null>(null)
 const verwaltungData = ref<PolygonVerwaltungDetail | null>(null)
 const updatedAt = ref(polygonData.value.updated_at)
-const { canEditPublicFields, canViewVerwaltung, canEditVerwaltung } = usePolygonPermissions(editorData)
+const { canEditPublicFields, canDelete, canViewVerwaltung, canEditVerwaltung } = usePolygonPermissions(editorData)
 usePolygonSeo(polygonData)
+const deleting = ref(false)
+const deleteError = ref('')
 
 const autosave = usePolygonAutosave({
   updatedAt,
@@ -202,7 +204,8 @@ onMounted(async () => {
 const floors = ['UG', 'EG', '1OG', '2OG', '3OG', 'DG']
 const areaSizes = ['S', 'M', 'L', 'XL'] as const
 const autosaveStatus = autosave.status
-const categoryLabel = computed(() => industries.find(industry => industry.key === polygonData.value.category)?.label || polygonData.value.category || 'Nicht angegeben')
+const categoryLabel = computed(() => getIndustryLabel(polygonData.value.category))
+const categoryColor = computed(() => getIndustryColor(polygonData.value.category))
 const publicAddress = computed(() => polygonData.value.address_display_name || [
   [polygonData.value.address_street, polygonData.value.address_house_number].filter(Boolean).join(' '),
   [polygonData.value.address_postal_code, polygonData.value.address_city].filter(Boolean).join(' '),
@@ -222,6 +225,25 @@ function scheduleManagement(field: keyof PolygonVerwaltungDetail, value: unknown
   if (canEditVerwaltung.value) autosave.scheduleVerwaltung({ [field]: value })
 }
 
+async function removePolygon() {
+  if (deleting.value) return
+  if (autosaveStatus.value === 'dirty' || autosaveStatus.value === 'saving') {
+    deleteError.value = 'Bitte warten Sie, bis die laufenden Änderungen gespeichert sind.'
+    return
+  }
+  deleting.value = true
+  deleteError.value = ''
+  try {
+    await polygonApi.remove(polygonData.value.id)
+    clearNuxtData(`polygon-${slug}`)
+    await navigateTo('/')
+  } catch (cause) {
+    deleteError.value = cause instanceof Error ? cause.message : 'Die Fläche konnte nicht gelöscht werden.'
+  } finally {
+    deleting.value = false
+  }
+}
+
 function pickPublicUpdate(response: { name: string, description?: string | null, floor?: string | null, category: string, geometry: PolygonGeometry, properties?: Record<string, unknown>, updated_at: string }) {
   const size = response.properties?.size
   const areaSize = areaSizes.includes(size as typeof areaSizes[number]) ? size as typeof areaSizes[number] : null
@@ -231,9 +253,3 @@ function pickPublicUpdate(response: { name: string, description?: string | null,
 function formatMetric(value: number) { return Math.round(value).toLocaleString('de-DE') }
 function formatDate(value: string) { return new Intl.DateTimeFormat('de-DE').format(new Date(value)) }
 </script>
-
-<style scoped>
-.field-label { display: block; margin-bottom: 0.35rem; font-size: 0.8rem; font-weight: 700; color: #4f575c; }
-.field-input { min-height: 2.75rem; width: 100%; border: 1px solid #cfd6d9; border-radius: 0.45rem; background: white; padding: 0.6rem 0.75rem; color: #202427; }
-.field-input:focus { border-color: #154d73; outline: 2px solid rgb(21 77 115 / 18%); outline-offset: 1px; }
-</style>

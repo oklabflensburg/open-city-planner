@@ -1,5 +1,5 @@
 <template>
-  <main class="px-4 py-12">
+  <AuthPageShell label="Registrieren">
     <AuthCard eyebrow="Konto" title="Konto erstellen">
       <form class="grid gap-4" @submit.prevent="submit">
         <div class="grid min-w-0 gap-4 md:grid-cols-2">
@@ -15,14 +15,14 @@
         </label>
         <p v-if="error" class="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{{ error }}</p>
         <p v-if="success" class="rounded-md bg-[#edf4f8] px-3 py-2 text-sm font-semibold text-[#154d73]">{{ success }}</p>
-        <button class="min-h-11 rounded-md bg-[#154d73] px-4 text-sm font-bold text-white disabled:opacity-60" type="submit" :disabled="loading">
+        <button class="page-button-primary disabled:opacity-60" type="submit" :disabled="loading">
           Registrieren
         </button>
       </form>
       <OAuthLoginButtons class="mt-5" mode="signup" redirect="/" />
       <NuxtLink class="mt-5 block text-sm font-semibold text-[#154d73]" to="/login">Bereits registriert? Anmelden</NuxtLink>
     </AuthCard>
-  </main>
+  </AuthPageShell>
 </template>
 
 <script setup lang="ts">

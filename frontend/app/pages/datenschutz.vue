@@ -39,6 +39,19 @@
     </section>
 
     <section>
+      <h2 class="text-base font-bold text-[#202427]">Kontaktformular und E-Mail-Versand</h2>
+      <p class="mt-3 text-sm leading-6 text-[#4f575c]">
+        Wenn Sie das Kontaktformular verwenden, werden Name, E-Mail-Adresse, Betreff und Nachricht verarbeitet, um Ihre Anfrage an das Stadtplaner-Team zu übermitteln und Ihnen eine Kopie zu senden. Die Angaben werden dafür an den vom Betreiber konfigurierten SMTP-Mailserver weitergegeben. Ein konkreter externer Maildienstleister ist im Repository nicht festgelegt und muss vom Betreiber entsprechend seiner produktiven Konfiguration dokumentiert werden.
+      </p>
+      <p class="mt-3 text-sm leading-6 text-[#4f575c]">
+        Zum Schutz vor Spam und Missbrauch verarbeitet das Backend kurzzeitig technische Sicherheitsdaten. Dazu gehören die für Rate Limits verwendete IP-Adresse, ein gehashter Bezug zur Absenderadresse, ein signierter Formularzeitpunkt sowie eine einmalige Formularkennung. Die vollständige Nachricht wird nicht in einer zusätzlichen Kontaktdatenbank gespeichert. Aufbewahrungsdauer, Rechtsgrundlage und Löschpraxis des tatsächlich eingesetzten Mailservers müssen vom Betreiber rechtlich geprüft und ergänzt werden.
+      </p>
+      <p class="mt-3 text-sm leading-6 text-[#4f575c]">
+        Cloudflare Turnstile ist optional vorbereitet und wird nur geladen und serverseitig geprüft, wenn der Betreiber diese Funktion ausdrücklich aktiviert und die notwendigen Schlüssel konfiguriert. Bei deaktivierter Funktion werden keine Turnstile-Ressourcen geladen. Vor einer Aktivierung müssen die damit verbundenen Datenschutzinformationen ergänzt werden.
+      </p>
+    </section>
+
+    <section>
       <h2 class="text-base font-bold text-[#202427]">Umfang und Zweck der Verarbeitung</h2>
       <p class="mt-3 text-sm leading-6 text-[#4f575c]">
         Die Website stellt eine interaktive GIS-Anwendung bereit. Zur Bereitstellung der Website, der Karte und der API-Funktionen können technische Zugriffsdaten verarbeitet werden, insbesondere IP-Adresse, Zeitpunkt, angefragte URL, HTTP-Status, Browser- und Betriebssysteminformationen sowie übertragene Datenmengen.

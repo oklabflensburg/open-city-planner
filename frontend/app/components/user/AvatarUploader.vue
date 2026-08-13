@@ -1,12 +1,12 @@
 <template>
-  <section class="rounded-lg border border-[#dfe4e6] bg-white p-6">
+  <section class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-7">
     <div class="flex flex-col gap-5 sm:flex-row sm:items-center">
       <UserAvatar :user="previewUser" size="2xl" alt="Profilbild" loading="eager" />
       <div class="min-w-0 flex-1">
         <h2 class="text-lg font-bold text-[#202427]">Profilbild</h2>
         <p class="mt-1 text-sm leading-6 text-[#687176]">JPG, PNG oder WebP, maximal 5 MB.</p>
         <div class="mt-4 flex flex-wrap gap-2">
-          <label class="inline-flex min-h-11 cursor-pointer items-center rounded-md border border-[#cfd8dc] px-4 text-sm font-bold text-[#30363a] transition hover:bg-[#f4f6f6] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#154d73]">
+          <label class="page-button-secondary cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#154d73]">
             <input
               class="sr-only"
               type="file"
@@ -17,7 +17,7 @@
             Profilbild ändern
           </label>
           <button
-            class="min-h-11 rounded-md bg-[#154d73] px-4 text-sm font-bold text-white transition hover:bg-[#0f3f61] disabled:cursor-not-allowed disabled:bg-[#9eb5c4]"
+            class="page-button-primary disabled:cursor-not-allowed disabled:opacity-50"
             type="button"
             :disabled="!file || uploading"
             @click="upload"
@@ -25,7 +25,7 @@
             {{ uploading ? 'Speichert ...' : 'Speichern' }}
           </button>
           <button
-            class="min-h-11 rounded-md border border-[#cfd8dc] px-4 text-sm font-bold text-[#30363a] transition hover:bg-[#f4f6f6] disabled:cursor-not-allowed disabled:text-[#9aa2a6]"
+            class="page-button-secondary disabled:cursor-not-allowed disabled:opacity-50"
             type="button"
             :disabled="!authStore.user?.avatar_url || uploading"
             @click="remove"

@@ -1,18 +1,17 @@
 <template>
-  <main class="mx-auto max-w-xl px-5 py-12 sm:px-6 lg:px-8">
-    <h1 class="text-3xl font-bold text-[#202427]">Sicherheit</h1>
-    <section class="mt-8 rounded-lg border border-[#dfe4e6] bg-white p-6">
+  <ContentPageShell title="Sicherheit" description="Passwort und aktive Anmeldungen Ihres Kontos verwalten." eyebrow="Konto" :breadcrumbs="[{ label: 'Startseite', to: '/' }, { label: 'Profil', to: '/profil' }, { label: 'Sicherheit' }]" max-width="reading">
+    <Card class="p-5 sm:p-7">
       <form class="grid gap-4" @submit.prevent="submit">
         <FormField id="current-password" v-model="currentPassword" label="Aktuelles Passwort" type="password" autocomplete="current-password" required />
         <FormField id="new-password" v-model="newPassword" label="Neues Passwort" type="password" autocomplete="new-password" required />
         <FormField id="new-password-confirm" v-model="newPasswordConfirm" label="Neues Passwort wiederholen" type="password" autocomplete="new-password" required />
         <p v-if="message" class="rounded-md bg-[#edf4f8] px-3 py-2 text-sm font-semibold text-[#154d73]">{{ message }}</p>
         <p v-if="error" class="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{{ error }}</p>
-        <button class="min-h-11 rounded-md bg-[#154d73] px-4 text-sm font-bold text-white" type="submit">Passwort ändern</button>
+        <button class="page-button-primary" type="submit">Passwort ändern</button>
       </form>
-      <button class="mt-4 min-h-11 rounded-md border border-[#d7dddf] px-4 text-sm font-bold text-[#30363a]" type="button" @click="logoutAll">Auf allen Geräten abmelden</button>
-    </section>
-  </main>
+      <button class="page-button-secondary mt-4" type="button" @click="logoutAll">Auf allen Geräten abmelden</button>
+    </Card>
+  </ContentPageShell>
 </template>
 
 <script setup lang="ts">

@@ -1,5 +1,5 @@
 <template>
-  <main class="px-4 py-12">
+  <AuthPageShell label="Anmelden">
     <AuthCard eyebrow="Konto" title="Anmelden">
       <p v-if="oauthErrorMessage" class="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" role="alert">{{ oauthErrorMessage }}</p>
       <form class="grid gap-4" @submit.prevent="submit">
@@ -10,7 +10,7 @@
           Angemeldet bleiben
         </label>
         <p v-if="error" class="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{{ error }}</p>
-        <button class="min-h-11 rounded-md bg-[#154d73] px-4 text-sm font-bold text-white disabled:opacity-60" type="submit" :disabled="loading">
+        <button class="page-button-primary disabled:opacity-60" type="submit" :disabled="loading">
           Anmelden
         </button>
       </form>
@@ -20,7 +20,7 @@
         <NuxtLink class="font-semibold text-[#154d73]" to="/registrieren">Noch kein Konto? Registrieren</NuxtLink>
       </div>
     </AuthCard>
-  </main>
+  </AuthPageShell>
 </template>
 
 <script setup lang="ts">

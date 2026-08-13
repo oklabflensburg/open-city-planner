@@ -8,6 +8,7 @@ export function usePolygonPermissions(editor: Ref<PolygonEditorDetail | null>) {
 
   return {
     canEditPublicFields: computed(() => !!authStore.canWrite && !!editor.value?.can_edit_public_fields),
+    canDelete: computed(() => !!authStore.authenticated && !!editor.value?.can_delete),
     canViewVerwaltung: hasVerwaltung,
     canEditVerwaltung: computed(() => !!authStore.canWrite && hasVerwaltung.value)
   }

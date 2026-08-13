@@ -26,6 +26,66 @@ textarea {
   font: inherit;
 }
 
+@utility page-button-primary {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  background: #154d73;
+  padding-inline: 1rem;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: background-color 150ms ease;
+}
+
+@utility page-button-secondary {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: white;
+  padding-inline: 1rem;
+  color: #334155;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: background-color 150ms ease;
+}
+
+@utility field-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+@utility field-input {
+  min-height: 2.75rem;
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: white;
+  padding: 0.65rem 0.8rem;
+  color: #0f172a;
+  outline: none;
+}
+
+.page-button-primary:hover { background: #0f3f61; }
+.page-button-secondary:hover { background: #f8fafc; }
+.page-button-primary:focus-visible,
+.page-button-secondary:focus-visible,
+.field-input:focus-visible {
+  outline: 2px solid #154d73;
+  outline-offset: 2px;
+}
+.field-input:focus-visible { border-color: #154d73; }
+
 .maplibregl-ctrl {
   box-shadow: 0 1px 8px rgb(31 41 55 / 0.12) !important;
   border-radius: 10px !important;

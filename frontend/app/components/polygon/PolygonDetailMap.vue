@@ -37,6 +37,7 @@ const props = defineProps<{
   geometry: PolygonGeometry
   bbox: [number, number, number, number]
   editable: boolean
+  color: string
 }>()
 const emit = defineEmits<{ geometryComplete: [geometry: PolygonGeometry] }>()
 
@@ -77,13 +78,13 @@ onMounted(async () => {
         id: 'detail-polygon-fill',
         type: 'fill',
         source: 'detail-polygon',
-        paint: { 'fill-color': '#154d73', 'fill-opacity': 0.25 }
+        paint: { 'fill-color': props.color, 'fill-opacity': 0.25 }
       })
       instance.addLayer({
         id: 'detail-polygon-line',
         type: 'line',
         source: 'detail-polygon',
-        paint: { 'line-color': '#154d73', 'line-width': 3 }
+        paint: { 'line-color': props.color, 'line-width': 3 }
       })
       requestAnimationFrame(() => {
         instance.resize()
@@ -95,6 +96,15 @@ onMounted(async () => {
         modes: [
           new terraDraw.TerraDrawPolygonMode(),
           new terraDraw.TerraDrawSelectMode({
+            styles: {
+              selectedPolygonColor: () => props.color as `#${string}`,
+              selectedPolygonFillOpacity: 0.25,
+              selectedPolygonOutlineColor: () => props.color as `#${string}`,
+              selectedPolygonOutlineWidth: 4,
+              selectionPointColor: '#ffffff',
+              selectionPointOutlineColor: () => props.color as `#${string}`,
+              midPointColor: () => props.color as `#${string}`
+            },
             flags: {
               polygon: {
                 feature: { draggable: true, rotateable: false, scaleable: false, coordinates: { midpoints: true, draggable: true, deletable: true } }
@@ -140,6 +150,13 @@ watch(() => props.geometry, (geometry) => {
   const source = map.value?.getSource('detail-polygon') as GeoJSONSource | undefined
   source?.setData(featureCollection(geometry))
 }, { deep: true })
+
+watch(() => props.color, (color) => {
+  const instance = map.value
+  if (!instance?.getLayer('detail-polygon-fill')) return
+  instance.setPaintProperty('detail-polygon-fill', 'fill-color', color)
+  instance.setPaintProperty('detail-polygon-line', 'line-color', color)
+})
 
 onBeforeUnmount(() => {
   disposed = true

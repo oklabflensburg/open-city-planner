@@ -1,8 +1,9 @@
 import type { PolygonSitemapEntry } from '~/types/geo'
 import { buildAbsoluteUrl } from '~/utils/seo'
+import { documentationPaths } from '~/config/documentation'
 import { buildSitemapXml, type SitemapUrl } from '../utils/sitemap'
 
-const STATIC_PATHS = ['/', '/ueber-das-projekt', '/open-data', '/kontakt']
+const STATIC_PATHS = ['/', '/ueber-das-projekt', '/open-data', '/kontakt', ...documentationPaths]
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
@@ -16,6 +17,6 @@ export default defineEventHandler(async (event) => {
   ]
 
   setResponseHeader(event, 'content-type', 'application/xml; charset=utf-8')
-  setResponseHeader(event, 'cache-control', 'public, max-age=300, s-maxage=300')
+  setResponseHeader(event, 'cache-control', 'no-cache, must-revalidate')
   return buildSitemapXml(urls)
 })

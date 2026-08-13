@@ -132,6 +132,7 @@ class PublicPolygonDetail(BaseModel):
 
 class PolygonEditorRead(PublicPolygonDetail):
     can_edit_public_fields: bool = True
+    can_delete: bool = False
 
 
 class PolygonVerwaltungRead(PublicPolygonDetail):

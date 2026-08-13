@@ -1,5 +1,6 @@
 import logging
 import smtplib
+from email.headerregistry import Address
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -24,7 +25,15 @@ def render_pair(template: str, context: dict[str, object]) -> tuple[str, str]:
     )
 
 
-def send_email(to_email: str, subject: str, html: str, text: str) -> None:
+def send_email(
+    to_email: str,
+    subject: str,
+    html: str,
+    text: str,
+    *,
+    to_name: str | None = None,
+    reply_to: str | None = None,
+) -> None:
     settings = get_settings()
     if settings.email_backend == "console":
         logger.info("Console email to=%s subject=%s\n%s", to_email, subject, text)
@@ -35,8 +44,13 @@ def send_email(to_email: str, subject: str, html: str, text: str) -> None:
         raise RuntimeError("SMTP_HOST must be configured for smtp email backend")
     message = EmailMessage()
     message["Subject"] = subject
-    message["From"] = f"{settings.smtp_from_name} <{settings.smtp_from_email}>"
-    message["To"] = to_email
+    message["From"] = Address(
+        display_name=settings.smtp_from_name,
+        addr_spec=settings.smtp_from_email,
+    )
+    message["To"] = Address(display_name=to_name or "", addr_spec=to_email)
+    if reply_to:
+        message["Reply-To"] = Address(addr_spec=reply_to)
     message.set_content(text)
     message.add_alternative(html, subtype="html")
     with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as smtp:
@@ -48,23 +62,74 @@ def send_email(to_email: str, subject: str, html: str, text: str) -> None:
 
 
 def display_name(user: User) -> str:
-    return user.display_name or " ".join(part for part in [user.first_name, user.last_name] if part).strip() or user.email
+    return (
+        user.display_name
+        or " ".join(part for part in [user.first_name, user.last_name] if part).strip()
+        or user.email
+    )
 
 
 def send_verification_email(user: User, token: str) -> None:
     settings = get_settings()
     link = f"{settings.app_base_url.rstrip('/')}/email-bestaetigen?token={token}"
-    html, text = render_pair("verify_email", {"user": user, "name": display_name(user), "link": link})
+    html, text = render_pair(
+        "verify_email", {"user": user, "name": display_name(user), "link": link}
+    )
     send_email(user.email, "E-Mail-Adresse bestätigen – OK Lab Flensburg", html, text)
 
 
 def send_password_reset_email(user: User, token: str) -> None:
     settings = get_settings()
     link = f"{settings.app_base_url.rstrip('/')}/passwort-zuruecksetzen?token={token}"
-    html, text = render_pair("password_reset", {"user": user, "name": display_name(user), "link": link, "minutes": settings.password_reset_expire_minutes})
+    html, text = render_pair(
+        "password_reset",
+        {
+            "user": user,
+            "name": display_name(user),
+            "link": link,
+            "minutes": settings.password_reset_expire_minutes,
+        },
+    )
     send_email(user.email, "Passwort zurücksetzen – OK Lab Flensburg", html, text)
 
 
 def send_password_changed_email(user: User) -> None:
     html, text = render_pair("password_changed", {"user": user, "name": display_name(user)})
     send_email(user.email, "Passwort geändert – OK Lab Flensburg", html, text)
+
+
+def send_contact_notification(
+    *,
+    name: str,
+    email: str,
+    subject: str,
+    message: str,
+    received_at: str,
+) -> None:
+    settings = get_settings()
+    if not settings.contact_to_email:
+        raise RuntimeError("CONTACT_TO_EMAIL must be configured")
+    context = {
+        "name": name,
+        "email": email,
+        "subject": subject,
+        "message": message,
+        "received_at": received_at,
+    }
+    html, text = render_pair("contact_notification", context)
+    send_email(
+        settings.contact_to_email,
+        f"[Stadtplanner Kontakt] {subject}",
+        html,
+        text,
+        to_name=settings.contact_to_name,
+        reply_to=email,
+    )
+
+
+def send_contact_copy(*, name: str, email: str, subject: str, message: str) -> None:
+    html, text = render_pair(
+        "contact_copy",
+        {"name": name, "subject": subject, "message": message},
+    )
+    send_email(email, "Kopie Ihrer Nachricht an Stadtplanner", html, text, to_name=name)

@@ -1,18 +1,18 @@
 <template>
-  <main class="px-4 py-12">
+  <AuthPageShell label="E-Mail bestätigen">
     <AuthCard eyebrow="Konto" :title="title">
       <p class="text-sm leading-6 text-[#4f575c]">{{ message }}</p>
       <div class="mt-5 flex flex-wrap gap-2">
-        <NuxtLink class="rounded-md bg-[#154d73] px-4 py-3 text-sm font-bold text-white" to="/">Zur Karte</NuxtLink>
-        <NuxtLink v-if="!authStore.authenticated" class="rounded-md border border-[#d7dddf] px-4 py-3 text-sm font-bold text-[#30363a]" to="/login">
+        <NuxtLink class="page-button-primary" to="/">Zur Karte</NuxtLink>
+        <NuxtLink v-if="!authStore.authenticated" class="page-button-secondary" to="/login">
           Anmelden
         </NuxtLink>
-        <button v-if="failed && needsEmailVerification(authStore.user)" class="rounded-md border border-[#d7dddf] px-4 py-3 text-sm font-bold text-[#30363a]" type="button" @click="authStore.resendVerification()">
+        <button v-if="failed && needsEmailVerification(authStore.user)" class="page-button-secondary" type="button" @click="authStore.resendVerification()">
           Neue Bestätigungs-E-Mail anfordern
         </button>
       </div>
     </AuthCard>
-  </main>
+  </AuthPageShell>
 </template>
 
 <script setup lang="ts">

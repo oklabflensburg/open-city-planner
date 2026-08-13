@@ -1,12 +1,12 @@
 <template>
-  <main class="px-4 py-12">
+  <AuthPageShell label="Anmeldung abschließen">
     <AuthCard eyebrow="Konto" title="Anmeldung wird abgeschlossen">
       <p class="text-sm leading-6 text-[#4f575c]" aria-live="polite">
         Deine Sitzung wird geprüft.
       </p>
       <p v-if="error" class="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" role="alert">{{ error }}</p>
     </AuthCard>
-  </main>
+  </AuthPageShell>
 </template>
 
 <script setup lang="ts">

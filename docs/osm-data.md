@@ -1,6 +1,6 @@
 # Lokale OpenStreetMap-Daten
 
-Stadtplanner fragt OpenStreetMap-Informationen beim Auswählen einer Fläche bedarfsgesteuert ab. Die primäre Quelle ist die lokale PostGIS-Tabelle `osm_features`. Es werden keine OSM-Tags in `user_polygons` kopiert und die Oberfläche verändert keine OSM-Daten.
+Stadtplaner fragt OpenStreetMap-Informationen beim Auswählen einer Fläche bedarfsgesteuert ab. Die primäre Quelle ist die lokale PostGIS-Tabelle `osm_features`. Es werden keine OSM-Tags in `user_polygons` kopiert und die Oberfläche verändert keine OSM-Daten.
 
 ## Bestand und Importvertrag
 

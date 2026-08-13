@@ -23,7 +23,7 @@
 import type { FeatureCollection } from 'geojson'
 import type { GeoJSONSource, Map, MapLayerMouseEvent } from 'maplibre-gl'
 import { MousePointer2 } from 'lucide-vue-next'
-import { industryColors } from '~/utils/industries'
+import { industryColorExpression } from '~/utils/industries'
 
 const config = useRuntimeConfig()
 const mapStore = useMapStore()
@@ -172,9 +172,7 @@ function applyFeatureStyles() {
   ])
 }
 
-function categoryColorExpression() {
-  return ['match', ['get', 'category'], ...Object.entries(industryColors).flat(), '#9b9b9b'] as any
-}
+function categoryColorExpression() { return industryColorExpression() as any }
 
 function normalizeSize(value: unknown) {
   return ['S', 'M', 'L', 'XL'].includes(String(value)) ? String(value) : 'M'

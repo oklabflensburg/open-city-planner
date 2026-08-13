@@ -6,7 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.auth.dependencies import (
+    can_create_polygon,
+    can_delete_polygon,
     can_edit_polygon,
+    get_csrf_protected_active_user,
     get_current_active_user,
     get_verified_user,
     require_verwaltung_user,
@@ -59,8 +62,13 @@ async def get_polygons(session: SessionDep) -> list[PolygonRead]:
 async def post_polygon(
     payload: PolygonCreate,
     session: SessionDep,
-    current_user: Annotated[User, Depends(get_verified_user)],
+    current_user: Annotated[User, Depends(get_csrf_protected_active_user)],
 ) -> PolygonRead:
+    if not can_create_polygon(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail={"error": {"code": "PERMISSION_DENIED", "message": "Du darfst keine Fläche anlegen."}},
+        )
     try:
         return await create_polygon(session, payload, current_user.id)
     except GeometryValidationError as exc:
@@ -198,7 +206,11 @@ async def get_polygon_editor(
         raise HTTPException(status_code=404, detail="Polygon not found")
     if not can_edit_polygon(current_user, polygon.created_by_user_id):
         raise HTTPException(status_code=403, detail={"error": {"code": "PERMISSION_DENIED", "message": "Keine Bearbeitungsberechtigung."}})
-    return await polygon_editor_detail(session, polygon)
+    return await polygon_editor_detail(
+        session,
+        polygon,
+        can_delete=can_delete_polygon(current_user, polygon.created_by_user_id),
+    )
 
 
 @router.get("/{polygon_id}/verwaltung", response_model=PolygonVerwaltungRead)
@@ -243,14 +255,14 @@ async def patch_polygon_verwaltung(
 async def remove_polygon(
     polygon_id: uuid.UUID,
     session: SessionDep,
-    current_user: Annotated[User, Depends(get_verified_user)],
+    current_user: Annotated[User, Depends(get_csrf_protected_active_user)],
 ) -> None:
     polygon = await get_polygon(session, polygon_id, for_update=True)
     if polygon is None:
         raise HTTPException(status_code=404, detail="Polygon not found")
-    if not can_edit_polygon(current_user, polygon.created_by_user_id):
+    if not can_delete_polygon(current_user, polygon.created_by_user_id):
         raise HTTPException(status_code=403, detail={"error": {"code": "PERMISSION_DENIED", "message": "Du kannst nur eigene Flächen löschen."}})
-    await delete_polygon(session, polygon_id)
+    await delete_polygon(session, polygon, current_user.id)
 
 
 @router.get("/{polygon_id}/metrics", response_model=PolygonMetrics)

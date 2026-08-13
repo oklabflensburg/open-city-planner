@@ -1,0 +1,13 @@
+Hallo {{ name }},
+
+vielen Dank für Ihre Nachricht. Dies ist eine Kopie Ihrer Anfrage:
+
+Betreff:
+{{ subject }}
+
+Nachricht:
+{{ message }}
+
+Ihre Nachricht wurde an das Stadtplaner-Team übermittelt.
+
+OK Lab Flensburg

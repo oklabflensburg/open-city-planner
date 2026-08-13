@@ -79,6 +79,7 @@ export type PublicPolygonDetail = {
 
 export type PolygonEditorDetail = PublicPolygonDetail & {
   can_edit_public_fields: boolean
+  can_delete: boolean
 }
 
 export type PolygonVerwaltungDetail = PublicPolygonDetail & {

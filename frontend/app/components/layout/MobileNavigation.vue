@@ -1,6 +1,6 @@
 <template>
   <Transition name="mobile-navigation">
-    <div v-if="open" class="md:hidden">
+    <div v-if="open" class="lg:hidden">
       <button class="fixed inset-0 top-16 z-[70] cursor-default bg-black/10" type="button" aria-label="Navigation schließen" @click="$emit('close')" />
       <nav :id="id" class="fixed inset-x-0 top-16 z-[90] border-b border-slate-200 bg-white px-4 py-4 shadow-[0_16px_34px_rgba(15,23,42,0.14)]" aria-label="Mobile Navigation">
         <p class="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">OK Lab Flensburg</p>
@@ -87,6 +87,7 @@ defineEmits<{
 }>()
 
 function isActive(path: string) {
-  return path === '/' ? route.path === '/' : route.path === path
+  if (path === '/') return route.path === '/'
+  return route.path === path || route.path.startsWith(`${path}/`)
 }
 </script>

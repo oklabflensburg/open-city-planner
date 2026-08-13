@@ -36,6 +36,16 @@ class Settings(BaseSettings):
     smtp_from_email: str = "noreply@example.org"
     smtp_from_name: str = "OK Lab Flensburg"
     smtp_use_tls: bool = True
+    contact_to_email: str | None = None
+    contact_to_name: str = "Stadtplaner / OK Lab Flensburg"
+    contact_form_token_expire_minutes: int = 30
+    contact_form_min_seconds: int = 2
+    contact_ip_rate_limit_attempts: int = 5
+    contact_email_rate_limit_attempts: int = 3
+    contact_rate_limit_window_seconds: int = 3600
+    contact_turnstile_enabled: bool = False
+    turnstile_site_key: str | None = None
+    turnstile_secret_key: str | None = None
     github_client_id: str | None = None
     github_client_secret: str | None = None
     google_client_id: str | None = None
@@ -55,7 +65,7 @@ class Settings(BaseSettings):
     nominatim_cache_ttl_seconds: int = 86_400
     osm_external_fallback_enabled: bool = False
     overpass_api_url: str | None = None
-    overpass_user_agent: str = "Stadtplanner/0.1 (https://stadtplanner.oklabflensburg.de)"
+    overpass_user_agent: str = "Stadtplaner/0.1 (https://Stadtplaner.oklabflensburg.de)"
     overpass_timeout_seconds: float = 8.0
     osm_lookup_cache_ttl_seconds: int = 3_600
     osm_external_min_interval_seconds: float = 1.0
@@ -77,6 +87,10 @@ class Settings(BaseSettings):
             raise RuntimeError("JWT_SECRET_KEY must be configured in production")
         if self.production and not self.auth_cookie_secure:
             raise RuntimeError("AUTH_COOKIE_SECURE must be true in production")
+        if self.contact_turnstile_enabled and (
+            not self.turnstile_site_key or not self.turnstile_secret_key
+        ):
+            raise RuntimeError("Turnstile site and secret keys must be configured when enabled")
 
     @property
     def configured_oauth_providers(self) -> list[str]:

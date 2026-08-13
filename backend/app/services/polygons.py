@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user_polygon import UserPolygon, utcnow
@@ -245,11 +245,19 @@ async def public_polygon_by_slug(
     return _public_detail(polygon, metrics)
 
 
-async def polygon_editor_detail(session: AsyncSession, polygon: UserPolygon) -> PolygonEditorRead:
+async def polygon_editor_detail(
+    session: AsyncSession,
+    polygon: UserPolygon,
+    *,
+    can_delete: bool = False,
+) -> PolygonEditorRead:
     metrics = await polygon_metrics(session, polygon.uuid)
     if metrics is None:
         raise LookupError("Polygon not found")
-    return PolygonEditorRead(**_public_detail(polygon, metrics).model_dump())
+    return PolygonEditorRead(
+        **_public_detail(polygon, metrics).model_dump(),
+        can_delete=can_delete,
+    )
 
 
 async def polygon_verwaltung_detail(session: AsyncSession, polygon: UserPolygon) -> PolygonVerwaltungRead:
@@ -330,9 +338,19 @@ async def update_polygon_verwaltung(
     return await polygon_verwaltung_detail(session, polygon)
 
 
-async def delete_polygon(session: AsyncSession, polygon_id: uuid.UUID) -> None:
-    await session.execute(delete(UserPolygon).where(UserPolygon.uuid == polygon_id))
+async def delete_polygon(
+    session: AsyncSession,
+    polygon: UserPolygon,
+    deleted_by_user_id: uuid.UUID,
+) -> None:
+    polygon_id = polygon.uuid
+    await session.delete(polygon)
     await session.commit()
+    logger.info(
+        "Polygon deleted polygon_id=%s deleted_by_user_id=%s",
+        polygon_id,
+        deleted_by_user_id,
+    )
 
 
 async def polygons_geojson(session: AsyncSession) -> FeatureCollection:

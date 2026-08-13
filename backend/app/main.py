@@ -1,7 +1,10 @@
 import logging
 
 from fastapi import FastAPI, Request, Response
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.core.config import get_settings
@@ -27,6 +30,26 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_response(
+    request: Request,
+    exc: RequestValidationError,
+) -> Response:
+    if request.url.path == "/api/v1/contact":
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": {
+                    "error": {
+                        "code": "CONTACT_VALIDATION_FAILED",
+                        "message": "Bitte prüfen Sie die eingegebenen Kontaktdaten.",
+                    }
+                }
+            },
+        )
+    return await request_validation_exception_handler(request, exc)
 
 
 @app.middleware("http")

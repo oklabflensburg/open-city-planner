@@ -1,11 +1,11 @@
 <template>
   <NuxtLayout>
-    <main class="mx-auto max-w-3xl px-5 py-16 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-3xl px-5 py-16 sm:px-6 lg:px-8">
       <p class="text-sm font-bold text-[#687176]">Fehler {{ error.statusCode }}</p>
       <h1 class="mt-2 text-3xl font-bold text-[#202427]">{{ title }}</h1>
       <p class="mt-4 text-[#4f575c]">{{ error.statusMessage || 'Die angeforderte Seite konnte nicht geladen werden.' }}</p>
-      <NuxtLink class="mt-6 inline-flex font-bold text-[#154d73]" to="/">Zur Karte</NuxtLink>
-    </main>
+      <NuxtLink class="page-button-primary mt-6" to="/">Zur Karte</NuxtLink>
+    </div>
   </NuxtLayout>
 </template>
 

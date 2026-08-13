@@ -6,7 +6,7 @@
           <OKLabLogo size="compact" />
         </NuxtLink>
 
-        <nav class="hidden items-center gap-1 md:flex" aria-label="Hauptnavigation">
+        <nav class="hidden items-center gap-1 lg:flex" aria-label="Hauptnavigation">
           <NuxtLink
             v-for="item in primaryNavigation"
             :key="item.to"
@@ -20,7 +20,7 @@
         </nav>
       </div>
 
-      <div class="hidden min-w-0 items-center gap-3 md:flex">
+      <div class="hidden min-w-0 items-center gap-3 lg:flex">
         <nav class="flex items-center gap-1" aria-label="Rechtliche Navigation">
           <NuxtLink
             v-for="item in legalNavigation"
@@ -35,6 +35,9 @@
         </nav>
 
         <template v-if="authStore.authenticated">
+          <NuxtLink class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#154d73] px-3 text-sm font-bold text-[#154d73] transition hover:bg-[#edf4f8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]" to="/flaechen/neu">
+            <Plus class="size-4" aria-hidden="true" /> Neue Fläche
+          </NuxtLink>
           <div class="relative">
             <button
               ref="accountButton"
@@ -76,7 +79,7 @@
       </div>
 
       <button
-        class="inline-flex size-11 items-center justify-center rounded-xl text-[#30363a] transition hover:bg-[#f4f6f6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] md:hidden"
+        class="inline-flex size-11 items-center justify-center rounded-xl text-[#30363a] transition hover:bg-[#f4f6f6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] lg:hidden"
         type="button"
         aria-controls="mobile-navigation"
         :aria-expanded="mobileOpen"
@@ -104,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronDown, Menu, X } from 'lucide-vue-next'
+import { ChevronDown, Menu, Plus, X } from 'lucide-vue-next'
 import { hasVerwaltungRole } from '~/utils/roles'
 
 const route = useRoute()
@@ -116,6 +119,7 @@ const accountButton = ref<HTMLElement | null>(null)
 const accountMenu = ref<HTMLElement | null>(null)
 const { primaryNavigation, legalNavigation } = useSiteNavigation()
 const accountNavigation = computed(() => [
+  { label: 'Neue Fläche', to: '/flaechen/neu' },
   { label: 'Profil', to: '/profil' },
   { label: 'Meine Flächen', to: '/meine-flaechen' },
   ...(hasVerwaltungRole(authStore.user) ? [{ label: 'Kennzahlen verwalten', to: '/verwaltung/kennzahlen' }] : []),
@@ -123,7 +127,8 @@ const accountNavigation = computed(() => [
 ])
 
 function isActive(path: string) {
-  return path === '/' ? route.path === '/' : route.path === path
+  if (path === '/') return route.path === '/'
+  return route.path === path || route.path.startsWith(`${path}/`)
 }
 function toggleMenu() {
   mobileOpen.value = !mobileOpen.value

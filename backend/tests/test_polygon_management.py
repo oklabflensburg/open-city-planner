@@ -9,7 +9,12 @@ import pytest
 from pydantic import ValidationError
 
 import app.api.polygons as polygons_api
-from app.auth.dependencies import has_role
+from app.auth.dependencies import (
+    can_create_polygon,
+    can_delete_polygon,
+    can_edit_polygon,
+    has_role,
+)
 from app.auth.jwt import create_jwt
 from app.db.session import get_session
 from app.main import app
@@ -35,6 +40,36 @@ def test_verwaltung_role_is_central_and_case_robust() -> None:
     assert has_role(user, "VERWALTUNG") is True
     assert has_role(SimpleNamespace(is_superuser=False, roles=["USER"]), "VERWALTUNG") is False
     assert has_role(SimpleNamespace(is_superuser=True, roles=[]), "VERWALTUNG") is True
+
+
+def test_polygon_permissions_separate_create_edit_and_delete() -> None:
+    owner_id = uuid.uuid4()
+    owner = SimpleNamespace(
+        id=owner_id,
+        is_active=True,
+        is_superuser=False,
+        roles=["USER"],
+    )
+    stranger = SimpleNamespace(
+        id=uuid.uuid4(),
+        is_active=True,
+        is_superuser=False,
+        roles=["USER"],
+    )
+    verwaltung = SimpleNamespace(
+        id=uuid.uuid4(),
+        is_active=True,
+        is_superuser=False,
+        roles=["VERWALTUNG"],
+    )
+
+    assert can_create_polygon(owner) is True
+    assert can_edit_polygon(owner, owner_id) is True
+    assert can_delete_polygon(owner, owner_id) is True
+    assert can_edit_polygon(stranger, owner_id) is False
+    assert can_delete_polygon(stranger, owner_id) is False
+    assert can_edit_polygon(verwaltung, owner_id) is True
+    assert can_delete_polygon(verwaltung, owner_id) is True
 
 
 def test_public_polygon_schema_has_no_management_fields() -> None:
@@ -347,3 +382,204 @@ async def test_owner_can_patch_polygon_geometry(monkeypatch: pytest.MonkeyPatch)
     assert response.status_code == 200
     assert response.json()["slug"] == "meine-verkaufsflaeche-10"
     assert response.json()["geometry"] == TEST_GEOMETRY
+
+
+def active_user(*, roles: list[str] | None = None, verified: bool = False) -> User:
+    return User(
+        id=uuid.uuid4(),
+        email=f"user-{uuid.uuid4()}@example.org",
+        is_active=True,
+        is_verified=verified,
+        is_superuser=False,
+        roles=roles or ["USER"],
+    )
+
+
+def auth_request_parts(user: User | None) -> tuple[dict[str, str], dict[str, str]]:
+    cookies = {"ocm_csrf_token": "csrf-token"}
+    headers = {"x-csrf-token": "csrf-token"}
+    if user is not None:
+        access_token, _ = create_jwt(
+            str(user.id),
+            "access",
+            timedelta(minutes=5),
+            {"email": user.email, "role": "user"},
+        )
+        cookies["ocm_access_token"] = access_token
+    return cookies, headers
+
+
+async def create_polygon_as(
+    user: User | None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[httpx.Response, list[tuple[object, uuid.UUID]]]:
+    captured: list[tuple[object, uuid.UUID]] = []
+
+    async def override_session():
+        yield PolygonApiSession(user)
+
+    async def fake_create(_session: object, payload: object, user_id: uuid.UUID) -> PolygonRead:
+        captured.append((payload, user_id))
+        return polygon_read(user_id)
+
+    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setattr(polygons_api, "create_polygon", fake_create)
+    cookies, headers = auth_request_parts(user)
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            cookies=cookies,
+        ) as client:
+            response = await client.post(
+                "/api/v1/polygons",
+                json={
+                    "name": "Neue Fläche",
+                    "floor": "EG",
+                    "category": "services",
+                    "geometry": TEST_GEOMETRY,
+                    "properties": {},
+                },
+                headers=headers,
+            )
+    finally:
+        app.dependency_overrides.clear()
+    return response, captured
+
+
+@pytest.mark.asyncio
+async def test_anonymous_user_cannot_create_polygon(monkeypatch: pytest.MonkeyPatch) -> None:
+    response, captured = await create_polygon_as(None, monkeypatch)
+    assert response.status_code == 401
+    assert captured == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("roles", [["USER"], ["VERWALTUNG"]])
+async def test_active_user_can_create_polygon_with_server_ownership(
+    roles: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = active_user(roles=roles, verified=False)
+    response, captured = await create_polygon_as(user, monkeypatch)
+
+    assert response.status_code == 201
+    assert response.json()["slug"] == "meine-verkaufsflaeche-10"
+    assert response.json()["geometry"] == TEST_GEOMETRY
+    assert len(captured) == 1
+    payload, owner_id = captured[0]
+    assert owner_id == user.id
+    assert payload.geometry.model_dump(mode="json") == TEST_GEOMETRY
+
+
+async def delete_polygon_as(
+    user: User | None,
+    owner_id: uuid.UUID,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[httpx.Response, list[tuple[uuid.UUID, uuid.UUID]]]:
+    deleted: list[tuple[uuid.UUID, uuid.UUID]] = []
+    polygon_id = uuid.uuid4()
+
+    async def override_session():
+        yield PolygonApiSession(user)
+
+    async def fake_get_polygon(*_args: object, **_kwargs: object) -> object:
+        return SimpleNamespace(uuid=polygon_id, created_by_user_id=owner_id)
+
+    async def fake_delete(_session: object, polygon: object, actor_id: uuid.UUID) -> None:
+        deleted.append((polygon.uuid, actor_id))
+
+    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setattr(polygons_api, "get_polygon", fake_get_polygon)
+    monkeypatch.setattr(polygons_api, "delete_polygon", fake_delete)
+    cookies, headers = auth_request_parts(user)
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            cookies=cookies,
+        ) as client:
+            response = await client.delete(
+                f"/api/v1/polygons/{polygon_id}",
+                headers=headers,
+            )
+    finally:
+        app.dependency_overrides.clear()
+    return response, deleted
+
+
+@pytest.mark.asyncio
+async def test_anonymous_user_cannot_delete_polygon(monkeypatch: pytest.MonkeyPatch) -> None:
+    response, deleted = await delete_polygon_as(None, uuid.uuid4(), monkeypatch)
+    assert response.status_code == 401
+    assert deleted == []
+
+
+@pytest.mark.asyncio
+async def test_owner_can_delete_own_polygon(monkeypatch: pytest.MonkeyPatch) -> None:
+    owner = active_user(verified=False)
+    response, deleted = await delete_polygon_as(owner, owner.id, monkeypatch)
+    assert response.status_code == 204
+    assert deleted and deleted[0][1] == owner.id
+
+
+@pytest.mark.asyncio
+async def test_non_owner_cannot_delete_polygon(monkeypatch: pytest.MonkeyPatch) -> None:
+    stranger = active_user(verified=True)
+    response, deleted = await delete_polygon_as(stranger, uuid.uuid4(), monkeypatch)
+    assert response.status_code == 403
+    assert deleted == []
+
+
+@pytest.mark.asyncio
+async def test_verwaltung_can_delete_any_polygon(monkeypatch: pytest.MonkeyPatch) -> None:
+    verwaltung = active_user(roles=["VERWALTUNG"], verified=False)
+    response, deleted = await delete_polygon_as(verwaltung, uuid.uuid4(), monkeypatch)
+    assert response.status_code == 204
+    assert deleted and deleted[0][1] == verwaltung.id
+
+
+@pytest.mark.asyncio
+async def test_deleted_polygon_slug_returns_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    owner = active_user(verified=False)
+    polygon_id = uuid.uuid4()
+    exists = True
+
+    async def override_session():
+        yield PolygonApiSession(owner)
+
+    async def fake_get_polygon(*_args: object, **_kwargs: object) -> object | None:
+        if not exists:
+            return None
+        return SimpleNamespace(uuid=polygon_id, created_by_user_id=owner.id)
+
+    async def fake_delete(_session: object, _polygon: object, _actor_id: uuid.UUID) -> None:
+        nonlocal exists
+        exists = False
+
+    async def fake_by_slug(_session: object, _slug: str) -> PublicPolygonDetail | None:
+        return public_polygon_detail() if exists else None
+
+    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setattr(polygons_api, "get_polygon", fake_get_polygon)
+    monkeypatch.setattr(polygons_api, "delete_polygon", fake_delete)
+    monkeypatch.setattr(polygons_api, "public_polygon_by_slug", fake_by_slug)
+    cookies, headers = auth_request_parts(owner)
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            cookies=cookies,
+        ) as client:
+            delete_response = await client.delete(
+                f"/api/v1/polygons/{polygon_id}",
+                headers=headers,
+            )
+            get_response = await client.get(
+                "/api/v1/polygons/by-slug/meine-verkaufsflaeche-10"
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert delete_response.status_code == 204
+    assert get_response.status_code == 404

@@ -1,5 +1,5 @@
 <template>
-  <section class="rounded-lg border border-[#dfe4e6] bg-white p-6">
+  <section class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-7">
     <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h2 class="text-lg font-bold text-[#202427]">Verknüpfte Konten</h2>
@@ -20,7 +20,7 @@
         </div>
         <button
           v-if="accountFor(provider.id)"
-          class="min-h-11 rounded-md border border-[#cfd8dc] px-4 text-sm font-bold text-[#30363a] transition hover:bg-[#f4f6f6] disabled:cursor-not-allowed disabled:opacity-60"
+          class="page-button-secondary disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
           :disabled="loadingProvider === provider.id"
           @click="unlink(provider.id, provider.label)"
@@ -29,7 +29,7 @@
         </button>
         <button
           v-else
-          class="inline-flex min-h-11 items-center justify-center rounded-md bg-[#154d73] px-4 text-sm font-bold text-white transition hover:bg-[#0f3f61] disabled:cursor-wait disabled:opacity-60"
+          class="page-button-primary disabled:cursor-wait disabled:opacity-60"
           type="button"
           :disabled="loadingProvider === provider.id"
           @click="link(provider.id)"

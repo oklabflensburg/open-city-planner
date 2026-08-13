@@ -52,6 +52,9 @@ REFRESH_TOKEN_EXPIRE_DAYS=30
 AUTH_COOKIE_SECURE=false
 AUTH_COOKIE_SAMESITE=lax
 EMAIL_BACKEND=console
+CONTACT_TO_EMAIL=kontakt@example.org
+CONTACT_TO_NAME="Stadtplanner / OK Lab Flensburg"
+CONTACT_TURNSTILE_ENABLED=false
 AVATAR_UPLOAD_DIR=data/uploads
 AVATAR_MAX_FILE_SIZE=5242880
 AVATAR_OUTPUT_SIZE=512
@@ -67,6 +70,10 @@ OpenStreetMap-Informationen werden bevorzugt aus der lokalen PostGIS-Tabelle `os
 Die vollständige Serveranleitung für Download, Flensburg-Extrakt, osm2pgsql-Import und regelmäßige Aktualisierung steht in [SETUP.md](SETUP.md).
 
 Profilbilder werden lokal unter `AVATAR_UPLOAD_DIR/avatars` gespeichert. Das Verzeichnis wird beim ersten Upload automatisch angelegt. Uploads werden als JPG, PNG oder WebP angenommen, serverseitig mit Pillow dekodiert, auf 512 x 512 Pixel normalisiert und als WebP ohne EXIF-Metadaten gespeichert.
+
+Das öffentliche Kontaktformular sendet ausschließlich an das FastAPI-Backend. `CONTACT_TO_EMAIL` muss für einen tatsächlichen Versand gesetzt sein; SMTP-Absender und Zugangsdaten bleiben serverseitig. Im Modus `EMAIL_BACKEND=console` werden Betreiber-Mail und Absenderkopie nur in der Backend-Konsole ausgegeben. Der Endpoint schützt den Versand durch signierte Formular-Tokens, Origin-Prüfung, Honeypot, Mindestzeit, IP-/E-Mail-Rate-Limits und eine einfache Spam-Heuristik. Cloudflare Turnstile kann optional mit `CONTACT_TURNSTILE_ENABLED=true`, `TURNSTILE_SITE_KEY` und `TURNSTILE_SECRET_KEY` aktiviert werden.
+
+Der Anwendungscode vertraut `X-Forwarded-For` nicht direkt, sondern verwendet die von ASGI bereitgestellte Client-Adresse. Hinter Nginx dürfen Forwarded Headers deshalb nur für den bekannten Proxy aktiviert werden, beispielsweise mit Uvicorn `--proxy-headers --forwarded-allow-ips=127.0.0.1`. Der vorhandene Rate-Limiter arbeitet pro Backend-Prozess; bei mehreren Workern oder Instanzen sollte er später durch einen gemeinsamen Redis-/Proxy-basierten Limiter ersetzt werden.
 
 ## VersaTiles
 
@@ -118,11 +125,29 @@ Neue Routen:
 - `/profil`
 - `/profil/sicherheit`
 - `/meine-flaechen`
+- `/flaechen/neu` – auth-geschützter Zeichen- und Erstellungsflow für neue Flächen
 - `/ueber-das-projekt`
 - `/open-data`
 - `/kontakt`
 - `/impressum`
 - `/datenschutz`
+- `/dokumentation` – öffentliches Benutzerhandbuch mit Suche und responsiver Navigation
+- `/dokumentation/<thema>` – thematische Anleitungen, unter anderem Karte, Flächen, Konto und Verwaltung
+
+## Frontend-Dokumentation pflegen
+
+Die integrierte Dokumentation verwendet bewusst kein separates CMS. Inhalte, Reihenfolge, Suchbegriffe, Rollenkennzeichnung und Seitenstruktur liegen typisiert in `frontend/app/config/documentation.ts`. Aus dieser einen Quelle entstehen Seitenleiste, Suche, Inhaltsverzeichnisse, Vor-/Zurück-Navigation und Sitemap-Einträge.
+
+Beim Ergänzen oder Ändern einer Seite:
+
+1. Einen eindeutigen `slug` sowie stabile, kleingeschriebene Abschnitts-IDs vergeben. Bestehende IDs möglichst nicht ändern, da sie als Anker verlinkt werden können.
+2. `audience` korrekt als `public`, `login` oder `verwaltung` kennzeichnen. Die Dokumentation erklärt Berechtigungen, ersetzt aber niemals die serverseitige Zugriffskontrolle.
+3. Nur bereits vorhandene Produktfunktionen beschreiben und interne Daten nicht in öffentliche Beispiele übernehmen.
+4. Suchbegriffe und eine prägnante Beschreibung ergänzen. Die Suche indiziert zusätzlich Überschriften und den Text aller Inhaltsblöcke.
+5. Bilder bei Bedarf unter `frontend/public/docs/` ablegen und nur aktuelle, anonymisierte Screenshots verwenden. Die Inhaltsarchitektur funktioniert vollständig ohne Bilder.
+6. `cd frontend && pnpm test && pnpm typecheck && pnpm build` ausführen.
+
+Die Darstellung erfolgt über wiederverwendbare Komponenten in `frontend/app/components/docs/`. Öffentliche Dokumentationsseiten sind indexierbar, besitzen Canonical-, Open-Graph- und JSON-LD-Metadaten und werden automatisch in die XML-Sitemap aufgenommen.
 
 ## Authentifizierung und Schreibrechte
 
@@ -135,12 +160,17 @@ Lesender Zugriff auf Karte, Polygone und Analysen bleibt öffentlich. Schreibend
 
 Die Anmeldung erfolgt über HttpOnly-Cookies für Access- und Refresh-Tokens. Der Refresh Token wird serverseitig nur gehasht in `user_sessions` gespeichert und bei jedem Refresh rotiert. Mutierende Requests verwenden zusätzlich ein CSRF-Token im Double-Submit-Verfahren.
 
-Neue Nutzerkonten starten mit `is_verified=false`. Login ist möglich, Polygon-Schreibrechte werden aber erst nach E-Mail-Verifikation erteilt. Standard-Ownership-Regel:
+Neue Nutzerkonten starten mit `is_verified=false`. Login ist möglich. Das Anlegen einer Fläche und das Löschen einer eigenen Fläche erfordern ein aktives angemeldetes Konto; Änderungen an öffentlichen Polygonfeldern setzen zusätzlich die E-Mail-Verifikation voraus. Standard-Ownership-Regel:
 
-- Superuser dürfen alle Polygone bearbeiten.
+- Superuser dürfen Polygone erstellen sowie alle Polygone bearbeiten und löschen.
 - Konten mit der exakten Rolle `VERWALTUNG` dürfen alle öffentlichen Polygonfelder sowie die getrennten Verwaltungsdaten bearbeiten.
-- Normale Nutzer dürfen nur Polygone bearbeiten oder löschen, deren `created_by_user_id` ihrer User-ID entspricht.
+- Normale Nutzer dürfen nur Polygone bearbeiten oder löschen, deren technischer Ersteller `created_by_user_id` ihrer User-ID entspricht.
+- Jeder aktive angemeldete Nutzer darf über `/flaechen/neu` ein Polygon erstellen; der Server setzt dabei `created_by_user_id` und `updated_by_user_id` selbst.
 - Neue Polygone erhalten `created_by_user_id` ausschließlich serverseitig.
+
+Create und Delete sind getrennte zentrale Berechtigungsentscheidungen. Fachliche Eigentümerfelder (`owner_*`) beeinflussen diese Rechte nicht. Die Übersichtskarte `/` bleibt schreibgeschützt; Geometrien werden zum Erstellen ausschließlich auf `/flaechen/neu` und zum späteren Bearbeiten ausschließlich auf der Detailseite gezeichnet.
+
+Die Kategorien inklusive Labels und Farben werden zentral in `frontend/app/utils/industries.ts` gepflegt. Karte, Detailkarte, Kategorie-Badge, Branchenfilter und Analytics-Chart leiten ihre Farben aus dieser Quelle ab. Unbekannte historische Kategorien behalten ihren Text und erhalten eine neutrale Fallback-Farbe.
 
 Rollen liegen als Liste im User-Datensatz und werden zentral serverseitig geprüft. Der öffentliche SSR-Endpunkt `/api/v1/polygons/by-slug/{slug}` liefert niemals Eigentümerdaten oder Preise. `GET/PATCH /api/v1/polygons/{id}/verwaltung` ist ausschließlich für `VERWALTUNG` (und bestehende Superuser) erreichbar und antwortet mit `Cache-Control: private, no-store`. Der fachliche Eigentümer (`owner_*`) ist ausdrücklich nicht der System-Ersteller (`created_by_user_id`). Geldwerte werden als PostgreSQL `NUMERIC(12,2)` beziehungsweise Python `Decimal` gespeichert.
 
@@ -223,7 +253,7 @@ Für Produktivbetrieb müssen mindestens gesetzt und geprüft werden:
 - `CORS_ORIGINS` ohne Wildcard und mit produktiver Frontend-Origin
 - `APP_BASE_URL` und `API_BASE_URL`
 - Avatar-Storage über `AVATAR_UPLOAD_DIR`, `AVATAR_MAX_FILE_SIZE`, `AVATAR_OUTPUT_SIZE`, `AVATAR_WEBP_QUALITY` und optional `MEDIA_BASE_URL`
-- SMTP-Variablen oder bewusstes E-Mail-Backend
+- SMTP-Variablen oder bewusstes E-Mail-Backend sowie `CONTACT_TO_EMAIL`
 - optionale OAuth-Provider-Secrets nur für tatsächlich eingesetzte Provider
 - Hosting-/Log-Aufbewahrung, Datenschutztexte und Betreiberangaben
 
