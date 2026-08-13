@@ -62,6 +62,10 @@ NOMINATIM_USER_AGENT="OpenCityMap/0.1"
 NOMINATIM_EMAIL=
 ```
 
+OpenStreetMap-Informationen werden bevorzugt aus der lokalen PostGIS-Tabelle `osm_features` geladen. Einrichtung, Importvertrag, räumliches Ranking und der standardmäßig deaktivierte Overpass-Fallback sind in [docs/osm-data.md](docs/osm-data.md) dokumentiert.
+
+Die vollständige Serveranleitung für Download, Flensburg-Extrakt, osm2pgsql-Import und regelmäßige Aktualisierung steht in [SETUP.md](SETUP.md).
+
 Profilbilder werden lokal unter `AVATAR_UPLOAD_DIR/avatars` gespeichert. Das Verzeichnis wird beim ersten Upload automatisch angelegt. Uploads werden als JPG, PNG oder WebP angenommen, serverseitig mit Pillow dekodiert, auf 512 x 512 Pixel normalisiert und als WebP ohne EXIF-Metadaten gespeichert.
 
 ## VersaTiles
@@ -141,6 +145,21 @@ Neue Nutzerkonten starten mit `is_verified=false`. Login ist möglich, Polygon-S
 Rollen liegen als Liste im User-Datensatz und werden zentral serverseitig geprüft. Der öffentliche SSR-Endpunkt `/api/v1/polygons/by-slug/{slug}` liefert niemals Eigentümerdaten oder Preise. `GET/PATCH /api/v1/polygons/{id}/verwaltung` ist ausschließlich für `VERWALTUNG` (und bestehende Superuser) erreichbar und antwortet mit `Cache-Control: private, no-store`. Der fachliche Eigentümer (`owner_*`) ist ausdrücklich nicht der System-Ersteller (`created_by_user_id`). Geldwerte werden als PostgreSQL `NUMERIC(12,2)` beziehungsweise Python `Decimal` gespeichert.
 
 Die Detailseite speichert Text nach 700 ms Ruhezeit, Etage und abgeschlossene Geometrieänderungen sofort. Eine gemeinsame Queue sendet nie parallele PATCH-Requests, übernimmt jeweils die jüngste Serverversion und meldet Versionskonflikte per HTTP 409. Private Verwaltungsdaten werden erst clientseitig nach der Authentifizierung geladen und gelangen daher weder in öffentliches SSR-HTML noch in Open Graph, JSON-LD oder die Sitemap.
+
+## Stadtweite Kennzahlen
+
+Leerstand, Filialisierung, Zentralitätsindex und Kaufkraftindex werden zentral in der PostgreSQL-Tabelle `city_metrics` gespeichert. Die Werte sind nullable; es gibt keine Beispielwerte oder fachlichen Defaults. Leerstand und Filialisierung werden als Prozentpunkte in `NUMERIC(5,2)` gespeichert (`6.25` bedeutet `6,25 %`). Zentralität und Kaufkraft verwenden `NUMERIC(8,2)` und dürfen wie die Prozentwerte nicht negativ sein. Für Prozentwerte gilt zusätzlich der Wertebereich 0 bis 100.
+
+Die Datensätze enthalten außerdem den fachlichen Datenstand (`reference_date`), eine optionale Quelle, interne Hinweise, Änderungszeitpunkte und die serverseitig gesetzte `updated_by_user_id`. Aktuell werden alle vier Kennzahlen manuell durch `VERWALTUNG` gepflegt; die Anwendung berechnet sie nicht aus unzureichenden Polygonattributen. Quelle und Hinweise werden ausschließlich über den geschützten Verwaltungsendpunkt ausgeliefert.
+
+API-Endpunkte:
+
+- `GET /api/v1/analytics/fast-facts` – öffentliche stadtweite Kennzahlen
+- `GET /api/v1/analytics/fast-facts/verwaltung` – Kennzahlen inklusive Quelle und Hinweisen, nur `VERWALTUNG`
+- `PATCH /api/v1/analytics/fast-facts` – partielles Aktualisieren oder Leeren einzelner Werte, nur `VERWALTUNG`
+- `GET /api/v1/analytics/overview` – Kennzahlen zusammen mit berechneter Shopanzahl und Branchenverteilung
+
+Die Kennzahlen-Card auf der Karte ist ausschließlich lesend und zeigt fehlende Werte als `—`. Die Bearbeitung erfolgt auf der eigenen, nicht indexierbaren Seite `/verwaltung/kennzahlen`. Der zugehörige Menüeintrag und die Route sind nur für `VERWALTUNG` und bestehende Superuser verfügbar; normale und ausgeloggte Nutzer haben ausschließlich Lesezugriff. Änderungen werden erst mit „Speichern“ übertragen und anschließend unmittelbar im Analytics-Store aktualisiert. Der Backend-Endpunkt erzwingt die Rolle unabhängig von der Frontend-Navigation zusätzlich serverseitig.
 
 Externe OAuth-/OIDC-Konten werden über `user_oauth_accounts` mit lokalen Benutzern verknüpft. Die Tabelle speichert nur Provider, stabile Provider-Subject-ID, optionale Metadaten und Zeitpunkte, aber keine Provider Access Tokens. Eindeutig sind sowohl `(provider, provider_subject)` als auch `(user_id, provider)`.
 

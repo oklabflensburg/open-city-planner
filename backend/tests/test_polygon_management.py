@@ -1,3 +1,5 @@
+import uuid
+from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Self
@@ -6,11 +8,26 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
+import app.api.polygons as polygons_api
 from app.auth.dependencies import has_role
-from app.schemas.geojson import PolygonUpdate, PolygonVerwaltungUpdate, PublicPolygonDetail
+from app.auth.jwt import create_jwt
+from app.db.session import get_session
+from app.main import app
+from app.models.user import User
+from app.schemas.geojson import (
+    PolygonRead,
+    PolygonUpdate,
+    PolygonVerwaltungUpdate,
+    PublicPolygonDetail,
+)
 from app.services import nominatim, polygons
 from app.services.nominatim import NominatimAddress, NominatimService
 from app.services.polygons import polygon_slug_source, slugify_polygon_name
+
+TEST_GEOMETRY = {
+    "type": "Polygon",
+    "coordinates": [[[9.4364, 54.7848], [9.4372, 54.7851], [9.4374, 54.7846], [9.4364, 54.7848]]],
+}
 
 
 def test_verwaltung_role_is_central_and_case_robust() -> None:
@@ -37,6 +54,12 @@ def test_management_price_uses_decimal_and_rejects_negative_values() -> None:
 def test_management_field_is_detectable_on_public_patch() -> None:
     payload = PolygonUpdate(price_per_sqm="24.50")
     assert payload.model_extra == {"price_per_sqm": "24.50"}
+
+
+def test_area_size_is_a_supported_public_polygon_property() -> None:
+    payload = PolygonUpdate(area_size="XL")
+    assert payload.area_size == "XL"
+    assert payload.model_extra == {}
 
 
 def test_slug_uses_floor_and_structured_address() -> None:
@@ -165,3 +188,162 @@ async def test_address_enrichment_failure_does_not_fail_saved_polygon(
     assert polygon.address_lookup_status == "failed"
     assert session.rollback_count == 1
     assert session.commit_count == 1
+
+
+class PolygonApiSession:
+    def __init__(self, user: User | None = None) -> None:
+        self.user = user
+
+    async def get(self, _model: object, _key: object) -> User | None:
+        return self.user
+
+
+def polygon_read(owner_id: uuid.UUID) -> PolygonRead:
+    return PolygonRead(
+        id=str(uuid.uuid4()),
+        slug="meine-verkaufsflaeche-10",
+        name="Meine Verkaufsfläche",
+        description="",
+        floor="EG",
+        category="services",
+        geometry=TEST_GEOMETRY,
+        properties={"size": "L"},
+        created_by_user_id=str(owner_id),
+        updated_by_user_id=str(owner_id),
+        created_at="2026-08-10T11:35:14Z",
+        updated_at="2026-08-13T08:00:00Z",
+    )
+
+
+def public_polygon_detail() -> PublicPolygonDetail:
+    return PublicPolygonDetail(
+        id=str(uuid.uuid4()),
+        slug="meine-verkaufsflaeche-10",
+        name="Meine Verkaufsfläche",
+        description="",
+        floor="EG",
+        area_size="L",
+        address_display_name=None,
+        address_street=None,
+        address_house_number=None,
+        address_postal_code=None,
+        address_city=None,
+        address_country=None,
+        address_lookup_status="pending",
+        category="services",
+        geometry=TEST_GEOMETRY,
+        area_m2=3291.84,
+        perimeter_m=236.87,
+        centroid=(9.4369, 54.7847),
+        bbox=(9.4364, 54.7846, 9.4374, 54.7851),
+        created_at="2026-08-10T11:35:14Z",
+        updated_at="2026-08-13T08:00:00Z",
+    )
+
+
+@pytest.mark.asyncio
+async def test_public_lookup_loads_concrete_polygon_slug(monkeypatch: pytest.MonkeyPatch) -> None:
+    requested_slugs: list[str] = []
+
+    async def override_session():
+        yield PolygonApiSession()
+
+    async def fake_by_slug(_session: object, slug: str) -> PublicPolygonDetail:
+        requested_slugs.append(slug)
+        return public_polygon_detail()
+
+    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setattr(polygons_api, "public_polygon_by_slug", fake_by_slug)
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            response = await client.get("/api/v1/polygons/by-slug/meine-verkaufsflaeche-10")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert requested_slugs == ["meine-verkaufsflaeche-10"]
+    assert response.json()["geometry"] == TEST_GEOMETRY
+
+
+async def patch_geometry_as(
+    user: User | None,
+    owner_id: uuid.UUID,
+    monkeypatch: pytest.MonkeyPatch,
+) -> httpx.Response:
+    session = PolygonApiSession(user)
+
+    async def override_session():
+        yield session
+
+    async def fake_get_polygon(*_args: object, **_kwargs: object) -> object:
+        return SimpleNamespace(created_by_user_id=owner_id)
+
+    async def fake_update_polygon(*_args: object, **_kwargs: object) -> PolygonRead:
+        return polygon_read(owner_id)
+
+    app.dependency_overrides[get_session] = override_session
+    monkeypatch.setattr(polygons_api, "get_polygon", fake_get_polygon)
+    monkeypatch.setattr(polygons_api, "update_polygon", fake_update_polygon)
+    cookies = {"ocm_csrf_token": "csrf-token"}
+    headers = {"x-csrf-token": "csrf-token"}
+    if user:
+        access_token, _ = create_jwt(
+            str(user.id),
+            "access",
+            timedelta(minutes=5),
+            {"email": user.email, "role": "user"},
+        )
+        cookies["ocm_access_token"] = access_token
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            cookies=cookies,
+        ) as client:
+            return await client.patch(
+                f"/api/v1/polygons/{uuid.uuid4()}",
+                json={"geometry": TEST_GEOMETRY},
+                headers=headers,
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_anonymous_user_cannot_patch_polygon_geometry(monkeypatch: pytest.MonkeyPatch) -> None:
+    response = await patch_geometry_as(None, uuid.uuid4(), monkeypatch)
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_non_owner_cannot_patch_polygon_geometry(monkeypatch: pytest.MonkeyPatch) -> None:
+    user = User(
+        id=uuid.uuid4(),
+        email="user@example.org",
+        is_active=True,
+        is_verified=True,
+        is_superuser=False,
+        roles=["USER"],
+    )
+    response = await patch_geometry_as(user, uuid.uuid4(), monkeypatch)
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_owner_can_patch_polygon_geometry(monkeypatch: pytest.MonkeyPatch) -> None:
+    owner_id = uuid.uuid4()
+    user = User(
+        id=owner_id,
+        email="owner@example.org",
+        is_active=True,
+        is_verified=True,
+        is_superuser=False,
+        roles=["USER"],
+    )
+    response = await patch_geometry_as(user, owner_id, monkeypatch)
+    assert response.status_code == 200
+    assert response.json()["slug"] == "meine-verkaufsflaeche-10"
+    assert response.json()["geometry"] == TEST_GEOMETRY

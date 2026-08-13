@@ -14,10 +14,6 @@
         <input v-model="polygonsVisible" class="accent-[#154d73]" type="checkbox" @change="$emit('togglePolygons', polygonsVisible)" />
         Verkaufsflächen
       </label>
-      <label class="mt-2 flex items-center gap-2">
-        <input v-model="drawingsVisible" class="accent-[#154d73]" type="checkbox" @change="$emit('toggleDrawings', drawingsVisible)" />
-        Eigene Polygone
-      </label>
     </div>
   </div>
 </template>
@@ -25,10 +21,8 @@
 <script setup lang="ts">
 import { Layers } from 'lucide-vue-next'
 
-defineEmits<{ togglePolygons: [visible: boolean]; toggleDrawings: [visible: boolean] }>()
+defineEmits<{ togglePolygons: [visible: boolean] }>()
 
 const open = ref(false)
 const polygonsVisible = ref(true)
-const drawingsVisible = ref(true)
 </script>
-

@@ -18,6 +18,7 @@ from app.schemas.geojson import (
     PolygonCreate,
     PolygonEditorRead,
     PolygonMetrics,
+    PolygonOverviewRead,
     PolygonRead,
     PolygonSitemapEntry,
     PolygonUpdate,
@@ -25,11 +26,14 @@ from app.schemas.geojson import (
     PolygonVerwaltungUpdate,
     PublicPolygonDetail,
 )
+from app.schemas.osm import PolygonOsmInfo
 from app.services.geometry import GeometryValidationError
+from app.services.osm_lookup import OsmLookupError, OsmLookupService
 from app.services.polygons import (
     create_polygon,
     delete_polygon,
     get_polygon,
+    list_polygon_overview,
     list_polygons,
     polygon_editor_detail,
     polygon_metrics,
@@ -68,6 +72,11 @@ async def get_geojson(session: SessionDep) -> FeatureCollection:
     return await polygons_geojson(session)
 
 
+@router.get("/overview", response_model=list[PolygonOverviewRead])
+async def get_polygon_overview(session: SessionDep) -> list[PolygonOverviewRead]:
+    return await list_polygon_overview(session)
+
+
 @router.get("/sitemap", response_model=list[PolygonSitemapEntry])
 async def get_polygon_sitemap(session: SessionDep) -> list[PolygonSitemapEntry]:
     return await polygon_sitemap_entries(session)
@@ -79,6 +88,40 @@ async def get_polygon_by_slug(slug: str, session: SessionDep) -> PublicPolygonDe
     if polygon is None:
         raise HTTPException(status_code=404, detail="Polygon not found")
     return polygon
+
+
+@router.get(
+    "/by-slug/{slug}/osm",
+    response_model=PolygonOsmInfo,
+    response_model_exclude_none=True,
+)
+async def get_polygon_osm_by_slug(slug: str, session: SessionDep) -> PolygonOsmInfo:
+    try:
+        result = await OsmLookupService().find_osm_objects_for_polygon(session, slug=slug)
+    except OsmLookupError as exc:
+        raise HTTPException(status_code=503, detail="OpenStreetMap lookup failed") from exc
+    if result is None:
+        raise HTTPException(status_code=404, detail="Polygon not found")
+    return result
+
+
+@router.get(
+    "/{polygon_id}/osm",
+    response_model=PolygonOsmInfo,
+    response_model_exclude_none=True,
+)
+async def get_polygon_osm_by_id(
+    polygon_id: uuid.UUID, session: SessionDep
+) -> PolygonOsmInfo:
+    try:
+        result = await OsmLookupService().find_osm_objects_for_polygon(
+            session, polygon_id=str(polygon_id)
+        )
+    except OsmLookupError as exc:
+        raise HTTPException(status_code=503, detail="OpenStreetMap lookup failed") from exc
+    if result is None:
+        raise HTTPException(status_code=404, detail="Polygon not found")
+    return result
 
 
 @router.get("/{polygon_id}", response_model=PolygonRead)

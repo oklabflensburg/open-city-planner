@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     nominatim_email: str | None = None
     nominatim_timeout_seconds: float = 5.0
     nominatim_cache_ttl_seconds: int = 86_400
+    osm_external_fallback_enabled: bool = False
+    overpass_api_url: str | None = None
+    overpass_user_agent: str = "Stadtplanner/0.1 (https://stadtplanner.oklabflensburg.de)"
+    overpass_timeout_seconds: float = 8.0
+    osm_lookup_cache_ttl_seconds: int = 3_600
+    osm_external_min_interval_seconds: float = 1.0
+    osm_lookup_max_matches: int = 25
 
     # Resolve the backend environment independently of the process working directory.
     model_config = SettingsConfigDict(env_file=BACKEND_ENV_FILE, env_file_encoding="utf-8")

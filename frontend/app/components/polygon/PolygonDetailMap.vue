@@ -2,16 +2,26 @@
   <section class="overflow-hidden rounded-xl border border-[#dfe4e6] bg-white" aria-labelledby="polygon-map-heading">
     <div class="flex items-center justify-between gap-4 border-b border-[#dfe4e6] px-5 py-4">
       <h2 id="polygon-map-heading" class="text-lg font-bold text-[#202427]">Karte</h2>
-      <button
-        v-if="editable"
-        type="button"
-        class="min-h-10 rounded-md bg-[#154d73] px-4 text-sm font-bold text-white"
-        @click="editing ? finishEditing() : startEditing()"
-      >
-        {{ editing ? 'Bearbeitung abschließen' : 'Polygon bearbeiten' }}
-      </button>
+      <div class="flex flex-wrap justify-end gap-2">
+        <button type="button" class="min-h-10 rounded-md border border-slate-300 px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" @click="fitPolygon">
+          Polygon zentrieren
+        </button>
+        <button
+          v-if="editable"
+          type="button"
+          class="min-h-10 rounded-md bg-[#154d73] px-4 text-sm font-bold text-white"
+          @click="editing ? finishEditing() : startEditing()"
+        >
+          {{ editing ? 'Bearbeitung abschließen' : 'Polygon bearbeiten' }}
+        </button>
+      </div>
     </div>
-    <div ref="mapElement" class="h-[420px] w-full" />
+    <div class="relative">
+      <div ref="mapElement" class="h-[420px] min-h-[360px] w-full sm:h-[480px] lg:h-[520px]" />
+      <p v-if="mapError" class="absolute inset-x-4 top-4 z-10 rounded-lg bg-white px-4 py-3 text-sm font-semibold text-rose-700 shadow" role="alert">
+        {{ mapError }}
+      </p>
+    </div>
     <p v-if="editing" class="border-t border-[#dfe4e6] px-5 py-3 text-sm text-[#687176]">
       Punkte verschieben und anschließend „Bearbeitung abschließen“ wählen. Erst dann wird gespeichert.
     </p>
@@ -36,59 +46,93 @@ const map = shallowRef<Map | null>(null)
 const draw = shallowRef<TerraDraw | null>(null)
 const editing = ref(false)
 const draftGeometry = shallowRef<PolygonGeometry | null>(null)
-const featureId = 'detail-polygon-editor'
+const editorFeatureId = shallowRef<string | number | null>(null)
+const mapError = ref('')
+let resizeObserver: ResizeObserver | null = null
+let disposed = false
 
 onMounted(async () => {
-  if (!mapElement.value) return
-  const [{ default: maplibregl }, terraDraw, adapter] = await Promise.all([
-    import('maplibre-gl'),
-    import('terra-draw'),
-    import('terra-draw-maplibre-gl-adapter')
-  ])
-  const instance = new maplibregl.Map({
-    container: mapElement.value,
-    style: String(config.public.versatilesStyleUrl),
-    bounds: [[props.bbox[0], props.bbox[1]], [props.bbox[2], props.bbox[3]]],
-    fitBoundsOptions: { padding: 52, maxZoom: 18 },
-    attributionControl: { compact: true }
-  })
-  map.value = instance
-  instance.on('load', () => {
-    instance.addSource('detail-polygon', { type: 'geojson', data: featureCollection(props.geometry) })
-    instance.addLayer({
-      id: 'detail-polygon-fill',
-      type: 'fill',
-      source: 'detail-polygon',
-      paint: { 'fill-color': '#154d73', 'fill-opacity': 0.25 }
+  const container = mapElement.value
+  if (!container) return
+  try {
+    const [{ default: maplibregl }, terraDraw, adapter] = await Promise.all([
+      import('maplibre-gl'),
+      import('terra-draw'),
+      import('terra-draw-maplibre-gl-adapter')
+    ])
+    if (disposed || !container.isConnected) return
+    const instance = new maplibregl.Map({
+      container,
+      style: String(config.public.versatilesStyleUrl),
+      bounds: [[props.bbox[0], props.bbox[1]], [props.bbox[2], props.bbox[3]]],
+      fitBoundsOptions: { padding: 52, maxZoom: 18 },
+      attributionControl: { compact: true },
+      canvasContextAttributes: { powerPreference: 'low-power' }
     })
-    instance.addLayer({
-      id: 'detail-polygon-line',
-      type: 'line',
-      source: 'detail-polygon',
-      paint: { 'line-color': '#154d73', 'line-width': 3 }
-    })
+    map.value = instance
+    instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
+    instance.on('load', () => {
+      instance.addSource('detail-polygon', { type: 'geojson', data: featureCollection(props.geometry) })
+      instance.addLayer({
+        id: 'detail-polygon-fill',
+        type: 'fill',
+        source: 'detail-polygon',
+        paint: { 'fill-color': '#154d73', 'fill-opacity': 0.25 }
+      })
+      instance.addLayer({
+        id: 'detail-polygon-line',
+        type: 'line',
+        source: 'detail-polygon',
+        paint: { 'line-color': '#154d73', 'line-width': 3 }
+      })
+      requestAnimationFrame(() => {
+        instance.resize()
+        fitPolygon()
+      })
 
-    const terra = new terraDraw.TerraDraw({
-      adapter: new adapter.TerraDrawMapLibreGLAdapter({ map: instance }),
-      modes: [new terraDraw.TerraDrawSelectMode({
-        flags: {
-          polygon: {
-            feature: { draggable: true, rotateable: false, scaleable: false, coordinates: { midpoints: true, draggable: true, deletable: true } }
-          }
-        }
-      })]
+      const terra = new terraDraw.TerraDraw({
+        adapter: new adapter.TerraDrawMapLibreGLAdapter({ map: instance }),
+        modes: [
+          new terraDraw.TerraDrawPolygonMode(),
+          new terraDraw.TerraDrawSelectMode({
+            flags: {
+              polygon: {
+                feature: { draggable: true, rotateable: false, scaleable: false, coordinates: { midpoints: true, draggable: true, deletable: true } }
+              }
+            }
+          })
+        ]
+      })
+      terra.on('change', (ids: Array<string | number>, type: string) => {
+        const featureId = editorFeatureId.value
+        if (!editing.value || featureId == null || type !== 'update' || !ids.includes(featureId)) return
+        const feature = terra.getSnapshotFeature(featureId)
+        if (feature?.geometry.type === 'Polygon') draftGeometry.value = feature.geometry as PolygonGeometry
+      })
+      terra.on('deselect', (id: string | number) => {
+        if (editing.value && id === editorFeatureId.value) finishEditing()
+      })
+      terra.start()
+      draw.value = terra
+
+      resizeObserver = new ResizeObserver(() => instance.resize())
+      resizeObserver.observe(container)
     })
-    terra.on('change', (ids: Array<string | number>, type: string) => {
-      if (!editing.value || type !== 'update' || !ids.some(id => String(id) === featureId)) return
-      const feature = terra.getSnapshotFeature(featureId)
-      if (feature?.geometry.type === 'Polygon') draftGeometry.value = feature.geometry as PolygonGeometry
+    instance.on('error', (event) => {
+      if (disposed) return
+      console.warn('Detail map resource error', event.error)
+      mapError.value = 'Die Kartenbasis konnte nicht vollständig geladen werden.'
     })
-    terra.on('deselect', (id: string | number) => {
-      if (editing.value && String(id) === featureId) finishEditing()
+    instance.on('webglcontextlost', () => {
+      if (!disposed) mapError.value = 'Die Kartenanzeige wird nach einem Grafikfehler wiederhergestellt.'
     })
-    terra.start()
-    draw.value = terra
-  })
+    instance.on('webglcontextrestored', () => {
+      if (!disposed) mapError.value = ''
+    })
+  } catch (error) {
+    if (disposed) return
+    mapError.value = error instanceof Error ? error.message : 'Die Karte konnte nicht geladen werden.'
+  }
 })
 
 watch(() => props.geometry, (geometry) => {
@@ -98,23 +142,45 @@ watch(() => props.geometry, (geometry) => {
 }, { deep: true })
 
 onBeforeUnmount(() => {
+  disposed = true
+  resizeObserver?.disconnect()
+  resizeObserver = null
   draw.value?.stop()
   map.value?.remove()
+  draw.value = null
+  map.value = null
 })
+
+function fitPolygon() {
+  map.value?.fitBounds(
+    [[props.bbox[0], props.bbox[1]], [props.bbox[2], props.bbox[3]]],
+    { padding: 52, maxZoom: 18, duration: 0 }
+  )
+}
 
 function startEditing() {
   const terra = draw.value
   if (!terra || !props.editable) return
   draftGeometry.value = props.geometry
-  if (!terra.hasFeature(featureId)) {
-    terra.addFeatures([{
+  let featureId = editorFeatureId.value
+  if (featureId == null || !terra.hasFeature(featureId)) {
+    featureId = terra.getFeatureId()
+    const [validation] = terra.addFeatures([{
       type: 'Feature',
       id: featureId,
       geometry: props.geometry,
       properties: { mode: 'polygon' }
     }])
+    if (!validation?.valid || validation.id == null || !terra.hasFeature(validation.id)) {
+      draftGeometry.value = null
+      editorFeatureId.value = null
+      return
+    }
+    featureId = validation.id
+    editorFeatureId.value = featureId
   }
   editing.value = true
+  setStaticPolygonVisibility(false)
   terra.selectFeature(featureId)
 }
 
@@ -123,11 +189,22 @@ function finishEditing() {
   editing.value = false
   const geometry = draftGeometry.value
   const terra = draw.value
-  if (terra?.hasFeature(featureId)) terra.removeFeatures([featureId])
+  const featureId = editorFeatureId.value
+  if (terra && featureId != null && terra.hasFeature(featureId)) terra.removeFeatures([featureId])
+  editorFeatureId.value = null
   draftGeometry.value = null
+  setStaticPolygonVisibility(true)
   if (geometry && JSON.stringify(geometry.coordinates) !== JSON.stringify(props.geometry.coordinates)) {
     emit('geometryComplete', geometry)
   }
+}
+
+function setStaticPolygonVisibility(visible: boolean) {
+  const instance = map.value
+  if (!instance?.getLayer('detail-polygon-fill')) return
+  const visibility = visible ? 'visible' : 'none'
+  instance.setLayoutProperty('detail-polygon-fill', 'visibility', visibility)
+  instance.setLayoutProperty('detail-polygon-line', 'visibility', visibility)
 }
 
 function featureCollection(geometry: PolygonGeometry) {

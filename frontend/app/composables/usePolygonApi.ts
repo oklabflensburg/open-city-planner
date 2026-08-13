@@ -1,5 +1,6 @@
-import type { PolygonEditorDetail, PolygonGeometry, PolygonMetrics, PolygonVerwaltungDetail, PublicPolygonDetail, UserPolygon } from '~/types/geo'
-import { polygonSchema, publicPolygonDetailSchema } from '~/utils/validation'
+import type { PolygonEditorDetail, PolygonGeometry, PolygonMetrics, PolygonOverview, PolygonVerwaltungDetail, PublicPolygonDetail, UserPolygon } from '~/types/geo'
+import type { PolygonOsmInfo } from '~/types/osm'
+import { polygonOverviewSchema, polygonSchema, publicPolygonDetailSchema } from '~/utils/validation'
 
 type PolygonPayload = {
   name: string
@@ -10,7 +11,7 @@ type PolygonPayload = {
   floor?: string | null
 }
 
-type PublicPolygonPatch = Partial<PolygonPayload> & { expected_updated_at?: string }
+type PublicPolygonPatch = Partial<PolygonPayload> & { area_size?: 'S' | 'M' | 'L' | 'XL' | null; expected_updated_at?: string }
 type VerwaltungPatch = Partial<Pick<PolygonVerwaltungDetail,
   'owner_name' | 'owner_street' | 'owner_house_number' | 'owner_postal_code' | 'owner_city' | 'owner_country' | 'price_per_sqm'
 >> & { expected_updated_at?: string }
@@ -22,6 +23,10 @@ export const usePolygonApi = () => {
     async list() {
       const polygons = await request<unknown[]>('/polygons')
       return polygons.map((polygon) => polygonSchema.parse(polygon))
+    },
+    async overview() {
+      const polygons = await request<unknown[]>('/polygons/overview')
+      return polygons.map(polygon => polygonOverviewSchema.parse(polygon)) as PolygonOverview[]
     },
     async create(payload: PolygonPayload) {
       return polygonSchema.parse(
@@ -49,6 +54,9 @@ export const usePolygonApi = () => {
       return publicPolygonDetailSchema.parse(
         await request<PublicPolygonDetail>(`/polygons/by-slug/${encodeURIComponent(slug)}`)
       )
+    },
+    async osmBySlug(slug: string) {
+      return await request<PolygonOsmInfo>(`/polygons/by-slug/${encodeURIComponent(slug)}/osm`)
     },
     async editor(id: string) {
       return await request<PolygonEditorDetail>(`/polygons/${id}/editor`, { cache: 'no-store' })

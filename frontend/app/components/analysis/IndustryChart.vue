@@ -3,13 +3,12 @@
     <div class="mb-3 flex items-start justify-between gap-3">
       <div>
         <h2 class="text-[13px] font-semibold text-[#3f4448]">Shops nach Branche</h2>
-        <p class="mt-1 text-[10px] leading-snug text-[#5f666d]">
-          Klicken Sie auf die Warengruppe im Diagramm, um die genaue Aufteilung bzw. eine Hervorhebung auf der Karte zu erhalten.
-        </p>
+        <p class="mt-1 text-[10px] leading-snug text-[#5f666d]">Aktuell gefilterte Flächen nach Branche</p>
       </div>
       <Info class="mt-0.5 size-4 shrink-0 text-[#9aa0a5]" />
     </div>
-    <div class="flex justify-center">
+    <div v-if="analytics.loading && !analytics.data" class="mx-auto h-[180px] w-[180px] animate-pulse rounded-full bg-slate-100" />
+    <div v-else-if="segments.length" class="flex justify-center">
       <svg class="h-[180px] w-[180px]" viewBox="-1 -1 2 2" role="img" aria-label="Branchenverteilung">
         <path
           v-for="segment in segments"
@@ -30,6 +29,8 @@
         </path>
       </svg>
     </div>
+    <p v-else class="rounded-xl bg-slate-50 px-3 py-8 text-center text-xs text-slate-600">Für die aktuelle Auswahl liegen keine Daten vor.</p>
+    <p v-if="segments.length" class="mt-2 text-center text-[11px] text-slate-500">Gesamt: {{ total.toLocaleString('de-DE') }} Flächen</p>
   </Card>
 </template>
 
@@ -38,6 +39,7 @@ import { Info } from 'lucide-vue-next'
 import { industries, industryColors } from '~/utils/industries'
 
 const mapStore = useMapStore()
+const analytics = useAnalyticsStore()
 const highlighted = computed(() => mapStore.categoryHighlight)
 
 const polar = (angle: number) => [Math.cos(angle), Math.sin(angle)]
@@ -49,10 +51,12 @@ const segmentPath = (start: number, end: number) => {
 }
 
 const segments = computed(() => {
-  const total = industries.reduce((sum, industry) => sum + industry.value, 0)
+  const counts = new Map((analytics.data?.industry_distribution || []).map(item => [item.category, item.count]))
+  const available = industries.map(industry => ({ ...industry, value: counts.get(industry.key) || 0 })).filter(industry => industry.value > 0)
+  const sum = available.reduce((value, industry) => value + industry.value, 0)
   let angle = -Math.PI / 2
-  return industries.map((industry) => {
-    const span = (industry.value / total) * Math.PI * 2
+  return available.map((industry) => {
+    const span = (industry.value / sum) * Math.PI * 2
     const path = segmentPath(angle, angle + span)
     angle += span
     return {
@@ -64,5 +68,5 @@ const segments = computed(() => {
     }
   })
 })
+const total = computed(() => segments.value.reduce((sum, segment) => sum + segment.value, 0))
 </script>
-

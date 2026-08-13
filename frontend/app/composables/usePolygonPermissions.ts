@@ -1,16 +1,14 @@
 import type { Ref } from 'vue'
 import type { PolygonEditorDetail } from '~/types/geo'
+import { hasVerwaltungRole } from '~/utils/roles'
 
 export function usePolygonPermissions(editor: Ref<PolygonEditorDetail | null>) {
   const authStore = useAuthStore()
-  const hasVerwaltungRole = computed(() => (
-    !!authStore.user?.is_superuser
-    || authStore.user?.roles?.some(role => role.trim().toUpperCase() === 'VERWALTUNG')
-  ))
+  const hasVerwaltung = computed(() => hasVerwaltungRole(authStore.user))
 
   return {
     canEditPublicFields: computed(() => !!authStore.canWrite && !!editor.value?.can_edit_public_fields),
-    canViewVerwaltung: hasVerwaltungRole,
-    canEditVerwaltung: computed(() => !!authStore.canWrite && hasVerwaltungRole.value)
+    canViewVerwaltung: hasVerwaltung,
+    canEditVerwaltung: computed(() => !!authStore.canWrite && hasVerwaltung.value)
   }
 }

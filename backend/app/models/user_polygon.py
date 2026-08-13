@@ -54,5 +54,7 @@ class UserPolygon(Base):
         Index("idx_user_polygons_created_at", "created_at"),
         Index("idx_user_polygons_created_by_user_id", "created_by_user_id"),
         Index("idx_user_polygons_updated_by_user_id", "updated_by_user_id"),
+        Index("idx_user_polygons_category", "category"),
+        Index("idx_user_polygons_floor", "floor"),
         Index("idx_user_polygons_geometry", "geometry", postgresql_using="gist"),
     )

@@ -22,12 +22,26 @@ export const polygonSchema = z.object({
   updated_at: z.string()
 })
 
+export const polygonOverviewSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  category: z.string(),
+  floor: z.string().nullable().optional(),
+  area_size: z.string().nullable().optional(),
+  address_display_name: z.string().nullable().optional(),
+  geometry: polygonGeometrySchema,
+  created_at: z.string(),
+  updated_at: z.string()
+})
+
 export const publicPolygonDetailSchema = z.object({
   id: z.string(),
   slug: z.string(),
   name: z.string(),
   description: z.string().nullable().optional(),
   floor: z.string().nullable().optional(),
+  area_size: z.enum(['S', 'M', 'L', 'XL']).nullable().optional(),
   address_display_name: z.string().nullable().optional(),
   address_street: z.string().nullable().optional(),
   address_house_number: z.string().nullable().optional(),

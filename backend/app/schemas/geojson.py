@@ -64,11 +64,12 @@ class PolygonUpdate(BaseModel):
     geometry: PolygonGeometry | None = None
     properties: dict[str, Any] | None = None
     floor: str | None = Field(default=None, max_length=16)
+    area_size: Literal["S", "M", "L", "XL"] | None = None
     expected_updated_at: datetime | None = None
 
     @model_validator(mode="after")
     def require_any_field(self) -> "PolygonUpdate":
-        editable = {"name", "description", "category", "geometry", "properties", "floor"}
+        editable = {"name", "description", "category", "geometry", "properties", "floor", "area_size"}
         if not self.model_fields_set.intersection(editable) and not self.model_extra:
             raise ValueError("At least one field must be provided")
         return self
@@ -85,6 +86,19 @@ class PolygonRead(PolygonBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PolygonOverviewRead(BaseModel):
+    id: str
+    slug: str
+    name: str
+    category: str
+    floor: str | None
+    area_size: str | None
+    address_display_name: str | None
+    geometry: PolygonGeometry
+    created_at: datetime
+    updated_at: datetime
+
+
 class PolygonMetrics(BaseModel):
     area_m2: float
     perimeter_m: float
@@ -98,6 +112,7 @@ class PublicPolygonDetail(BaseModel):
     name: str
     description: str | None
     floor: str | None
+    area_size: Literal["S", "M", "L", "XL"] | None
     address_display_name: str | None
     address_street: str | None
     address_house_number: str | None

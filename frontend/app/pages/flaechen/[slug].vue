@@ -41,7 +41,12 @@
       <dl class="mt-5 grid gap-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <dt class="font-semibold text-[#687176]">Kategorie</dt>
-          <dd class="mt-1 text-[#202427]">{{ categoryLabel }}</dd>
+          <dd v-if="!canEditPublicFields" class="mt-1 text-[#202427]">{{ categoryLabel }}</dd>
+          <dd v-else class="mt-1">
+            <select v-model="polygonData.category" class="field-input" @change="autosave.schedulePublic({ category: polygonData.category }, true)">
+              <option v-for="industry in industries" :key="industry.key" :value="industry.key">{{ industry.label }}</option>
+            </select>
+          </dd>
         </div>
         <div>
           <dt class="font-semibold text-[#687176]">Etage</dt>
@@ -50,6 +55,16 @@
             <select v-model="polygonData.floor" class="field-input" @change="autosave.schedulePublic({ floor: polygonData.floor || null }, true)">
               <option :value="null">Nicht angegeben</option>
               <option v-for="floor in floors" :key="floor" :value="floor">{{ floor }}</option>
+            </select>
+          </dd>
+        </div>
+        <div>
+          <dt class="font-semibold text-[#687176]">Größenklasse</dt>
+          <dd v-if="!canEditPublicFields" class="mt-1 text-[#202427]">{{ polygonData.area_size || 'Nicht angegeben' }}</dd>
+          <dd v-else class="mt-1">
+            <select v-model="polygonData.area_size" class="field-input" @change="autosave.schedulePublic({ area_size: polygonData.area_size || null }, true)">
+              <option :value="null">Nicht angegeben</option>
+              <option v-for="size in areaSizes" :key="size" :value="size">{{ size }}</option>
             </select>
           </dd>
         </div>
@@ -72,6 +87,8 @@
         Daten gespeichert. Die Adresse konnte momentan nicht aktualisiert werden.
       </p>
     </section>
+
+    <PolygonOsmInfo class="mt-8" :info="osm.data.value" :loading="osm.loading.value" :error="osm.error.value" @retry="osm.retry" />
 
     <PolygonDetailMap
       class="mt-8"
@@ -118,6 +135,7 @@ const { data: polygon } = await useAsyncData(`polygon-${slug}`, async () => {
 if (!polygon.value) throw createError({ statusCode: 404, statusMessage: 'Fläche nicht gefunden' })
 
 const polygonData = ref<PublicPolygonDetail>({ ...polygon.value })
+const osm = usePolygonOsmInfo()
 const editorData = ref<PolygonEditorDetail | null>(null)
 const verwaltungData = ref<PolygonVerwaltungDetail | null>(null)
 const updatedAt = ref(polygonData.value.updated_at)
@@ -157,10 +175,12 @@ const autosave = usePolygonAutosave({
       updated_at: refreshed.updated_at
     }
     updatedAt.value = refreshed.updated_at
+    void osm.loadBySlug({ id: refreshed.id, slug: refreshed.slug, updatedAt: refreshed.updated_at }, true)
   }
 })
 
 onMounted(async () => {
+  void osm.loadBySlug({ id: polygonData.value.id, slug, updatedAt: polygonData.value.updated_at })
   await authStore.initialize()
   if (!authStore.user) return
   try {
@@ -180,6 +200,7 @@ onMounted(async () => {
 })
 
 const floors = ['UG', 'EG', '1OG', '2OG', '3OG', 'DG']
+const areaSizes = ['S', 'M', 'L', 'XL'] as const
 const autosaveStatus = autosave.status
 const categoryLabel = computed(() => industries.find(industry => industry.key === polygonData.value.category)?.label || polygonData.value.category || 'Nicht angegeben')
 const publicAddress = computed(() => polygonData.value.address_display_name || [
@@ -201,8 +222,10 @@ function scheduleManagement(field: keyof PolygonVerwaltungDetail, value: unknown
   if (canEditVerwaltung.value) autosave.scheduleVerwaltung({ [field]: value })
 }
 
-function pickPublicUpdate(response: { name: string, description?: string | null, floor?: string | null, category: string, geometry: PolygonGeometry, updated_at: string }) {
-  return { name: response.name, description: response.description, floor: response.floor, category: response.category, geometry: response.geometry, updated_at: response.updated_at }
+function pickPublicUpdate(response: { name: string, description?: string | null, floor?: string | null, category: string, geometry: PolygonGeometry, properties?: Record<string, unknown>, updated_at: string }) {
+  const size = response.properties?.size
+  const areaSize = areaSizes.includes(size as typeof areaSizes[number]) ? size as typeof areaSizes[number] : null
+  return { name: response.name, description: response.description, floor: response.floor, area_size: areaSize, category: response.category, geometry: response.geometry, updated_at: response.updated_at }
 }
 
 function formatMetric(value: number) { return Math.round(value).toLocaleString('de-DE') }

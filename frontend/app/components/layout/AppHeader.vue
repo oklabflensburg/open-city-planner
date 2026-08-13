@@ -105,6 +105,7 @@
 
 <script setup lang="ts">
 import { ChevronDown, Menu, X } from 'lucide-vue-next'
+import { hasVerwaltungRole } from '~/utils/roles'
 
 const route = useRoute()
 const router = useRouter()
@@ -114,11 +115,12 @@ const accountOpen = ref(false)
 const accountButton = ref<HTMLElement | null>(null)
 const accountMenu = ref<HTMLElement | null>(null)
 const { primaryNavigation, legalNavigation } = useSiteNavigation()
-const accountNavigation = [
+const accountNavigation = computed(() => [
   { label: 'Profil', to: '/profil' },
   { label: 'Meine Flächen', to: '/meine-flaechen' },
+  ...(hasVerwaltungRole(authStore.user) ? [{ label: 'Kennzahlen verwalten', to: '/verwaltung/kennzahlen' }] : []),
   { label: 'Sicherheit', to: '/profil/sicherheit' }
-]
+])
 
 function isActive(path: string) {
   return path === '/' ? route.path === '/' : route.path === path

@@ -24,17 +24,16 @@ export const industryColors: Record<IndustryKey, string> = {
 }
 
 export const industries = [
-  { key: 'warehouse', label: 'Warenhaus', value: 7 },
-  { key: 'fashion', label: 'Mode/Bekleidung', value: 34 },
-  { key: 'food', label: 'Nahrungsmittel/Drogerie', value: 12 },
-  { key: 'electronics', label: 'Elektro, Technik', value: 2 },
-  { key: 'furniture', label: 'Einrichtungsbedarf', value: 3 },
-  { key: 'garden', label: 'Garten/Freizeit', value: 1 },
-  { key: 'other', label: 'Sonstige Waren', value: 14 },
-  { key: 'gastronomy', label: 'Gastronomie', value: 8 },
-  { key: 'services', label: 'Einzelhandelsnahe Dienstleister', value: 10 },
-  { key: 'otherAreas', label: 'Sonstige Flächen', value: 5 }
+  { key: 'warehouse', label: 'Warenhaus' },
+  { key: 'fashion', label: 'Mode / Bekleidung' },
+  { key: 'food', label: 'Nahrungsmittel / Drogerie' },
+  { key: 'electronics', label: 'Elektro / Technik' },
+  { key: 'furniture', label: 'Einrichtungsbedarf' },
+  { key: 'garden', label: 'Garten / Freizeit' },
+  { key: 'other', label: 'Sonstige Waren' },
+  { key: 'gastronomy', label: 'Gastronomie' },
+  { key: 'services', label: 'Einzelhandelsnahe Dienstleister' },
+  { key: 'otherAreas', label: 'Sonstige Flächen' }
 ] as const
 
 export const defaultActiveIndustries = industries.map((industry) => industry.key)
-

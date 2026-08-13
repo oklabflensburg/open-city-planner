@@ -67,6 +67,9 @@
         Das Frontend kommuniziert über die konfigurierte API-Basis-URL mit einem FastAPI-Backend. Die API speichert Benutzerkonten, serverseitige Refresh-Sessions, E-Mail-Verifikations- und Passwort-Reset-Token sowie Polygonobjekte und Geometrien in PostgreSQL/PostGIS. Passwörter werden nicht im Klartext gespeichert, sondern mit Argon2id gehasht. Reset-, Verifikations- und Refresh-Tokens werden serverseitig nur gehasht gespeichert.
       </p>
       <p class="mt-3 text-sm leading-6 text-[#4f575c]">
+        Beim Auswählen einer Fläche lädt das Backend passende, öffentliche OpenStreetMap-Sachdaten bevorzugt aus der lokalen PostGIS-Datenbank. Nur wenn dort kein Treffer vorliegt und der Betreiber ausdrücklich einen externen Overpass-Dienst konfiguriert hat, kann die Polygongeometrie serverseitig an diesen Dienst übermittelt werden. Der Browser kontaktiert keine Overpass-Schnittstelle direkt.
+      </p>
+      <p class="mt-3 text-sm leading-6 text-[#4f575c]">
         Serverseitige Logs können beim Frontend-Hosting, beim API-Server und bei der Datenbank-Infrastruktur entstehen. Bei Auth-Sessions können IP-Adresse und User-Agent gespeichert werden, um Sitzungen zu verwalten und Missbrauch zu erschweren. Hosting-Anbieter, Serverstandorte und Log-Aufbewahrungsfristen sind im Repository nicht festgelegt und müssen vom Betreiber dokumentiert werden.
       </p>
     </section>

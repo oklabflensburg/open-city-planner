@@ -37,6 +37,19 @@ export type UserPolygon = {
   updated_at: string
 }
 
+export type PolygonOverview = {
+  id: string
+  slug: string
+  name: string
+  category: string
+  floor?: string | null
+  area_size?: string | null
+  address_display_name?: string | null
+  geometry: PolygonGeometry
+  created_at: string
+  updated_at: string
+}
+
 export type PolygonMetrics = {
   area_m2: number
   perimeter_m: number
@@ -50,6 +63,7 @@ export type PublicPolygonDetail = {
   name: string
   description?: string | null
   floor?: string | null
+  area_size?: 'S' | 'M' | 'L' | 'XL' | null
   address_display_name?: string | null
   address_street?: string | null
   address_house_number?: string | null

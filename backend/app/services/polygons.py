@@ -15,6 +15,7 @@ from app.schemas.geojson import (
     PolygonCreate,
     PolygonEditorRead,
     PolygonMetrics,
+    PolygonOverviewRead,
     PolygonRead,
     PolygonSitemapEntry,
     PolygonUpdate,
@@ -49,6 +50,25 @@ def serialize_polygon(polygon: UserPolygon) -> PolygonRead:
 async def list_polygons(session: AsyncSession) -> list[PolygonRead]:
     rows = await session.scalars(select(UserPolygon).order_by(UserPolygon.created_at.desc()))
     return [serialize_polygon(row) for row in rows]
+
+
+async def list_polygon_overview(session: AsyncSession) -> list[PolygonOverviewRead]:
+    rows = await session.scalars(select(UserPolygon).order_by(UserPolygon.created_at.desc()))
+    return [
+        PolygonOverviewRead(
+            id=str(row.uuid),
+            slug=row.slug,
+            name=row.name,
+            category=row.category,
+            floor=row.floor,
+            area_size=(str(row.properties.get("size")) if row.properties.get("size") else None),
+            address_display_name=row.address_display_name,
+            geometry=from_wkb_element(row.geometry),
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+        for row in rows
+    ]
 
 
 async def get_polygon(
@@ -190,6 +210,11 @@ def _public_detail(polygon: UserPolygon, metrics: PolygonMetrics) -> PublicPolyg
         name=polygon.name,
         description=polygon.description,
         floor=polygon.floor,
+        area_size=(
+            str(polygon.properties.get("size"))
+            if polygon.properties.get("size") in {"S", "M", "L", "XL"}
+            else None
+        ),
         address_display_name=polygon.address_display_name,
         address_street=polygon.address_street,
         address_house_number=polygon.address_house_number,
@@ -258,6 +283,14 @@ async def update_polygon(session: AsyncSession, polygon: UserPolygon, payload: P
     if not _same_version(polygon.updated_at, expected):
         raise RuntimeError("POLYGON_VERSION_CONFLICT")
     geometry_changed = "geometry" in data
+    if "area_size" in data:
+        area_size = data.pop("area_size")
+        properties = dict(polygon.properties or {})
+        if area_size is None:
+            properties.pop("size", None)
+        else:
+            properties["size"] = area_size
+        polygon.properties = properties
     if "geometry" in data and payload.geometry is not None:
         polygon.geometry = to_wkb_element(payload.geometry)
         data.pop("geometry")

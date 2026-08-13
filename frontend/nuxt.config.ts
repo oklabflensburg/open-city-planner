@@ -7,6 +7,9 @@ if (process.env.NODE_ENV === 'production' && !configuredSiteUrl) {
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-08-10',
+  features: {
+    devLogs: false
+  },
   modules: ['@pinia/nuxt'],
   components: [
     {

@@ -1,11 +1,10 @@
 import { defineStore } from 'pinia'
-import type { PolygonGeometry, PolygonMetrics, UserPolygon } from '~/types/geo'
+import type { PolygonMetrics, PolygonOverview } from '~/types/geo'
 
 export const usePolygonStore = defineStore('polygon', {
   state: () => ({
-    polygons: [] as UserPolygon[],
+    polygons: [] as PolygonOverview[],
     selectedPolygonId: null as string | null,
-    drawingPolygon: null as PolygonGeometry | null,
     selectedMetrics: null as PolygonMetrics | null,
     loading: false,
     saving: false,
@@ -21,10 +20,13 @@ export const usePolygonStore = defineStore('polygon', {
         id: polygon.id,
         geometry: polygon.geometry,
         properties: {
-          ...polygon.properties,
           id: polygon.id,
           name: polygon.name,
-          category: polygon.category
+          category: polygon.category,
+          floor: polygon.floor,
+          size: polygon.area_size,
+          slug: polygon.slug,
+          address: polygon.address_display_name
         }
       }))
     })
@@ -34,57 +36,11 @@ export const usePolygonStore = defineStore('polygon', {
       this.loading = true
       this.error = null
       try {
-        this.polygons = await usePolygonApi().list()
+        this.polygons = await usePolygonApi().overview()
       } catch (error) {
         this.error = error instanceof Error ? error.message : 'Polygone konnten nicht geladen werden.'
       } finally {
         this.loading = false
-      }
-    },
-    async createPolygon(payload: { name: string; description?: string | null; category: string; geometry: PolygonGeometry; properties?: Record<string, unknown> }) {
-      this.saving = true
-      this.saveState = 'saving'
-      try {
-        const polygon = await usePolygonApi().create(payload)
-        this.polygons.push(polygon)
-        this.selectedPolygonId = polygon.id
-        this.saveState = 'saved'
-        return polygon
-      } catch (error) {
-        this.saveState = 'error'
-        this.error = error instanceof Error ? error.message : 'Polygon konnte nicht gespeichert werden.'
-        throw error
-      } finally {
-        this.saving = false
-      }
-    },
-    async updatePolygon(id: string, payload: Partial<{ name: string; description: string | null; category: string; geometry: PolygonGeometry; properties: Record<string, unknown> }>) {
-      this.saving = true
-      this.saveState = 'saving'
-      try {
-        const polygon = await usePolygonApi().update(id, payload)
-        const current = this.polygons.find((item) => item.id === id)
-        const merged = {
-          ...polygon,
-          category: payload.category ?? current?.category ?? polygon.category,
-          properties: payload.properties ?? current?.properties ?? polygon.properties
-        }
-        this.polygons = this.polygons.map((item) => (item.id === id ? merged : item))
-        this.saveState = 'saved'
-        return merged
-      } catch (error) {
-        this.saveState = 'error'
-        this.error = error instanceof Error ? error.message : 'Polygon konnte nicht aktualisiert werden.'
-        throw error
-      } finally {
-        this.saving = false
-      }
-    },
-    async deletePolygon(id: string) {
-      await usePolygonApi().remove(id)
-      this.polygons = this.polygons.filter((polygon) => polygon.id !== id)
-      if (this.selectedPolygonId === id) {
-        this.clearSelection()
       }
     },
     async selectPolygon(id: string | null) {

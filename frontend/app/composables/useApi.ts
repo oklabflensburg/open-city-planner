@@ -74,7 +74,7 @@ export const useApi = () => {
       const error = body?.detail?.error || body?.error
       return Object.assign(
         new Error(error?.message || body?.detail || `API request failed with ${response.status}`),
-        { statusCode: response.status }
+        { statusCode: response.status, details: body?.detail }
       )
     } catch {
       return Object.assign(new Error(`API request failed with ${response.status}`), {
