@@ -64,6 +64,30 @@ async def get_verified_user(request: Request, user: Annotated[User, Depends(get_
     return user
 
 
+async def require_superuser(
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
+    if not user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": {
+                    "code": "SUPERUSER_REQUIRED",
+                    "message": "Für die Rollenverwaltung sind Superuser-Rechte erforderlich.",
+                }
+            },
+        )
+    return user
+
+
+async def require_csrf_superuser(
+    request: Request,
+    user: Annotated[User, Depends(require_superuser)],
+) -> User:
+    validate_csrf(request)
+    return user
+
+
 def access_cookie() -> str | None:
     settings = get_settings()
 

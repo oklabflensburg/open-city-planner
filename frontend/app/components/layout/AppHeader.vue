@@ -123,6 +123,7 @@ const accountNavigation = computed(() => [
   { label: 'Profil', to: '/profil' },
   { label: 'Meine Flächen', to: '/meine-flaechen' },
   ...(hasVerwaltungRole(authStore.user) ? [{ label: 'Kennzahlen verwalten', to: '/verwaltung/kennzahlen' }] : []),
+  ...(authStore.user?.is_superuser ? [{ label: 'Administration', to: '/admin/benutzer' }] : []),
   { label: 'Sicherheit', to: '/profil/sicherheit' }
 ])
 

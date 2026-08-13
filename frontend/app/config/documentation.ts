@@ -428,7 +428,7 @@ export const documentationPages: DocumentationPage[] = [
         id: 'zugriffsmatrix',
         title: 'Zugriffsmatrix',
         blocks: [
-          { type: 'table', headers: ['Funktion', 'Erforderlicher Zugriff'], rows: [['Karte, öffentliche Details, Kennzahlen und Hilfe lesen', 'Öffentlich'], ['Profil, eigene Flächen und neue Fläche öffnen', 'Angemeldet'], ['Eigene Fläche löschen', 'Angemeldet und technischer Ersteller'], ['Öffentliche Felder einer berechtigten Fläche ändern', 'Angemeldet, E-Mail bestätigt und bearbeitungsberechtigt'], ['Jede Fläche bearbeiten oder löschen', 'VERWALTUNG'], ['Interne Eigentümer- und Preisdaten sehen oder ändern', 'VERWALTUNG'], ['Stadtkennzahlen pflegen', 'VERWALTUNG']] }
+          { type: 'table', headers: ['Funktion', 'Erforderlicher Zugriff'], rows: [['Karte, öffentliche Details, Kennzahlen und Hilfe lesen', 'Öffentlich'], ['Profil, eigene Flächen und neue Fläche öffnen', 'Angemeldet'], ['Eigene Fläche löschen', 'Angemeldet und technischer Ersteller'], ['Öffentliche Felder einer berechtigten Fläche ändern', 'Angemeldet, E-Mail bestätigt und bearbeitungsberechtigt'], ['Jede Fläche bearbeiten oder löschen', 'VERWALTUNG'], ['Interne Eigentümer- und Preisdaten sehen oder ändern', 'VERWALTUNG'], ['Stadtkennzahlen pflegen', 'VERWALTUNG'], ['Benutzerkonten und Rollen verwalten', 'SUPERUSER']] }
         ]
       },
       {
@@ -492,6 +492,44 @@ export const documentationPages: DocumentationPage[] = [
         blocks: [
           { type: 'table', headers: ['Angabe', 'Öffentlich'], rows: [['Kennzahlenwerte und Referenzdatum', 'Ja'], ['Quelle und interne Notizen der Kennzahlen', 'Nein'], ['Fachlicher Eigentümer und Anschrift', 'Nein'], ['Preis pro Quadratmeter', 'Nein']] },
           { type: 'links', items: [{ label: 'Öffentliche Kennzahlen verstehen', to: '/dokumentation/fast-facts' }] }
+        ]
+      }
+    ]
+  },
+  {
+    slug: 'administration',
+    title: 'Administration: Benutzer und Rollen',
+    navTitle: 'Administration',
+    description: 'Benutzerkonten suchen und die fachliche Rolle VERWALTUNG als Superuser sicher zuweisen oder entfernen.',
+    group: 'Verwaltung',
+    keywords: ['SUPERUSER', 'Administration', 'Benutzer', 'Rollen', 'VERWALTUNG'],
+    audience: 'superuser',
+    sections: [
+      {
+        id: 'zugang-und-abgrenzung',
+        title: 'Zugang und Abgrenzung',
+        audience: 'superuser',
+        blocks: [
+          { type: 'paragraph', text: 'Die Benutzer- und Rollenverwaltung ist ausschließlich für Superuser erreichbar. Die fachliche Rolle VERWALTUNG allein gewährt keinen Zugang zu diesem Bereich.' },
+          { type: 'callout', variant: 'important', title: 'Superuser ist keine normale Rolle', text: 'Der Superuser-Status wird in der Rollenverwaltung nur angezeigt. Er kann dort weder vergeben noch entfernt werden.' },
+          { type: 'code', code: '/admin/benutzer', language: 'Route' }
+        ]
+      },
+      {
+        id: 'benutzer-finden',
+        title: 'Benutzer suchen und filtern',
+        audience: 'superuser',
+        blocks: [
+          { type: 'steps', items: [{ title: 'Administration öffnen', text: 'Wählen Sie im Kontomenü „Administration“.' }, { title: 'Benutzer suchen', text: 'Suchen Sie nach Name, Anzeigename oder vollständiger E-Mail-Adresse.' }, { title: 'Auswahl eingrenzen', text: 'Filtern Sie optional nach Rolle oder aktivem Kontostatus.' }, { title: 'Benutzer verwalten', text: 'Öffnen Sie die Detailansicht des gewünschten Kontos.' }] }
+        ]
+      },
+      {
+        id: 'rollen-aendern',
+        title: 'VERWALTUNG zuweisen oder entfernen',
+        audience: 'superuser',
+        blocks: [
+          { type: 'paragraph', text: 'Aktivieren oder deaktivieren Sie die Checkbox VERWALTUNG und bestätigen Sie die Sicherheitsabfrage. Die Änderung wird unmittelbar gespeichert und wirkt bei nachfolgenden API-Anfragen.' },
+          { type: 'callout', variant: 'warning', title: 'Erweiterte fachliche Rechte', text: 'VERWALTUNG darf interne Eigentümer- und Preisdaten sehen, Stadtkennzahlen pflegen sowie alle Flächen bearbeiten und löschen. Vergeben Sie diese Rolle nur, wenn diese Rechte benötigt werden.' }
         ]
       }
     ]

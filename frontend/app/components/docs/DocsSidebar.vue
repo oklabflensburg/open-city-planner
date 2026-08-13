@@ -13,6 +13,7 @@
           >
             <span>{{ item.navTitle }}</span>
             <span v-if="item.audience === 'verwaltung'" class="size-2 shrink-0 rounded-full bg-amber-500" aria-label="Nur VERWALTUNG" />
+            <span v-if="item.audience === 'superuser'" class="size-2 shrink-0 rounded-full bg-rose-600" aria-label="Nur SUPERUSER" />
           </NuxtLink>
         </li>
       </ul>

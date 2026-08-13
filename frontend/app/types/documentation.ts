@@ -1,4 +1,4 @@
-export type DocumentationAudience = 'public' | 'login' | 'verwaltung'
+export type DocumentationAudience = 'public' | 'login' | 'verwaltung' | 'superuser'
 
 export type DocumentationBlock =
   | { type: 'paragraph', text: string }

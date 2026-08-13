@@ -27,6 +27,7 @@ describe('integrated documentation', () => {
       '/dokumentation/oauth',
       '/dokumentation/rollen',
       '/dokumentation/verwaltung',
+      '/dokumentation/administration',
       '/dokumentation/faq'
     ])
     expect(findDocumentationPage('karte')?.title).toBe('Karte bedienen')
@@ -84,9 +85,11 @@ describe('integrated documentation', () => {
   it('marks protected content with reusable role badges', () => {
     expect(findDocumentationPage('verwaltung')?.audience).toBe('verwaltung')
     expect(findDocumentationPage('benutzerkonto')?.audience).toBe('login')
+    expect(findDocumentationPage('administration')?.audience).toBe('superuser')
     const badge = appFile('components/docs/DocsRoleBadge.vue')
     expect(badge).toContain("verwaltung: 'Nur VERWALTUNG'")
     expect(badge).toContain("login: 'Anmeldung erforderlich'")
+    expect(badge).toContain("superuser: 'Nur SUPERUSER'")
     expect(appFile('components/docs/DocsCallout.vue')).toContain('important: ShieldAlert')
   })
 

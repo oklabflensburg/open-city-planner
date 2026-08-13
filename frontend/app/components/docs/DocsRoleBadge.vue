@@ -10,13 +10,15 @@ const props = defineProps<{ audience: DocumentationAudience }>()
 const label = computed(() => ({
   public: 'Öffentlich',
   login: 'Anmeldung erforderlich',
-  verwaltung: 'Nur VERWALTUNG'
+  verwaltung: 'Nur VERWALTUNG',
+  superuser: 'Nur SUPERUSER'
 })[props.audience])
 
 const audienceTones = {
   public: 'success',
   login: 'info',
-  verwaltung: 'warning'
+  verwaltung: 'warning',
+  superuser: 'danger'
 } as const
 const tone = computed(() => audienceTones[props.audience])
 </script>
