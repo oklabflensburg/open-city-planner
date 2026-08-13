@@ -82,9 +82,11 @@ const props = withDefaults(defineProps<{
   initialSnap?: SheetSnap
   closeOnOverlay?: boolean
   closeLabel?: string
+  contentKey?: string
 }>(), {
   initialSnap: 'medium',
-  closeOnOverlay: true
+  closeOnOverlay: true,
+  contentKey: 'default'
 })
 
 const emit = defineEmits<{
@@ -100,7 +102,8 @@ const snap = ref<SheetSnap>(props.initialSnap)
 const panelHeight = ref(0)
 const dragging = ref(false)
 let returnFocusTo: HTMLElement | null = null
-let storedScrollTop = 0
+const storedScrollPositions = new Map<string, number>()
+let renderedContentKey = props.contentKey
 let dragPointerId: number | null = null
 let dragStartY = 0
 let dragStartHeight = 0
@@ -131,12 +134,20 @@ watch(() => props.open, async (open) => {
     window.addEventListener('orientationchange', handleOrientationChange)
     window.visualViewport?.addEventListener('resize', handleViewportChange)
     await nextTick()
-    if (scroller.value) scroller.value.scrollTop = storedScrollTop
+    if (scroller.value) scroller.value.scrollTop = storedScrollPositions.get(props.contentKey) || 0
     panel.value?.focus()
   } else {
     cleanupOpenState()
   }
 }, { immediate: true })
+
+watch(() => props.contentKey, async (contentKey) => {
+  if (!props.open || contentKey === renderedContentKey) return
+  if (scroller.value) storedScrollPositions.set(renderedContentKey, scroller.value.scrollTop)
+  renderedContentKey = contentKey
+  await nextTick()
+  if (scroller.value) scroller.value.scrollTop = storedScrollPositions.get(contentKey) || 0
+})
 
 onBeforeUnmount(cleanupOpenState)
 
@@ -263,7 +274,7 @@ function resetDrag() {
 }
 
 function rememberScrollPosition() {
-  storedScrollTop = scroller.value?.scrollTop || 0
+  storedScrollPositions.set(props.contentKey, scroller.value?.scrollTop || 0)
 }
 
 function handleViewportChange() {

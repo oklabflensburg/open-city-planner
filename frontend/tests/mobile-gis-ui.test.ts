@@ -18,12 +18,13 @@ describe('mobile GIS interface', () => {
     const shell = appFile('components/layout/AppShell.vue')
     const map = appFile('components/map/MapCanvas.vue')
     const sheetUses = shell.match(/<AppBottomSheet/g) || []
-    expect(sheetUses).toHaveLength(2)
+    expect(sheetUses).toHaveLength(1)
     expect(shell).toContain('aria-label="Filter öffnen"')
     expect(shell).toContain('aria-label="Analyse öffnen"')
-    expect(shell).toContain('title="Filter & Ansichten"')
-    expect(shell).toContain('title="Kennzahlen & Analyse"')
-    expect(shell.match(/initial-snap="medium"/g)).toHaveLength(2)
+    expect(shell).toContain(':title="activePanelTitle"')
+    expect(shell).toContain("mapStore.activeMobilePanel === 'filter'")
+    expect(shell).toContain("mapStore.activeMobilePanel === 'analytics'")
+    expect(shell.match(/initial-snap="medium"/g)).toHaveLength(1)
     expect(shell).toContain('label="Ausgewählte Fläche"')
     expect(shell).toContain('filterStore.reset')
     expect(map).toContain('mapStore.polygonPreviewOpen = true')
@@ -71,6 +72,8 @@ describe('mobile GIS interface', () => {
     expect(sheet).toContain('isInteractiveTarget')
     expect(sheet).toContain('@touchmove="continueContentTouch"')
     expect(sheet).toContain('event.preventDefault()')
+    expect(sheet).toContain('storedScrollPositions')
+    expect(sheet).toContain('props.contentKey')
   })
 
   it('uses identical safe-area, animation and reduced-motion handling', () => {

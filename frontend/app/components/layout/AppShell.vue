@@ -45,29 +45,21 @@
     </div>
 
     <AppBottomSheet
-      :open="mapStore.activeMobilePanel === 'filter'"
-      title="Filter & Ansichten"
-      close-label="Filter schließen"
+      :open="mapStore.activeMobilePanel !== null"
+      :title="activePanelTitle"
+      :close-label="activePanelCloseLabel"
+      :content-key="mapStore.activeMobilePanel || 'closed'"
       initial-snap="medium"
-      @update:open="handleSheetOpen('filter', $event)"
+      @update:open="handleSheetOpen"
     >
-      <LeftSidebar />
-      <template #footer>
-        <div class="grid grid-cols-2 gap-2">
+      <template v-if="mapStore.activeMobilePanel === 'filter'">
+        <LeftSidebar />
+        <div class="mt-3 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <button class="min-h-11 rounded-xl border border-slate-300 px-3 text-sm font-bold text-[#154d73] hover:bg-slate-50" type="button" @click="filterStore.reset">Zurücksetzen</button>
           <button class="min-h-11 rounded-xl bg-[#154d73] px-3 text-sm font-bold text-white hover:bg-[#0f3f61]" type="button" @click="closeMobilePanel">Fertig</button>
         </div>
       </template>
-    </AppBottomSheet>
-
-    <AppBottomSheet
-      :open="mapStore.activeMobilePanel === 'analytics'"
-      title="Kennzahlen & Analyse"
-      close-label="Analyse schließen"
-      initial-snap="medium"
-      @update:open="handleSheetOpen('analytics', $event)"
-    >
-      <RightSidebar />
+      <RightSidebar v-else-if="mapStore.activeMobilePanel === 'analytics'" />
     </AppBottomSheet>
 
     <Drawer :open="mapStore.polygonPreviewOpen" side="bottom" label="Ausgewählte Fläche" @close="closePreview">
@@ -83,7 +75,6 @@
 
 <script setup lang="ts">
 import { BarChart3, ListFilter, Plus } from 'lucide-vue-next'
-import type { MobilePanel } from '~/stores/map'
 
 const mapStore = useMapStore()
 const filterStore = useFilterStore()
@@ -94,6 +85,8 @@ const activeFilterCount = computed(() => (
   + (filterStore.selectedFloor !== 'EG' ? 1 : 0)
   + (filterStore.allCategoriesActive ? 0 : 1)
 ))
+const activePanelTitle = computed(() => mapStore.activeMobilePanel === 'filter' ? 'Filter & Ansichten' : 'Kennzahlen & Analyse')
+const activePanelCloseLabel = computed(() => mapStore.activeMobilePanel === 'filter' ? 'Filter schließen' : 'Analyse schließen')
 
 let analyticsTimer: ReturnType<typeof setTimeout> | undefined
 let desktopQuery: MediaQueryList | undefined
@@ -146,9 +139,8 @@ function openAnalysis() {
   mapStore.openMobilePanel('analytics')
 }
 
-function handleSheetOpen(panel: Exclude<MobilePanel, null>, open: boolean) {
-  if (open) mapStore.openMobilePanel(panel)
-  else if (mapStore.activeMobilePanel === panel) closeMobilePanel()
+function handleSheetOpen(open: boolean) {
+  if (!open) closeMobilePanel()
 }
 
 function closeMobilePanel() {
