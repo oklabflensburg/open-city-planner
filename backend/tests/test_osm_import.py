@@ -46,6 +46,9 @@ def disable_nominatim_enrichment(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.services.osm_import.refresh_polygon_area_assignments", AsyncMock(return_value=0)
     )
+    monkeypatch.setattr(
+        "app.services.osm_import.bump_cache_versions", AsyncMock(return_value=None)
+    )
 
 
 def source(*, dimension: int, tags: dict[str, str], geometry: dict[str, object] | None = None):

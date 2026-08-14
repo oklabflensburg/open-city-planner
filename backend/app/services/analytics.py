@@ -4,6 +4,9 @@ from collections.abc import Sequence
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache.keys import build_cache_key
+from app.cache.service import cache_service
+from app.core.config import get_settings
 from app.models.analysis_area import AnalysisArea, PolygonAnalysisArea
 from app.models.user_polygon import UserPolygon
 from app.schemas.analytics import (
@@ -15,6 +18,7 @@ from app.schemas.analytics import (
     MarketBenchmarkResult,
     PrimeRentData,
 )
+from app.services.cache_versions import cache_version
 from app.services.city_metrics import get_public_city_metrics
 
 # A shop is currently a public polygon assigned to one of the maintained retail/service
@@ -77,7 +81,7 @@ async def _counts(
     return [IndustryCount(category=category, count=int(count)) for category, count in rows]
 
 
-async def analytics_overview(
+async def _analytics_overview_uncached(
     session: AsyncSession,
     *,
     categories: Sequence[str] = (),
@@ -120,6 +124,49 @@ async def analytics_overview(
     )
 
 
+async def analytics_overview(
+    session: AsyncSession,
+    *,
+    categories: Sequence[str] = (),
+    floors: Sequence[str] = (),
+    area_sizes: Sequence[str] = (),
+    occupancy_statuses: Sequence[str] = (),
+    business_structures: Sequence[str] = (),
+    area_id: uuid.UUID | None = None,
+) -> AnalyticsOverview:
+    params = {
+        "area_id": area_id,
+        "categories": categories,
+        "floors": floors,
+        "area_sizes": area_sizes,
+        "occupancy_statuses": occupancy_statuses,
+        "business_structures": business_structures,
+        "scope": "public",
+    }
+    version = await cache_version(session, "analytics")
+    key = build_cache_key("analytics:overview", params, version=version)
+
+    async def valid_compute() -> dict:
+        result = await _analytics_overview_uncached(
+            session,
+            categories=categories,
+            floors=floors,
+            area_sizes=area_sizes,
+            occupancy_statuses=occupancy_statuses,
+            business_structures=business_structures,
+            area_id=area_id,
+        )
+        return result.model_dump(mode="json")
+
+    data, _status = await cache_service.get_or_compute(
+        key,
+        ttl=get_settings().analytics_cache_ttl,
+        resource="analytics-overview",
+        compute=valid_compute,
+    )
+    return AnalyticsOverview.model_validate(data)
+
+
 async def _benchmark_metrics(
     session: AsyncSession, filters: Sequence[object]
 ) -> BenchmarkMetrics:
@@ -157,7 +204,7 @@ async def _benchmark_metrics(
     )
 
 
-async def market_benchmarks(
+async def _market_benchmarks_uncached(
     session: AsyncSession,
     *,
     categories: Sequence[str] = (),
@@ -188,3 +235,46 @@ async def market_benchmarks(
             MarketBenchmark(key="city", label="Gesamtstadt", metrics=city),
         ],
     )
+
+
+async def market_benchmarks(
+    session: AsyncSession,
+    *,
+    categories: Sequence[str] = (),
+    floors: Sequence[str] = (),
+    area_sizes: Sequence[str] = (),
+    occupancy_statuses: Sequence[str] = (),
+    business_structures: Sequence[str] = (),
+    area_id: uuid.UUID | None = None,
+) -> MarketBenchmarkResult:
+    params = {
+        "area_id": area_id,
+        "categories": categories,
+        "floors": floors,
+        "area_sizes": area_sizes,
+        "occupancy_statuses": occupancy_statuses,
+        "business_structures": business_structures,
+        "scope": "public",
+    }
+    version = await cache_version(session, "analytics")
+    key = build_cache_key("analytics:benchmarks", params, version=version)
+
+    async def compute() -> dict:
+        result = await _market_benchmarks_uncached(
+            session,
+            categories=categories,
+            floors=floors,
+            area_sizes=area_sizes,
+            occupancy_statuses=occupancy_statuses,
+            business_structures=business_structures,
+            area_id=area_id,
+        )
+        return result.model_dump(mode="json")
+
+    data, _status = await cache_service.get_or_compute(
+        key,
+        ttl=get_settings().analytics_cache_ttl,
+        resource="analytics-benchmarks",
+        compute=compute,
+    )
+    return MarketBenchmarkResult.model_validate(data)

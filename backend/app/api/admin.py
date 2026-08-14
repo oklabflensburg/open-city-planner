@@ -8,6 +8,7 @@ from app.auth.dependencies import (
     require_csrf_superuser,
     require_superuser,
 )
+from app.cache.service import cache_service
 from app.models.user import User
 from app.schemas.admin import (
     AdminRoleRead,
@@ -24,8 +25,38 @@ from app.services.admin_users import (
     serialize_admin_user,
     set_user_active,
 )
+from app.services.cache_versions import bump_cache_versions
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+CACHE_NAMESPACES = {"osm", "analytics", "analysis-areas", "polygons"}
+
+
+@router.get("/cache/stats")
+async def get_cache_stats(
+    response: Response,
+    _actor: Annotated[User, Depends(require_superuser)],
+) -> dict:
+    private_no_store(response)
+    return await cache_service.stats()
+
+
+@router.post("/cache/invalidate")
+async def invalidate_cache(
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_csrf_superuser)],
+    namespaces: str = Query(default="analytics,analysis-areas,polygons"),
+) -> dict:
+    private_no_store(response)
+    selected = tuple(dict.fromkeys(item.strip() for item in namespaces.split(",") if item.strip()))
+    invalid = set(selected) - CACHE_NAMESPACES
+    if invalid:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=422, detail="Invalid cache namespace")
+    await bump_cache_versions(session, selected)
+    await session.commit()
+    return {"invalidated": list(selected)}
 
 
 def private_no_store(response: Response) -> None:

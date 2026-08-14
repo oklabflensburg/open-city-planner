@@ -23,11 +23,13 @@ describe('dynamic OSM viewport layer', () => {
     expect(store).toContain('lastRequestKey')
   })
 
-  it('restores matching cached data into recreated sources before refreshing', () => {
+  it('uses buffered coverage and a bounded local cache before refreshing', () => {
     const map = appFile('components/map/MapCanvas.vue')
     const store = appFile('stores/osmViewport.ts')
-    expect(map).toContain('osmStore.hasCacheFor(viewport, zoom)')
-    expect(map).toContain('updateOsmSources(osmStore.data)')
+    expect(map).toContain('osmStore.covers(viewport, zoom)')
+    expect(map).toContain('expandOsmBounds(viewport)')
+    expect(store).toContain('VIEWPORT_CACHE_SIZE = 4')
+    expect(store).toContain('markRaw(new Map<string, CachedViewport>())')
     expect(store).toContain('dataRequestKey')
     expect(store).toContain("this.lastRequestKey = ''")
     expect(store).toContain('this.loading = false')
@@ -42,12 +44,12 @@ describe('dynamic OSM viewport layer', () => {
     expect(map).toContain("if (!instance.getLayer('osm-polygons-fill'))")
   })
 
-  it('restores the saved map view and resizes before reading bounds', () => {
+  it('restores the saved map view without resizing for each viewport read', () => {
     const map = appFile('components/map/MapCanvas.vue')
     expect(map).toContain('center: mapStore.center')
     expect(map).toContain('zoom: mapStore.zoom')
     expect(map).toContain('bearing: mapStore.bearing')
-    expect(map.indexOf('instance.resize()')).toBeLessThan(map.indexOf('const bounds = instance.getBounds()'))
+    expect(map).not.toContain('instance.resize()')
   })
 
   it('creates layers once and updates long-lived GeoJSON sources with setData', () => {
@@ -67,9 +69,10 @@ describe('dynamic OSM viewport layer', () => {
 
   it('gives Stadtplanner polygons click priority and selects OSM points or polygons', () => {
     const map = appFile('components/map/MapCanvas.vue')
-    expect(map).toContain("layers: ['overview-polygons-fill', 'osm-clusters', 'osm-poi-hitbox', 'osm-polygons-fill']")
+    expect(map).toContain("layers: ['overview-polygons-fill', 'osm-clusters', 'osm-polygons-fill']")
     expect(map.indexOf("feature.layer.id === 'overview-polygons-fill'")).toBeLessThan(map.indexOf("feature.layer.id === 'osm-clusters'"))
     expect(map).toContain('mapSelection.selectOsm(feature)')
+    expect(map).toContain("{ layers: ['osm-poi-circle'] }")
   })
 
   it('loads normalized details only after feature selection', () => {

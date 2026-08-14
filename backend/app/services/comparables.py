@@ -1,7 +1,11 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache.keys import build_cache_key
+from app.cache.service import cache_service
+from app.core.config import get_settings
 from app.schemas.analytics import ComparablePolygon, ComparableResult
+from app.services.cache_versions import cache_version
 
 COMPARABLES_SQL = text("""
 WITH target AS (
@@ -28,7 +32,7 @@ LIMIT :limit
 """)
 
 
-async def comparable_polygons(
+async def _comparable_polygons_uncached(
     session: AsyncSession, *, slug: str, limit: int = 5, max_distance_m: int = 2000
 ) -> ComparableResult | None:
     exists = await session.scalar(text("SELECT EXISTS(SELECT 1 FROM user_polygons WHERE slug = :slug)"), {"slug": slug})
@@ -45,3 +49,28 @@ async def comparable_polygons(
             ) for row in rows
         ],
     )
+
+
+async def comparable_polygons(
+    session: AsyncSession, *, slug: str, limit: int = 5, max_distance_m: int = 2000
+) -> ComparableResult | None:
+    version = await cache_version(session, "polygons")
+    key = build_cache_key(
+        "polygons:comparables",
+        {"slug": slug, "limit": limit, "max_distance_m": max_distance_m, "scope": "public"},
+        version=version,
+    )
+
+    async def compute() -> dict | None:
+        result = await _comparable_polygons_uncached(
+            session, slug=slug, limit=limit, max_distance_m=max_distance_m
+        )
+        return result.model_dump(mode="json") if result else None
+
+    data, _status = await cache_service.get_or_compute(
+        key,
+        ttl=get_settings().comparable_cache_ttl,
+        resource="polygon-comparables",
+        compute=compute,
+    )
+    return ComparableResult.model_validate(data) if data else None

@@ -1,7 +1,11 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache.keys import build_cache_key
+from app.cache.service import cache_service
+from app.core.config import get_settings
 from app.schemas.analytics import LocationAnalysis, NearestPoi, PoiCount
+from app.services.cache_versions import cache_version
 from app.services.poi_categories import POI_CATEGORY_LABELS, POI_CATEGORY_SQL
 
 _BASE_CTE = f"""
@@ -30,7 +34,7 @@ ORDER BY distance_m ASC LIMIT 1
 """)
 
 
-async def polygon_location_analysis(
+async def _polygon_location_analysis_uncached(
     session: AsyncSession, *, slug: str, radius_m: int
 ) -> LocationAnalysis | None:
     exists = await session.scalar(text("SELECT EXISTS(SELECT 1 FROM user_polygons WHERE slug = :slug)"), {"slug": slug})
@@ -58,3 +62,29 @@ async def polygon_location_analysis(
         nearest_public_transport=nearest,
         reference_date=max(reference_dates) if reference_dates else None,
     )
+
+
+async def polygon_location_analysis(
+    session: AsyncSession, *, slug: str, radius_m: int
+) -> LocationAnalysis | None:
+    polygon_version = await cache_version(session, "polygons")
+    osm_version = await cache_version(session, "osm")
+    key = build_cache_key(
+        "polygons:location",
+        {"slug": slug, "radius_m": radius_m, "scope": "public"},
+        version=f"{polygon_version}-{osm_version}",
+    )
+
+    async def compute() -> dict | None:
+        result = await _polygon_location_analysis_uncached(
+            session, slug=slug, radius_m=radius_m
+        )
+        return result.model_dump(mode="json") if result else None
+
+    data, _status = await cache_service.get_or_compute(
+        key,
+        ttl=get_settings().comparable_cache_ttl,
+        resource="polygon-location",
+        compute=compute,
+    )
+    return LocationAnalysis.model_validate(data) if data else None

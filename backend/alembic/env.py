@@ -11,6 +11,7 @@ from app.models import (  # noqa: F401
     AdminAuditLog,
     AnalysisArea,
     CityMetrics,
+    CacheVersion,
     EmailVerificationToken,
     OsmFeature,
     PasswordResetToken,

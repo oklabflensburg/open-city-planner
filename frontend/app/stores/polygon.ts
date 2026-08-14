@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { markRaw } from 'vue'
 import type { PolygonMetrics, PolygonOverview } from '~/types/geo'
 
 export const usePolygonStore = defineStore('polygon', {
@@ -38,7 +39,7 @@ export const usePolygonStore = defineStore('polygon', {
       this.loading = true
       this.error = null
       try {
-        this.polygons = await usePolygonApi().overview()
+        this.polygons = markRaw(await usePolygonApi().overview())
       } catch (error) {
         this.error = error instanceof Error ? error.message : 'Polygone konnten nicht geladen werden.'
       } finally {

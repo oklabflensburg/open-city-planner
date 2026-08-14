@@ -32,6 +32,44 @@ uvicorn app.main:app --reload
 
 Die API läuft auf `http://localhost:8000`, OpenAPI auf `/docs` und ReDoc auf `/redoc`.
 
+## Redis-Cache
+
+Redis ist ein optionaler, gemeinsam genutzter Read-Cache für öffentliche GIS-, OSM- und Analytics-Antworten. PostgreSQL/PostGIS bleibt immer die fachliche Hauptdatenbank. Ein leerer oder nicht erreichbarer Redis-Server verursacht deshalb keinen Datenverlust und bei `REDIS_REQUIRED=false` auch keinen Anwendungsfehler.
+
+Klassische Installation unter Debian/Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install redis-server
+sudo systemctl enable --now redis-server
+redis-cli ping
+```
+
+Die erwartete Antwort ist `PONG`. Anschließend in `backend/.env` mindestens konfigurieren:
+
+```env
+REDIS_ENABLED=true
+REDIS_REQUIRED=false
+REDIS_URL=redis://127.0.0.1:6379/0
+CACHE_PREFIX=stadtplanner:dev
+```
+
+Für Produktion muss Redis an localhost oder ein privates Netz gebunden bleiben. Empfohlen sind `protected-mode yes`, Firewall beziehungsweise ACL/Auth sowie ein an den verfügbaren RAM angepasstes `maxmemory` mit `maxmemory-policy allkeys-lru`. Redis wird nicht über Nginx exponiert. Da ausschließlich wiederberechenbare Cachewerte gespeichert werden, sind AOF/RDB nicht erforderlich.
+
+Betrieb und Diagnose:
+
+```bash
+redis-cli INFO memory
+redis-cli INFO stats
+redis-cli DBSIZE
+cd backend
+.venv/bin/python -m app.cli.cache_status
+.venv/bin/python -m app.cli.cache_bump osm
+.venv/bin/python -m app.cli.cache_clear --resource analytics:overview
+```
+
+Nach einem externen OSM-Import muss `cache_bump osm` ausgeführt werden. Der Boundary-Sync und Änderungen an Polygonen oder Kennzahlen erhöhen ihre persistenten Versionen automatisch. Details, Messwerte und Cache-Key-Schemata stehen in [docs/redis-cache.md](docs/redis-cache.md).
+
 ## Datenbank
 
 Benötigt wird PostgreSQL mit PostGIS. Beispiel:
@@ -75,9 +113,9 @@ Das öffentliche Kontaktformular sendet ausschließlich an das FastAPI-Backend. 
 
 Der Anwendungscode vertraut `X-Forwarded-For` nicht direkt, sondern verwendet die von ASGI bereitgestellte Client-Adresse. Hinter Nginx dürfen Forwarded Headers deshalb nur für den bekannten Proxy aktiviert werden, beispielsweise mit Uvicorn `--proxy-headers --forwarded-allow-ips=127.0.0.1`. Der vorhandene Rate-Limiter arbeitet pro Backend-Prozess; bei mehreren Workern oder Instanzen sollte er später durch einen gemeinsamen Redis-/Proxy-basierten Limiter ersetzt werden.
 
-## VersaTiles
+## Stadtplanner-Kartenstil und VersaTiles
 
-`frontend/.env` konfiguriert Kartenquelle und Startposition:
+`frontend/.env` konfiguriert Kartenstil und Startposition. Ohne Style-Variable lädt die Anwendung den lokalen Stil `/map-styles/stadtplanner-light.json`. Eine externe URL kann mit `NUXT_PUBLIC_MAP_STYLE_URL` überschrieben werden; `NUXT_PUBLIC_VERSATILES_STYLE_URL` bleibt als veralteter Kompatibilitätsname erhalten. Schlägt der konfigurierte beziehungsweise lokale Stil fehl, wird technisch auf VersaTiles `neutrino` zurückgefallen.
 
 ```env
 NUXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
@@ -85,7 +123,8 @@ NUXT_PUBLIC_SITE_URL=http://localhost:3000
 NUXT_PUBLIC_DEFAULT_OG_IMAGE=
 NUXT_PUBLIC_MEDIA_BASE_URL=
 NUXT_PUBLIC_AVATAR_MAX_UPLOAD_BYTES=5242880
-NUXT_PUBLIC_VERSATILES_STYLE_URL=https://tiles.versatiles.org/assets/styles/colorful/style.json
+NUXT_PUBLIC_MAP_STYLE_URL=
+NUXT_PUBLIC_MAP_PERFORMANCE_DEBUG=false
 NUXT_PUBLIC_MAP_CENTER_LNG=9.435
 NUXT_PUBLIC_MAP_CENTER_LAT=54.783
 NUXT_PUBLIC_MAP_ZOOM=16.4
@@ -254,11 +293,14 @@ Vor einem öffentlichen Produktivbetrieb müssen mindestens geprüft und ergänz
 Aktuell erkannte technische Datenflüsse:
 
 - MapLibre GL rendert die Karte im Browser.
-- Die Standard-Kartenquelle ist per `NUXT_PUBLIC_VERSATILES_STYLE_URL` konfiguriert und zeigt auf VersaTiles.
+- Standard ist der lokal ausgelieferte MapLibre-Stil `stadtplanner-light`; `NUXT_PUBLIC_MAP_STYLE_URL` kann ihn installationsabhängig überschreiben.
+- Der eigene Stil verwendet 24 Basemap-Layer und zeichnet keine Handels- oder Gastro-POIs zusätzlich zu den interaktiven Stadtplanner-Layern. VersaTiles `neutrino` dient nur als technischer Fallback.
+- `NUXT_PUBLIC_MAP_PERFORMANCE_DEBUG=true` aktiviert im Production-Build den lokalen Diagnose-Hook `window.__stadtplannerMapPerformance`. Im Development-Modus ist er automatisch verfügbar; er sendet keine Messdaten und schreibt nicht in die Konsole.
+- Der reproduzierbare Chromium-Lauf ist unter `frontend/scripts/profile-map.mjs` dokumentiert. Details und Messwerte stehen in `docs/map-performance.md`.
 - Polygon-, Analyse- und Auth-Funktionen kommunizieren mit dem FastAPI-Backend unter `NUXT_PUBLIC_API_BASE_URL`.
 - Benutzerkonten, gehashte Passwörter, gehashte Auth-/Verifikations-/Reset-Tokens, Sitzungen sowie Geometrien und Polygon-Eigenschaften werden in PostgreSQL/PostGIS gespeichert.
 - Optionale Profilbilder werden als normalisierte WebP-Dateien im lokalen Upload-Verzeichnis gespeichert; in der Datenbank liegt nur die Avatar-URL.
-- Die Standard-Style-Datei von VersaTiles lädt Vector Tiles, Glyphs und Sprites von `tiles.versatiles.org`.
+- Der lokale Standardstil lädt Vector Tiles und Glyphs von `tiles.versatiles.org`; Sprites werden nicht benötigt.
 - Das Frontend speichert keine JWTs in `localStorage` oder `sessionStorage`; Auth läuft über Cookies.
 - Im Frontend-Code wurden keine externen Webfonts, keine Nutzungsanalyse-Integration und keine externen Video-Einbettungen gefunden.
 

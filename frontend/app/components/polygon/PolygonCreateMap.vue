@@ -21,6 +21,7 @@
 import type { Map } from 'maplibre-gl'
 import type { TerraDraw } from 'terra-draw'
 import type { PolygonGeometry } from '~/types/geo'
+import { loadMapStyle } from '~/config/mapStyles'
 
 const props = defineProps<{ color: string, center?: [number, number] }>()
 const emit = defineEmits<{ 'update:geometry': [geometry: PolygonGeometry | null] }>()
@@ -38,15 +39,16 @@ onMounted(async () => {
   const container = mapElement.value
   if (!container) return
   try {
-    const [{ default: maplibregl }, terraDraw, adapter] = await Promise.all([
+    const [{ default: maplibregl }, terraDraw, adapter, mapStyle] = await Promise.all([
       import('maplibre-gl'),
       import('terra-draw'),
-      import('terra-draw-maplibre-gl-adapter')
+      import('terra-draw-maplibre-gl-adapter'),
+      loadMapStyle(String(config.public.mapStyleUrl || ''))
     ])
     if (disposed || !container.isConnected) return
     const instance = new maplibregl.Map({
       container,
-      style: String(config.public.versatilesStyleUrl),
+      style: mapStyle,
       center: props.center || [Number(config.public.mapCenterLng), Number(config.public.mapCenterLat)],
       zoom: props.center ? 19 : Number(config.public.mapZoom),
       attributionControl: { compact: true },

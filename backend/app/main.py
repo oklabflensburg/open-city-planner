@@ -1,12 +1,16 @@
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
+from app.cache.redis import close_redis, initialize_redis, redis_health
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -18,7 +22,19 @@ if settings.configured_oauth_providers:
 else:
     logger.info("No OAuth providers enabled; OAuth buttons will remain hidden")
 
-app = FastAPI(title="Open City Map API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    await initialize_redis()
+    try:
+        yield
+    finally:
+        await close_redis()
+
+
+app = FastAPI(title="Open City Map API", version="0.1.0", lifespan=lifespan)
+
+app.add_middleware(GZipMiddleware, minimum_size=1_000, compresslevel=5)
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,4 +79,4 @@ async def security_headers(request: Request, call_next) -> Response:
 
 @app.get("/health", tags=["health"])
 async def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "database": "ok", "redis": await redis_health()}

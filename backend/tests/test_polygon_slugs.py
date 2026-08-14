@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock
+
 import pytest
 
 import app.services.polygons as polygon_service
@@ -50,6 +52,7 @@ async def test_polygon_slug_stays_stable_when_name_changes(
     polygon = UserPolygon(name="Alter Name", slug="stabile-url", category="custom")
     session = FakeUpdateSession()
     monkeypatch.setattr(polygon_service, "serialize_polygon", lambda item: item.slug)
+    monkeypatch.setattr(polygon_service, "bump_cache_versions", AsyncMock(return_value=None))
 
     result = await update_polygon(
         session,  # type: ignore[arg-type]

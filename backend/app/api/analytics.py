@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_verwaltung_user
+from app.cache.service import last_cache_status
+from app.core.config import get_settings
 from app.db.session import get_session
 from app.models.user import User
 from app.schemas.analytics import (
@@ -78,6 +80,7 @@ async def patch_fast_facts(
 @router.get("/overview", response_model=AnalyticsOverview)
 async def get_analytics_overview(
     session: SessionDep,
+    response: Response,
     categories: Annotated[str | None, Query()] = None,
     floors: Annotated[str | None, Query()] = None,
     area_sizes: Annotated[str | None, Query()] = None,
@@ -85,7 +88,7 @@ async def get_analytics_overview(
     business_structures: Annotated[str | None, Query()] = None,
     area_id: uuid.UUID | None = None,
 ) -> AnalyticsOverview:
-    return await analytics_overview(
+    result = await analytics_overview(
         session,
         categories=_checked(categories, CATEGORIES, "categories"),
         floors=_checked(floors, FLOORS, "floors"),
@@ -94,11 +97,15 @@ async def get_analytics_overview(
         business_structures=_checked(business_structures, BUSINESS_STRUCTURES, "business_structures"),
         area_id=area_id,
     )
+    if get_settings().cache_debug_headers and (status := last_cache_status()):
+        response.headers["X-Cache"] = status
+    return result
 
 
 @router.get("/benchmarks", response_model=MarketBenchmarkResult)
 async def get_market_benchmarks(
     session: SessionDep,
+    response: Response,
     categories: Annotated[str | None, Query()] = None,
     floors: Annotated[str | None, Query()] = None,
     area_sizes: Annotated[str | None, Query()] = None,
@@ -106,7 +113,7 @@ async def get_market_benchmarks(
     business_structures: Annotated[str | None, Query()] = None,
     area_id: uuid.UUID | None = None,
 ) -> MarketBenchmarkResult:
-    return await market_benchmarks(
+    result = await market_benchmarks(
         session,
         categories=_checked(categories, CATEGORIES, "categories"),
         floors=_checked(floors, FLOORS, "floors"),
@@ -115,3 +122,6 @@ async def get_market_benchmarks(
         business_structures=_checked(business_structures, BUSINESS_STRUCTURES, "business_structures"),
         area_id=area_id,
     )
+    if get_settings().cache_debug_headers and (status := last_cache_status()):
+        response.headers["X-Cache"] = status
+    return result

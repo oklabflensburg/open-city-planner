@@ -12,6 +12,8 @@ from app.api.analytics import (
     OCCUPANCY_STATUSES,
     _checked,
 )
+from app.cache.service import last_cache_status
+from app.core.config import get_settings
 from app.db.session import get_session
 from app.schemas.analysis_area import (
     AnalysisAreaAnalytics,
@@ -40,7 +42,10 @@ async def get_areas(session: SessionDep, area_type: Annotated[str | None, Query(
 @router.get("/geojson")
 async def get_areas_geojson(session: SessionDep, response: Response) -> dict:
     response.headers["Cache-Control"] = "public, max-age=300"
-    return await areas_geojson(session)
+    result = await areas_geojson(session)
+    if get_settings().cache_debug_headers and (status := last_cache_status()):
+        response.headers["X-Cache"] = status
+    return result
 
 
 @router.get("/{area_id}", response_model=AnalysisAreaRead)

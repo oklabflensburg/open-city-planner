@@ -7,7 +7,8 @@
     "build": "nuxt build",
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "map-style:build": "node scripts/build-map-style.mjs"
   },
   "dependencies": {
     "@pinia/nuxt": "^0.11.2",

@@ -110,7 +110,10 @@ def test_viewport_sql_preserves_spatial_index_and_zoom_policy() -> None:
     assert "ST_SimplifyPreserveTopology" in sql
     assert "category <> 'building'" in sql
     assert ":zoom >= 17 OR category <> 'building'" in sql
-    assert "LIMIT" in sql
+    assert "ROW_NUMBER() OVER" in sql
+    assert "group_rank <= :point_limit" in sql
+    assert "group_rank <= :polygon_limit" in sql
+    assert "group_rank <= :building_limit" in sql
 
 
 def test_public_osm_routes_are_registered_without_auth_dependency() -> None:

@@ -4,12 +4,16 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache.keys import build_cache_key
+from app.cache.service import cache_service
+from app.core.config import get_settings
 from app.models.city_metrics import CityMetrics, utcnow
 from app.schemas.analytics import (
     CityMetricsPublicRead,
     CityMetricsUpdate,
     CityMetricsVerwaltungRead,
 )
+from app.services.cache_versions import bump_cache_versions, cache_version
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +53,19 @@ def verwaltung_city_metrics(record: CityMetrics | None) -> CityMetricsVerwaltung
 
 
 async def get_public_city_metrics(session: AsyncSession) -> CityMetricsPublicRead:
-    return public_city_metrics(await get_city_metrics(session))
+    version = await cache_version(session, "analytics")
+    key = build_cache_key("analytics:fast-facts", {"scope": "public"}, version=version)
+
+    async def compute() -> dict:
+        return public_city_metrics(await get_city_metrics(session)).model_dump(mode="json")
+
+    data, _status = await cache_service.get_or_compute(
+        key,
+        ttl=get_settings().analytics_cache_ttl,
+        resource="analytics-fast-facts",
+        compute=compute,
+    )
+    return CityMetricsPublicRead.model_validate(data)
 
 
 async def get_verwaltung_city_metrics(session: AsyncSession) -> CityMetricsVerwaltungRead:
@@ -71,6 +87,7 @@ async def update_city_metrics(
         setattr(record, field, value)
     record.updated_by_user_id = user_id
     record.updated_at = utcnow()
+    await bump_cache_versions(session, ("analytics",))
     await session.commit()
     await session.refresh(record)
     logger.info(

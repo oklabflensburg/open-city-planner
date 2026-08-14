@@ -8,6 +8,9 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache.keys import build_cache_key
+from app.cache.service import cache_service
+from app.core.config import get_settings
 from app.models.polygon_osm_source import PolygonOsmSource
 from app.models.user_polygon import UserPolygon, utcnow
 from app.schemas.geojson import (
@@ -26,6 +29,7 @@ from app.schemas.geojson import (
     PublicPolygonDetail,
 )
 from app.services.analysis_areas import refresh_polygon_area_assignments
+from app.services.cache_versions import bump_cache_versions, cache_version
 from app.services.geometry import from_wkb_element, to_wkb_element
 from app.services.nominatim import NominatimService
 
@@ -206,6 +210,7 @@ async def create_polygon(session: AsyncSession, payload: PolygonCreate, user_id:
         await session.commit()
         await session.refresh(polygon)
     await refresh_polygon_area_assignments(session, polygon.id)
+    await bump_cache_versions(session, ("polygons", "analytics"))
     await session.commit()
     return serialize_polygon(polygon)
 
@@ -345,7 +350,8 @@ async def update_polygon(session: AsyncSession, polygon: UserPolygon, payload: P
     if geometry_changed:
         await enrich_polygon_address(session, polygon)
         await refresh_polygon_area_assignments(session, polygon.id)
-        await session.commit()
+    await bump_cache_versions(session, ("polygons", "analytics"))
+    await session.commit()
     return serialize_polygon(polygon)
 
 
@@ -367,6 +373,7 @@ async def update_polygon_verwaltung(
         polygon.occupancy_source_updated_at = utcnow()
     polygon.updated_by_user_id = user_id
     polygon.updated_at = utcnow()
+    await bump_cache_versions(session, ("polygons", "analytics"))
     await session.commit()
     await session.refresh(polygon)
     logger.info(
@@ -385,6 +392,7 @@ async def delete_polygon(
 ) -> None:
     polygon_id = polygon.uuid
     await session.delete(polygon)
+    await bump_cache_versions(session, ("polygons", "analytics"))
     await session.commit()
     logger.info(
         "Polygon deleted polygon_id=%s deleted_by_user_id=%s",
@@ -393,7 +401,7 @@ async def delete_polygon(
     )
 
 
-async def polygons_geojson(session: AsyncSession) -> FeatureCollection:
+async def _polygons_geojson_uncached(session: AsyncSession) -> FeatureCollection:
     polygons = await list_polygons(session)
     return FeatureCollection(
         type="FeatureCollection",
@@ -414,6 +422,23 @@ async def polygons_geojson(session: AsyncSession) -> FeatureCollection:
             for polygon in polygons
         ],
     )
+
+
+async def polygons_geojson(session: AsyncSession) -> FeatureCollection:
+    version = await cache_version(session, "polygons")
+    key = build_cache_key("polygons:geojson", {"scope": "public"}, version=version)
+
+    async def compute() -> dict:
+        result = await _polygons_geojson_uncached(session)
+        return result.model_dump(mode="json")
+
+    data, _status = await cache_service.get_or_compute(
+        key,
+        ttl=get_settings().polygon_cache_ttl,
+        resource="polygons-geojson",
+        compute=compute,
+    )
+    return FeatureCollection.model_validate(data)
 
 
 async def polygon_metrics(session: AsyncSession, polygon_id: uuid.UUID) -> PolygonMetrics | None:

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { markRaw } from 'vue'
 import type { AnalysisArea, AnalysisAreaAnalytics, AnalysisAreaComparison, AnalysisAreaFeatureCollection, AnalysisAreaType } from '~/types/analysisArea'
 
 const emptyCollection: AnalysisAreaFeatureCollection = { type: 'FeatureCollection', features: [] }
@@ -30,8 +31,8 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
           api.request<AnalysisArea[]>('/analysis-areas'),
           api.request<AnalysisAreaFeatureCollection>('/analysis-areas/geojson')
         ])
-        this.areas = areas
-        this.featureCollection = featureCollection
+        this.areas = markRaw(areas)
+        this.featureCollection = markRaw(featureCollection)
       } catch (error) {
         this.error = error instanceof Error ? error.message : 'Gebietsgrenzen konnten nicht geladen werden.'
       } finally {

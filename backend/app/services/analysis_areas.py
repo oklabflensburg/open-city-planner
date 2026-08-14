@@ -6,6 +6,8 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.cache_versions import bump_cache_versions
+
 
 @dataclass
 class AnalysisAreaImportReport:
@@ -212,5 +214,6 @@ async def sync_osm_analysis_areas(session: AsyncSession, municipality_name: str 
         for first, second, overlap_m2 in sibling_overlaps
     )
     await refresh_polygon_area_assignments(session)
+    await bump_cache_versions(session, ("analysis-areas", "analytics"))
     await session.commit()
     return report

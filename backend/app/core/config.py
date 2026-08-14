@@ -73,10 +73,32 @@ class Settings(BaseSettings):
     osm_lookup_cache_ttl_seconds: int = 3_600
     osm_external_min_interval_seconds: float = 1.0
     osm_lookup_max_matches: int = 25
-    osm_viewport_feature_limit: int = 2_500
-    osm_viewport_cache_ttl_seconds: int = 20
+    osm_viewport_feature_limit: int = 2_000
+    osm_viewport_low_zoom_feature_limit: int = 800
+    osm_viewport_mid_zoom_feature_limit: int = 1_200
+    osm_viewport_point_feature_limit: int = 1_500
+    osm_viewport_polygon_feature_limit: int = 350
+    osm_viewport_building_feature_limit: int = 150
     osm_viewport_rate_limit_attempts: int = 180
     osm_viewport_rate_limit_window_seconds: int = 60
+    redis_enabled: bool = False
+    redis_required: bool = False
+    redis_url: str = "redis://127.0.0.1:6379/0"
+    redis_connect_timeout: float = 2.0
+    redis_socket_timeout: float = 2.0
+    redis_max_connections: int = 40
+    cache_prefix: str = "stadtplanner:dev"
+    cache_debug_headers: bool = False
+    cache_lock_ttl_seconds: int = 15
+    osm_viewport_cache_ttl: int = 1_800
+    analytics_cache_ttl: int = 600
+    analysis_area_cache_ttl: int = 3_600
+    polygon_cache_ttl: int = 60
+    comparable_cache_ttl: int = 600
+    cache_payload_warning_bytes: int = 2_000_000
+    database_pool_size: int = 10
+    database_max_overflow: int = 20
+    database_pool_timeout_seconds: float = 15.0
 
     # Resolve the backend environment independently of the process working directory.
     model_config = SettingsConfigDict(env_file=BACKEND_ENV_FILE, env_file_encoding="utf-8")

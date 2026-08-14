@@ -14,6 +14,7 @@ from app.models.user_polygon import UserPolygon
 from app.schemas.geojson import AreaGeometry
 from app.schemas.osm import OsmPolygonImportRead, OsmPolygonImportRequest
 from app.services.analysis_areas import refresh_polygon_area_assignments
+from app.services.cache_versions import bump_cache_versions
 from app.services.geometry import to_wkb_element
 from app.services.osm_features import clear_viewport_cache
 from app.services.osm_occupancy import detect_osm_occupancy_status
@@ -246,6 +247,7 @@ async def create_polygon_from_osm(
         await session.commit()
         await session.refresh(polygon)
     await refresh_polygon_area_assignments(session, polygon.id)
+    await bump_cache_versions(session, ("polygons", "analytics"))
     await session.commit()
     clear_viewport_cache()
     logger.info(

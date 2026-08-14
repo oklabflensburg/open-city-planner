@@ -1,6 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useOsmViewportStore } from '~/stores/osmViewport'
+import { expandOsmBounds, useOsmViewportStore } from '~/stores/osmViewport'
 import type { OsmViewportResult } from '~/types/osm'
 
 const bounds = { west: 9.43, south: 54.78, east: 9.44, north: 54.79 }
@@ -68,5 +68,19 @@ describe('OSM viewport store lifecycle', () => {
     expect(store.data).toEqual(response)
     expect(store.hasCacheFor(bounds, 16)).toBe(true)
     expect(store.error).toBe('offline')
+  })
+
+  it('skips network work while a moved viewport remains inside the buffered bounds', async () => {
+    const request = vi.fn().mockResolvedValue(response)
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useOsmViewportStore()
+    const buffered = expandOsmBounds(bounds)
+
+    await store.load(buffered, 16)
+
+    expect(store.covers(bounds, 16)).toBe(true)
+    expect(store.covers({ ...bounds, east: buffered.east + 0.001 }, 16)).toBe(false)
+    expect(store.covers(bounds, 17)).toBe(false)
+    expect(request).toHaveBeenCalledTimes(1)
   })
 })

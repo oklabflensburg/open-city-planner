@@ -32,6 +32,7 @@
 import type { GeoJSONSource, Map } from 'maplibre-gl'
 import type { TerraDraw } from 'terra-draw'
 import type { AreaGeometry, PolygonGeometry } from '~/types/geo'
+import { loadMapStyle } from '~/config/mapStyles'
 
 const props = defineProps<{
   geometry: AreaGeometry
@@ -56,15 +57,16 @@ onMounted(async () => {
   const container = mapElement.value
   if (!container) return
   try {
-    const [{ default: maplibregl }, terraDraw, adapter] = await Promise.all([
+    const [{ default: maplibregl }, terraDraw, adapter, mapStyle] = await Promise.all([
       import('maplibre-gl'),
       import('terra-draw'),
-      import('terra-draw-maplibre-gl-adapter')
+      import('terra-draw-maplibre-gl-adapter'),
+      loadMapStyle(String(config.public.mapStyleUrl || ''))
     ])
     if (disposed || !container.isConnected) return
     const instance = new maplibregl.Map({
       container,
-      style: String(config.public.versatilesStyleUrl),
+      style: mapStyle,
       bounds: [[props.bbox[0], props.bbox[1]], [props.bbox[2], props.bbox[3]]],
       fitBoundsOptions: { padding: 52, maxZoom: 18 },
       attributionControl: { compact: true },

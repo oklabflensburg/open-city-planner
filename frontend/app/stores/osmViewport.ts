@@ -1,6 +1,39 @@
 import { defineStore } from 'pinia'
+import { markRaw } from 'vue'
 import type { OsmBounds, OsmFeatureCategory, OsmFeatureDetail, OsmViewportFeature, OsmViewportResult } from '~/types/osm'
 import { osmPoiCategories } from '~/utils/osmCategories'
+
+const VIEWPORT_BUFFER_RATIO = 0.2
+const VIEWPORT_CACHE_SIZE = 4
+
+type CachedViewport = {
+  data: OsmViewportResult
+  bounds: OsmBounds
+  zoomBucket: number
+  filterKey: string
+  payloadBytes: number
+}
+
+export function expandOsmBounds(bounds: OsmBounds, ratio = VIEWPORT_BUFFER_RATIO): OsmBounds {
+  const longitudePadding = (bounds.east - bounds.west) * ratio
+  const latitudePadding = (bounds.north - bounds.south) * ratio
+  return {
+    west: Math.max(-180, bounds.west - longitudePadding),
+    south: Math.max(-90, bounds.south - latitudePadding),
+    east: Math.min(180, bounds.east + longitudePadding),
+    north: Math.min(90, bounds.north + latitudePadding)
+  }
+}
+
+function containsBounds(container: OsmBounds | null, viewport: OsmBounds) {
+  return Boolean(container
+    && viewport.west >= container.west && viewport.south >= container.south
+    && viewport.east <= container.east && viewport.north <= container.north)
+}
+
+function zoomBucket(zoom: number) {
+  return Math.floor(zoom)
+}
 
 export const useOsmViewportStore = defineStore('osmViewport', {
   state: () => ({
@@ -19,6 +52,11 @@ export const useOsmViewportStore = defineStore('osmViewport', {
     generation: 0,
     lastRequestKey: '',
     dataRequestKey: '',
+    loadedBounds: null as OsmBounds | null,
+    loadedZoomBucket: -1,
+    loadedFilterKey: '',
+    viewportCache: markRaw(new Map<string, CachedViewport>()),
+    viewportCacheBytes: 0,
     controller: null as AbortController | null
   }),
   getters: {
@@ -38,29 +76,61 @@ export const useOsmViewportStore = defineStore('osmViewport', {
     },
     viewportRequestKey(bounds: OsmBounds, zoom: number) {
       const categories = this.requestedCategories
+      const mobile = import.meta.client && window.matchMedia('(max-width: 767px)').matches
+      const limit = mobile ? 800 : zoom < 15 ? 800 : zoom < 17 ? 1200 : 2000
       const query = new URLSearchParams({
         west: bounds.west.toFixed(6), south: bounds.south.toFixed(6),
         east: bounds.east.toFixed(6), north: bounds.north.toFixed(6), zoom: zoom.toFixed(2),
-        categories: categories.join(','), buildings: String(this.showBuildings), limit: '2500'
+        categories: categories.join(','), buildings: String(this.showBuildings), limit: String(limit)
       })
       return query.toString()
+    },
+    viewportFilterKey() {
+      return `${this.requestedCategories.slice().sort().join(',')}|${this.showBuildings}`
     },
     hasCacheFor(bounds: OsmBounds, zoom: number) {
       return Boolean(this.data && this.dataRequestKey === this.viewportRequestKey(bounds, zoom))
     },
+    covers(bounds: OsmBounds, zoom: number) {
+      return Boolean(this.data
+        && this.loadedZoomBucket === zoomBucket(zoom)
+        && this.loadedFilterKey === this.viewportFilterKey()
+        && containsBounds(this.loadedBounds, bounds))
+    },
     async load(bounds: OsmBounds, zoom: number, options: { force?: boolean } = {}) {
       const categories = this.requestedCategories
       const key = this.viewportRequestKey(bounds, zoom)
+      const filterKey = this.viewportFilterKey()
+      const bucket = zoomBucket(zoom)
       if (!categories.length) {
         this.controller?.abort()
         this.controller = null
         this.loading = false
         this.lastRequestKey = key
         this.dataRequestKey = key
-        this.data = { type: 'FeatureCollection', features: [], meta: { count: 0, truncated: false, zoom, summary: {}, osm_data_updated_at: null } }
+        this.loadedBounds = bounds
+        this.loadedZoomBucket = bucket
+        this.loadedFilterKey = filterKey
+        const empty: OsmViewportResult = {
+          type: 'FeatureCollection', features: [],
+          meta: { count: 0, truncated: false, zoom, summary: {}, osm_data_updated_at: null }
+        }
+        this.data = markRaw(empty)
         return this.data
       }
       if (!options.force && key === this.lastRequestKey && (this.loading || this.dataRequestKey === key)) return this.data
+      const cached = !options.force ? this.viewportCache.get(key) : undefined
+      if (cached) {
+        this.viewportCache.delete(key)
+        this.viewportCache.set(key, cached)
+        this.data = cached.data
+        this.dataRequestKey = key
+        this.lastRequestKey = key
+        this.loadedBounds = cached.bounds
+        this.loadedZoomBucket = cached.zoomBucket
+        this.loadedFilterKey = cached.filterKey
+        return cached.data
+      }
       this.lastRequestKey = key
       this.controller?.abort()
       const controller = new AbortController()
@@ -71,8 +141,26 @@ export const useOsmViewportStore = defineStore('osmViewport', {
       try {
         const result = await useApi().request<OsmViewportResult>(`/osm/features?${key}`, { signal: controller.signal })
         if (generation === this.generation) {
-          this.data = result
+          const data = markRaw(result)
+          // Conservative heap estimate without serializing the full collection again on the main thread.
+          const payloadBytes = result.features.length * 512
+          this.data = data
           this.dataRequestKey = key
+          this.loadedBounds = bounds
+          this.loadedZoomBucket = bucket
+          this.loadedFilterKey = filterKey
+          const previous = this.viewportCache.get(key)
+          if (previous) this.viewportCacheBytes -= previous.payloadBytes
+          this.viewportCache.delete(key)
+          this.viewportCache.set(key, markRaw({ data, bounds, zoomBucket: bucket, filterKey, payloadBytes }))
+          this.viewportCacheBytes += payloadBytes
+          while (this.viewportCache.size > VIEWPORT_CACHE_SIZE) {
+            const oldestKey = this.viewportCache.keys().next().value
+            if (!oldestKey) break
+            const oldest = this.viewportCache.get(oldestKey)
+            if (oldest) this.viewportCacheBytes -= oldest.payloadBytes
+            this.viewportCache.delete(oldestKey)
+          }
         }
       } catch (error) {
         if (generation === this.generation && !controller.signal.aborted) {
@@ -82,7 +170,7 @@ export const useOsmViewportStore = defineStore('osmViewport', {
       } finally {
         if (generation === this.generation) this.loading = false
       }
-      return this.data
+      return generation === this.generation && !controller.signal.aborted ? this.data : null
     },
     async select(feature: OsmViewportFeature) {
       this.selectedFeature = feature
