@@ -5,6 +5,13 @@ export type PolygonGeometry = {
   coordinates: Position[][]
 }
 
+export type MultiPolygonGeometry = {
+  type: 'MultiPolygon'
+  coordinates: Position[][][]
+}
+
+export type AreaGeometry = PolygonGeometry | MultiPolygonGeometry
+
 export type PolygonProperties = Record<string, unknown> & {
   name?: string
   category?: string
@@ -13,7 +20,7 @@ export type PolygonProperties = Record<string, unknown> & {
 export type PolygonFeature = {
   type: 'Feature'
   id?: string
-  geometry: PolygonGeometry
+  geometry: AreaGeometry
   properties: PolygonProperties
 }
 
@@ -29,7 +36,7 @@ export type UserPolygon = {
   description?: string | null
   floor?: string | null
   category: string
-  geometry: PolygonGeometry
+  geometry: AreaGeometry
   properties: Record<string, unknown>
   created_by_user_id?: string | null
   updated_by_user_id?: string | null
@@ -45,7 +52,9 @@ export type PolygonOverview = {
   floor?: string | null
   area_size?: string | null
   address_display_name?: string | null
-  geometry: PolygonGeometry
+  occupancy_status: OccupancyStatus
+  business_structure: BusinessStructure
+  geometry: AreaGeometry
   created_at: string
   updated_at: string
 }
@@ -72,7 +81,11 @@ export type PublicPolygonDetail = {
   address_country?: string | null
   address_lookup_status: 'pending' | 'resolved' | 'failed'
   category: string
-  geometry: PolygonGeometry
+  occupancy_status: OccupancyStatus
+  occupancy_source: 'OSM' | 'MANUAL' | 'IMPORTED' | 'CALCULATED' | 'UNKNOWN'
+  business_structure: BusinessStructure
+  geometry: AreaGeometry
+  osm_sources: PolygonOsmSource[]
   created_at: string
   updated_at: string
 } & PolygonMetrics
@@ -82,6 +95,9 @@ export type PolygonEditorDetail = PublicPolygonDetail & {
   can_delete: boolean
 }
 
+export type OccupancyStatus = 'OCCUPIED' | 'VACANT' | 'UNKNOWN'
+export type BusinessStructure = 'CHAIN' | 'INDEPENDENT' | 'UNKNOWN'
+
 export type PolygonVerwaltungDetail = PublicPolygonDetail & {
   owner_name?: string | null
   owner_street?: string | null
@@ -90,8 +106,17 @@ export type PolygonVerwaltungDetail = PublicPolygonDetail & {
   owner_city?: string | null
   owner_country?: string | null
   price_per_sqm?: string | null
+  occupancy_source_tag?: string | null
+  occupancy_source_updated_at?: string | null
   created_by_user_id?: string | null
   updated_by_user_id?: string | null
+}
+
+export type PolygonOsmSource = {
+  osm_type: 'node' | 'way' | 'relation'
+  osm_id: number
+  is_primary: boolean
+  imported_at: string
 }
 
 export type PolygonSitemapEntry = {

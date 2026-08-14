@@ -26,7 +26,9 @@ export const usePolygonStore = defineStore('polygon', {
           floor: polygon.floor,
           size: polygon.area_size,
           slug: polygon.slug,
-          address: polygon.address_display_name
+          address: polygon.address_display_name,
+          occupancy_status: polygon.occupancy_status,
+          business_structure: polygon.business_structure
         }
       }))
     })

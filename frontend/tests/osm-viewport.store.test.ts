@@ -1,0 +1,72 @@
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useOsmViewportStore } from '~/stores/osmViewport'
+import type { OsmViewportResult } from '~/types/osm'
+
+const bounds = { west: 9.43, south: 54.78, east: 9.44, north: 54.79 }
+const response: OsmViewportResult = {
+  type: 'FeatureCollection',
+  features: [],
+  meta: { count: 0, truncated: false, zoom: 16, summary: {}, osm_data_updated_at: '2026-08-14T00:00:00Z' }
+}
+
+describe('OSM viewport store lifecycle', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.unstubAllGlobals()
+  })
+
+  it('reuses a matching cache normally and refreshes it when forced after route return', async () => {
+    const request = vi.fn().mockResolvedValue(response)
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useOsmViewportStore()
+
+    await store.load(bounds, 16)
+    await store.load(bounds, 16)
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(store.hasCacheFor(bounds, 16)).toBe(true)
+
+    await store.load(bounds, 16, { force: true })
+    expect(request).toHaveBeenCalledTimes(2)
+  })
+
+  it('aborts an old route request and creates a fresh controller on re-entry', async () => {
+    const signals: AbortSignal[] = []
+    const request = vi.fn((_url: string, options: { signal: AbortSignal }) => {
+      signals.push(options.signal)
+      return new Promise<OsmViewportResult>((resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+        if (signals.length > 1) resolve(response)
+      })
+    })
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useOsmViewportStore()
+
+    const firstLoad = store.load(bounds, 16)
+    await Promise.resolve()
+    store.dispose()
+    await firstLoad
+
+    expect(signals[0]?.aborted).toBe(true)
+    expect(store.loading).toBe(false)
+    expect(store.lastRequestKey).toBe('')
+
+    await store.load(bounds, 16, { force: true })
+    expect(signals[1]).not.toBe(signals[0])
+    expect(signals[1]?.aborted).toBe(false)
+    expect(store.data).toEqual(response)
+  })
+
+  it('retains valid cached features when a background refresh fails', async () => {
+    const request = vi.fn().mockResolvedValueOnce(response).mockRejectedValueOnce(new Error('offline'))
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useOsmViewportStore()
+
+    await store.load(bounds, 16)
+    await store.load(bounds, 16, { force: true })
+
+    expect(store.data).toEqual(response)
+    expect(store.hasCacheFor(bounds, 16)).toBe(true)
+    expect(store.error).toBe('offline')
+  })
+})

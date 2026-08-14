@@ -66,7 +66,7 @@ export const documentationPages: DocumentationPage[] = [
         id: 'ergebnisse-eingrenzen',
         title: 'Ergebnisse eingrenzen',
         blocks: [
-          { type: 'paragraph', text: 'Die Filter für Verkaufsflächengröße, Etage und Branche wirken auf die sichtbaren Polygone und auf die daraus berechnete Shop-Verteilung.' },
+          { type: 'paragraph', text: 'Die Filter für Verkaufsflächengröße, Etage, Branche, Belegungsstatus und Betriebsform wirken gemeinsam auf Karte, Kennzahlen und Vergleiche.' },
           { type: 'links', items: [{ label: 'Filter verstehen', to: '/dokumentation/filter' }, { label: 'Kennzahlen einordnen', to: '/dokumentation/fast-facts' }] }
         ]
       },
@@ -136,7 +136,7 @@ export const documentationPages: DocumentationPage[] = [
         id: 'verfuegbare-filter',
         title: 'Verfügbare Filter',
         blocks: [
-          { type: 'table', headers: ['Filter', 'Auswahl'], rows: [['Verkaufsfläche', 'Eine Größenklasse: S, M, L oder XL'], ['Etage', 'Eine zusammengefasste Lage: UG, EG oder OG'], ['Branchen', 'Eine oder mehrere Branchen']] },
+          { type: 'table', headers: ['Filter', 'Auswahl'], rows: [['Verkaufsfläche', 'Eine Größenklasse: S, M, L oder XL'], ['Etage', 'Eine zusammengefasste Lage: UG, EG oder OG'], ['Branchen', 'Eine oder mehrere Branchen'], ['Status', 'Belegt, leerstehend oder unbekannt'], ['Betriebsform', 'Filialist, inhabergeführt oder unbekannt']] },
           { type: 'paragraph', text: 'Mit „Alle auswählen“ beziehungsweise „Alle abwählen“ lässt sich die Branchenliste schnell umstellen.' }
         ]
       },
@@ -144,7 +144,7 @@ export const documentationPages: DocumentationPage[] = [
         id: 'wirkung-auf-auswertung',
         title: 'Wirkung auf Karte und Auswertung',
         blocks: [
-          { type: 'paragraph', text: 'Aktive Filter bestimmen, welche Flächen auf der Karte und in der Shop-Verteilung berücksichtigt werden. Manuell gepflegte Stadtkennzahlen wie Leerstand oder Zentralität sind eigenständige Referenzwerte und werden durch die Filter nicht neu berechnet.' },
+          { type: 'paragraph', text: 'Aktive Filter bestimmen, welche Flächen auf der Karte, in berechneten Kennzahlen, in der Branchenverteilung und im Benchmark berücksichtigt werden. Manuell gepflegte Zentralitäts- und Kaufkraftwerte bleiben eigenständige Referenzwerte.' },
           { type: 'callout', variant: 'info', title: 'Keine Treffer', text: 'Eine leere Karte kann eine gültige Filterkombination ohne passende Flächen bedeuten. Ändern Sie einen Filter oder aktivieren Sie weitere Branchen.' }
         ]
       }
@@ -163,15 +163,16 @@ export const documentationPages: DocumentationPage[] = [
         id: 'herkunft',
         title: 'Woher kommen die Angaben?',
         blocks: [
-          { type: 'paragraph', text: 'Der Stadtplaner kann eine lokal importierte OpenStreetMap-Datenbank nach Objekten in oder nahe einer Fläche durchsuchen. Ist serverseitig ein externer Rückfall aktiviert, kann der Server bei fehlenden lokalen Treffern zusätzlich eine Overpass-API anfragen.' },
-          { type: 'callout', variant: 'info', title: 'Serverseitige Abfrage', text: 'Der Browser greift weder direkt auf die lokale Datenbank noch direkt auf Overpass zu. Die Anwendung stellt dafür einen eigenen API-Endpunkt bereit.' }
+          { type: 'paragraph', text: 'Der Stadtplaner lädt relevante Punkte und Flächen für den sichtbaren Kartenausschnitt aus der lokalen OpenStreetMap-Datenbank. Beim Verschieben oder Zoomen wird nur der neue Ausschnitt nachgeladen.' },
+          { type: 'callout', variant: 'info', title: 'Keine externen Kartenabfragen', text: 'Der Viewport-Layer greift ausschließlich auf lokales PostGIS zu. Der optionale serverseitige Overpass-Rückfall gilt nur für den gesonderten Objektabgleich einer Stadtplanner-Fläche.' }
         ]
       },
       {
         id: 'anzeige',
         title: 'Was wird angezeigt?',
         blocks: [
-          { type: 'paragraph', text: 'Die Karten-Vorschau zeigt gegebenenfalls einen bevorzugten Treffer. Auf der Detailseite können mehrere passende OSM-Objekte erscheinen.' },
+          { type: 'paragraph', text: 'Farbige POIs und dezente Flächenobjekte werden zoomabhängig dargestellt. Punkte werden bei kleinerem Maßstab gruppiert. Gebäude können separat aktiviert werden und erscheinen ab Zoom 17.' },
+          { type: 'paragraph', text: 'Ein Klick zeigt sofort eine Vorschau; zusätzliche Sachdaten werden erst für das ausgewählte Objekt geladen. Im Analysebereich stehen die Kategorienzahlen des aktuellen Kartenausschnitts.' },
           { type: 'list', items: ['Name und OSM-Kategorie, zum Beispiel shop oder amenity', 'Marke und Betreiber', 'Öffnungszeiten und OpenStreetMap-Adresse', 'Auf der Detailseite gegebenenfalls Telefon, E-Mail, Ebene und Gebäudeebenen', 'Sicher verlinkte Website und Link zum Objekt auf OpenStreetMap'] },
           { type: 'paragraph', text: 'OSM-Daten sind ergänzend und schreibgeschützt. Änderungen im Stadtplaner verändern OpenStreetMap nicht.' }
         ]
@@ -182,6 +183,25 @@ export const documentationPages: DocumentationPage[] = [
         blocks: [
           { type: 'list', items: ['„Keine Informationen“ bedeutet, dass aktuell kein passendes Objekt gefunden wurde.', 'Bei einem vorübergehenden Fehler kann die Abfrage erneut gestartet werden.', 'Die Aktualität hängt vom Stand des lokalen Imports beziehungsweise des externen Dienstes ab.', 'Eine fehlende OSM-Angabe sagt nichts über die Gültigkeit der eigentlichen Flächendaten aus.'] },
           { type: 'links', items: [{ label: 'Technische OSM-Einrichtung im Repository', to: '/open-data', description: 'Allgemeine Informationen zu den offenen Daten des Projekts.' }] }
+        ]
+      },
+      {
+        id: 'als-flaeche-uebernehmen',
+        title: 'Als Stadtplanner-Fläche übernehmen',
+        blocks: [
+          { type: 'paragraph', text: 'Angemeldete Konten können ein geladenes OSM-Objekt als Ausgangspunkt für eine eigene Stadtplanner-Fläche verwenden. Der Server lädt Geometrie und Tags anhand von OSM-Typ und ID aus der lokalen Datenbank; vom Browser behauptete OSM-Geometrien werden nicht akzeptiert.' },
+          { type: 'paragraph', text: 'Bei OSM-Punkten wird zuerst eine passende umschließende Gebäude- oder Nutzfläche gesucht. Gibt es keine, führt Stadtplanner zum manuellen Zeichnen. Ein künstlicher Punkt-Buffer wird nie als reale Fläche gespeichert.' },
+          { type: 'callout', variant: 'important', title: 'Zwei getrennte Datenebenen', text: 'Die OSM-Quelle bleibt unverändert und schreibgeschützt. Titel, Kategorie, Geometrie sowie Verwaltungs- und Marktdaten der übernommenen Stadtplanner-Fläche können danach entsprechend der Rollenberechtigung eigenständig gepflegt werden.' }
+        ]
+      },
+      {
+        id: 'osm-daten-ergaenzen',
+        title: 'OpenStreetMap-Daten ergänzen',
+        blocks: [
+          { type: 'paragraph', text: 'Fehlende oder veraltete OSM-Informationen werden nicht in Stadtplanner bearbeitet. Die Aktion „OpenStreetMap-Daten verbessern“ führt nach einem bewussten Klick zu externen OSM-Werkzeugen.' },
+          { type: 'list', items: ['StreetComplete eignet sich besonders für kleine, frageorientierte Ergänzungen direkt vor Ort auf Android.', 'Der iD-Editor auf openstreetmap.org eignet sich für umfangreichere Änderungen im Browser und wird möglichst auf die Position des gewählten Objekts zentriert.', 'Eine erforderliche OSM-Anmeldung erfolgt ausschließlich bei OpenStreetMap; Stadtplanner speichert keine OSM-Zugangsdaten.'] },
+          { type: 'callout', variant: 'tip', title: 'Tipp für Beiträge vor Ort', text: 'Wenn Sie direkt am Objekt stehen und nur fehlende Informationen ergänzen möchten, ist StreetComplete häufig der einfachste Einstieg.' },
+          { type: 'links', items: [{ label: 'StreetComplete', to: 'https://streetcomplete.app/', description: 'OpenStreetMap-Editor für Android.' }, { label: 'OpenStreetMap bearbeiten', to: 'https://www.openstreetmap.org/edit?editor=id', description: 'Browserbasierter iD-Editor.' }] }
         ]
       }
     ]
@@ -199,7 +219,7 @@ export const documentationPages: DocumentationPage[] = [
         id: 'oeffentliche-angaben',
         title: 'Öffentliche Angaben',
         blocks: [
-          { type: 'list', items: ['Name und Beschreibung', 'Branche, Größenklasse und Etage', 'Fläche und Umfang der Geometrie', 'Adresse, soweit ermittelt', 'Ergänzende OpenStreetMap-Informationen', 'Zeitpunkt der letzten Aktualisierung'] },
+          { type: 'list', items: ['Name und Beschreibung', 'Branche, Größenklasse und Etage', 'Belegungsstatus und Betriebsform', 'Fläche und Umfang der Geometrie', 'Adresse, soweit ermittelt', 'POIs im gewählten Radius und nächster ÖPNV', 'Vergleichbare Flächen auf Abruf', 'Zeitpunkt der letzten Aktualisierung'] },
           { type: 'callout', variant: 'info', title: 'Leere Felder', text: 'Nicht vorhandene Werte werden ausgelassen oder mit einem neutralen Platzhalter angezeigt. Das ist kein technischer Fehler.' }
         ]
       },
@@ -307,7 +327,8 @@ export const documentationPages: DocumentationPage[] = [
         id: 'berechnete-werte',
         title: 'Aus Flächen berechnete Werte',
         blocks: [
-          { type: 'paragraph', text: 'Die Zahl der Shops und die Verteilung nach Branche werden aus den öffentlich verfügbaren Flächen in den dafür berücksichtigten Einzelhandels- und Dienstleistungskategorien ermittelt. Aktive Kartenfilter wirken auf diese Auswertung.' }
+          { type: 'paragraph', text: 'Shopzahl, Gesamt- und Durchschnittsfläche, Branchenverteilung sowie – bei bekannten Objektattributen – Leerstands- und Filialisierungsquote werden aus den erfassten Flächen berechnet. Aktive Kartenfilter wirken auf diese Auswertung; unbekannte Statuswerte werden aus dem jeweiligen Quotienten ausgeschlossen.' },
+          { type: 'links', items: [{ label: 'Standorte vergleichen', to: '/vergleich', description: 'Aktuelle Filterauswahl mit der Gesamtstadt vergleichen.' }] }
         ]
       },
       {
@@ -315,7 +336,7 @@ export const documentationPages: DocumentationPage[] = [
         title: 'Manuell gepflegte Stadtkennzahlen',
         blocks: [
           { type: 'table', headers: ['Kennzahl', 'Darstellung'], rows: [['Leerstand', 'Prozentwert'], ['Filialisierung', 'Prozentwert'], ['Zentralität', 'Index'], ['Kaufkraft', 'Index']] },
-          { type: 'paragraph', text: 'Diese vier Werte werden von der Verwaltung mit einem Referenzdatum gepflegt. Sie werden nicht aus der aktuellen Polygonauswahl berechnet und verändern sich daher nicht mit Kartenfiltern.' },
+          { type: 'paragraph', text: 'Zentralität und Kaufkraft sowie gegebenenfalls veröffentlichte Referenzquoten werden von der Verwaltung mit Referenzdatum und Quelle gepflegt. Wenn Flächenattribute eine Quote berechenbar machen, zeigt die Übersicht vorrangig die berechnete Quote und kennzeichnet ihre Datengrundlage.' },
           { type: 'callout', variant: 'info', title: 'Fehlender Wert', text: 'Ein Gedankenstrich bedeutet, dass derzeit kein veröffentlichbarer Wert hinterlegt ist. Er bedeutet nicht automatisch null Prozent.' }
         ]
       },
@@ -323,7 +344,7 @@ export const documentationPages: DocumentationPage[] = [
         id: 'datenstand',
         title: 'Datenstand und Einordnung',
         blocks: [
-          { type: 'paragraph', text: 'Der angezeigte Stand hilft, Kennzahlen zeitlich einzuordnen. Quellenangaben und interne Notizen der manuellen Kennzahlen sind ausschließlich im Verwaltungsbereich sichtbar.' },
+          { type: 'paragraph', text: 'Der angezeigte Stand und die veröffentlichte Quelle helfen, Kennzahlen zeitlich einzuordnen. Interne Verwaltungsnotizen bleiben ausschließlich im Verwaltungsbereich sichtbar.' },
           { type: 'links', items: [{ label: 'Kennzahlen verwalten', to: '/dokumentation/verwaltung' }, { label: 'Filterverhalten', to: '/dokumentation/filter' }] }
         ]
       }
@@ -472,8 +493,8 @@ export const documentationPages: DocumentationPage[] = [
         title: 'Interne Angaben einer Fläche',
         audience: 'verwaltung',
         blocks: [
-          { type: 'paragraph', text: 'Auf der Flächendetailseite steht für VERWALTUNG ein eigener Abschnitt bereit. Dort können der fachliche Eigentümer, dessen Anschrift und ein Preis pro Quadratmeter gepflegt werden.' },
-          { type: 'paragraph', text: 'Diese Felder werden automatisch gespeichert und sind weder Teil der öffentlichen Flächenantwort noch der Suchmaschinen-Metadaten.' }
+          { type: 'paragraph', text: 'Auf der Flächendetailseite steht für VERWALTUNG ein eigener Abschnitt bereit. Dort können Belegungsstatus, Betriebsform, der fachliche Eigentümer, dessen Anschrift und ein Preis pro Quadratmeter gepflegt werden.' },
+          { type: 'paragraph', text: 'Belegungsstatus und Betriebsform sind öffentliche fachliche Objektmerkmale für Filter und Aggregate. Eigentümer- und Preisfelder bleiben dagegen vollständig außerhalb öffentlicher Antworten und Suchmaschinen-Metadaten.' }
         ]
       },
       {
@@ -490,7 +511,7 @@ export const documentationPages: DocumentationPage[] = [
         id: 'veroeffentlichung',
         title: 'Was wird veröffentlicht?',
         blocks: [
-          { type: 'table', headers: ['Angabe', 'Öffentlich'], rows: [['Kennzahlenwerte und Referenzdatum', 'Ja'], ['Quelle und interne Notizen der Kennzahlen', 'Nein'], ['Fachlicher Eigentümer und Anschrift', 'Nein'], ['Preis pro Quadratmeter', 'Nein']] },
+          { type: 'table', headers: ['Angabe', 'Öffentlich'], rows: [['Kennzahlenwerte, Referenzdatum und Quelle', 'Ja'], ['Interne Notizen der Kennzahlen', 'Nein'], ['Belegungsstatus und Betriebsform', 'Ja'], ['Fachlicher Eigentümer und Anschrift', 'Nein'], ['Preis pro Quadratmeter', 'Nein']] },
           { type: 'links', items: [{ label: 'Öffentliche Kennzahlen verstehen', to: '/dokumentation/fast-facts' }] }
         ]
       }

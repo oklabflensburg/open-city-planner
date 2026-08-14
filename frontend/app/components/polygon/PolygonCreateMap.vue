@@ -22,7 +22,7 @@ import type { Map } from 'maplibre-gl'
 import type { TerraDraw } from 'terra-draw'
 import type { PolygonGeometry } from '~/types/geo'
 
-const props = defineProps<{ color: string }>()
+const props = defineProps<{ color: string, center?: [number, number] }>()
 const emit = defineEmits<{ 'update:geometry': [geometry: PolygonGeometry | null] }>()
 const config = useRuntimeConfig()
 const mapElement = ref<HTMLDivElement | null>(null)
@@ -47,8 +47,8 @@ onMounted(async () => {
     const instance = new maplibregl.Map({
       container,
       style: String(config.public.versatilesStyleUrl),
-      center: [Number(config.public.mapCenterLng), Number(config.public.mapCenterLat)],
-      zoom: Number(config.public.mapZoom),
+      center: props.center || [Number(config.public.mapCenterLng), Number(config.public.mapCenterLat)],
+      zoom: props.center ? 19 : Number(config.public.mapZoom),
       attributionControl: { compact: true },
       canvasContextAttributes: { powerPreference: 'low-power' }
     })

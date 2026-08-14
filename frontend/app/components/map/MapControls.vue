@@ -1,13 +1,13 @@
 <template>
-  <div class="pointer-events-auto flex flex-col overflow-hidden rounded-[10px] border border-[#e5e5e5] bg-white shadow-[0_1px_8px_rgba(20,24,28,0.12)]">
-    <button class="grid min-h-11 min-w-11 place-items-center hover:bg-[#f5f5f5] lg:min-h-[34px] lg:min-w-[34px]" type="button" aria-label="Vergrößern" @click="$emit('zoomIn')">
-      <Plus class="size-4" />
+  <div class="flex w-11 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <button class="grid h-11 w-11 place-items-center bg-white text-slate-600 transition-colors hover:bg-slate-100 focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#154d73]" type="button" aria-label="Vergrößern" @click.stop="$emit('zoomIn')">
+      <Plus class="size-5" aria-hidden="true" />
     </button>
-    <button class="grid min-h-11 min-w-11 place-items-center border-t border-[#ececec] hover:bg-[#f5f5f5] lg:min-h-[34px] lg:min-w-[34px]" type="button" aria-label="Verkleinern" @click="$emit('zoomOut')">
-      <Minus class="size-4" />
+    <button class="grid h-11 w-11 place-items-center border-t border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#154d73]" type="button" aria-label="Verkleinern" @click.stop="$emit('zoomOut')">
+      <Minus class="size-5" aria-hidden="true" />
     </button>
-    <button class="grid min-h-11 min-w-11 place-items-center border-t border-[#ececec] hover:bg-[#f5f5f5] lg:min-h-[34px] lg:min-w-[34px]" type="button" aria-label="Ansicht zurücksetzen" @click="$emit('reset')">
-      <RotateCcw class="size-4" />
+    <button class="grid h-11 w-11 place-items-center border-t border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#154d73]" type="button" aria-label="Ansicht zurücksetzen" @click.stop="$emit('reset')">
+      <RotateCcw class="size-5" aria-hidden="true" />
     </button>
   </div>
 </template>

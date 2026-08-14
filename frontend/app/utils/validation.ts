@@ -7,6 +7,13 @@ export const polygonGeometrySchema = z.object({
   coordinates: z.array(z.array(positionSchema).min(4)).min(1)
 })
 
+export const multiPolygonGeometrySchema = z.object({
+  type: z.literal('MultiPolygon'),
+  coordinates: z.array(z.array(z.array(positionSchema).min(4)).min(1)).min(1)
+})
+
+export const areaGeometrySchema = z.union([polygonGeometrySchema, multiPolygonGeometrySchema])
+
 export const polygonSchema = z.object({
   id: z.string(),
   slug: z.string(),
@@ -14,7 +21,7 @@ export const polygonSchema = z.object({
   description: z.string().nullable().optional(),
   floor: z.string().nullable().optional(),
   category: z.string(),
-  geometry: polygonGeometrySchema,
+  geometry: areaGeometrySchema,
   properties: z.record(z.unknown()).default({}),
   created_by_user_id: z.string().nullable().optional(),
   updated_by_user_id: z.string().nullable().optional(),
@@ -30,7 +37,9 @@ export const polygonOverviewSchema = z.object({
   floor: z.string().nullable().optional(),
   area_size: z.string().nullable().optional(),
   address_display_name: z.string().nullable().optional(),
-  geometry: polygonGeometrySchema,
+  occupancy_status: z.enum(['OCCUPIED', 'VACANT', 'UNKNOWN']),
+  business_structure: z.enum(['CHAIN', 'INDEPENDENT', 'UNKNOWN']),
+  geometry: areaGeometrySchema,
   created_at: z.string(),
   updated_at: z.string()
 })
@@ -50,7 +59,16 @@ export const publicPolygonDetailSchema = z.object({
   address_country: z.string().nullable().optional(),
   address_lookup_status: z.enum(['pending', 'resolved', 'failed']),
   category: z.string(),
-  geometry: polygonGeometrySchema,
+  occupancy_status: z.enum(['OCCUPIED', 'VACANT', 'UNKNOWN']),
+  occupancy_source: z.enum(['OSM', 'MANUAL', 'IMPORTED', 'CALCULATED', 'UNKNOWN']).default('UNKNOWN'),
+  business_structure: z.enum(['CHAIN', 'INDEPENDENT', 'UNKNOWN']),
+  geometry: areaGeometrySchema,
+  osm_sources: z.array(z.object({
+    osm_type: z.enum(['node', 'way', 'relation']),
+    osm_id: z.number(),
+    is_primary: z.boolean(),
+    imported_at: z.string()
+  })).default([]),
   created_at: z.string(),
   updated_at: z.string(),
   area_m2: z.number(),
@@ -65,7 +83,7 @@ export const featureCollectionSchema = z.object({
     z.object({
       type: z.literal('Feature'),
       id: z.string().optional(),
-      geometry: polygonGeometrySchema,
+      geometry: areaGeometrySchema,
       properties: z.record(z.unknown()).default({})
     })
   )

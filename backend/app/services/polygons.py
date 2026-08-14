@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.polygon_osm_source import PolygonOsmSource
 from app.models.user_polygon import UserPolygon, utcnow
 from app.schemas.geojson import (
     Feature,
@@ -15,6 +16,7 @@ from app.schemas.geojson import (
     PolygonCreate,
     PolygonEditorRead,
     PolygonMetrics,
+    PolygonOsmSourceRead,
     PolygonOverviewRead,
     PolygonRead,
     PolygonSitemapEntry,
@@ -23,6 +25,7 @@ from app.schemas.geojson import (
     PolygonVerwaltungUpdate,
     PublicPolygonDetail,
 )
+from app.services.analysis_areas import refresh_polygon_area_assignments
 from app.services.geometry import from_wkb_element, to_wkb_element
 from app.services.nominatim import NominatimService
 
@@ -63,6 +66,8 @@ async def list_polygon_overview(session: AsyncSession) -> list[PolygonOverviewRe
             floor=row.floor,
             area_size=(str(row.properties.get("size")) if row.properties.get("size") else None),
             address_display_name=row.address_display_name,
+            occupancy_status=row.occupancy_status or "UNKNOWN",
+            business_structure=row.business_structure or "UNKNOWN",
             geometry=from_wkb_element(row.geometry),
             created_at=row.created_at,
             updated_at=row.updated_at,
@@ -200,10 +205,33 @@ async def create_polygon(session: AsyncSession, payload: PolygonCreate, user_id:
         polygon.slug = await generate_unique_polygon_slug(session, polygon_slug_source(polygon))
         await session.commit()
         await session.refresh(polygon)
+    await refresh_polygon_area_assignments(session, polygon.id)
+    await session.commit()
     return serialize_polygon(polygon)
 
 
-def _public_detail(polygon: UserPolygon, metrics: PolygonMetrics) -> PublicPolygonDetail:
+async def polygon_osm_sources(
+    session: AsyncSession, polygon_id: int
+) -> list[PolygonOsmSourceRead]:
+    rows = await session.scalars(
+        select(PolygonOsmSource)
+        .where(PolygonOsmSource.polygon_id == polygon_id)
+        .order_by(PolygonOsmSource.is_primary.desc(), PolygonOsmSource.imported_at)
+    )
+    return [
+        PolygonOsmSourceRead(
+            osm_type=row.osm_type,
+            osm_id=row.osm_id,
+            is_primary=row.is_primary,
+            imported_at=row.imported_at,
+        )
+        for row in rows
+    ]
+
+
+async def _public_detail(
+    session: AsyncSession, polygon: UserPolygon, metrics: PolygonMetrics
+) -> PublicPolygonDetail:
     return PublicPolygonDetail(
         id=str(polygon.uuid),
         slug=polygon.slug,
@@ -223,6 +251,9 @@ def _public_detail(polygon: UserPolygon, metrics: PolygonMetrics) -> PublicPolyg
         address_country=polygon.address_country,
         address_lookup_status=polygon.address_lookup_status,
         category=polygon.category,
+        occupancy_status=polygon.occupancy_status or "UNKNOWN",
+        occupancy_source=polygon.occupancy_source or "UNKNOWN",
+        business_structure=polygon.business_structure or "UNKNOWN",
         geometry=from_wkb_element(polygon.geometry),
         area_m2=metrics.area_m2,
         perimeter_m=metrics.perimeter_m,
@@ -230,6 +261,7 @@ def _public_detail(polygon: UserPolygon, metrics: PolygonMetrics) -> PublicPolyg
         bbox=metrics.bbox,
         created_at=polygon.created_at,
         updated_at=polygon.updated_at,
+        osm_sources=await polygon_osm_sources(session, polygon.id),
     )
 
 
@@ -242,7 +274,7 @@ async def public_polygon_by_slug(
     metrics = await polygon_metrics(session, polygon.uuid)
     if metrics is None:
         return None
-    return _public_detail(polygon, metrics)
+    return await _public_detail(session, polygon, metrics)
 
 
 async def polygon_editor_detail(
@@ -255,7 +287,7 @@ async def polygon_editor_detail(
     if metrics is None:
         raise LookupError("Polygon not found")
     return PolygonEditorRead(
-        **_public_detail(polygon, metrics).model_dump(),
+        **(await _public_detail(session, polygon, metrics)).model_dump(),
         can_delete=can_delete,
     )
 
@@ -265,7 +297,7 @@ async def polygon_verwaltung_detail(session: AsyncSession, polygon: UserPolygon)
     if metrics is None:
         raise LookupError("Polygon not found")
     return PolygonVerwaltungRead(
-        **_public_detail(polygon, metrics).model_dump(),
+        **(await _public_detail(session, polygon, metrics)).model_dump(),
         owner_name=polygon.owner_name,
         owner_street=polygon.owner_street,
         owner_house_number=polygon.owner_house_number,
@@ -273,6 +305,8 @@ async def polygon_verwaltung_detail(session: AsyncSession, polygon: UserPolygon)
         owner_city=polygon.owner_city,
         owner_country=polygon.owner_country,
         price_per_sqm=polygon.price_per_sqm,
+        occupancy_source_tag=polygon.occupancy_source_tag,
+        occupancy_source_updated_at=polygon.occupancy_source_updated_at,
         created_by_user_id=str(polygon.created_by_user_id) if polygon.created_by_user_id else None,
         updated_by_user_id=str(polygon.updated_by_user_id) if polygon.updated_by_user_id else None,
     )
@@ -310,6 +344,8 @@ async def update_polygon(session: AsyncSession, polygon: UserPolygon, payload: P
     await session.refresh(polygon)
     if geometry_changed:
         await enrich_polygon_address(session, polygon)
+        await refresh_polygon_area_assignments(session, polygon.id)
+        await session.commit()
     return serialize_polygon(polygon)
 
 
@@ -325,6 +361,10 @@ async def update_polygon_verwaltung(
         raise RuntimeError("POLYGON_VERSION_CONFLICT")
     for key, value in data.items():
         setattr(polygon, key, value)
+    if "occupancy_status" in data:
+        polygon.occupancy_source = "MANUAL"
+        polygon.occupancy_source_tag = None
+        polygon.occupancy_source_updated_at = utcnow()
     polygon.updated_by_user_id = user_id
     polygon.updated_at = utcnow()
     await session.commit()

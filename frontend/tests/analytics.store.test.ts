@@ -9,7 +9,14 @@ const response = {
     chain_store_rate: null,
     centrality_index: null,
     purchasing_power_index: null,
+    total_area_m2: 240,
+    average_area_m2: 120,
+    calculated_vacancy_rate: null,
+    calculated_chain_store_rate: null,
+    known_occupancy_count: 0,
+    known_business_structure_count: 0,
     reference_date: null,
+    source: null,
     updated_at: '2026-08-13T08:30:00Z'
   },
   industry_distribution: [{ category: 'fashion', count: 2 }],
@@ -23,7 +30,9 @@ describe('analytics store', () => {
     vi.stubGlobal('useFilterStore', () => ({
       activeCategories: ['fashion'],
       selectedFloor: 'EG',
-      selectedSize: 'M'
+      selectedSize: 'M',
+      occupancyStatuses: [],
+      businessStructures: []
     }))
   })
 

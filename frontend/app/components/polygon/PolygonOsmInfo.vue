@@ -25,8 +25,17 @@
         </div>
       </details>
     </template>
+    <div v-if="!compact && info?.primary_match" class="mt-4 border-t border-slate-200 pt-4">
+      <p class="mb-2 text-xs leading-5 text-slate-600">Die Daten stammen aus OpenStreetMap und können dort von der Community ergänzt und aktualisiert werden.</p>
+      <OsmContributeAction
+        :latitude="info.primary_match.centroid?.latitude"
+        :longitude="info.primary_match.centroid?.longitude"
+        :zoom="info.primary_match.osm_type === 'node' ? 19 : 18"
+        :vacant="info.primary_match.occupancy_status === 'VACANT'"
+      />
+    </div>
     <p v-if="!compact" class="mt-4 text-xs text-[#687176]">
-      Quelle: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" class="font-semibold text-[#154d73] underline">OpenStreetMap-Mitwirkende</a> · Die Angaben sind eine schreibgeschützte Referenz und werden nicht in Flächendaten übernommen.
+      Quelle: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" class="font-semibold text-[#154d73] underline">OpenStreetMap-Mitwirkende</a> · Die Angaben bleiben eine schreibgeschützte Referenz; Stadtplanner bearbeitet ausschließlich seine eigene Datenebene.
     </p>
   </section>
 </template>

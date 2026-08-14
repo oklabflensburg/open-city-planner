@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -16,6 +16,7 @@ from app.auth.dependencies import (
 )
 from app.db.session import get_session
 from app.models.user import User
+from app.schemas.analytics import ComparableResult, LocationAnalysis
 from app.schemas.geojson import (
     FeatureCollection,
     PolygonCreate,
@@ -29,8 +30,16 @@ from app.schemas.geojson import (
     PolygonVerwaltungUpdate,
     PublicPolygonDetail,
 )
-from app.schemas.osm import PolygonOsmInfo
+from app.schemas.osm import OsmPolygonImportRead, OsmPolygonImportRequest, PolygonOsmInfo
+from app.services.comparables import comparable_polygons
 from app.services.geometry import GeometryValidationError
+from app.services.location_analytics import polygon_location_analysis
+from app.services.osm_import import (
+    OsmImportAlreadyExists,
+    OsmImportGeometryRequired,
+    OsmImportNotFound,
+    create_polygon_from_osm,
+)
 from app.services.osm_lookup import OsmLookupError, OsmLookupService
 from app.services.polygons import (
     create_polygon,
@@ -75,6 +84,49 @@ async def post_polygon(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+@router.post(
+    "/from-osm", response_model=OsmPolygonImportRead, status_code=status.HTTP_201_CREATED
+)
+async def post_polygon_from_osm(
+    payload: OsmPolygonImportRequest,
+    session: SessionDep,
+    current_user: Annotated[User, Depends(get_csrf_protected_active_user)],
+) -> OsmPolygonImportRead:
+    if not can_create_polygon(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail={"error": {"code": "PERMISSION_DENIED", "message": "Du darfst keine Fläche anlegen."}},
+        )
+    try:
+        return await create_polygon_from_osm(session, payload, current_user.id)
+    except OsmImportNotFound as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {"code": "OSM_FEATURE_NOT_FOUND", "message": "Das lokale OSM-Objekt wurde nicht gefunden."}},
+        ) from exc
+    except OsmImportGeometryRequired as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=422,
+            detail={"error": {"code": "OSM_GEOMETRY_REQUIRED", "message": "Für diesen OSM-Punkt muss eine Fläche eingezeichnet werden."}},
+        ) from exc
+    except OsmImportAlreadyExists as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={"error": {
+                "code": "OSM_FEATURE_ALREADY_IMPORTED",
+                "message": "Das OSM-Objekt wurde für diese Etage bereits übernommen.",
+                "polygon_id": exc.polygon_id,
+                "slug": exc.slug,
+            }},
+        ) from exc
+    except GeometryValidationError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @router.get("/geojson", response_model=FeatureCollection)
 async def get_geojson(session: SessionDep) -> FeatureCollection:
     return await polygons_geojson(session)
@@ -108,6 +160,30 @@ async def get_polygon_osm_by_slug(slug: str, session: SessionDep) -> PolygonOsmI
         result = await OsmLookupService().find_osm_objects_for_polygon(session, slug=slug)
     except OsmLookupError as exc:
         raise HTTPException(status_code=503, detail="OpenStreetMap lookup failed") from exc
+    if result is None:
+        raise HTTPException(status_code=404, detail="Polygon not found")
+    return result
+
+
+@router.get("/by-slug/{slug}/location", response_model=LocationAnalysis)
+async def get_polygon_location_analysis(
+    slug: str,
+    session: SessionDep,
+    radius_m: Annotated[int, Query(ge=100, le=2000)] = 500,
+) -> LocationAnalysis:
+    result = await polygon_location_analysis(session, slug=slug, radius_m=radius_m)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Polygon not found")
+    return result
+
+
+@router.get("/by-slug/{slug}/comparables", response_model=ComparableResult)
+async def get_polygon_comparables(
+    slug: str,
+    session: SessionDep,
+    limit: Annotated[int, Query(ge=1, le=10)] = 5,
+) -> ComparableResult:
+    result = await comparable_polygons(session, slug=slug, limit=limit)
     if result is None:
         raise HTTPException(status_code=404, detail="Polygon not found")
     return result

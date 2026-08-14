@@ -8,6 +8,22 @@
       <span class="text-xs text-[#687176]">Nicht öffentlich · nicht im SEO</span>
     </div>
     <div class="mt-5 grid gap-4 sm:grid-cols-2">
+      <label>
+        <span class="field-label">Belegungsstatus</span>
+        <select v-model="model.occupancy_status" class="field-input" @change="changed('occupancy_status')">
+          <option value="UNKNOWN">Unbekannt</option><option value="OCCUPIED">Belegt</option><option value="VACANT">Leerstehend</option>
+        </select>
+        <span v-if="model.occupancy_source === 'OSM'" class="mt-1 block text-xs leading-5 text-[#687176]">
+          Initial aus OpenStreetMap übernommen<span v-if="model.occupancy_source_tag"> · {{ model.occupancy_source_tag }}</span>
+        </span>
+        <span v-else-if="model.occupancy_source === 'MANUAL'" class="mt-1 block text-xs leading-5 text-[#687176]">Durch VERWALTUNG gepflegt; der manuelle Wert hat Vorrang.</span>
+      </label>
+      <label>
+        <span class="field-label">Betriebsform</span>
+        <select v-model="model.business_structure" class="field-input" @change="changed('business_structure')">
+          <option value="UNKNOWN">Unbekannt</option><option value="CHAIN">Filialist</option><option value="INDEPENDENT">Inhabergeführt</option>
+        </select>
+      </label>
       <label class="sm:col-span-2">
         <span class="field-label">Fachlicher Eigentümer</span>
         <input v-model="model.owner_name" class="field-input" maxlength="200" @input="changed('owner_name')">

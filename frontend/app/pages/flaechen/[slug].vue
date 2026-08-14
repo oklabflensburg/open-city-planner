@@ -25,11 +25,13 @@
         <h1 v-else class="mt-5 break-words text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{{ polygonData.name }}</h1>
         <p class="mt-3 flex items-start gap-2 text-base text-slate-600"><MapPin class="mt-0.5 size-5 shrink-0" aria-hidden="true" />{{ publicAddress }}</p>
 
-        <dl class="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <dl class="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <PolygonMetricCard label="Fläche" :value="`${formatMetric(polygonData.area_m2)} m²`" :icon="Ruler" />
           <PolygonMetricCard label="Etage" :value="polygonData.floor || 'Nicht angegeben'" :icon="Layers3" />
           <PolygonMetricCard label="Kategorie" :value="categoryLabel" :icon="Tags" />
           <PolygonMetricCard label="Umfang" :value="`${formatMetric(polygonData.perimeter_m)} m`" :icon="RouteIcon" />
+          <PolygonMetricCard label="Status" :value="occupancyLabel" :icon="CircleDot" />
+          <PolygonMetricCard label="Betriebsform" :value="businessStructureLabel" :icon="Store" />
         </dl>
       </div>
     </header>
@@ -94,6 +96,20 @@
 
     <PolygonOsmInfo class="mt-8 rounded-2xl shadow-sm" :info="osm.data.value" :loading="osm.loading.value" :error="osm.error.value" @retry="osm.retry" />
 
+    <section v-if="polygonData.osm_sources.length" class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="osm-origin">
+      <h2 id="osm-origin" class="text-lg font-bold text-slate-950">Datenherkunft</h2>
+      <p class="mt-2 text-sm text-slate-600">Diese Stadtplanner-Fläche wurde aus öffentlichen OpenStreetMap-Referenzdaten angelegt. Ihre Geometrie und Fachangaben können in Stadtplanner unabhängig weiterbearbeitet werden.</p>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li v-for="source in polygonData.osm_sources" :key="`${source.osm_type}-${source.osm_id}`" class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-4 py-3">
+          <span>OSM {{ source.osm_type }} {{ source.osm_id }} · übernommen am {{ formatDate(source.imported_at) }}</span>
+          <a class="font-bold text-[#154d73] underline" :href="getOsmObjectUrl(source.osm_type, source.osm_id) || undefined" target="_blank" rel="noopener noreferrer">Auf OpenStreetMap ansehen</a>
+        </li>
+      </ul>
+    </section>
+
+    <LocationAnalysis class="mt-8" :slug="slug" />
+    <ComparableList class="mt-8" :slug="slug" />
+
     <PolygonManagementForm
       v-if="verwaltungData && canViewVerwaltung"
       v-model="verwaltungData"
@@ -109,9 +125,10 @@
 </template>
 
 <script setup lang="ts">
-import { Layers3, MapPin, Route as RouteIcon, Ruler, Tags } from 'lucide-vue-next'
-import type { PolygonEditorDetail, PolygonGeometry, PolygonVerwaltungDetail, PublicPolygonDetail } from '~/types/geo'
+import { CircleDot, Layers3, MapPin, Route as RouteIcon, Ruler, Store, Tags } from 'lucide-vue-next'
+import type { AreaGeometry, PolygonEditorDetail, PolygonVerwaltungDetail, PublicPolygonDetail } from '~/types/geo'
 import { getIndustryColor, getIndustryLabel, industries } from '~/utils/industries'
+import { getOsmObjectUrl } from '~/utils/osmLinks'
 
 const route = useRoute()
 const slugParam = Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug
@@ -206,6 +223,8 @@ const areaSizes = ['S', 'M', 'L', 'XL'] as const
 const autosaveStatus = autosave.status
 const categoryLabel = computed(() => getIndustryLabel(polygonData.value.category))
 const categoryColor = computed(() => getIndustryColor(polygonData.value.category))
+const occupancyLabel = computed(() => ({ OCCUPIED: 'Belegt', VACANT: 'Leerstehend', UNKNOWN: 'Unbekannt' }[polygonData.value.occupancy_status]))
+const businessStructureLabel = computed(() => ({ CHAIN: 'Filialist', INDEPENDENT: 'Inhabergeführt', UNKNOWN: 'Unbekannt' }[polygonData.value.business_structure]))
 const publicAddress = computed(() => polygonData.value.address_display_name || [
   [polygonData.value.address_street, polygonData.value.address_house_number].filter(Boolean).join(' '),
   [polygonData.value.address_postal_code, polygonData.value.address_city].filter(Boolean).join(' '),
@@ -216,7 +235,7 @@ const saveStatusLabel = computed(() => ({
 }[autosaveStatus.value]))
 const saveStatusClass = computed(() => autosaveStatus.value === 'saved' ? 'text-emerald-700' : autosaveStatus.value === 'saving' ? 'text-[#154d73]' : 'text-amber-700')
 
-function saveGeometry(geometry: PolygonGeometry) {
+function saveGeometry(geometry: AreaGeometry) {
   polygonData.value.geometry = geometry
   autosave.schedulePublic({ geometry }, true)
 }
@@ -244,7 +263,7 @@ async function removePolygon() {
   }
 }
 
-function pickPublicUpdate(response: { name: string, description?: string | null, floor?: string | null, category: string, geometry: PolygonGeometry, properties?: Record<string, unknown>, updated_at: string }) {
+function pickPublicUpdate(response: { name: string, description?: string | null, floor?: string | null, category: string, geometry: AreaGeometry, properties?: Record<string, unknown>, updated_at: string }) {
   const size = response.properties?.size
   const areaSize = areaSizes.includes(size as typeof areaSizes[number]) ? size as typeof areaSizes[number] : null
   return { name: response.name, description: response.description, floor: response.floor, area_size: areaSize, category: response.category, geometry: response.geometry, updated_at: response.updated_at }

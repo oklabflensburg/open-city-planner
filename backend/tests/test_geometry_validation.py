@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.geojson import PolygonGeometry
-from app.services.geometry import GeometryValidationError, validate_polygon_geometry
+from app.services.geometry import validate_polygon_geometry
 
 
 def test_accepts_valid_polygon() -> None:
@@ -25,7 +25,7 @@ def test_rejects_open_ring() -> None:
         )
 
 
-def test_rejects_unrepairable_multipolygon() -> None:
+def test_repairs_self_intersection_to_supported_multipolygon() -> None:
     geometry = PolygonGeometry(
         type="Polygon",
         coordinates=[
@@ -33,6 +33,5 @@ def test_rejects_unrepairable_multipolygon() -> None:
         ],
     )
 
-    with pytest.raises(GeometryValidationError):
-        validate_polygon_geometry(geometry)
-
+    repaired = validate_polygon_geometry(geometry)
+    assert repaired.geom_type == "MultiPolygon"

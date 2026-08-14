@@ -13,14 +13,18 @@ const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${p
 const serverFile = (path: string) => readFileSync(fileURLToPath(new URL(`../server/${path}`, import.meta.url)), 'utf8')
 
 describe('polygon create and delete UI', () => {
-  it('keeps account navigation free of GIS creation and shows create in the authenticated map context', () => {
+  it('keeps account navigation free of GIS creation and restores create to the authenticated map action areas', () => {
     const header = appFile('components/layout/AppHeader.vue')
     const shell = appFile('components/layout/AppShell.vue')
+    const ownPolygons = appFile('pages/meine-flaechen.vue')
     expect(header).not.toContain("{ label: 'Neue Fläche', to: '/flaechen/neu' }")
-    expect(header).not.toContain('to="/flaechen/neu"')
+    expect(header).toContain("v-if=\"route.path === '/'\"")
+    expect(header).toContain('to="/flaechen/neu"')
+    expect(header).toContain('v-if="authStore.authenticated"')
     expect(shell).toContain('v-if="authStore.authenticated"')
     expect(shell).toContain('to="/flaechen/neu"')
     expect(shell).toContain('aria-label="Neue Fläche anlegen"')
+    expect(ownPolygons).not.toContain('to="/flaechen/neu"')
   })
 
   it('protects the create page and disables creation without geometry', () => {

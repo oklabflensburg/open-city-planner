@@ -5,7 +5,13 @@
       </ol>
 
       <form class="mt-6 grid min-w-0 items-start gap-6 sm:mt-8 xl:grid-cols-[minmax(0,1fr)_360px]" @submit.prevent="submit">
-        <PolygonCreateMap :color="categoryColor" @update:geometry="geometry = $event" />
+        <div>
+          <div v-if="osmContext" class="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950">
+            <p class="font-bold">Fläche für OpenStreetMap-Punkt zeichnen</p>
+            <p>Für {{ osmDetail?.name || `OSM ${osmContext.osmType}/${osmContext.osmId}` }} wurde keine passende Flächengeometrie gefunden. Zeichnen Sie die reale Fläche; ein automatisch erzeugter Punkt-Buffer wird nicht gespeichert.</p>
+          </div>
+          <PolygonCreateMap :color="categoryColor" :center="osmCenter" @update:geometry="geometry = $event" />
+        </div>
 
         <Card class="p-5 sm:p-6 xl:sticky xl:top-24">
           <h2 class="text-lg font-bold text-slate-950">Erste Angaben</h2>
@@ -20,7 +26,7 @@
           <button class="page-button-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-50" type="submit" :disabled="!canSubmit || submitting">
             <LoaderCircle v-if="submitting" class="size-4 animate-spin" aria-hidden="true" />
             <Plus v-else class="size-4" aria-hidden="true" />
-            {{ submitting ? 'Fläche wird erstellt …' : 'Fläche erstellen' }}
+            {{ submitting ? 'Fläche wird erstellt …' : osmContext ? 'OSM-Fläche übernehmen' : 'Fläche erstellen' }}
           </button>
           <p v-if="!geometry" class="mt-3 text-center text-xs leading-5 text-slate-500">Zeichnen Sie zuerst ein gültiges Polygon auf der Karte.</p>
         </Card>
@@ -31,6 +37,7 @@
 <script setup lang="ts">
 import { LoaderCircle, Plus } from 'lucide-vue-next'
 import type { PolygonGeometry } from '~/types/geo'
+import type { OsmFeatureDetail } from '~/types/osm'
 import type { IndustryKey } from '~/utils/industries'
 import { getIndustryColor, industries } from '~/utils/industries'
 
@@ -46,8 +53,17 @@ usePageSeo({
 })
 
 const polygonApi = usePolygonApi()
-const name = ref('Neue Fläche')
-const floor = ref('EG')
+const route = useRoute()
+const osmType = typeof route.query.osm_type === 'string' && ['node', 'way', 'relation'].includes(route.query.osm_type) ? route.query.osm_type as 'node' | 'way' | 'relation' : null
+const osmId = typeof route.query.osm_id === 'string' && /^\d+$/.test(route.query.osm_id) ? Number(route.query.osm_id) : null
+const osmContext = osmType && osmId ? { osmType, osmId } : null
+const { importFeature } = useOsmImport()
+const { data: osmDetail } = await useAsyncData<OsmFeatureDetail | null>(
+  osmContext ? `osm-create-${osmContext.osmType}-${osmContext.osmId}` : 'osm-create-none',
+  () => osmContext ? useApi().request<OsmFeatureDetail>(`/osm/features/${osmContext.osmType}/${osmContext.osmId}`) : Promise.resolve(null)
+)
+const name = ref(osmDetail.value?.name || 'Neue Fläche')
+const floor = ref(typeof route.query.floor === 'string' ? route.query.floor : 'EG')
 const category = ref<IndustryKey>('otherAreas')
 const geometry = shallowRef<PolygonGeometry | null>(null)
 const submitting = ref(false)
@@ -55,6 +71,7 @@ const error = ref('')
 const floors = ['UG', 'EG', '1OG', '2OG', '3OG', 'DG']
 const steps = ['Fläche zeichnen', 'Etage auswählen', 'Titel vergeben', 'Fläche erstellen']
 const categoryColor = computed(() => getIndustryColor(category.value))
+const osmCenter = computed<[number, number] | undefined>(() => osmDetail.value?.centroid ? [osmDetail.value.centroid.longitude, osmDetail.value.centroid.latitude] : undefined)
 const canSubmit = computed(() => !!geometry.value && !!name.value.trim())
 
 async function submit() {
@@ -62,13 +79,15 @@ async function submit() {
   submitting.value = true
   error.value = ''
   try {
-    const created = await polygonApi.create({
-      name: name.value.trim(),
-      floor: floor.value,
-      category: category.value,
-      geometry: geometry.value,
-      properties: {}
-    })
+    const created = osmContext
+      ? await importFeature({ osm_type: osmContext.osmType, osm_id: osmContext.osmId, floor: floor.value, geometry: geometry.value })
+      : await polygonApi.create({
+          name: name.value.trim(),
+          floor: floor.value,
+          category: category.value,
+          geometry: geometry.value,
+          properties: {}
+        })
     await navigateTo(`/flaechen/${created.slug}`)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Die Fläche konnte nicht erstellt werden.'

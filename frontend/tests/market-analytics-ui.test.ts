@@ -1,0 +1,65 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
+
+describe('market and location analytics UI', () => {
+  it('uses one filter state for map, overview and benchmarks', () => {
+    const filter = appFile('stores/filter.ts')
+    const analytics = appFile('stores/analytics.ts')
+    const map = appFile('components/map/MapCanvas.vue')
+    expect(filter).toContain('occupancyStatuses')
+    expect(filter).toContain('businessStructures')
+    expect(analytics).toContain("query.set('occupancy_statuses'")
+    expect(analytics).toContain("query.set('business_structures'")
+    expect(analytics).toContain('/analytics/benchmarks?')
+    expect(map).toContain('filterStore.occupancyStatuses')
+    expect(map).toContain('filterStore.businessStructures')
+  })
+
+  it('renders data-driven benchmarks and unavailable values as a dash', () => {
+    const comparison = appFile('components/analysis/MarketBenchmarks.vue')
+    const page = appFile('pages/vergleich.vue')
+    expect(comparison).toContain('analytics.benchmarks.items')
+    expect(comparison).toContain("value == null ? '—'")
+    expect(comparison).toContain('Unbekannte Statuswerte')
+    expect(page).toContain('<MarketBenchmarks')
+    expect(page).not.toMatch(/const\s+(vacancy|purchasingPower|centrality)\s*=\s*\d/)
+  })
+
+  it('loads POIs by radius and comparables only when opened', () => {
+    const location = appFile('components/analysis/LocationAnalysis.vue')
+    const comparables = appFile('components/analysis/ComparableList.vue')
+    const detail = appFile('pages/flaechen/[slug].vue')
+    expect(location).toContain('locationBySlug(props.slug, value)')
+    expect(location).toContain('Für diesen Radius liegen keine POI-Daten vor.')
+    expect(comparables).toContain('@toggle="handleToggle"')
+    expect(comparables).toContain('comparablesBySlug(props.slug)')
+    expect(detail).toContain('<LocationAnalysis')
+    expect(detail).toContain('<ComparableList')
+  })
+
+  it('offers one thematic polygon style with a matching legend', () => {
+    const layer = appFile('components/map/MapLayerControl.vue')
+    const map = appFile('components/map/MapCanvas.vue')
+    const sidebar = appFile('components/layout/LeftSidebar.vue')
+    const themes = appFile('utils/mapThemes.ts')
+    expect(layer).toContain('v-model="mapStore.thematicStyle"')
+    expect(layer).toContain('type="radio"')
+    expect(map).toContain("mapStore.thematicStyle === 'occupancy'")
+    expect(map).not.toContain('<MapLegend')
+    expect(sidebar).toContain('<MapLegend')
+    expect(themes).toContain("{ key: 'occupancy', label: 'Leerstand' }")
+  })
+
+  it('keeps management-only fields out of public analytics types', () => {
+    const analyticsTypes = appFile('types/analytics.ts')
+    const management = appFile('components/polygon/PolygonManagementForm.vue')
+    expect(analyticsTypes).not.toContain('owner_name')
+    expect(analyticsTypes).not.toContain('price_per_sqm')
+    expect(management).toContain('Nur VERWALTUNG')
+    expect(management).toContain('occupancy_status')
+    expect(management).toContain('business_structure')
+  })
+})

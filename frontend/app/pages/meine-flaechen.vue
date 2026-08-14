@@ -20,8 +20,8 @@
       </div>
       <div v-else-if="!polygons.length" class="p-8 text-center sm:p-10">
         <h2 class="text-lg font-bold text-slate-950">Noch keine eigenen Flächen</h2>
-        <p class="mt-2 text-sm leading-6 text-slate-600">Zeichnen Sie Ihre erste Fläche direkt auf der Karte.</p>
-        <NuxtLink class="page-button-primary mt-5" to="/flaechen/neu">Neue Fläche anlegen</NuxtLink>
+        <p class="mt-2 text-sm leading-6 text-slate-600">Auf der Karte finden Sie den Einstieg zum Anlegen Ihrer ersten Fläche.</p>
+        <NuxtLink class="page-button-primary mt-5" to="/">Zur Karte</NuxtLink>
       </div>
       <div v-else class="overflow-x-auto">
       <table class="min-w-[720px] w-full text-left text-sm">

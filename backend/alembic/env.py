@@ -9,10 +9,12 @@ from app.core.config import get_settings
 from app.db.base import Base
 from app.models import (  # noqa: F401
     AdminAuditLog,
+    AnalysisArea,
     CityMetrics,
     EmailVerificationToken,
     OsmFeature,
     PasswordResetToken,
+    PolygonAnalysisArea,
     User,
     UserOAuthAccount,
     UserPolygon,

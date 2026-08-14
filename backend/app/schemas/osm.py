@@ -1,6 +1,9 @@
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app.schemas.geojson import AreaGeometry
 
 
 class OsmAddress(BaseModel):
@@ -44,6 +47,10 @@ class OsmObjectInfo(BaseModel):
     centroid: OsmCentroid | None = None
     overlap_ratio: float | None = None
     tags: dict[str, str] = Field(default_factory=dict)
+    occupancy_status: Literal["VACANT", "UNKNOWN"] = "UNKNOWN"
+    occupancy_source: Literal["OSM"] | None = None
+    occupancy_source_tag: str | None = None
+    previous_osm_shop_type: str | None = None
 
 
 class PolygonOsmInfo(BaseModel):
@@ -52,3 +59,88 @@ class PolygonOsmInfo(BaseModel):
     source: Literal["local", "overpass", "none"]
     matches: list[OsmObjectInfo]
     primary_match: OsmObjectInfo | None = None
+
+
+class OsmViewportQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    west: float = Field(ge=-180, le=180)
+    south: float = Field(ge=-90, le=90)
+    east: float = Field(ge=-180, le=180)
+    north: float = Field(ge=-90, le=90)
+    zoom: float = Field(ge=0, le=24)
+    categories: str | None = None
+    buildings: bool = False
+    limit: int = Field(default=2_000, ge=1, le=2_500)
+
+    @model_validator(mode="after")
+    def validate_bbox(self) -> "OsmViewportQuery":
+        if self.west >= self.east:
+            raise ValueError("west must be smaller than east; antimeridian bounds are unsupported")
+        if self.south >= self.north:
+            raise ValueError("south must be smaller than north")
+        if self.zoom >= 11:
+            max_span = 2_880 / (2 ** int(self.zoom))
+            if self.east - self.west > max_span or self.north - self.south > max_span:
+                raise ValueError("bounding box is too large for the requested zoom")
+        return self
+
+
+class OsmViewportProperties(BaseModel):
+    feature_id: str
+    osm_type: Literal["node", "way", "relation"]
+    osm_id: int
+    category: str
+    name: str | None = None
+    primary_type: str | None = None
+    feature_type: Literal["point", "polygon"]
+    occupancy_status: Literal["VACANT", "UNKNOWN"] = "UNKNOWN"
+    occupancy_source: Literal["OSM"] | None = None
+    stadtplanner: list["OsmLinkedPolygon"] = Field(default_factory=list)
+
+
+class OsmLinkedPolygon(BaseModel):
+    id: str
+    slug: str
+    name: str
+    floor: str | None = None
+
+
+class OsmPolygonImportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    osm_type: Literal["node", "way", "relation"]
+    osm_id: int = Field(gt=0)
+    floor: str | None = Field(default=None, max_length=16)
+    geometry: AreaGeometry | None = None
+
+
+class OsmPolygonImportRead(BaseModel):
+    id: str
+    slug: str
+    geometry_source: Literal["osm_feature", "containing_osm_area", "manual"]
+    source_osm_type: Literal["node", "way", "relation"]
+    source_osm_id: int
+    occupancy_status: Literal["OCCUPIED", "VACANT", "UNKNOWN"]
+    occupancy_source: Literal["OSM", "UNKNOWN"]
+
+
+class OsmViewportFeature(BaseModel):
+    type: Literal["Feature"] = "Feature"
+    id: str
+    geometry: dict[str, object]
+    properties: OsmViewportProperties
+
+
+class OsmViewportMeta(BaseModel):
+    count: int
+    truncated: bool
+    zoom: float
+    summary: dict[str, int]
+    osm_data_updated_at: datetime | None = None
+
+
+class OsmViewportFeatureCollection(BaseModel):
+    type: Literal["FeatureCollection"] = "FeatureCollection"
+    features: list[OsmViewportFeature]
+    meta: OsmViewportMeta

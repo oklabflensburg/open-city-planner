@@ -92,6 +92,44 @@ describe('mobile GIS interface', () => {
     expect(map).toContain('Erneut versuchen')
   })
 
+  it('keeps public GIS controls read-only, understandable and at least 44 pixels large', () => {
+    const shell = appFile('components/layout/AppShell.vue')
+    const controls = appFile('components/map/MapControls.vue')
+    const preview = appFile('components/analysis/PolygonStatistics.vue')
+    const hint = appFile('components/layout/LeftSidebar.vue')
+    expect(shell).toContain('aria-label="Filter öffnen"')
+    expect(shell).toContain('aria-label="Analyse öffnen"')
+    expect(shell).toContain('aria-pressed="mapStore.activeMobilePanel')
+    expect(shell).toContain('height: 2.75rem')
+    expect(shell).toContain('border: 1px solid transparent')
+    expect(controls.match(/h-11 w-11/g)).toHaveLength(3)
+    expect(preview).toContain('Details anzeigen')
+    expect(hint).not.toContain('Bearbeitung')
+  })
+
+  it('anchors every upper-right map control in one stable container', () => {
+    const map = appFile('components/map/MapCanvas.vue')
+    const container = appFile('components/map/MapControlsContainer.vue')
+    expect(map).toContain('absolute right-3 top-3')
+    expect(map).toContain('<MapControlsContainer')
+    expect(map).not.toContain('<MapLayerControl')
+    expect(container).toContain('w-11 flex-col')
+    expect(container).toContain('<MapControls')
+    expect(container).toContain('<MapLayerControl')
+  })
+
+  it('keeps the layer button bounding box independent from its open state', () => {
+    const layer = appFile('components/map/MapLayerControl.vue')
+    expect(layer).toContain('class="relative h-11 w-11"')
+    expect(layer).toContain('grid h-11 w-11')
+    expect(layer).toContain("'border-slate-200 bg-white text-slate-600'")
+    expect(layer).toContain(':aria-expanded="open"')
+    expect(layer).toContain('class="absolute bottom-0 right-[calc(100%+0.5rem)] w-52')
+    expect(layer).not.toContain('scale-')
+    expect(layer).not.toContain('translate-')
+    expect(layer).not.toContain('border-2')
+  })
+
   it('keeps mobile create and detail maps large and touch-editable', () => {
     const createMap = appFile('components/polygon/PolygonCreateMap.vue')
     const detailMap = appFile('components/polygon/PolygonDetailMap.vue')

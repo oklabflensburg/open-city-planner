@@ -1,12 +1,13 @@
-import type { PolygonEditorDetail, PolygonGeometry, PolygonMetrics, PolygonOverview, PolygonVerwaltungDetail, PublicPolygonDetail, UserPolygon } from '~/types/geo'
+import type { AreaGeometry, PolygonEditorDetail, PolygonMetrics, PolygonOverview, PolygonVerwaltungDetail, PublicPolygonDetail, UserPolygon } from '~/types/geo'
 import type { PolygonOsmInfo } from '~/types/osm'
+import type { ComparableResult, LocationAnalysis } from '~/types/analytics'
 import { polygonOverviewSchema, polygonSchema, publicPolygonDetailSchema } from '~/utils/validation'
 
 type PolygonPayload = {
   name: string
   description?: string | null
   category: string
-  geometry: PolygonGeometry
+  geometry: AreaGeometry
   properties?: Record<string, unknown>
   floor?: string | null
 }
@@ -14,6 +15,7 @@ type PolygonPayload = {
 type PublicPolygonPatch = Partial<PolygonPayload> & { area_size?: 'S' | 'M' | 'L' | 'XL' | null; expected_updated_at?: string }
 type VerwaltungPatch = Partial<Pick<PolygonVerwaltungDetail,
   'owner_name' | 'owner_street' | 'owner_house_number' | 'owner_postal_code' | 'owner_city' | 'owner_country' | 'price_per_sqm'
+  | 'occupancy_status' | 'business_structure'
 >> & { expected_updated_at?: string }
 
 export const usePolygonApi = () => {
@@ -57,6 +59,12 @@ export const usePolygonApi = () => {
     },
     async osmBySlug(slug: string) {
       return await request<PolygonOsmInfo>(`/polygons/by-slug/${encodeURIComponent(slug)}/osm`)
+    },
+    async locationBySlug(slug: string, radiusM: number) {
+      return await request<LocationAnalysis>(`/polygons/by-slug/${encodeURIComponent(slug)}/location?radius_m=${radiusM}`)
+    },
+    async comparablesBySlug(slug: string) {
+      return await request<ComparableResult>(`/polygons/by-slug/${encodeURIComponent(slug)}/comparables`)
     },
     async editor(id: string) {
       return await request<PolygonEditorDetail>(`/polygons/${id}/editor`, { cache: 'no-store' })

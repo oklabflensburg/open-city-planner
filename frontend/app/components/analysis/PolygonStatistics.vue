@@ -42,6 +42,7 @@ import { getIndustryLabel } from '~/utils/industries'
 
 const store = usePolygonStore()
 const mapStore = useMapStore()
+const mapSelection = useMapSelection()
 const polygon = computed(() => store.selectedPolygon)
 const industryLabel = computed(() => getIndustryLabel(polygon.value?.category))
 const osm = usePolygonOsmInfo()
@@ -55,7 +56,7 @@ watch(polygon, (selected) => {
 }, { immediate: true })
 
 function closeSelection() {
-  store.clearSelection()
+  mapSelection.clearSelection()
   mapStore.activeMobilePanel = null
   mapStore.polygonPreviewOpen = false
 }

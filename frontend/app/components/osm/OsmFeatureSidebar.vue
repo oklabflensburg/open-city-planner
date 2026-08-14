@@ -1,0 +1,87 @@
+<template>
+  <Card v-if="feature" class="p-4" aria-live="polite">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="text-[10px] font-bold uppercase tracking-wide text-[#154d73]">OpenStreetMap · {{ categoryLabel }}</p>
+        <h2 class="mt-1 break-words text-base font-bold text-slate-950">{{ detail?.name || feature.properties.name || typeLabel }}</h2>
+        <p class="mt-1 text-xs text-slate-500">{{ typeLabel }}</p>
+      </div>
+      <button class="grid size-11 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" aria-label="OSM-Auswahl schließen" @click="closeSelection">
+        <X class="size-4" aria-hidden="true" />
+      </button>
+    </div>
+
+    <div v-if="isVacant" class="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-950">
+      <span class="font-bold">Status: Leerstand</span>
+      <span class="mt-0.5 block text-amber-800">Datenquelle: OpenStreetMap</span>
+    </div>
+
+    <div v-if="osm.detailLoading" class="mt-3 flex items-center gap-2 text-xs text-slate-500">
+      <LoaderCircle class="size-4 animate-spin" aria-hidden="true" /> Details werden geladen …
+    </div>
+    <p v-else-if="osm.detailError" class="mt-3 text-xs text-rose-700" role="alert">{{ osm.detailError }}</p>
+    <dl v-else-if="detail" class="mt-3 grid gap-2 text-xs">
+      <div v-if="address" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Adresse</dt><dd class="break-words">{{ address }}</dd></div>
+      <div v-if="detail.opening_hours" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Öffnung</dt><dd class="break-words">{{ detail.opening_hours }}</dd></div>
+      <div v-if="detail.brand" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Marke</dt><dd class="break-words">{{ detail.brand }}</dd></div>
+      <div v-if="detail.operator" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Betreiber</dt><dd class="break-words">{{ detail.operator }}</dd></div>
+      <div v-if="detail.building_levels" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Geschosse</dt><dd>{{ detail.building_levels }}</dd></div>
+    </dl>
+
+    <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold">
+      <a v-if="safeWebsite" class="inline-flex min-h-11 items-center text-[#154d73] underline" :href="safeWebsite" target="_blank" rel="noopener noreferrer">Website</a>
+      <a class="inline-flex min-h-11 items-center text-[#154d73] underline" :href="osmUrl" target="_blank" rel="noopener noreferrer">Auf OpenStreetMap ansehen</a>
+    </div>
+
+    <div v-if="feature.properties.stadtplanner?.length" class="mt-3 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-950">
+      <p class="font-bold">Bereits im Stadtplanner</p>
+      <p v-if="feature.properties.stadtplanner.length > 1" class="mt-1">{{ feature.properties.stadtplanner.length }} verknüpfte Flächen</p>
+      <NuxtLink v-for="polygon in feature.properties.stadtplanner" :key="polygon.id" class="mt-1 block min-h-11 py-2 font-semibold text-[#154d73] underline" :to="`/flaechen/${polygon.slug}`">
+        {{ polygon.floor ? `${polygon.floor} – ` : '' }}{{ polygon.name }}
+      </NuxtLink>
+    </div>
+
+    <button v-if="auth.authenticated" class="page-button-primary mt-3 w-full" type="button" @click="importOpen = true">
+      {{ feature.properties.stadtplanner?.length ? 'Weitere Fläche anlegen' : 'Als Fläche übernehmen' }}
+    </button>
+    <div class="mt-3 border-t border-slate-200 pt-3">
+      <OsmContributeAction
+        :latitude="detail?.centroid?.latitude"
+        :longitude="detail?.centroid?.longitude"
+        :zoom="feature.properties.feature_type === 'point' ? 19 : 18"
+        :vacant="isVacant"
+      />
+    </div>
+    <p class="mt-2 text-[10px] text-slate-500">Daten: © OpenStreetMap-Mitwirkende</p>
+    <OsmImportDialog v-if="auth.authenticated" v-model:open="importOpen" :feature="feature" :detail="detail" />
+  </Card>
+</template>
+
+<script setup lang="ts">
+import { LoaderCircle, X } from 'lucide-vue-next'
+import { osmCategoryLabels } from '~/utils/osmCategories'
+import { safeOsmWebsite } from '~/utils/osm'
+
+const osm = useOsmViewportStore()
+const auth = useAuthStore()
+const mapSelection = useMapSelection()
+const mapStore = useMapStore()
+const importOpen = ref(false)
+const feature = computed(() => osm.selectedFeature)
+const detail = computed(() => osm.detail)
+const categoryLabel = computed(() => feature.value ? osmCategoryLabels[feature.value.properties.category] : '')
+const typeLabel = computed(() => feature.value?.properties.primary_type || (feature.value?.properties.feature_type === 'point' ? 'POI' : 'Flächenobjekt'))
+const isVacant = computed(() => detail.value?.occupancy_status === 'VACANT' || feature.value?.properties.occupancy_status === 'VACANT')
+const address = computed(() => {
+  const value = detail.value?.address
+  if (!value) return ''
+  return [[value.street, value.house_number].filter(Boolean).join(' '), [value.postal_code, value.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+})
+const osmUrl = computed(() => `https://www.openstreetmap.org/${feature.value?.properties.osm_type}/${feature.value?.properties.osm_id}`)
+const safeWebsite = computed(() => safeOsmWebsite(detail.value?.website))
+
+function closeSelection() {
+  mapSelection.clearSelection()
+  mapStore.closeMobilePanels()
+}
+</script>

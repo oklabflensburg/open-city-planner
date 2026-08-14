@@ -73,6 +73,10 @@ class Settings(BaseSettings):
     osm_lookup_cache_ttl_seconds: int = 3_600
     osm_external_min_interval_seconds: float = 1.0
     osm_lookup_max_matches: int = 25
+    osm_viewport_feature_limit: int = 2_500
+    osm_viewport_cache_ttl_seconds: int = 20
+    osm_viewport_rate_limit_attempts: int = 180
+    osm_viewport_rate_limit_window_seconds: int = 60
 
     # Resolve the backend environment independently of the process working directory.
     model_config = SettingsConfigDict(env_file=BACKEND_ENV_FILE, env_file_encoding="utf-8")

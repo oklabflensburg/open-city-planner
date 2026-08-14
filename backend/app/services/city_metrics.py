@@ -32,6 +32,7 @@ def public_city_metrics(record: CityMetrics | None) -> CityMetricsPublicRead:
         centrality_index=record.centrality_index,
         purchasing_power_index=record.purchasing_power_index,
         reference_date=record.reference_date,
+        source=record.source,
         updated_at=record.updated_at,
     )
 
@@ -40,7 +41,6 @@ def verwaltung_city_metrics(record: CityMetrics | None) -> CityMetricsVerwaltung
     public = public_city_metrics(record)
     return CityMetricsVerwaltungRead(
         **public.model_dump(),
-        source=record.source if record else None,
         notes=record.notes if record else None,
         updated_by_user_id=(
             str(record.updated_by_user_id) if record and record.updated_by_user_id else None

@@ -1,15 +1,74 @@
 export type AnalyticsFastFacts = {
   shops: number
+  total_area_m2: number | null
+  average_area_m2: number | null
+  calculated_vacancy_rate: number | null
+  calculated_chain_store_rate: number | null
+  known_occupancy_count: number
+  known_business_structure_count: number
+  data_updated_at: string | null
   vacancy_rate: number | null
   chain_store_rate: number | null
   centrality_index: number | null
   purchasing_power_index: number | null
   reference_date: string | null
+  source: string | null
   updated_at: string | null
 }
 
-export type CityMetricsVerwaltung = Omit<AnalyticsFastFacts, 'shops'> & {
+export type BenchmarkMetrics = {
+  polygon_count: number
+  occupied_count: number
+  vacant_count: number
+  chain_count: number
+  independent_count: number
+  total_area_m2: number | null
+  average_area_m2: number | null
+  median_area_m2: number | null
+  vacancy_rate: number | null
+  chain_store_rate: number | null
+  known_occupancy_count: number
+  known_business_structure_count: number
+  data_updated_at: string | null
+}
+
+export type MarketBenchmarkResult = {
+  context_label: string
+  calculation: 'CALCULATED'
+  source: string
+  items: Array<{ key: string, label: string, metrics: BenchmarkMetrics }>
+}
+
+export type PoiSummary = { category: string, label: string, count: number }
+export type LocationAnalysis = {
+  polygon_slug: string
+  radius_m: number
+  poi_counts: PoiSummary[]
+  nearest_public_transport: { category: string, label: string, name: string | null, distance_m: number } | null
+  source: string
+  reference_date: string | null
+}
+
+export type ComparablePolygon = {
+  slug: string
+  title: string
+  distance_m: number
+  area_m2: number
+  category: string
+  floor: string | null
+  similarity_score: number
+}
+
+export type ComparableResult = { polygon_slug: string, calculation: 'CALCULATED', items: ComparablePolygon[] }
+
+export type CityMetricsVerwaltung = {
+  vacancy_rate: number | null
+  chain_store_rate: number | null
+  centrality_index: number | null
+  purchasing_power_index: number | null
+  reference_date: string | null
   source: string | null
+  updated_at: string | null
   notes: string | null
   updated_by_user_id: string | null
 }

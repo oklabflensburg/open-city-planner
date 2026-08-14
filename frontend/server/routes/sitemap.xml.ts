@@ -3,7 +3,7 @@ import { buildAbsoluteUrl } from '~/utils/seo'
 import { documentationPaths } from '~/config/documentation'
 import { buildSitemapXml, type SitemapUrl } from '../utils/sitemap'
 
-const STATIC_PATHS = ['/', '/ueber-das-projekt', '/open-data', '/kontakt', ...documentationPaths]
+const STATIC_PATHS = ['/', '/vergleich', '/ueber-das-projekt', '/open-data', '/kontakt', ...documentationPaths]
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { AnalyticsOverview, CityMetricsUpdate, CityMetricsVerwaltung } from '~/types/analytics'
+import type { AnalyticsOverview, CityMetricsUpdate, CityMetricsVerwaltung, MarketBenchmarkResult } from '~/types/analytics'
 
 export const useAnalyticsStore = defineStore('analytics', {
   state: () => ({
@@ -12,7 +12,10 @@ export const useAnalyticsStore = defineStore('analytics', {
     saving: false,
     saveError: null as string | null,
     validationErrors: {} as Record<string, string>,
-    requestId: 0
+    requestId: 0,
+    benchmarks: null as MarketBenchmarkResult | null,
+    benchmarksLoading: false,
+    benchmarksError: null as string | null
   }),
   getters: {
     categoryCounts: state => Object.fromEntries(
@@ -31,6 +34,10 @@ export const useAnalyticsStore = defineStore('analytics', {
           floors: filter.selectedFloor,
           area_sizes: filter.selectedSize
         })
+        if (filter.occupancyStatuses.length) query.set('occupancy_statuses', filter.occupancyStatuses.join(','))
+        if (filter.businessStructures.length) query.set('business_structures', filter.businessStructures.join(','))
+        const areaId = typeof useAnalysisAreasStore === 'function' ? useAnalysisAreasStore().selectedAreaId : null
+        if (areaId) query.set('area_id', areaId)
         const result = await useApi().request<AnalyticsOverview>(`/analytics/overview?${query}`)
         if (currentRequest === this.requestId) this.data = result
       } catch (error) {
@@ -39,6 +46,27 @@ export const useAnalyticsStore = defineStore('analytics', {
         }
       } finally {
         if (currentRequest === this.requestId) this.loading = false
+      }
+    },
+    async loadBenchmarks() {
+      const filter = useFilterStore()
+      this.benchmarksLoading = true
+      this.benchmarksError = null
+      try {
+        const query = new URLSearchParams({
+          categories: filter.activeCategories.length ? filter.activeCategories.join(',') : '__none__',
+          floors: filter.selectedFloor,
+          area_sizes: filter.selectedSize
+        })
+        if (filter.occupancyStatuses.length) query.set('occupancy_statuses', filter.occupancyStatuses.join(','))
+        if (filter.businessStructures.length) query.set('business_structures', filter.businessStructures.join(','))
+        const areaId = typeof useAnalysisAreasStore === 'function' ? useAnalysisAreasStore().selectedAreaId : null
+        if (areaId) query.set('area_id', areaId)
+        this.benchmarks = await useApi().request<MarketBenchmarkResult>(`/analytics/benchmarks?${query}`)
+      } catch (error) {
+        this.benchmarksError = error instanceof Error ? error.message : 'Vergleich konnte nicht geladen werden.'
+      } finally {
+        this.benchmarksLoading = false
       }
     },
     async loadManagement() {

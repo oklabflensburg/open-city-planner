@@ -1,28 +1,56 @@
 <template>
-  <div class="pointer-events-auto">
+  <div ref="control" class="relative h-11 w-11">
     <button
-      class="grid min-h-11 min-w-11 place-items-center rounded-[10px] border border-[#e5e5e5] bg-white shadow-[0_1px_8px_rgba(20,24,28,0.12)] hover:bg-[#f5f5f5] lg:min-h-[34px] lg:min-w-[34px]"
+      class="grid h-11 w-11 place-items-center rounded-xl border shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
+      :class="open ? 'border-[#154d73] bg-[#edf4f8] text-[#154d73]' : 'border-slate-200 bg-white text-slate-600'"
       type="button"
       aria-label="Kartenlayer"
+      :aria-expanded="open"
+      aria-controls="map-layer-menu"
       title="Kartenlayer"
-      @click="open = !open"
+      @click.stop="open = !open"
     >
-      <Layers class="size-5 text-[#7c8389]" />
+      <Layers class="size-5" aria-hidden="true" />
     </button>
-    <div v-if="open" class="mt-2 w-48 rounded-[12px] border border-[#e7e7e7] bg-white p-3 text-[12px] shadow-[0_6px_24px_rgba(20,24,28,0.12)]">
-      <label class="flex items-center gap-2">
-        <input v-model="polygonsVisible" class="accent-[#154d73]" type="checkbox" @change="$emit('togglePolygons', polygonsVisible)" />
+    <div v-if="open" id="map-layer-menu" class="absolute bottom-0 right-[calc(100%+0.5rem)] w-52 rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-lg">
+      <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-1">
+        <input v-model="mapStore.polygonsVisible" class="size-4 accent-[#154d73]" type="checkbox" />
         Verkaufsflächen
       </label>
+      <fieldset class="mt-2 border-t border-slate-200 pt-2">
+        <legend class="px-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Kartendarstellung</legend>
+        <label v-for="theme in mapThemes" :key="theme.key" class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-1 hover:bg-slate-50">
+          <input v-model="mapStore.thematicStyle" class="accent-[#154d73]" type="radio" name="map-theme" :value="theme.key">
+          {{ theme.label }}
+        </label>
+      </fieldset>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { Layers } from 'lucide-vue-next'
-
-defineEmits<{ togglePolygons: [visible: boolean] }>()
+import { mapThemes } from '~/utils/mapThemes'
 
 const open = ref(false)
-const polygonsVisible = ref(true)
+const mapStore = useMapStore()
+const control = ref<HTMLElement | null>(null)
+
+onMounted(() => {
+  window.addEventListener('keydown', closeOnEscape)
+  window.addEventListener('click', closeOnOutsideClick)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', closeOnEscape)
+  window.removeEventListener('click', closeOnOutsideClick)
+})
+
+function closeOnEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape') open.value = false
+}
+
+function closeOnOutsideClick(event: MouseEvent) {
+  if (open.value && !control.value?.contains(event.target as Node)) open.value = false
+}
 </script>

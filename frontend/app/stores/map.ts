@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import type { MapTheme } from '~/utils/mapThemes'
 
 export type DrawingMode = 'select' | 'polygon' | 'edit' | 'delete'
 export type MobilePanel = 'filter' | 'analytics' | null
@@ -13,7 +14,9 @@ export const useMapStore = defineStore('map', {
     mapLoaded: false,
     activeMobilePanel: null as MobilePanel,
     polygonPreviewOpen: false,
-    categoryHighlight: null as string | null
+    polygonsVisible: true,
+    categoryHighlight: null as string | null,
+    thematicStyle: 'category' as MapTheme
   }),
   actions: {
     setView(center: [number, number], zoom: number, bearing: number, pitch: number) {
@@ -24,6 +27,9 @@ export const useMapStore = defineStore('map', {
     },
     setMode(mode: DrawingMode) {
       this.activeMode = mode
+    },
+    setPolygonsVisible(visible: boolean) {
+      this.polygonsVisible = visible
     },
     resetView(center: [number, number], zoom: number) {
       this.center = center

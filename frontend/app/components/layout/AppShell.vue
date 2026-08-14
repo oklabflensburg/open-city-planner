@@ -7,16 +7,6 @@
     <section class="absolute inset-0 min-h-0 min-w-0 p-2 lg:relative lg:inset-auto lg:p-0" aria-label="Stadtplaner-Karte">
       <MapCanvas />
 
-      <NuxtLink
-        v-if="authStore.authenticated"
-        class="absolute left-16 top-3 z-20 hidden min-h-11 items-center gap-2 rounded-xl border border-[#154d73] bg-[#154d73] px-4 text-sm font-bold text-white shadow-lg transition hover:bg-[#0f3f61] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] lg:inline-flex"
-        to="/flaechen/neu"
-        aria-label="Neue Fläche anlegen"
-      >
-        <Plus class="size-4" aria-hidden="true" />
-        Neue Fläche
-      </NuxtLink>
-
       <nav
         v-if="!mapStore.polygonPreviewOpen"
         class="absolute bottom-[calc(env(safe-area-inset-bottom)+2.25rem)] left-1/2 z-20 grid max-w-[calc(100%-1rem)] -translate-x-1/2 grid-flow-col auto-cols-max gap-1.5 rounded-2xl border border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur lg:hidden"
@@ -55,7 +45,7 @@
       <template v-if="mapStore.activeMobilePanel === 'filter'">
         <LeftSidebar />
         <div class="mt-3 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <button class="min-h-11 rounded-xl border border-slate-300 px-3 text-sm font-bold text-[#154d73] hover:bg-slate-50" type="button" @click="filterStore.reset">Zurücksetzen</button>
+          <button class="min-h-11 rounded-xl border border-slate-300 px-3 text-sm font-bold text-[#154d73] hover:bg-slate-50" type="button" @click="resetFilters">Zurücksetzen</button>
           <button class="min-h-11 rounded-xl bg-[#154d73] px-3 text-sm font-bold text-white hover:bg-[#0f3f61]" type="button" @click="closeMobilePanel">Fertig</button>
         </div>
       </template>
@@ -79,13 +69,24 @@ import { BarChart3, ListFilter, Plus } from 'lucide-vue-next'
 const mapStore = useMapStore()
 const filterStore = useFilterStore()
 const analyticsStore = useAnalyticsStore()
+const osmStore = useOsmViewportStore()
+const analysisAreasStore = useAnalysisAreasStore()
 const authStore = useAuthStore()
 const activeFilterCount = computed(() => (
   (filterStore.selectedSize !== 'M' ? 1 : 0)
   + (filterStore.selectedFloor !== 'EG' ? 1 : 0)
   + (filterStore.allCategoriesActive ? 0 : 1)
+  + (filterStore.occupancyStatuses.length ? 1 : 0)
+  + (filterStore.businessStructures.length ? 1 : 0)
+  + (!osmStore.showPois || !osmStore.showAreas || osmStore.showBuildings ? 1 : 0)
+  + (osmStore.activeCategories.length === 15 ? 0 : 1)
 ))
-const activePanelTitle = computed(() => mapStore.activeMobilePanel === 'filter' ? 'Filter & Ansichten' : 'Kennzahlen & Analyse')
+const activePanelTitle = computed(() => {
+  if (mapStore.activeMobilePanel === 'filter') return 'Filter & Ansichten'
+  if (osmStore.selectedFeature) return 'OpenStreetMap-Objekt'
+  if (analysisAreasStore.selectedArea) return analysisAreasStore.selectedArea.name
+  return 'Kennzahlen & Analyse'
+})
 const activePanelCloseLabel = computed(() => mapStore.activeMobilePanel === 'filter' ? 'Filter schließen' : 'Analyse schließen')
 
 let analyticsTimer: ReturnType<typeof setTimeout> | undefined
@@ -113,12 +114,18 @@ watch(() => mapStore.activeMobilePanel, (panel, previous) => {
 })
 
 watch(
-  () => [filterStore.selectedSize, filterStore.selectedFloor, ...filterStore.activeCategories],
+  () => [filterStore.selectedSize, filterStore.selectedFloor, ...filterStore.activeCategories, ...filterStore.occupancyStatuses, ...filterStore.businessStructures],
   () => {
     clearTimeout(analyticsTimer)
     analyticsTimer = setTimeout(() => analyticsStore.load(), 180)
+    if (analysisAreasStore.selectedAreaId) void analysisAreasStore.loadDetails()
   }
 )
+
+watch(() => analysisAreasStore.selectedAreaId, () => {
+  clearTimeout(analyticsTimer)
+  analyticsTimer = setTimeout(() => analyticsStore.load(), 80)
+})
 
 onBeforeUnmount(() => {
   clearTimeout(analyticsTimer)
@@ -151,6 +158,11 @@ function closePreview() {
   mapStore.polygonPreviewOpen = false
 }
 
+function resetFilters() {
+  filterStore.reset()
+  osmStore.reset()
+}
+
 function handleDesktopBreakpoint(event: MediaQueryListEvent) {
   if (event.matches) mapStore.closeMobilePanel()
 }
@@ -171,23 +183,25 @@ function handlePopState() {
 
 .map-action {
   display: inline-flex;
-  min-height: 2.75rem;
-  min-width: 0;
+  height: 2.75rem;
+  min-width: 2.75rem;
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
+  border: 1px solid transparent;
   border-radius: 0.75rem;
   padding-inline: 0.65rem;
   color: #334155;
   font-size: 0.75rem;
   font-weight: 800;
+  transition: background-color 150ms, border-color 150ms, color 150ms, box-shadow 150ms;
   white-space: nowrap;
 }
 
 .map-action:hover { background: #f1f5f9; }
-.map-action-active { background: #e2edf4; color: #154d73; }
+.map-action-active { border-color: #8baabd; background: #e2edf4; color: #154d73; }
 .map-action:focus-visible { outline: 2px solid #154d73; outline-offset: 2px; }
-.map-action-primary { background: #154d73; color: white; }
+.map-action-primary { border-color: #154d73; background: #154d73; color: white; }
 .map-action-primary:hover { background: #0f3f61; }
 
 @supports (height: 100dvh) {

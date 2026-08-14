@@ -35,6 +35,15 @@
         </nav>
 
         <template v-if="authStore.authenticated">
+          <NuxtLink
+            v-if="route.path === '/'"
+            class="inline-flex h-11 items-center gap-2 rounded-xl border border-[#154d73] bg-white px-4 text-sm font-bold text-[#154d73] transition-colors hover:bg-[#edf4f8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
+            to="/flaechen/neu"
+            aria-label="Neue Fläche anlegen"
+          >
+            <Plus class="size-5" aria-hidden="true" />
+            Neue Fläche
+          </NuxtLink>
           <div class="relative">
             <button
               ref="accountButton"
@@ -104,7 +113,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronDown, Menu, X } from 'lucide-vue-next'
+import { ChevronDown, Menu, Plus, X } from 'lucide-vue-next'
 import { hasVerwaltungRole } from '~/utils/roles'
 
 const route = useRoute()

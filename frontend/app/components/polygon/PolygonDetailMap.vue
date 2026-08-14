@@ -31,23 +31,23 @@
 <script setup lang="ts">
 import type { GeoJSONSource, Map } from 'maplibre-gl'
 import type { TerraDraw } from 'terra-draw'
-import type { PolygonGeometry } from '~/types/geo'
+import type { AreaGeometry, PolygonGeometry } from '~/types/geo'
 
 const props = defineProps<{
-  geometry: PolygonGeometry
+  geometry: AreaGeometry
   bbox: [number, number, number, number]
   editable: boolean
   color: string
 }>()
-const emit = defineEmits<{ geometryComplete: [geometry: PolygonGeometry] }>()
+const emit = defineEmits<{ geometryComplete: [geometry: AreaGeometry] }>()
 
 const config = useRuntimeConfig()
 const mapElement = ref<HTMLDivElement | null>(null)
 const map = shallowRef<Map | null>(null)
 const draw = shallowRef<TerraDraw | null>(null)
 const editing = ref(false)
-const draftGeometry = shallowRef<PolygonGeometry | null>(null)
-const editorFeatureId = shallowRef<string | number | null>(null)
+const draftGeometry = shallowRef<AreaGeometry | null>(null)
+const editorFeatureIds = shallowRef<Array<string | number>>([])
 const mapError = ref('')
 let resizeObserver: ResizeObserver | null = null
 let disposed = false
@@ -114,13 +114,14 @@ onMounted(async () => {
         ]
       })
       terra.on('change', (ids: Array<string | number>, type: string) => {
-        const featureId = editorFeatureId.value
-        if (!editing.value || featureId == null || type !== 'update' || !ids.includes(featureId)) return
-        const feature = terra.getSnapshotFeature(featureId)
-        if (feature?.geometry.type === 'Polygon') draftGeometry.value = feature.geometry as PolygonGeometry
-      })
-      terra.on('deselect', (id: string | number) => {
-        if (editing.value && id === editorFeatureId.value) finishEditing()
+        if (!editing.value || type !== 'update' || !ids.some(id => editorFeatureIds.value.includes(id))) return
+        const polygons = editorFeatureIds.value
+          .map(id => terra.getSnapshotFeature(id)?.geometry)
+          .filter((geometry): geometry is PolygonGeometry => geometry?.type === 'Polygon')
+        if (!polygons.length) return
+        draftGeometry.value = polygons.length === 1
+          ? polygons[0]!
+          : { type: 'MultiPolygon', coordinates: polygons.map(item => item.coordinates) }
       })
       terra.start()
       draw.value = terra
@@ -179,28 +180,32 @@ function startEditing() {
   const terra = draw.value
   if (!terra || !props.editable) return
   draftGeometry.value = props.geometry
-  let featureId = editorFeatureId.value
-  if (featureId == null || !terra.hasFeature(featureId)) {
-    featureId = terra.getFeatureId()
-    const [validation] = terra.addFeatures([{
-      type: 'Feature',
-      id: featureId,
-      geometry: props.geometry,
+  if (!editorFeatureIds.value.length) {
+    const polygons = props.geometry.type === 'Polygon'
+      ? [props.geometry]
+      : props.geometry.coordinates.map(coordinates => ({ type: 'Polygon' as const, coordinates }))
+    const validations = terra.addFeatures(polygons.map(geometry => ({
+      type: 'Feature' as const,
+      id: terra.getFeatureId(),
+      geometry,
       properties: { mode: 'polygon' }
-    }])
-    if (!validation?.valid || validation.id == null || !terra.hasFeature(validation.id)) {
+    })))
+    const featureIds = validations
+      .filter(validation => validation.valid && validation.id != null && terra.hasFeature(validation.id))
+      .map(validation => validation.id as string | number)
+    if (featureIds.length !== polygons.length) {
+      if (featureIds.length) terra.removeFeatures(featureIds)
       draftGeometry.value = null
-      editorFeatureId.value = null
+      editorFeatureIds.value = []
       return
     }
-    featureId = validation.id
-    editorFeatureId.value = featureId
+    editorFeatureIds.value = featureIds
   }
   editing.value = true
   map.value?.dragPan.disable()
   map.value?.touchZoomRotate.disable()
   setStaticPolygonVisibility(false)
-  terra.selectFeature(featureId)
+  if (editorFeatureIds.value[0] != null) terra.selectFeature(editorFeatureIds.value[0])
 }
 
 function finishEditing() {
@@ -210,9 +215,9 @@ function finishEditing() {
   map.value?.touchZoomRotate.enable()
   const geometry = draftGeometry.value
   const terra = draw.value
-  const featureId = editorFeatureId.value
-  if (terra && featureId != null && terra.hasFeature(featureId)) terra.removeFeatures([featureId])
-  editorFeatureId.value = null
+  const featureIds = editorFeatureIds.value
+  if (terra && featureIds.length) terra.removeFeatures(featureIds.filter(id => terra.hasFeature(id)))
+  editorFeatureIds.value = []
   draftGeometry.value = null
   setStaticPolygonVisibility(true)
   if (geometry && JSON.stringify(geometry.coordinates) !== JSON.stringify(props.geometry.coordinates)) {
@@ -228,7 +233,7 @@ function setStaticPolygonVisibility(visible: boolean) {
   instance.setLayoutProperty('detail-polygon-line', 'visibility', visibility)
 }
 
-function featureCollection(geometry: PolygonGeometry) {
+function featureCollection(geometry: AreaGeometry) {
   return {
     type: 'FeatureCollection' as const,
     features: [{ type: 'Feature' as const, geometry, properties: {} }]

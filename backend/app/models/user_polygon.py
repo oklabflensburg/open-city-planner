@@ -3,7 +3,16 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from geoalchemy2 import Geometry
-from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -39,8 +48,13 @@ class UserPolygon(Base):
     owner_city: Mapped[str | None] = mapped_column(String(120))
     owner_country: Mapped[str | None] = mapped_column(String(120))
     price_per_sqm: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    occupancy_status: Mapped[str] = mapped_column(String(16), default="UNKNOWN", nullable=False)
+    occupancy_source: Mapped[str] = mapped_column(String(16), default="UNKNOWN", nullable=False)
+    occupancy_source_tag: Mapped[str | None] = mapped_column(String(120))
+    occupancy_source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    business_structure: Mapped[str] = mapped_column(String(16), default="UNKNOWN", nullable=False)
     category: Mapped[str] = mapped_column(String(80), default="custom", nullable=False)
-    geometry: Mapped[object] = mapped_column(Geometry("POLYGON", srid=4326, spatial_index=False), nullable=False)
+    geometry: Mapped[object] = mapped_column(Geometry("GEOMETRY", srid=4326, spatial_index=False), nullable=False)
     properties: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
     user_id: Mapped[str | None] = mapped_column(String(120))
     created_by_user_id: Mapped[uuid_pkg.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
@@ -56,5 +70,19 @@ class UserPolygon(Base):
         Index("idx_user_polygons_updated_by_user_id", "updated_by_user_id"),
         Index("idx_user_polygons_category", "category"),
         Index("idx_user_polygons_floor", "floor"),
+        Index("idx_user_polygons_occupancy_status", "occupancy_status"),
+        Index("idx_user_polygons_business_structure", "business_structure"),
         Index("idx_user_polygons_geometry", "geometry", postgresql_using="gist"),
+        CheckConstraint(
+            "occupancy_status IN ('OCCUPIED', 'VACANT', 'UNKNOWN')",
+            name="ck_user_polygons_occupancy_status",
+        ),
+        CheckConstraint(
+            "occupancy_source IN ('OSM', 'MANUAL', 'IMPORTED', 'CALCULATED', 'UNKNOWN')",
+            name="ck_user_polygons_occupancy_source",
+        ),
+        CheckConstraint(
+            "business_structure IN ('CHAIN', 'INDEPENDENT', 'UNKNOWN')",
+            name="ck_user_polygons_business_structure",
+        ),
     )

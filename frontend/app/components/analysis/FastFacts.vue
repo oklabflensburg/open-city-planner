@@ -12,7 +12,7 @@
       </div>
     </div>
     <div v-if="analytics.loading && !analytics.data" class="facts-grid grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2" aria-label="Kennzahlen werden geladen">
-      <div v-for="item in 5" :key="item" class="h-20 animate-pulse rounded-xl bg-slate-100" />
+      <div v-for="item in 7" :key="item" class="h-20 animate-pulse rounded-xl bg-slate-100" />
     </div>
     <div v-else-if="analytics.error" class="rounded-xl bg-rose-50 p-3 text-xs text-rose-800">
       <p>Kennzahlen konnten nicht geladen werden.</p>
@@ -25,27 +25,31 @@
         <div class="mt-1 text-xl font-light tabular-nums text-slate-800">{{ fact.value }}</div>
       </div>
     </div>
+    <NuxtLink class="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 px-3 text-xs font-bold text-[#154d73] hover:bg-slate-50" to="/vergleich">Standorte vergleichen</NuxtLink>
   </Card>
 </template>
 
 <script setup lang="ts">
-import { Building2, Landmark, Network, RefreshCw, Store, WalletCards } from 'lucide-vue-next'
+import { Building2, Landmark, Maximize2, Network, RefreshCw, Store, WalletCards } from 'lucide-vue-next'
 import { formatMetricIndex, formatMetricPercent } from '~/utils/metrics'
 
 const analytics = useAnalyticsStore()
 const fastFacts = computed(() => analytics.data?.fast_facts)
 const dataStand = computed(() => {
+  const source = fastFacts.value?.source ? ` · Quelle: ${fastFacts.value.source}` : ''
   if (fastFacts.value?.reference_date) {
-    return `Stand: ${new Intl.DateTimeFormat('de-DE').format(new Date(`${fastFacts.value.reference_date}T00:00:00`))}`
+    return `Stand: ${new Intl.DateTimeFormat('de-DE').format(new Date(`${fastFacts.value.reference_date}T00:00:00`))}${source}`
   }
   return fastFacts.value?.updated_at
-    ? `Zuletzt aktualisiert: ${new Intl.DateTimeFormat('de-DE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(fastFacts.value.updated_at))} Uhr`
+    ? `Zuletzt aktualisiert: ${new Intl.DateTimeFormat('de-DE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(fastFacts.value.updated_at))} Uhr${source}`
     : 'Kein Datenstand verfügbar'
 })
 const facts = computed(() => [
   { label: 'Shops', value: fastFacts.value?.shops?.toLocaleString('de-DE') ?? '—', available: fastFacts.value?.shops != null, icon: Store, description: 'Öffentliche Flächen in gepflegten Handels-, Gastronomie- und Dienstleistungskategorien.' },
-  { label: 'Leerstand', value: formatMetricPercent(fastFacts.value?.vacancy_rate), available: fastFacts.value?.vacancy_rate != null, icon: Landmark, description: '' },
-  { label: 'Filialisierung', value: formatMetricPercent(fastFacts.value?.chain_store_rate), available: fastFacts.value?.chain_store_rate != null, icon: Network, description: '' },
+  { label: 'Gesamtfläche', value: fastFacts.value?.total_area_m2 == null ? '—' : `${Math.round(fastFacts.value.total_area_m2).toLocaleString('de-DE')} m²`, available: fastFacts.value?.total_area_m2 != null, icon: Maximize2, description: 'Aus den Geometrien der aktuell gefilterten Flächen berechnet.' },
+  { label: 'Ø Fläche', value: fastFacts.value?.average_area_m2 == null ? '—' : `${Math.round(fastFacts.value.average_area_m2).toLocaleString('de-DE')} m²`, available: fastFacts.value?.average_area_m2 != null, icon: Maximize2, description: 'Aus den Geometrien der aktuell gefilterten Flächen berechnet.' },
+  { label: 'Leerstand', value: formatMetricPercent(fastFacts.value?.calculated_vacancy_rate ?? fastFacts.value?.vacancy_rate), available: (fastFacts.value?.calculated_vacancy_rate ?? fastFacts.value?.vacancy_rate) != null, icon: Landmark, description: fastFacts.value?.calculated_vacancy_rate != null ? `Berechnet aus ${fastFacts.value.known_occupancy_count} Flächen mit bekanntem Status.` : 'Manuell gepflegte Stadtkennzahl.' },
+  { label: 'Filialisierung', value: formatMetricPercent(fastFacts.value?.calculated_chain_store_rate ?? fastFacts.value?.chain_store_rate), available: (fastFacts.value?.calculated_chain_store_rate ?? fastFacts.value?.chain_store_rate) != null, icon: Network, description: fastFacts.value?.calculated_chain_store_rate != null ? `Berechnet aus ${fastFacts.value.known_business_structure_count} Flächen mit bekannter Betriebsform.` : 'Manuell gepflegte Stadtkennzahl.' },
   { label: 'Zentralität (Index)', value: formatMetricIndex(fastFacts.value?.centrality_index), available: fastFacts.value?.centrality_index != null, icon: Building2, description: '' },
   { label: 'Kaufkraft (Index)', value: formatMetricIndex(fastFacts.value?.purchasing_power_index), available: fastFacts.value?.purchasing_power_index != null, icon: WalletCards, description: '' }
 ])

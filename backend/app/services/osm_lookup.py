@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.models.user_polygon import UserPolygon
 from app.schemas.osm import OsmAddress, OsmCentroid, OsmObjectInfo, PolygonOsmInfo
 from app.services.geometry import from_wkb_element
+from app.services.osm_occupancy import detect_osm_occupancy_status
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,10 @@ RELEVANT_TAGS = (
     "level",
     "indoor",
     "ref",
+    "disused",
+    "disused:shop",
+    "abandoned",
+    "abandoned:shop",
 )
 CATEGORY_TAGS = ("shop", "amenity", "office", "craft", "tourism", "leisure", "building")
 
@@ -148,6 +153,7 @@ def normalize_osm_tags(
         for key in RELEVANT_TAGS
         if (value := _text_value(tags, key)) is not None
     }
+    occupancy = detect_osm_occupancy_status(tags)
     return OsmObjectInfo(
         osm_id=osm_id,
         osm_type=osm_type,  # type: ignore[arg-type]
@@ -175,6 +181,10 @@ def normalize_osm_tags(
         centroid=centroid,
         overlap_ratio=round(overlap_ratio, 6) if overlap_ratio is not None else None,
         tags=public_tags,
+        occupancy_status=occupancy.status,
+        occupancy_source="OSM" if occupancy.status == "VACANT" else None,
+        occupancy_source_tag=occupancy.source_tag,
+        previous_osm_shop_type=occupancy.previous_shop_type,
     )
 
 
