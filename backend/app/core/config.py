@@ -10,7 +10,7 @@ BACKEND_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 class Settings(BaseSettings):
     database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:5432/open_city_map")
     cors_origins: str = "http://localhost:3000,http://localhost:3001"
-    cors_origin_regex: str | None = r"^https?://(localhost|127\.0\.0\.1):\d+$"
+    cors_origin_regex: str | None = None
     log_level: str = "INFO"
     app_environment: str = "development"
     app_base_url: str = "http://localhost:3000"
@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
+    refresh_token_reuse_grace_seconds: int = 5
+    refresh_rate_limit_attempts: int = 30
+    refresh_rate_limit_window_seconds: int = 60
     email_verification_expire_hours: int = 24
     password_reset_expire_minutes: int = 60
     auth_access_cookie_name: str = "ocm_access_token"

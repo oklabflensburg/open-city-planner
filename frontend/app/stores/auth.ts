@@ -3,6 +3,8 @@ import type { AuthResponse, AuthUser, OAuthAccount, OAuthProvider, VerificationR
 import { buildApiUrl } from '~/utils/apiUrl'
 import { sanitizeInternalRedirect } from '~/utils/redirect'
 
+const initializationPromises = new WeakMap<object, Promise<void>>()
+
 type SignupPayload = {
   email: string
   password: string
@@ -16,6 +18,10 @@ export const useAuthStore = defineStore('auth', {
     csrfToken: null as string | null,
     loading: false,
     initialized: false,
+    refreshing: false,
+    sessionExpired: false,
+    sessionUncertain: false,
+    authGeneration: 0,
     oauthProviders: [] as OAuthProvider[],
     oauthProvidersLoading: false,
     oauthProvidersLoaded: false,
@@ -30,13 +36,19 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     async initialize() {
       if (this.initialized) return
-      this.loading = true
-      try {
-        await Promise.all([this.refreshUser(), this.loadProviders()])
-      } finally {
-        this.loading = false
-        this.initialized = true
-      }
+      const pending = initializationPromises.get(this)
+      if (pending) return await pending
+      const initialization = (async () => {
+        this.loading = true
+        try {
+          await Promise.all([this.refreshUser(), this.loadProviders()])
+        } finally {
+          this.loading = false
+          this.initialized = true
+        }
+      })()
+      initializationPromises.set(this, initialization)
+      try { await initialization } finally { initializationPromises.delete(this) }
     },
     async loadProviders() {
       if (this.oauthProvidersLoaded || this.oauthProvidersLoading) return
@@ -65,8 +77,9 @@ export const useAuthStore = defineStore('auth', {
       this.oauthError = ''
       window.location.assign(url.toString())
     },
-    startOAuthLink(providerId: string) {
+    async startOAuthLink(providerId: string) {
       if (typeof window === 'undefined') return
+      await this.refreshUser()
       if (!this.authenticated) {
         window.location.assign('/login?redirect=%2Fprofil')
         return
@@ -94,23 +107,33 @@ export const useAuthStore = defineStore('auth', {
     async refreshUser() {
       try {
         const { request } = useApi()
-        this.user = await request<AuthUser>('/auth/me', { retryOnUnauthorized: false })
-      } catch {
-        this.user = null
+        const result = await request<AuthResponse>('/auth/session')
+        this.applyAuthSession(result)
+      } catch (error) {
+        if (error instanceof Error && 'statusCode' in error && error.statusCode === 401) {
+          this.clearAuthSession(false)
+        } else {
+          this.sessionUncertain = true
+        }
       }
     },
     async refreshSession() {
-      try {
-        const { request } = useApi()
-        const result = await request<AuthResponse>('/auth/refresh', { method: 'POST', retryOnUnauthorized: false })
-        this.user = result.user
-        this.csrfToken = result.csrf_token
-        return true
-      } catch {
-        this.user = null
-        this.csrfToken = null
-        return false
-      }
+      return await useApi().refreshSession()
+    },
+    applyAuthSession(result: AuthResponse) {
+      this.user = result.user
+      this.csrfToken = result.csrf_token
+      this.sessionExpired = false
+      this.sessionUncertain = false
+    },
+    clearAuthSession(expired = false) {
+      const wasAuthenticated = this.authenticated
+      this.authGeneration += 1
+      this.user = null
+      this.csrfToken = null
+      this.refreshing = false
+      this.sessionExpired = expired && wasAuthenticated
+      this.sessionUncertain = false
     },
     async login(payload: { email: string; password: string; remember?: boolean }) {
       const { request } = useApi()
@@ -121,6 +144,8 @@ export const useAuthStore = defineStore('auth', {
       })
       this.user = result.user
       this.csrfToken = result.csrf_token
+      this.sessionExpired = false
+      this.sessionUncertain = false
     },
     async signup(payload: SignupPayload) {
       const { request } = useApi()
@@ -131,23 +156,33 @@ export const useAuthStore = defineStore('auth', {
       })
       this.user = result.user
       this.csrfToken = result.csrf_token
+      this.sessionExpired = false
+      this.sessionUncertain = false
     },
     async logout() {
       const { request } = useApi()
+      this.authGeneration += 1
+      this.sessionExpired = false
+      this.sessionUncertain = false
       try {
         await request('/auth/logout', { method: 'POST', retryOnUnauthorized: false })
       } finally {
         this.user = null
         this.csrfToken = null
+        this.refreshing = false
       }
     },
     async logoutAll() {
       const { request } = useApi()
+      this.authGeneration += 1
+      this.sessionExpired = false
+      this.sessionUncertain = false
       try {
-        await request('/auth/logout-all', { method: 'POST', retryOnUnauthorized: false })
+        await request('/auth/logout-all', { method: 'POST' })
       } finally {
         this.user = null
         this.csrfToken = null
+        this.refreshing = false
       }
     },
     async forgotPassword(email: string) {

@@ -14,6 +14,7 @@ from app.auth.jwt import create_jwt, decode_jwt
 from app.auth.passwords import hash_password, validate_password_policy, verify_password
 from app.auth.tokens import generate_token, hash_token
 from app.core.config import get_settings
+from app.models.admin_audit_log import AdminAuditLog
 from app.models.password_reset_token import PasswordResetToken
 from app.models.user import User
 from app.models.user_session import UserSession
@@ -102,6 +103,24 @@ async def authenticate(session: AsyncSession, payload: LoginRequest) -> User:
 
 
 async def issue_session(session: AsyncSession, response: Response, user: User, request: Request) -> str:
+    access_token, refresh_token, session_record = create_session_record(
+        user,
+        request,
+        family_id=uuid.uuid4(),
+    )
+    session.add(session_record)
+    await session.commit()
+    csrf_token = create_csrf_token()
+    set_auth_cookies(response, access_token, refresh_token, csrf_token)
+    return csrf_token
+
+
+def create_session_record(
+    user: User,
+    request: Request,
+    *,
+    family_id: uuid.UUID,
+) -> tuple[str, str, UserSession]:
     settings = get_settings()
     access_token, _ = create_jwt(
         str(user.id),
@@ -114,15 +133,12 @@ async def issue_session(session: AsyncSession, response: Response, user: User, r
         user_id=user.id,
         token_hash=hash_token(refresh_token),
         jti=refresh_jti,
+        family_id=family_id,
         expires_at=utcnow() + timedelta(days=settings.refresh_token_expire_days),
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
-    session.add(session_record)
-    await session.commit()
-    csrf_token = create_csrf_token()
-    set_auth_cookies(response, access_token, refresh_token, csrf_token)
-    return csrf_token
+    return access_token, refresh_token, session_record
 
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str, csrf_token: str) -> None:
@@ -150,20 +166,89 @@ def clear_auth_cookies(response: Response) -> None:
 async def refresh_session(session: AsyncSession, response: Response, refresh_token: str, request: Request) -> tuple[User, str]:
     try:
         payload = decode_jwt(refresh_token, "refresh")
+    except jwt.ExpiredSignatureError as exc:
+        logger.info("AUTH_REFRESH_FAILED reason=REFRESH_TOKEN_EXPIRED")
+        raise auth_error("REFRESH_TOKEN_EXPIRED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED) from exc
     except jwt.PyJWTError as exc:
-        raise auth_error("AUTH_REQUIRED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED) from exc
-    user = await get_user_by_id(session, payload["sub"])
-    if not user or not user.is_active:
-        raise auth_error("AUTH_REQUIRED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
-    record = await session.scalar(select(UserSession).where(UserSession.jti == payload["jti"]))
+        logger.info("AUTH_REFRESH_FAILED reason=REFRESH_TOKEN_INVALID")
+        raise auth_error("REFRESH_TOKEN_INVALID", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED) from exc
+    subject = payload.get("sub")
+    jti = payload.get("jti")
+    if not subject or not jti:
+        raise auth_error("REFRESH_TOKEN_INVALID", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+
+    record = await session.scalar(
+        select(UserSession).where(UserSession.jti == jti).with_for_update()
+    )
     now = utcnow()
-    if not record or record.revoked_at or record.expires_at <= now or record.token_hash != hash_token(refresh_token):
-        raise auth_error("AUTH_REQUIRED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+    if not record or record.token_hash != hash_token(refresh_token) or str(record.user_id) != subject:
+        logger.warning("AUTH_REFRESH_FAILED reason=REFRESH_TOKEN_INVALID")
+        raise auth_error("REFRESH_TOKEN_INVALID", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+    if record.rotated_at:
+        grace = timedelta(seconds=get_settings().refresh_token_reuse_grace_seconds)
+        if now - record.rotated_at <= grace:
+            logger.info("AUTH_REFRESH_CONCURRENT family_id=%s", record.family_id)
+            raise auth_error(
+                "REFRESH_ALREADY_ROTATED",
+                "Die Sitzung wurde bereits aktualisiert. Bitte wiederhole die Anfrage.",
+                status.HTTP_409_CONFLICT,
+            )
+        await revoke_token_family(session, record.family_id, now, "refresh_token_reuse")
+        session.add(
+            AdminAuditLog(
+                actor_user_id=None,
+                target_user_id=record.user_id,
+                action="REFRESH_TOKEN_REUSE_DETECTED",
+            )
+        )
+        await session.commit()
+        logger.error("REFRESH_TOKEN_REUSE_DETECTED family_id=%s", record.family_id)
+        raise auth_error("REFRESH_TOKEN_REUSE_DETECTED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+    if record.revoked_at:
+        logger.info("AUTH_REFRESH_FAILED reason=SESSION_REVOKED family_id=%s", record.family_id)
+        raise auth_error("SESSION_REVOKED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+    if record.expires_at <= now:
+        record.revoked_at = now
+        record.revocation_reason = "expired"
+        await session.commit()
+        raise auth_error("REFRESH_TOKEN_EXPIRED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+
+    user = await get_user_by_id(session, record.user_id)
+    if not user or not user.is_active:
+        await revoke_token_family(session, record.family_id, now, "user_inactive")
+        await session.commit()
+        logger.info("AUTH_REFRESH_FAILED reason=USER_INACTIVE family_id=%s", record.family_id)
+        raise auth_error("USER_INACTIVE", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+
+    access_token, next_refresh_token, next_record = create_session_record(
+        user,
+        request,
+        family_id=record.family_id,
+    )
     record.revoked_at = now
+    record.rotated_at = now
     record.last_used_at = now
+    record.replaced_by_jti = next_record.jti
+    record.revocation_reason = "rotated"
+    session.add(next_record)
     await session.commit()
-    csrf_token = await issue_session(session, response, user, request)
+    csrf_token = create_csrf_token()
+    set_auth_cookies(response, access_token, next_refresh_token, csrf_token)
+    logger.info("AUTH_REFRESH_SUCCESS user_id=%s family_id=%s", user.id, record.family_id)
     return user, csrf_token
+
+
+async def revoke_token_family(
+    session: AsyncSession,
+    family_id: uuid.UUID,
+    revoked_at: datetime,
+    reason: str,
+) -> None:
+    await session.execute(
+        update(UserSession)
+        .where(UserSession.family_id == family_id, UserSession.revoked_at.is_(None))
+        .values(revoked_at=revoked_at, revocation_reason=reason)
+    )
 
 
 async def revoke_current_session(session: AsyncSession, refresh_token: str | None) -> None:
@@ -174,18 +259,20 @@ async def revoke_current_session(session: AsyncSession, refresh_token: str | Non
     except jwt.PyJWTError:
         return
     record = await session.scalar(select(UserSession).where(UserSession.jti == payload["jti"]))
-    if record and not record.revoked_at:
-        record.revoked_at = utcnow()
+    if record:
+        await revoke_token_family(session, record.family_id, utcnow(), "logout")
         await session.commit()
+        logger.info("SESSION_REVOKED reason=logout family_id=%s", record.family_id)
 
 
 async def revoke_all_sessions(session: AsyncSession, user_id: uuid.UUID) -> None:
     await session.execute(
         update(UserSession)
         .where(UserSession.user_id == user_id, UserSession.revoked_at.is_(None))
-        .values(revoked_at=utcnow())
+        .values(revoked_at=utcnow(), revocation_reason="logout_all")
     )
     await session.commit()
+    logger.info("SESSION_REVOKED reason=logout_all user_id=%s", user_id)
 
 
 async def verify_email(session: AsyncSession, token: str) -> VerificationResult:

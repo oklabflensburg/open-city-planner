@@ -112,6 +112,10 @@ body.drawer-open {
   overflow: hidden;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 .mobile-navigation-enter-active,
 .mobile-navigation-leave-active {
   transition: opacity 160ms ease;

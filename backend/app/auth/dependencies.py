@@ -36,9 +36,23 @@ async def get_optional_user(request: Request, session: SessionDep) -> User | Non
 
 
 async def get_current_user(request: Request, session: SessionDep) -> User:
-    user = await get_optional_user(request, session)
+    settings = get_settings()
+    token = request.cookies.get(settings.auth_access_cookie_name)
+    if not token:
+        raise auth_exception("AUTH_REQUIRED", "Bitte melde dich an.")
+    try:
+        payload = decode_jwt(token, "access")
+    except jwt.ExpiredSignatureError as exc:
+        raise auth_exception(
+            "ACCESS_TOKEN_EXPIRED", "Die Zugriffssitzung muss erneuert werden."
+        ) from exc
+    except jwt.PyJWTError as exc:
+        raise auth_exception("ACCESS_TOKEN_INVALID", "Bitte melde dich erneut an.") from exc
+    user = await get_user_by_id(session, payload.get("sub", ""))
     if not user:
-        raise auth_exception()
+        raise auth_exception("AUTH_REQUIRED", "Bitte melde dich erneut an.")
+    if not user.is_active:
+        raise auth_exception("USER_INACTIVE", "Dieses Konto ist deaktiviert.")
     return user
 
 

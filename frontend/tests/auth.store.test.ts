@@ -41,6 +41,20 @@ describe('auth store', () => {
     expect(store.canWrite).toBe(true)
   })
 
+  it('keeps an existing session when initialization only fails because of the network', async () => {
+    const request = vi.fn().mockRejectedValue(new TypeError('network unavailable'))
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+    store.user = user
+
+    await store.initialize()
+
+    expect(store.user).toEqual(user)
+    expect(store.authenticated).toBe(true)
+    expect(store.sessionUncertain).toBe(true)
+    expect(store.initialized).toBe(true)
+  })
+
   it('refreshes the global user after successful email verification', async () => {
     const verifiedUser = { ...user, is_verified: true }
     const request = vi.fn()
@@ -49,7 +63,7 @@ describe('auth store', () => {
         code: 'EMAIL_VERIFIED',
         message: 'E-Mail-Adresse bestätigt.'
       })
-      .mockResolvedValueOnce(verifiedUser)
+      .mockResolvedValueOnce({ user: verifiedUser, csrf_token: 'csrf-new' })
     vi.stubGlobal('useApi', () => ({ request }))
     const store = useAuthStore()
     store.user = { ...user, is_verified: false }
@@ -62,7 +76,7 @@ describe('auth store', () => {
       body: JSON.stringify({ token: 'a-valid-random-token' }),
       retryOnUnauthorized: false
     })
-    expect(request).toHaveBeenNthCalledWith(2, '/auth/me', { retryOnUnauthorized: false })
+    expect(request).toHaveBeenNthCalledWith(2, '/auth/session')
     expect(store.user?.is_verified).toBe(true)
     expect(store.canWrite).toBe(true)
   })
@@ -74,7 +88,7 @@ describe('auth store', () => {
         code: 'EMAIL_ALREADY_VERIFIED',
         message: 'Die E-Mail-Adresse wurde bereits bestätigt.'
       })
-      .mockResolvedValueOnce(user)
+      .mockResolvedValueOnce({ user, csrf_token: 'csrf-new' })
     vi.stubGlobal('useApi', () => ({ request }))
     const store = useAuthStore()
 
@@ -188,24 +202,29 @@ describe('auth store', () => {
     expect(assign).toHaveBeenCalledWith('http://localhost:8000/api/v1/auth/oauth/google/login?redirect=%2Fmeine-flaechen%3Fstatus%3Daktiv')
   })
 
-  it.each(['github', 'google'])('starts authenticated %s account linking directly', (provider) => {
+  it.each(['github', 'google'])('starts authenticated %s account linking after a session check', async (provider) => {
     const assign = vi.fn()
+    const request = vi.fn().mockResolvedValue({ user, csrf_token: 'csrf-current' })
+    vi.stubGlobal('useApi', () => ({ request }))
     vi.stubGlobal('useRuntimeConfig', () => ({ public: { apiBaseUrl: 'http://localhost:8000/api/v1/' } }))
     vi.stubGlobal('window', { location: { assign } })
     const store = useAuthStore()
     store.user = user
 
-    store.startOAuthLink(provider)
+    await store.startOAuthLink(provider)
 
+    expect(request).toHaveBeenCalledWith('/auth/session')
     expect(assign).toHaveBeenCalledWith(`http://localhost:8000/api/v1/auth/oauth/${provider}/link`)
   })
 
-  it('sends only anonymous account-link attempts to login', () => {
+  it('sends only anonymous account-link attempts to login', async () => {
     const assign = vi.fn()
+    const request = vi.fn().mockRejectedValue(Object.assign(new Error('auth required'), { statusCode: 401 }))
+    vi.stubGlobal('useApi', () => ({ request }))
     vi.stubGlobal('window', { location: { assign } })
     const store = useAuthStore()
 
-    store.startOAuthLink('github')
+    await store.startOAuthLink('github')
 
     expect(assign).toHaveBeenCalledWith('/login?redirect=%2Fprofil')
   })

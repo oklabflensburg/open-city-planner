@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 
-from app.auth.csrf import validate_csrf
+from app.auth.csrf import create_csrf_token, validate_csrf, validate_refresh_origin
 from app.auth.dependencies import SessionDep, get_current_active_user, get_optional_user
 from app.auth.oauth import (
     OAuthFlowState,
@@ -20,6 +20,7 @@ from app.auth.oauth import (
     provider_is_configured,
     safe_redirect_path,
 )
+from app.auth.tokens import hash_token
 from app.core.config import get_settings
 from app.models.user import User
 from app.schemas.auth import (
@@ -90,10 +91,24 @@ async def post_login(payload: LoginRequest, session: SessionDep, response: Respo
 @router.post("/refresh", response_model=AuthResponse)
 async def post_refresh(session: SessionDep, response: Response, request: Request) -> AuthResponse:
     settings = get_settings()
+    validate_refresh_origin(request)
     refresh_token = request.cookies.get(settings.auth_refresh_cookie_name)
     if not refresh_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error": {"code": "AUTH_REQUIRED", "message": "Bitte melde dich erneut an."}})
-    user, csrf_token = await refresh_session(session, response, refresh_token, request)
+        clear_auth_cookies(response)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error": {"code": "REFRESH_TOKEN_MISSING", "message": "Bitte melde dich erneut an."}})
+    check_rate_limit(
+        f"refresh:{request.client.host if request.client else 'unknown'}:{hash_token(refresh_token)[:16]}",
+        attempts=settings.refresh_rate_limit_attempts,
+        window_seconds=settings.refresh_rate_limit_window_seconds,
+        code="REFRESH_RATE_LIMITED",
+        message="Zu viele Sitzungsaktualisierungen. Bitte kurz warten.",
+    )
+    try:
+        user, csrf_token = await refresh_session(session, response, refresh_token, request)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            clear_auth_cookies(response)
+        raise
     return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
 
 
@@ -122,6 +137,28 @@ async def post_logout_all(
 @router.get("/me", response_model=UserRead)
 async def get_me(user: Annotated[User, Depends(get_current_active_user)]) -> UserRead:
     return UserRead.model_validate(user)
+
+
+@router.get("/session", response_model=AuthResponse)
+async def get_auth_session(
+    request: Request,
+    response: Response,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> AuthResponse:
+    settings = get_settings()
+    csrf_token = request.cookies.get(settings.auth_csrf_cookie_name) or create_csrf_token()
+    if not request.cookies.get(settings.auth_csrf_cookie_name):
+        response.set_cookie(
+            settings.auth_csrf_cookie_name,
+            csrf_token,
+            httponly=False,
+            secure=settings.auth_cookie_secure,
+            samesite=settings.auth_cookie_samesite,
+            domain=settings.auth_cookie_domain,
+            path=settings.auth_cookie_path,
+            max_age=settings.refresh_token_expire_days * 86400,
+        )
+    return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
 
 
 @router.post("/verify-email", response_model=VerificationResponse)

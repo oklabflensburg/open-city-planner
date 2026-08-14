@@ -15,10 +15,14 @@ class UserSession(Base):
     user_id: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     jti: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    family_id: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, default=uuid_pkg.uuid4)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    replaced_by_jti: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    revocation_reason: Mapped[str | None] = mapped_column(String(80), nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(80), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -27,4 +31,5 @@ class UserSession(Base):
     __table_args__ = (
         Index("idx_user_sessions_user_id", "user_id"),
         Index("idx_user_sessions_jti", "jti"),
+        Index("idx_user_sessions_family_id", "family_id"),
     )

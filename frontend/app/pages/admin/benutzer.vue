@@ -42,6 +42,7 @@
       :roles="roles"
       :current-user-id="authStore.user?.id"
       :mutation-key="mutationKey"
+      :mutation-error="mutationError"
       @close="selectedUser = null"
       @toggle-role="toggleRole"
       @toggle-status="toggleStatus"

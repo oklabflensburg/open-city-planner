@@ -28,7 +28,7 @@
             class="page-button-secondary disabled:cursor-not-allowed disabled:opacity-50"
             type="button"
             :disabled="!authStore.user?.avatar_url || uploading"
-            @click="remove"
+            @click="openRemoveDialog"
           >
             Profilbild entfernen
           </button>
@@ -37,6 +37,18 @@
         <p v-if="error" class="mt-3 rounded-md bg-[#fff1f0] px-3 py-2 text-sm font-semibold text-[#a12c24]" role="alert">{{ error }}</p>
       </div>
     </div>
+
+    <AppConfirmDialog
+      v-model:open="removeDialogOpen"
+      title="Profilbild entfernen?"
+      body="Das aktuelle Profilbild wird dauerhaft entfernt. Anschließend werden wieder deine Initialen angezeigt."
+      confirm-label="Profilbild entfernen"
+      loading-label="Wird entfernt …"
+      variant="danger"
+      :loading="uploading"
+      :error="removeError"
+      @confirm="remove"
+    />
   </section>
 </template>
 
@@ -48,6 +60,8 @@ const previewUrl = ref('')
 const uploading = ref(false)
 const error = ref('')
 const statusText = ref('')
+const removeDialogOpen = ref(false)
+const removeError = ref('')
 
 const previewUser = computed(() => ({
   ...(authStore.user ?? {
@@ -100,17 +114,23 @@ async function upload() {
 async function remove() {
   if (uploading.value) return
   uploading.value = true
-  error.value = ''
+  removeError.value = ''
   try {
     await authStore.deleteAvatar()
     statusText.value = 'Profilbild entfernt.'
     file.value = null
     clearPreview()
+    removeDialogOpen.value = false
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Das Profilbild konnte nicht entfernt werden.'
+    removeError.value = err instanceof Error ? err.message : 'Das Profilbild konnte nicht entfernt werden.'
   } finally {
     uploading.value = false
   }
+}
+
+function openRemoveDialog() {
+  removeError.value = ''
+  removeDialogOpen.value = true
 }
 
 function clearPreview() {

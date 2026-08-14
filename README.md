@@ -149,6 +149,21 @@ Beim Ergänzen oder Ändern einer Seite:
 
 Die Darstellung erfolgt über wiederverwendbare Komponenten in `frontend/app/components/docs/`. Öffentliche Dokumentationsseiten sind indexierbar, besitzen Canonical-, Open-Graph- und JSON-LD-Metadaten und werden automatisch in die XML-Sitemap aufgenommen.
 
+## Dialoge & Bestätigungen
+
+Allgemeine Frontend-Dialoge verwenden ausschließlich `frontend/app/components/ui/AppModal.vue`. Die Komponente stellt Overlay, Größen (`sm`, `md`, `lg`, `xl`), Header, einen intern scrollbaren Inhaltsbereich, optionalen Footer, Fokusfalle, Fokus-Rückgabe, Escape-/Overlay-Verhalten und den verschachtelungssicheren Body-Scroll-Lock bereit. Formdialoge liefern nur ihren fachlichen Inhalt; sie bauen keine eigene Teleport-, Overlay- oder Fokus-Shell.
+
+Kurze Entscheidungen verwenden `frontend/app/components/ui/AppConfirmDialog.vue` auf Basis von `AppModal`. Die Varianten `default`, `warning` und `danger`, die Reihenfolge „Abbrechen, Bestätigen“, Loading-Sperre und Inline-API-Fehler sind damit zentral festgelegt. Der destruktive Button erhält beim Öffnen bewusst nicht den initialen Fokus. Die konkrete Seite oder Fachkomponente hält den lokalen Zustand und führt den Request aus, damit ein fehlgeschlagener Request den Dialog offen lassen kann. Ein globaler `useConfirmDialog()`-Host wird deshalb derzeit nicht verwendet; sollte später ein globaler Host ergänzt werden, muss dessen API auch asynchrone Loading- und Fehlerzustände innerhalb desselben Dialogs abbilden.
+
+Die Auswahl des Feedback-Musters folgt diesen Regeln:
+
+- Modal: Bestätigung, kurze Form oder kritische Aktion.
+- Toast beziehungsweise bestehender Inline-Status: nicht blockierendes Erfolgsfeedback.
+- Inline-Fehler: Formularvalidierung und lokal behandelbare Request-Fehler.
+- `AppBottomSheet`: lange mobile GIS-Panels wie Filter und Analyse; kein Ersatz für kurze Bestätigungen.
+
+Native `alert()`, `confirm()` und `prompt()` sind im produktiven Frontend nicht zulässig.
+
 ## Authentifizierung und Schreibrechte
 
 Lesender Zugriff auf Karte, Polygone und Analysen bleibt öffentlich. Schreibende Operationen sind serverseitig geschützt:
@@ -158,7 +173,11 @@ Lesender Zugriff auf Karte, Polygone und Analysen bleibt öffentlich. Schreibend
 - `PATCH /api/v1/polygons/{id}`
 - `DELETE /api/v1/polygons/{id}`
 
-Die Anmeldung erfolgt über HttpOnly-Cookies für Access- und Refresh-Tokens. Der Refresh Token wird serverseitig nur gehasht in `user_sessions` gespeichert und bei jedem Refresh rotiert. Mutierende Requests verwenden zusätzlich ein CSRF-Token im Double-Submit-Verfahren.
+Die Anmeldung erfolgt über HttpOnly-Cookies für Access- und Refresh-Tokens. Der Refresh Token wird serverseitig nur gehasht in `user_sessions` gespeichert und bei jedem Refresh atomar rotiert. Datensätze derselben Anmeldesitzung teilen eine `family_id`; `SELECT … FOR UPDATE` verhindert einen doppelten Verbrauch. Ein erneut verwendeter rotierter Token widerruft nach einem kurzen, konfigurierbaren Multi-Tab-Toleranzfenster die aktive Tokenfamilie und erzeugt `REFRESH_TOKEN_REUSE_DETECTED`. Logout widerruft ebenfalls die gesamte Familie. Mutierende Requests verwenden zusätzlich ein CSRF-Token im Double-Submit-Verfahren; der Refresh-Endpunkt prüft wegen möglicher Hard Reloads stattdessen die erlaubte Browser-Origin.
+
+Alle regulären Frontend-Anfragen laufen über `frontend/app/composables/useApi.ts`. Antwortet ein geschützter Endpoint mit `ACCESS_TOKEN_EXPIRED` oder `AUTH_REQUIRED`, führt der Client transparent genau einen `POST /api/v1/auth/refresh` aus und wiederholt die ursprüngliche Anfrage einmal. Ein Single-Flight-Koordinator sorgt dafür, dass parallele 401-Antworten im selben Tab denselben Refresh abwarten. Login, Registrierung, Refresh, Logout, Passwort-Reset und OAuth-Flows sind von diesem Retry ausgeschlossen; 403-Antworten lösen grundsätzlich keinen Refresh aus. Eindeutige Refresh-401 leeren die Sitzung, Netzwerkfehler, 409-Rotationskonflikte und 5xx-Fehler dagegen nicht.
+
+Die clientseitige Auth-Initialisierung lädt `GET /api/v1/auth/session`, das den aktuellen Benutzer einschließlich Rollen sowie das zugehörige CSRF-Token liefert. Ist nur das Access-Cookie abgelaufen, greift derselbe zentrale Refresh-Retry, bevor Middleware über einen Login-Redirect entscheidet. Ein echter Sitzungsablauf führt zu `/login?redirect=<interner-pfad>&session_expired=1`. Der Generation Counter im Auth Store verhindert, dass ein bereits laufender Refresh einen später gestarteten Logout lokal rückgängig macht. SSR verwendet bewusst kein prozessweites Refresh-Promise und teilt daher niemals Auth-Zustand verschiedener Requests.
 
 Neue Nutzerkonten starten mit `is_verified=false`. Login ist möglich. Das Anlegen einer Fläche und das Löschen einer eigenen Fläche erfordern ein aktives angemeldetes Konto; Änderungen an öffentlichen Polygonfeldern setzen zusätzlich die E-Mail-Verifikation voraus. Standard-Ownership-Regel:
 

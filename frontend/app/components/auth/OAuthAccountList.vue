@@ -23,7 +23,7 @@
           class="page-button-secondary disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
           :disabled="loadingProvider === provider.id"
-          @click="unlink(provider.id, provider.label)"
+          @click="requestUnlink(provider.id, provider.label)"
         >
           {{ loadingProvider === provider.id ? 'Löst ...' : 'Verknüpfung lösen' }}
         </button>
@@ -42,6 +42,19 @@
 
     <p v-if="message" class="mt-4 rounded-md bg-[#edf4f8] px-3 py-2 text-sm font-semibold text-[#154d73]">{{ message }}</p>
     <p v-if="error" class="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" role="alert">{{ error }}</p>
+
+    <AppConfirmDialog
+      :open="Boolean(pendingUnlink)"
+      title="Verknüpfung lösen?"
+      :body="`${pendingUnlink?.label || 'Das externe Konto'} wird von deinem Stadtplaner-Konto getrennt. Prüfe vorher, ob du dich weiterhin anmelden kannst.`"
+      confirm-label="Verknüpfung lösen"
+      loading-label="Wird getrennt …"
+      variant="warning"
+      :loading="Boolean(pendingUnlink && loadingProvider === pendingUnlink.provider)"
+      :error="unlinkError"
+      @update:open="handleConfirmOpen"
+      @confirm="confirmUnlink"
+    />
   </section>
 </template>
 
@@ -52,6 +65,8 @@ const router = useRouter()
 const loadingProvider = ref('')
 const message = ref('')
 const error = ref('')
+const unlinkError = ref('')
+const pendingUnlink = ref<{ provider: string, label: string } | null>(null)
 
 onMounted(async () => {
   try {
@@ -66,25 +81,44 @@ function accountFor(provider: string) {
   return authStore.oauthAccounts.find((account) => account.provider === provider)
 }
 
-function link(provider: string) {
-  loadingProvider.value = provider
-  message.value = ''
-  error.value = ''
-  authStore.startOAuthLink(provider)
-}
-
-async function unlink(provider: string, label: string) {
+async function link(provider: string) {
   loadingProvider.value = provider
   message.value = ''
   error.value = ''
   try {
+    await authStore.startOAuthLink(provider)
+  } catch (err) {
+    loadingProvider.value = ''
+    error.value = err instanceof Error ? err.message : 'Die Verknüpfung konnte nicht gestartet werden.'
+  }
+}
+
+function requestUnlink(provider: string, label: string) {
+  unlinkError.value = ''
+  pendingUnlink.value = { provider, label }
+}
+
+async function confirmUnlink() {
+  if (!pendingUnlink.value || loadingProvider.value) return
+  const { provider, label } = pendingUnlink.value
+  loadingProvider.value = provider
+  message.value = ''
+  unlinkError.value = ''
+  try {
     await authStore.unlinkOAuthAccount(provider)
     message.value = `${label} wurde getrennt.`
+    pendingUnlink.value = null
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Die Verknüpfung konnte nicht entfernt werden.'
+    unlinkError.value = err instanceof Error ? err.message : 'Die Verknüpfung konnte nicht entfernt werden.'
   } finally {
     loadingProvider.value = ''
   }
+}
+
+function handleConfirmOpen(open: boolean) {
+  if (open || loadingProvider.value) return
+  pendingUnlink.value = null
+  unlinkError.value = ''
 }
 
 function formatDate(value?: string | null) {

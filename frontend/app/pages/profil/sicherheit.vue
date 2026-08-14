@@ -9,8 +9,20 @@
         <p v-if="error" class="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{{ error }}</p>
         <button class="page-button-primary" type="submit">Passwort ändern</button>
       </form>
-      <button class="page-button-secondary mt-4" type="button" @click="logoutAll">Auf allen Geräten abmelden</button>
+      <button class="page-button-secondary mt-4" type="button" @click="logoutDialogOpen = true">Auf allen Geräten abmelden</button>
     </Card>
+
+    <AppConfirmDialog
+      v-model:open="logoutDialogOpen"
+      title="Alle Sitzungen beenden?"
+      body="Du wirst auf diesem und allen anderen Geräten abgemeldet und musst dich anschließend erneut anmelden."
+      confirm-label="Alle Sitzungen beenden"
+      loading-label="Sitzungen werden beendet …"
+      variant="warning"
+      :loading="logoutLoading"
+      :error="logoutError"
+      @confirm="logoutAll"
+    />
   </ContentPageShell>
 </template>
 
@@ -23,6 +35,9 @@ const newPassword = ref('')
 const newPasswordConfirm = ref('')
 const message = ref('')
 const error = ref('')
+const logoutDialogOpen = ref(false)
+const logoutLoading = ref(false)
+const logoutError = ref('')
 
 async function submit() {
   error.value = ''
@@ -38,8 +53,18 @@ async function submit() {
 }
 
 async function logoutAll() {
-  await authStore.logoutAll()
-  await router.push('/login')
+  if (logoutLoading.value) return
+  logoutLoading.value = true
+  logoutError.value = ''
+  try {
+    await authStore.logoutAll()
+    logoutDialogOpen.value = false
+    await router.push('/login')
+  } catch (err) {
+    logoutError.value = err instanceof Error ? err.message : 'Die Sitzungen konnten nicht beendet werden.'
+  } finally {
+    logoutLoading.value = false
+  }
 }
 
 usePageSeo({

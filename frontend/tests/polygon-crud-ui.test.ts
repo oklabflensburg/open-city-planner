@@ -57,12 +57,14 @@ describe('polygon create and delete UI', () => {
 
   it('requires explicit destructive confirmation and prevents duplicate requests', () => {
     const section = appFile('components/polygon/PolygonDeleteSection.vue')
-    expect(section).toContain('role="alertdialog"')
+    const confirmation = appFile('components/ui/AppConfirmDialog.vue')
+    expect(section).toContain('<AppConfirmDialog')
+    expect(confirmation).toContain('role="alertdialog"')
     expect(section).toContain('Diese Aktion kann nicht rückgängig gemacht werden.')
-    expect(section).toContain('Abbrechen')
+    expect(confirmation).toContain("cancelLabel: 'Abbrechen'")
     expect(section).toContain('Endgültig löschen')
-    expect(section).toContain(':disabled="loading"')
-    expect(section).toContain("loading ? 'Wird gelöscht …'")
+    expect(section).toContain(':loading="loading"')
+    expect(section).toContain('loading-label="Wird gelöscht …"')
   })
 })
 
