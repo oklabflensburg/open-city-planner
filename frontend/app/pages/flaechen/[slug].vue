@@ -98,7 +98,7 @@
 
     <section v-if="polygonData.osm_sources.length" class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="osm-origin">
       <h2 id="osm-origin" class="text-lg font-bold text-slate-950">Datenherkunft</h2>
-      <p class="mt-2 text-sm text-slate-600">Diese Stadtplanner-Fläche wurde aus öffentlichen OpenStreetMap-Referenzdaten angelegt. Ihre Geometrie und Fachangaben können in Stadtplanner unabhängig weiterbearbeitet werden.</p>
+      <p class="mt-2 text-sm text-slate-600">Diese Stadtplaner-Fläche wurde aus öffentlichen OpenStreetMap-Referenzdaten angelegt. Ihre Geometrie und Fachangaben können in Stadtplaner unabhängig weiterbearbeitet werden.</p>
       <ul class="mt-4 space-y-2 text-sm">
         <li v-for="source in polygonData.osm_sources" :key="`${source.osm_type}-${source.osm_id}`" class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-4 py-3">
           <span>OSM {{ source.osm_type }} {{ source.osm_id }} · übernommen am {{ formatDate(source.imported_at) }}</span>

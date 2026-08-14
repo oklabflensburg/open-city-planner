@@ -29,7 +29,7 @@
           </div>
         </div>
       </div>
-      <p class="mt-3 text-[11px] leading-4 text-slate-500">OSM-Grenze · admin_level {{ area.source_admin_level ?? '–' }} · Kennzahlen aus räumlich zugeordneten Stadtplanner-Flächen.</p>
+      <p class="mt-3 text-[11px] leading-4 text-slate-500">OSM-Grenze · admin_level {{ area.source_admin_level ?? '–' }} · Kennzahlen aus räumlich zugeordneten Stadtplaner-Flächen.</p>
     </template>
     <p v-if="store.error" class="mt-3 text-xs text-rose-700">{{ store.error }}</p>
   </section>

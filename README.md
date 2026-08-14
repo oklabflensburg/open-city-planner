@@ -51,7 +51,7 @@ Die erwartete Antwort ist `PONG`. Anschließend in `backend/.env` mindestens kon
 REDIS_ENABLED=true
 REDIS_REQUIRED=false
 REDIS_URL=redis://127.0.0.1:6379/0
-CACHE_PREFIX=stadtplanner:dev
+CACHE_PREFIX=stadtplaner:dev
 ```
 
 Für Produktion muss Redis an localhost oder ein privates Netz gebunden bleiben. Empfohlen sind `protected-mode yes`, Firewall beziehungsweise ACL/Auth sowie ein an den verfügbaren RAM angepasstes `maxmemory` mit `maxmemory-policy allkeys-lru`. Redis wird nicht über Nginx exponiert. Da ausschließlich wiederberechenbare Cachewerte gespeichert werden, sind AOF/RDB nicht erforderlich.
@@ -91,7 +91,7 @@ AUTH_COOKIE_SECURE=false
 AUTH_COOKIE_SAMESITE=lax
 EMAIL_BACKEND=console
 CONTACT_TO_EMAIL=kontakt@example.org
-CONTACT_TO_NAME="Stadtplanner / OK Lab Flensburg"
+CONTACT_TO_NAME="Stadtplaner / OK Lab Flensburg"
 CONTACT_TURNSTILE_ENABLED=false
 AVATAR_UPLOAD_DIR=data/uploads
 AVATAR_MAX_FILE_SIZE=5242880
@@ -113,9 +113,9 @@ Das öffentliche Kontaktformular sendet ausschließlich an das FastAPI-Backend. 
 
 Der Anwendungscode vertraut `X-Forwarded-For` nicht direkt, sondern verwendet die von ASGI bereitgestellte Client-Adresse. Hinter Nginx dürfen Forwarded Headers deshalb nur für den bekannten Proxy aktiviert werden, beispielsweise mit Uvicorn `--proxy-headers --forwarded-allow-ips=127.0.0.1`. Der vorhandene Rate-Limiter arbeitet pro Backend-Prozess; bei mehreren Workern oder Instanzen sollte er später durch einen gemeinsamen Redis-/Proxy-basierten Limiter ersetzt werden.
 
-## Stadtplanner-Kartenstil und VersaTiles
+## Stadtplaner-Kartenstil und VersaTiles
 
-`frontend/.env` konfiguriert Kartenstil und Startposition. Ohne Style-Variable lädt die Anwendung den lokalen Stil `/map-styles/stadtplanner-light.json`. Eine externe URL kann mit `NUXT_PUBLIC_MAP_STYLE_URL` überschrieben werden; `NUXT_PUBLIC_VERSATILES_STYLE_URL` bleibt als veralteter Kompatibilitätsname erhalten. Schlägt der konfigurierte beziehungsweise lokale Stil fehl, wird technisch auf VersaTiles `neutrino` zurückgefallen.
+`frontend/.env` konfiguriert Kartenstil und Startposition. Ohne Style-Variable lädt die Anwendung den lokalen Stil `/map-styles/stadtplaner-light.json`. Eine externe URL kann mit `NUXT_PUBLIC_MAP_STYLE_URL` überschrieben werden; `NUXT_PUBLIC_VERSATILES_STYLE_URL` bleibt als veralteter Kompatibilitätsname erhalten. Schlägt der konfigurierte beziehungsweise lokale Stil fehl, wird technisch auf VersaTiles `neutrino` zurückgefallen.
 
 ```env
 NUXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
@@ -293,9 +293,9 @@ Vor einem öffentlichen Produktivbetrieb müssen mindestens geprüft und ergänz
 Aktuell erkannte technische Datenflüsse:
 
 - MapLibre GL rendert die Karte im Browser.
-- Standard ist der lokal ausgelieferte MapLibre-Stil `stadtplanner-light`; `NUXT_PUBLIC_MAP_STYLE_URL` kann ihn installationsabhängig überschreiben.
-- Der eigene Stil verwendet 24 Basemap-Layer und zeichnet keine Handels- oder Gastro-POIs zusätzlich zu den interaktiven Stadtplanner-Layern. VersaTiles `neutrino` dient nur als technischer Fallback.
-- `NUXT_PUBLIC_MAP_PERFORMANCE_DEBUG=true` aktiviert im Production-Build den lokalen Diagnose-Hook `window.__stadtplannerMapPerformance`. Im Development-Modus ist er automatisch verfügbar; er sendet keine Messdaten und schreibt nicht in die Konsole.
+- Standard ist der lokal ausgelieferte MapLibre-Stil `stadtplaner-light`; `NUXT_PUBLIC_MAP_STYLE_URL` kann ihn installationsabhängig überschreiben.
+- Der eigene Stil verwendet 24 Basemap-Layer und zeichnet keine Handels- oder Gastro-POIs zusätzlich zu den interaktiven Stadtplaner-Layern. VersaTiles `neutrino` dient nur als technischer Fallback.
+- `NUXT_PUBLIC_MAP_PERFORMANCE_DEBUG=true` aktiviert im Production-Build den lokalen Diagnose-Hook `window.__stadtplanerMapPerformance`. Im Development-Modus ist er automatisch verfügbar; er sendet keine Messdaten und schreibt nicht in die Konsole.
 - Der reproduzierbare Chromium-Lauf ist unter `frontend/scripts/profile-map.mjs` dokumentiert. Details und Messwerte stehen in `docs/map-performance.md`.
 - Polygon-, Analyse- und Auth-Funktionen kommunizieren mit dem FastAPI-Backend unter `NUXT_PUBLIC_API_BASE_URL`.
 - Benutzerkonten, gehashte Passwörter, gehashte Auth-/Verifikations-/Reset-Tokens, Sitzungen sowie Geometrien und Polygon-Eigenschaften werden in PostgreSQL/PostGIS gespeichert.

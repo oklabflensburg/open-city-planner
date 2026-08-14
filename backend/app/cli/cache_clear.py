@@ -17,7 +17,7 @@ async def run(resource: str) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Stadtplanner-Cache per SCAN leeren")
+    parser = argparse.ArgumentParser(description="Stadtplaner-Cache per SCAN leeren")
     parser.add_argument("--resource", default="", help="Optionaler Key-Namespace, z. B. analytics:overview")
     args = parser.parse_args()
     asyncio.run(run(args.resource))

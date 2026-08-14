@@ -35,7 +35,7 @@
       />
     </div>
     <p v-if="!compact" class="mt-4 text-xs text-[#687176]">
-      Quelle: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" class="font-semibold text-[#154d73] underline">OpenStreetMap-Mitwirkende</a> · Die Angaben bleiben eine schreibgeschützte Referenz; Stadtplanner bearbeitet ausschließlich seine eigene Datenebene.
+      Quelle: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" class="font-semibold text-[#154d73] underline">OpenStreetMap-Mitwirkende</a> · Die Angaben bleiben eine schreibgeschützte Referenz; Stadtplaner bearbeitet ausschließlich seine eigene Datenebene.
     </p>
   </section>
 </template>

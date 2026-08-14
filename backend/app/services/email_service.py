@@ -119,7 +119,7 @@ def send_contact_notification(
     html, text = render_pair("contact_notification", context)
     send_email(
         settings.contact_to_email,
-        f"[Stadtplanner Kontakt] {subject}",
+        f"[Stadtplaner Kontakt] {subject}",
         html,
         text,
         to_name=settings.contact_to_name,
@@ -132,4 +132,4 @@ def send_contact_copy(*, name: str, email: str, subject: str, message: str) -> N
         "contact_copy",
         {"name": name, "subject": subject, "message": message},
     )
-    send_email(email, "Kopie Ihrer Nachricht an Stadtplanner", html, text, to_name=name)
+    send_email(email, "Kopie Ihrer Nachricht an Stadtplaner", html, text, to_name=name)

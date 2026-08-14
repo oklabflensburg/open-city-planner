@@ -96,7 +96,7 @@ class OsmViewportProperties(BaseModel):
     feature_type: Literal["point", "polygon"]
     occupancy_status: Literal["VACANT", "UNKNOWN"] = "UNKNOWN"
     occupancy_source: Literal["OSM"] | None = None
-    stadtplanner: list["OsmLinkedPolygon"] = Field(default_factory=list)
+    stadtplaner: list["OsmLinkedPolygon"] = Field(default_factory=list)
 
 
 class OsmLinkedPolygon(BaseModel):

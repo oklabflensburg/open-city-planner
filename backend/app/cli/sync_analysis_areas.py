@@ -16,7 +16,7 @@ async def run(name: str) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="OSM-Verwaltungsflächen in Stadtplanner synchronisieren")
+    parser = argparse.ArgumentParser(description="OSM-Verwaltungsflächen in Stadtplaner synchronisieren")
     parser.add_argument("--municipality", default="Flensburg", help="OSM-Gemeindename")
     args = parser.parse_args()
     asyncio.run(run(args.municipality))

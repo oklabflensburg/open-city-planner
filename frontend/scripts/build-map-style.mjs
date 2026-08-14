@@ -11,11 +11,11 @@ const vectorLayer = (id, type, sourceLayer, options = {}) => ({
 
 const style = {
   version: 8,
-  name: 'Stadtplanner Light',
+  name: 'Stadtplaner Light',
   metadata: {
-    'stadtplanner:purpose': 'Ruhige, performante Orientierungskarte für fachliche GIS-Overlays',
-    'stadtplanner:schema': 'Shortbread 1.1',
-    'stadtplanner:generatedBy': 'frontend/scripts/build-map-style.mjs'
+    'stadtplaner:purpose': 'Ruhige, performante Orientierungskarte für fachliche GIS-Overlays',
+    'stadtplaner:schema': 'Shortbread 1.1',
+    'stadtplaner:generatedBy': 'frontend/scripts/build-map-style.mjs'
   },
   glyphs: 'https://tiles.versatiles.org/assets/glyphs/{fontstack}/{range}.pbf',
   sources: {
@@ -182,7 +182,7 @@ const style = {
   ]
 }
 
-const output = fileURLToPath(new URL('../public/map-styles/stadtplanner-light.json', import.meta.url))
+const output = fileURLToPath(new URL('../public/map-styles/stadtplaner-light.json', import.meta.url))
 await mkdir(fileURLToPath(new URL('../public/map-styles/', import.meta.url)), { recursive: true })
 await writeFile(output, `${JSON.stringify(style, null, 2)}\n`)
 console.log(`Generated ${style.name}: ${style.layers.length} layers -> ${output}`)

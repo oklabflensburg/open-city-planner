@@ -33,16 +33,16 @@
       <a class="inline-flex min-h-11 items-center text-[#154d73] underline" :href="osmUrl" target="_blank" rel="noopener noreferrer">Auf OpenStreetMap ansehen</a>
     </div>
 
-    <div v-if="feature.properties.stadtplanner?.length" class="mt-3 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-950">
-      <p class="font-bold">Bereits im Stadtplanner</p>
-      <p v-if="feature.properties.stadtplanner.length > 1" class="mt-1">{{ feature.properties.stadtplanner.length }} verknüpfte Flächen</p>
-      <NuxtLink v-for="polygon in feature.properties.stadtplanner" :key="polygon.id" class="mt-1 block min-h-11 py-2 font-semibold text-[#154d73] underline" :to="`/flaechen/${polygon.slug}`">
+    <div v-if="feature.properties.stadtplaner?.length" class="mt-3 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-950">
+      <p class="font-bold">Bereits im Stadtplaner</p>
+      <p v-if="feature.properties.stadtplaner.length > 1" class="mt-1">{{ feature.properties.stadtplaner.length }} verknüpfte Flächen</p>
+      <NuxtLink v-for="polygon in feature.properties.stadtplaner" :key="polygon.id" class="mt-1 block min-h-11 py-2 font-semibold text-[#154d73] underline" :to="`/flaechen/${polygon.slug}`">
         {{ polygon.floor ? `${polygon.floor} – ` : '' }}{{ polygon.name }}
       </NuxtLink>
     </div>
 
     <button v-if="auth.authenticated" class="page-button-primary mt-3 w-full" type="button" @click="importOpen = true">
-      {{ feature.properties.stadtplanner?.length ? 'Weitere Fläche anlegen' : 'Als Fläche übernehmen' }}
+      {{ feature.properties.stadtplaner?.length ? 'Weitere Fläche anlegen' : 'Als Fläche übernehmen' }}
     </button>
     <div class="mt-3 border-t border-slate-200 pt-3">
       <OsmContributeAction

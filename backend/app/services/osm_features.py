@@ -222,7 +222,7 @@ async def viewport_features_json(
                         feature_type="point" if row["dimension"] == 0 else "polygon",
                         occupancy_status=occupancy.status,
                         occupancy_source="OSM" if occupancy.status == "VACANT" else None,
-                        stadtplanner=row.get("linked_polygons") or [],
+                        stadtplaner=row.get("linked_polygons") or [],
                     ),
                 )
             )

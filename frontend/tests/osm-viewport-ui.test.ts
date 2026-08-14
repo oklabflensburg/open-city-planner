@@ -67,7 +67,7 @@ describe('dynamic OSM viewport layer', () => {
     expect(map).toContain('getClusterExpansionZoom')
   })
 
-  it('gives Stadtplanner polygons click priority and selects OSM points or polygons', () => {
+  it('gives Stadtplaner polygons click priority and selects OSM points or polygons', () => {
     const map = appFile('components/map/MapCanvas.vue')
     expect(map).toContain("layers: ['overview-polygons-fill', 'osm-clusters', 'osm-polygons-fill']")
     expect(map.indexOf("feature.layer.id === 'overview-polygons-fill'")).toBeLessThan(map.indexOf("feature.layer.id === 'osm-clusters'"))

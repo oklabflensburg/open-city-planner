@@ -8,7 +8,7 @@ import {
   resolveMapStyleUrl
 } from '../app/config/mapStyles'
 
-const style = JSON.parse(readFileSync(resolve(process.cwd(), 'public/map-styles/stadtplanner-light.json'), 'utf8'))
+const style = JSON.parse(readFileSync(resolve(process.cwd(), 'public/map-styles/stadtplaner-light.json'), 'utf8'))
 const availableSourceLayers = new Set([
   'ocean', 'water_polygons', 'land', 'water_lines', 'dam_polygons', 'dam_lines',
   'pier_polygons', 'pier_lines', 'sites', 'street_polygons', 'streets', 'buildings',
@@ -18,7 +18,7 @@ const availableSourceLayers = new Set([
 
 afterEach(() => vi.unstubAllGlobals())
 
-describe('Stadtplanner Light map style', () => {
+describe('Stadtplaner Light map style', () => {
   it('is the local default and keeps explicit configuration overrides', () => {
     expect(resolveMapStyleUrl()).toBe(DEFAULT_MAP_STYLE_URL)
     expect(resolveMapStyleUrl('  https://maps.example/style.json  ')).toBe('https://maps.example/style.json')
@@ -26,7 +26,7 @@ describe('Stadtplanner Light map style', () => {
 
   it('uses only real Shortbread source layers and a small unique layer set', () => {
     expect(style.version).toBe(8)
-    expect(style.name).toBe('Stadtplanner Light')
+    expect(style.name).toBe('Stadtplaner Light')
     expect(style.layers).toHaveLength(24)
     expect(new Set(style.layers.map((layer: { id: string }) => layer.id)).size).toBe(style.layers.length)
     for (const layer of style.layers) {

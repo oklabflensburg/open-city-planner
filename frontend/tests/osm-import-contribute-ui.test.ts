@@ -30,7 +30,7 @@ describe('OSM import and contribution journeys', () => {
     expect(dialog).not.toMatch(/alert\(|confirm\(|prompt\(/)
   })
 
-  it('shows the Stadtplanner import action only for authenticated users', () => {
+  it('shows the Stadtplaner import action only for authenticated users', () => {
     const preview = appFile('components/osm/OsmFeatureSidebar.vue')
     expect(preview).toContain('v-if="auth.authenticated"')
     expect(preview).toContain('Als Fläche übernehmen')
@@ -48,10 +48,10 @@ describe('OSM import and contribution journeys', () => {
     expect(createPage).toContain('geometry: geometry.value')
   })
 
-  it('keeps linked Stadtplanner areas visible and OSM references read-only', () => {
+  it('keeps linked Stadtplaner areas visible and OSM references read-only', () => {
     const preview = appFile('components/osm/OsmFeatureSidebar.vue')
     const detail = appFile('pages/flaechen/[slug].vue')
-    expect(preview).toContain('Bereits im Stadtplanner')
+    expect(preview).toContain('Bereits im Stadtplaner')
     expect(detail).toContain('Datenherkunft')
     expect(detail).toContain('polygonData.osm_sources')
     expect(detail).toContain('Auf OpenStreetMap ansehen')

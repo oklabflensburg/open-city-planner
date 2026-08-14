@@ -186,7 +186,7 @@ onBeforeUnmount(() => {
     map.value.remove()
   }
   map.value = null
-  if (import.meta.client) delete window.__stadtplannerMapPerformance
+  if (import.meta.client) delete window.__stadtplanerMapPerformance
 })
 
 watch(visibleFeatureCollection, collection => updateSource(collection), { deep: true })
@@ -531,7 +531,7 @@ function countVertices(data: OsmViewportResult) {
 
 function installPerformanceDebug(instance: Map) {
   if (!import.meta.client || !performanceDebugEnabled) return
-  window.__stadtplannerMapPerformance = {
+  window.__stadtplanerMapPerformance = {
     map: instance,
     counters: performanceCounters,
     reset() {
@@ -559,7 +559,7 @@ function installPerformanceDebug(instance: Map) {
 
 declare global {
   interface Window {
-    __stadtplannerMapPerformance?: {
+    __stadtplanerMapPerformance?: {
       map: Map
       counters: typeof performanceCounters
       reset: () => void

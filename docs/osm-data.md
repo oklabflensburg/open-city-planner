@@ -47,17 +47,17 @@ OVERPASS_API_URL=https://bewusst-ausgewählter-endpoint.example/api/interpreter
 
 Die URL ist nicht hartcodiert. `OVERPASS_TIMEOUT_SECONDS`, `OSM_EXTERNAL_MIN_INTERVAL_SECONDS` und `OSM_LOOKUP_CACHE_TTL_SECONDS` steuern Timeout, Prozess-Rate-Limit und Cache. Der Cache-Schlüssel enthält Polygon-ID und `updated_at`; eine Geometrieänderung erzeugt damit automatisch einen neuen Eintrag. Lokale Treffer verhindern jeden externen Request.
 
-## OSM als Ausgangspunkt einer Stadtplanner-Fläche
+## OSM als Ausgangspunkt einer Stadtplaner-Fläche
 
 Angemeldete Nutzer können `POST /api/v1/polygons/from-osm` mit `osm_type`, `osm_id` und optional einer Etage aufrufen. Der Server lädt Geometrie und Tags erneut aus `osm_features`; die Browserantwort des Viewport-Layers ist niemals die maßgebliche OSM-Quelle. Polygon und MultiPolygon werden vollständig übernommen. Für einen Point sucht PostGIS mit `ST_Covers` und einer deterministischen Kleinste-Fläche-Priorisierung ein umschließendes Gebäude beziehungsweise Nutzpolygon. Ohne Treffer antwortet die API mit `OSM_GEOMETRY_REQUIRED`. Erst eine ausdrücklich manuell gezeichnete Geometrie kann den Import dann abschließen; ein künstlicher Buffer wird nicht persistiert.
 
-Die Relation `polygon_osm_sources` speichert OSM-Typ und -ID, Originalgeometrie, einen begrenzten Tag-Snapshot sowie Import- und Quelldatum. Bei einem Point-Import bleibt der POI die primäre Quelle; die als Geometriebasis gewählte umschließende OSM-Fläche wird zusätzlich als sekundäre Quelle protokolliert. Mehrere Stadtplanner-Flächen dürfen dieselbe OSM-Quelle für unterschiedliche Etagen verwenden. Eine Wiederholung derselben Quelle und Etage wird abgewiesen. Änderungen oder Löschen einer Stadtplanner-Fläche schreiben niemals nach `osm_features` zurück.
+Die Relation `polygon_osm_sources` speichert OSM-Typ und -ID, Originalgeometrie, einen begrenzten Tag-Snapshot sowie Import- und Quelldatum. Bei einem Point-Import bleibt der POI die primäre Quelle; die als Geometriebasis gewählte umschließende OSM-Fläche wird zusätzlich als sekundäre Quelle protokolliert. Mehrere Stadtplaner-Flächen dürfen dieselbe OSM-Quelle für unterschiedliche Etagen verwenden. Eine Wiederholung derselben Quelle und Etage wird abgewiesen. Änderungen oder Löschen einer Stadtplaner-Fläche schreiben niemals nach `osm_features` zurück.
 
 Die zentrale Leerstandserkennung übernimmt `shop=vacant` und `disused:shop=*` als `VACANT` mit Quelle `OSM`. `disused=yes` gilt nur mit Einzelhandels-/Gewerbekontext als Leerstand. `abandoned:*` bleibt bewusst `UNKNOWN`. Ändert VERWALTUNG den Status, wird die Herkunft auf `MANUAL` gesetzt; dieser Wert wird durch spätere OSM-Daten nicht still überschrieben.
 
 ## OpenStreetMap verbessern
 
-Stadtplanner enthält weder OSM-Schreibzugriff noch OSM-OAuth-Schreibrechte oder einen eingebetteten Editor. Nach einem bewussten Klick können öffentliche Nutzer die offizielle StreetComplete-Webseite oder den iD-Editor auf `openstreetmap.org` öffnen. Der iD-Link wird nach Möglichkeit auf den repräsentativen Punkt des gewählten Objekts zentriert. Vor dem Klick entstehen keine zusätzlichen Drittanbieteranfragen.
+Stadtplaner enthält weder OSM-Schreibzugriff noch OSM-OAuth-Schreibrechte oder einen eingebetteten Editor. Nach einem bewussten Klick können öffentliche Nutzer die offizielle StreetComplete-Webseite oder den iD-Editor auf `openstreetmap.org` öffnen. Der iD-Link wird nach Möglichkeit auf den repräsentativen Punkt des gewählten Objekts zentriert. Vor dem Klick entstehen keine zusätzlichen Drittanbieteranfragen.
 
 ## Administrative Analysegebiete
 
@@ -73,4 +73,4 @@ Der Dienst sucht die Gemeinde anhand einer realen polygonalen `boundary=administ
 
 Im lokalen Flensburger Bestand vom 14. August 2026 wurden Relation 27020 als Gemeinde (`admin_level=6`), 13 Stadtteile (`admin_level=9`) und 37 Quartiere (`admin_level=10`) erkannt. Tarup besitzt in diesem Bestand kein administratives Level-10-Quartier. Punktförmige Ortsobjekte – darunter `place=city`, `place=suburb`, `place=neighbourhood` und das punktförmige `place=quarter` Kattloch – werden nicht als Analysefläche übernommen.
 
-Stadtteile erhalten die Gemeinde als Parent; Quartiere werden über `ST_Covers` und die größte Schnittfläche ihrem Stadtteil zugeordnet. Stadtplanner-Polygone werden anhand von `ST_PointOnSurface` genau einem Gebiet je vorhandener Ebene zugeordnet. Diese Zuordnung wird nach Import sowie nach Erstellung oder Geometrieänderung einer Stadtplanner-Fläche aktualisiert. POIs werden nicht dupliziert, sondern für Gebietsanalysen direkt aus `osm_features` räumlich aggregiert.
+Stadtteile erhalten die Gemeinde als Parent; Quartiere werden über `ST_Covers` und die größte Schnittfläche ihrem Stadtteil zugeordnet. Stadtplaner-Polygone werden anhand von `ST_PointOnSurface` genau einem Gebiet je vorhandener Ebene zugeordnet. Diese Zuordnung wird nach Import sowie nach Erstellung oder Geometrieänderung einer Stadtplaner-Fläche aktualisiert. POIs werden nicht dupliziert, sondern für Gebietsanalysen direkt aus `osm_features` räumlich aggregiert.

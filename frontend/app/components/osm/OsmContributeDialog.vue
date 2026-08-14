@@ -7,7 +7,7 @@
     @update:open="$emit('update:open', $event)"
   >
     <div class="space-y-4 text-sm leading-6 text-slate-700">
-      <p>Stadtplanner verändert OpenStreetMap nicht. Wählen Sie das passende externe Werkzeug für Ihren Beitrag.</p>
+      <p>Stadtplaner verändert OpenStreetMap nicht. Wählen Sie das passende externe Werkzeug für Ihren Beitrag.</p>
       <div class="grid gap-3">
         <a
           v-for="action in actions"

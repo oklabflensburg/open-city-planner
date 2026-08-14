@@ -23,7 +23,7 @@ export type OsmViewportFeature = {
     feature_type: 'point' | 'polygon'
     occupancy_status: 'VACANT' | 'UNKNOWN'
     occupancy_source: 'OSM' | null
-    stadtplanner: Array<{ id: string, slug: string, name: string, floor?: string | null }>
+    stadtplaner: Array<{ id: string, slug: string, name: string, floor?: string | null }>
   }
 }
 

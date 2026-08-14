@@ -67,7 +67,7 @@
     <section>
       <h2 class="text-base font-bold text-[#202427]">Kartenanzeige mit MapLibre und VersaTiles</h2>
       <p class="mt-3 text-sm leading-6 text-[#4f575c]">
-        Die Karte wird im Browser mit MapLibre GL gerendert. Die Standardkonfiguration lädt den eigenen Kartenstil lokal unter <code class="rounded bg-[#eef2f3] px-1 py-0.5">/map-styles/stadtplanner-light.json</code>.
+        Die Karte wird im Browser mit MapLibre GL gerendert. Die Standardkonfiguration lädt den eigenen Kartenstil lokal unter <code class="rounded bg-[#eef2f3] px-1 py-0.5">/map-styles/stadtplaner-light.json</code>.
       </p>
       <p class="mt-3 text-sm leading-6 text-[#4f575c]">
         Die lokale Style-Datei verweist auf Vector Tiles unter <code class="rounded bg-[#eef2f3] px-1 py-0.5">https://tiles.versatiles.org/tiles/osm/&#123;z&#125;/&#123;x&#125;/&#123;y&#125;</code> und Glyphs unter <code class="rounded bg-[#eef2f3] px-1 py-0.5">https://tiles.versatiles.org/assets/glyphs/...</code>. Der reduzierte Standardstil lädt keine Sprites. Diese Requests werden direkt vom Browser an den konfigurierten VersaTiles-Server ausgelöst. Dabei können IP-Adresse, User-Agent, Zeitpunkt und angefragte Kartenressourcen beim Tile-Server verarbeitet werden. Die Kartenbasis enthält OpenStreetMap-Daten und wird entsprechend attribuiert.

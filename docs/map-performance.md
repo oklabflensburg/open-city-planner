@@ -26,7 +26,7 @@ Absolute FPS aus Headless/SwiftShader sind konservativ und nicht als Hardware-SL
 
 ```bash
 google-chrome --headless=new --no-sandbox --enable-unsafe-swiftshader \
-  --remote-debugging-port=9223 --user-data-dir=/tmp/stadtplanner-profile about:blank
+  --remote-debugging-port=9223 --user-data-dir=/tmp/stadtplaner-profile about:blank
 
 cd frontend
 PROFILE_URL=http://localhost:3000/ node scripts/profile-map.mjs
@@ -38,18 +38,18 @@ PROFILE_URL=http://localhost:3000/ PROFILE_ZOOMS=19 PROFILE_ROUTE_CYCLES=10 node
 
 ## Basemap-Vergleich
 
-Der neue lokale Stil `stadtplanner-light` enthält 24 Basemap-Layer. Davon sind bei Zoom 13 genau 17, bei Zoom 15 genau 21 und ab Zoom 17 alle 24 aktiv. Zum Vergleich: `colorful` enthält 324 und `neutrino` 207 Layer; bei Zoom 15 waren davon 311 beziehungsweise 201 aktiv.
+Der neue lokale Stil `stadtplaner-light` enthält 24 Basemap-Layer. Davon sind bei Zoom 13 genau 17, bei Zoom 15 genau 21 und ab Zoom 17 alle 24 aktiv. Zum Vergleich: `colorful` enthält 324 und `neutrino` 207 Layer; bei Zoom 15 waren davon 311 beziehungsweise 201 aktiv.
 
-Für den Vergleich wurden die Stadtplanner-Overlays ausgeblendet, damit nur die Basemap gerendert wird. Browser, Maschine, Viewport und Drei-Sekunden-Drag entsprechen dem bisherigen A/B-Lauf.
+Für den Vergleich wurden die Stadtplaner-Overlays ausgeblendet, damit nur die Basemap gerendert wird. Browser, Maschine, Viewport und Drei-Sekunden-Drag entsprechen dem bisherigen A/B-Lauf.
 
-| Zoom | `colorful` FPS | `neutrino` FPS | `stadtplanner-light` FPS | Light vs. Colorful | Light vs. Neutrino |
+| Zoom | `colorful` FPS | `neutrino` FPS | `stadtplaner-light` FPS | Light vs. Colorful | Light vs. Neutrino |
 |---:|---:|---:|---:|---:|---:|
 | 13 | 20,2 | 20,7 | 21,9 | +8 % | +6 % |
 | 15 | 18,0 | 22,0 | 28,7 | +59 % | +30 % |
 | 17 | 19,9 | 27,9 | 34,9 | +75 % | +25 % |
 | 19 | 23,6 | 29,8 | 39,8 | +69 % | +34 % |
 
-Die MapLibre-Layerzahl beträgt jetzt 41 einschließlich der 17 Stadtplanner-Layer, gegenüber zuvor 342 mit `colorful` und 225 mit `neutrino`. Absolute SwiftShader-FPS schwanken zwischen Läufen; die Größenordnung der Layerreduktion und der Vorsprung bei hohen Zoomstufen sind der belastbare Befund.
+Die MapLibre-Layerzahl beträgt jetzt 41 einschließlich der 17 Stadtplaner-Layer, gegenüber zuvor 342 mit `colorful` und 225 mit `neutrino`. Absolute SwiftShader-FPS schwanken zwischen Läufen; die Größenordnung der Layerreduktion und der Vorsprung bei hohen Zoomstufen sind der belastbare Befund.
 
 Der lokale Stil nutzt nur 5 Symbol-, 10 Linien-, 8 Fill- und einen Background-Layer. Gebäude beginnen bei Zoom 15, kleine Wege und lokale Straßenlabels bei Zoom 16. Ein wichtiges Straßen-Casing existiert nur für Autobahn, Trunk und Hauptstraße. Basemap-Labels für Handel und Gastronomie sowie Sprite-Requests entfallen vollständig; Universität, Hochschule und Krankenhaus bleiben als wenige Orientierungspunkte erhalten.
 
@@ -59,7 +59,7 @@ Der Stil wurde im echten MapLibre-Renderpfad bei Zoom 13, 15, 17 und 19 sowie in
 
 - warme, nicht reinweiße Grund- und Gebäudeflächen,
 - sichtbare, aber zurückhaltende Straßen- und Gebäudehierarchie,
-- klare Stadtplanner-Flächen und farbige interaktive OSM-Punkte über der Basemap,
+- klare Stadtplaner-Flächen und farbige interaktive OSM-Punkte über der Basemap,
 - lesbare Beschriftungen ohne doppelte Geschäfts- oder Gastro-POIs,
 - keine Überdeckung der mobilen Kartenbedienung.
 
@@ -88,13 +88,13 @@ Ein Zwischenlauf bei Zoom 15 mit 1.059 OSM-Features und 6.041 Vertices ergab unt
 |---|---:|
 | alle Layer | 9,8 |
 | OSM-Layer verborgen | 15,2 |
-| alle Stadtplanner-Layer verborgen | 24,7 |
+| alle Stadtplaner-Layer verborgen | 24,7 |
 
-Das Ausblenden nur der Stadtplanner-Flächen brachte dagegen keinen relevanten Gewinn. OSM-Picking und die gleichzeitig gezeichneten Verwaltungsgrenzen waren die relevanten benutzerdefinierten Layerkosten.
+Das Ausblenden nur der Stadtplaner-Flächen brachte dagegen keinen relevanten Gewinn. OSM-Picking und die gleichzeitig gezeichneten Verwaltungsgrenzen waren die relevanten benutzerdefinierten Layerkosten.
 
 ## Nachher-Matrix
 
-Die folgende Messung enthält Basemap, Stadtplanner-Flächen, OSM und Analysegebiete. Die absolute Framerate bleibt durch SwiftShader limitiert; entscheidend sind die Interaktionszähler und die Aufteilung der Main-Thread-Zeit.
+Die folgende Messung enthält Basemap, Stadtplaner-Flächen, OSM und Analysegebiete. Die absolute Framerate bleibt durch SwiftShader limitiert; entscheidend sind die Interaktionszähler und die Aufteilung der Main-Thread-Zeit.
 
 | Zoom | Features | Vertices | FPS | Scripting | Layout | Recalc Style | Requests während Drag | `setData()` während Drag |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -135,7 +135,7 @@ Der LRU ist auf vier Viewports begrenzt. Die konservative Obergrenze der Buchhal
 | `moveend` | View speichern und Refresh planen | ein kleiner Pinia-Write, Coverage-Test | nur nach Pan |
 | `click` | gezieltes Picking | ausschließlich interaktive Layer | keine während Pan |
 | `mouseenter`/`mouseleave` | Cursor | CSS-Cursor | gering |
-| `mousemove` auf Stadtplanner-Fill | Hover-ID wechseln | höchstens zwei `setFeatureState` bei Featurewechsel | kein `setData`, keine Paint-Neukompilierung |
+| `mousemove` auf Stadtplaner-Fill | Hover-ID wechseln | höchstens zwei `setFeatureState` bei Featurewechsel | kein `setData`, keine Paint-Neukompilierung |
 | `error`/WebGL-Kontext | Fehlermeldung | nur Fehlerfall | keine reguläre Kosten |
 
 Es existieren keine Listener für `move`, `drag`, `zoom`, `render` oder `idle`, die Netzwerk, Analytics oder Vue-State während der Kamerabewegung aktualisieren. `idle` wird nur einmalig nach einem tatsächlichen Source-Update zur Messung verwendet.
@@ -144,17 +144,17 @@ Es existieren keine Listener für `move`, `drag`, `zoom`, `render` oder `idle`, 
 
 | Source | Ladestrategie | Update-Trigger | Limit / Zoomstrategie |
 |---|---|---|---|
-| VersaTiles | MapLibre Vector Tiles | MapLibre Tile-Lifecycle | lokales `stadtplanner-light`, 24 Layer, keine zusätzlichen Handels-/Gastro-POIs |
+| VersaTiles | MapLibre Vector Tiles | MapLibre Tile-Lifecycle | lokales `stadtplaner-light`, 24 Layer, keine zusätzlichen Handels-/Gastro-POIs |
 | `osm-pois` | gepufferter Viewport, 4er-LRU | `moveend` außerhalb Buffer oder Filterwechsel | 800/1.200/2.000 Gesamtbudget; Cluster bis Zoom 14 |
 | `osm-polygons` | gleicher Viewport-Request | wie POIs | eigene Polygon-/Gebäudequote, Vereinfachung unter Zoom 17 |
 | `analysis-areas` | einmalig statisches GeoJSON | erster Kartenaufbau | Gemeinde 7–10,5; Stadtteil 9,5–13,5; Quartier ab 11,5 |
 | `overview-polygons` | einmalig, danach nur Filteränderung | fachlicher Filter oder CRUD-Reload | aktuell 42 Features |
 
-OSM- und Analyseauswahl sowie Stadtplanner-Hover/Selection verwenden stabile IDs und MapLibre `feature-state`. POI-Klicks verwenden statt einer zweiten unsichtbaren Circle-Schicht eine auf 10 Pixel begrenzte Abfrage des sichtbaren POI-Layers.
+OSM- und Analyseauswahl sowie Stadtplaner-Hover/Selection verwenden stabile IDs und MapLibre `feature-state`. POI-Klicks verwenden statt einer zweiten unsichtbaren Circle-Schicht eine auf 10 Pixel begrenzte Abfrage des sichtbaren POI-Layers.
 
 ## Map-Lifecycle und Speicher
 
-Die MapLibre-Instanz liegt in `shallowRef` und wird zusätzlich mit `markRaw` gespeichert. OSM-, Analysegebiets- und Stadtplanner-Geometrien werden bei der Zuweisung ebenfalls `markRaw` behandelt. Die Karte wird beim Unmount mit `map.remove()` zerstört, Timer und AbortController werden beendet und Window-Listener entfernt.
+Die MapLibre-Instanz liegt in `shallowRef` und wird zusätzlich mit `markRaw` gespeichert. OSM-, Analysegebiets- und Stadtplaner-Geometrien werden bei der Zuweisung ebenfalls `markRaw` behandelt. Die Karte wird beim Unmount mit `map.remove()` zerstört, Timer und AbortController werden beendet und Window-Listener entfernt.
 
 Nach zehn SPA-Wechseln von der Karte zur Projektseite und zurück blieben genau eine Map und ein MapLibre-Canvas bestehen. Nach erzwungener Garbage Collection blieben Dokumente konstant bei 3, DOM-Nodes sanken von 1.348 auf 1.344. Event-Listener stiegen einmalig von 194 auf 205, aber identisch sowohl nach fünf als auch nach zehn Zyklen; es gab daher kein lineares Listenerwachstum.
 

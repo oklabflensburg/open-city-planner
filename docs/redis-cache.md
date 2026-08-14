@@ -18,7 +18,7 @@ Gemessen wurde am 14. August 2026 gegen den lokalen Flensburg-Datenbestand. Die 
 
 Der größte kombinierte Engpass war nicht nur PostgreSQL: Die OSM-Antworten liefen in das 2.500er-Limit und erzeugten bis zu 1,2 MB GeoJSON, das anschließend noch von Browser und MapLibre verarbeitet werden musste.
 
-`EXPLAIN ANALYZE` bestätigt für den OSM-Viewport einen Bitmap Index Scan über `idx_osm_features_geometry`. Gebiets-POIs verwenden den GIN-Index `idx_osm_features_tags`; Comparables verwenden `idx_user_polygons_geometry`. Kleine Sequential Scans auf den derzeit rund 42 Stadtplanner-Flächen sind günstiger als ein zusätzlicher Indexzugriff. Der OSM-Lateral-Join zu verknüpften Stadtplanner-Flächen wird erst nach Sortierung und Limit ausgeführt.
+`EXPLAIN ANALYZE` bestätigt für den OSM-Viewport einen Bitmap Index Scan über `idx_osm_features_geometry`. Gebiets-POIs verwenden den GIN-Index `idx_osm_features_tags`; Comparables verwenden `idx_user_polygons_geometry`. Kleine Sequential Scans auf den derzeit rund 42 Stadtplaner-Flächen sind günstiger als ein zusätzlicher Indexzugriff. Der OSM-Lateral-Join zu verknüpften Stadtplaner-Flächen wird erst nach Sortierung und Limit ausgeführt.
 
 ## Architektur und Schlüssel
 
@@ -104,6 +104,6 @@ maxmemory <an den Server-RAM angepasster Wert>
 maxmemory-policy allkeys-lru
 ```
 
-Redis darf nicht öffentlich auf `0.0.0.0:6379` angeboten oder über Nginx weitergereicht werden. Für getrennte Umgebungen sind eindeutige Prefixe wie `stadtplanner:dev`, `stadtplanner:test` und `stadtplanner:prod` erforderlich. Authentifizierung beziehungsweise ACL wird ausschließlich in `REDIS_URL` konfiguriert; Zugangsdaten werden weder geloggt noch dokumentiert.
+Redis darf nicht öffentlich auf `0.0.0.0:6379` angeboten oder über Nginx weitergereicht werden. Für getrennte Umgebungen sind eindeutige Prefixe wie `stadtplaner:dev`, `stadtplaner:test` und `stadtplaner:prod` erforderlich. Authentifizierung beziehungsweise ACL wird ausschließlich in `REDIS_URL` konfiguriert; Zugangsdaten werden weder geloggt noch dokumentiert.
 
 Da Redis nur Cache ist, darf ein Neustart alle Schlüssel verlieren. AOF/RDB ist fachlich nicht erforderlich. Relevante Diagnosebefehle sind `redis-cli INFO memory`, `redis-cli INFO stats` und `redis-cli DBSIZE`.

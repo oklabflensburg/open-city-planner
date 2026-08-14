@@ -87,7 +87,7 @@ class Settings(BaseSettings):
     redis_connect_timeout: float = 2.0
     redis_socket_timeout: float = 2.0
     redis_max_connections: int = 40
-    cache_prefix: str = "stadtplanner:dev"
+    cache_prefix: str = "stadtplaner:dev"
     cache_debug_headers: bool = False
     cache_lock_ttl_seconds: int = 15
     osm_viewport_cache_ttl: int = 1_800

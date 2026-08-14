@@ -84,7 +84,7 @@ class MarketBenchmarkResult(BaseModel):
     items: list[MarketBenchmark]
     context_label: str
     calculation: str = "CALCULATED"
-    source: str = "Erfasste Stadtplanner-Flächen"
+    source: str = "Erfasste Stadtplaner-Flächen"
 
 
 class PoiCount(BaseModel):

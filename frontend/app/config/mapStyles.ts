@@ -1,6 +1,6 @@
 import type { StyleSpecification } from 'maplibre-gl'
 
-export const DEFAULT_MAP_STYLE_URL = '/map-styles/stadtplanner-light.json'
+export const DEFAULT_MAP_STYLE_URL = '/map-styles/stadtplaner-light.json'
 export const FALLBACK_MAP_STYLE_URL = 'https://tiles.versatiles.org/assets/styles/neutrino/style.json'
 
 export function resolveMapStyleUrl(configuredUrl?: string | null) {

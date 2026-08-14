@@ -78,7 +78,7 @@ await command('Page.navigate', { url: profileUrl })
 
 let mapReady = false
 for (let attempt = 0; attempt < 120; attempt++) {
-  const ready = await evaluate(`Boolean(window.__stadtplannerMapPerformance?.map)`).catch(() => false)
+  const ready = await evaluate(`Boolean(window.__stadtplanerMapPerformance?.map)`).catch(() => false)
   if (ready) {
     mapReady = true
     break
@@ -93,20 +93,20 @@ process.stderr.write('map ready\n')
 
 async function waitForIdle() {
   await evaluate(`new Promise(resolve => {
-    const map = window.__stadtplannerMapPerformance.map;
+    const map = window.__stadtplanerMapPerformance.map;
     if (map.loaded()) resolve(true); else map.once('idle', () => resolve(true));
     setTimeout(() => resolve(true), 3000);
   })`)
   await wait(350)
   for (let attempt = 0; attempt < 24; attempt++) {
-    if (await evaluate(`window.__stadtplannerMapPerformance.snapshot().viewportCovered === 1`)) return
+    if (await evaluate(`window.__stadtplanerMapPerformance.snapshot().viewportCovered === 1`)) return
     await wait(250)
   }
 }
 
 async function dragFor(durationMs = 3000) {
   const featureStats = await evaluate(`(() => {
-    const map = window.__stadtplannerMapPerformance.map;
+    const map = window.__stadtplanerMapPerformance.map;
     const layers = map.getStyle().layers.map(layer => layer.id);
     const custom = layers.filter(id => id.startsWith('osm-') || id.startsWith('analysis-areas') || id.startsWith('overview-'));
     return {
@@ -114,7 +114,7 @@ async function dragFor(durationMs = 3000) {
       renderedCustomFeatures: map.queryRenderedFeatures({ layers: custom }).length
     };
   })()`)
-  await evaluate(`window.__profile.frames = []; window.__profile.longTasks = []; window.__profile.requests = []; window.__stadtplannerMapPerformance.reset()`)
+  await evaluate(`window.__profile.frames = []; window.__profile.longTasks = []; window.__profile.requests = []; window.__stadtplanerMapPerformance.reset()`)
   const metricsBefore = await performanceMetrics()
   const box = await evaluate(`(() => { const r = document.querySelector('.maplibregl-canvas').getBoundingClientRect(); return { x:r.x, y:r.y, width:r.width, height:r.height } })()`)
   const startX = box.x + box.width * 0.62
@@ -130,7 +130,7 @@ async function dragFor(durationMs = 3000) {
     await wait(durationMs / steps)
   }
   const beforeRelease = await evaluate(`({
-    snapshot: window.__stadtplannerMapPerformance.snapshot(),
+    snapshot: window.__stadtplanerMapPerformance.snapshot(),
     requests: window.__profile.requests.filter(item => item.url.includes('/osm/features')).length,
     frames: window.__profile.frames.slice(),
     longTasks: window.__profile.longTasks.slice()
@@ -165,11 +165,11 @@ const zooms = process.env.PROFILE_ZOOMS?.split(',').map(Number) || [13, 15, 17, 
 const hiddenLayerGroup = process.env.PROFILE_HIDE || ''
 for (const zoom of zooms) {
   process.stderr.write(`profiling z${zoom}\n`)
-  await evaluate(`window.__stadtplannerMapPerformance.map.jumpTo({ center: [9.435, 54.783], zoom: ${zoom} }); true`)
+  await evaluate(`window.__stadtplanerMapPerformance.map.jumpTo({ center: [9.435, 54.783], zoom: ${zoom} }); true`)
   await waitForIdle()
   if (hiddenLayerGroup) {
     await evaluate(`(() => {
-      const map = window.__stadtplannerMapPerformance.map;
+      const map = window.__stadtplanerMapPerformance.map;
       for (const layer of map.getStyle().layers) {
         const custom = layer.id.startsWith('osm-') || layer.id.startsWith('analysis-areas') || layer.id.startsWith('overview-');
         const group = ${JSON.stringify(hiddenLayerGroup)};
@@ -198,7 +198,7 @@ if (routeCycles) {
     await wait(500)
     await evaluate(`document.querySelector('a[href="/"]')?.click(); true`)
     for (let attempt = 0; attempt < 40; attempt++) {
-      if (await evaluate(`Boolean(window.__stadtplannerMapPerformance?.map)`).catch(() => false)) break
+      if (await evaluate(`Boolean(window.__stadtplanerMapPerformance?.map)`).catch(() => false)) break
       await wait(100)
     }
     await wait(500)
@@ -210,7 +210,7 @@ if (routeCycles) {
     before,
     after,
     canvases: await evaluate(`document.querySelectorAll('.maplibregl-canvas').length`),
-    maps: await evaluate(`Number(Boolean(window.__stadtplannerMapPerformance?.map))`)
+    maps: await evaluate(`Number(Boolean(window.__stadtplanerMapPerformance?.map))`)
   }
 }
 

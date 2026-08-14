@@ -2,7 +2,7 @@
   <AppModal
     :open="open"
     title="OpenStreetMap-Objekt übernehmen?"
-    description="Die OSM-Geometrie und öffentliche Angaben dienen als Ausgangspunkt für eine eigene Stadtplanner-Fläche. OpenStreetMap selbst bleibt unverändert."
+    description="Die OSM-Geometrie und öffentliche Angaben dienen als Ausgangspunkt für eine eigene Stadtplaner-Fläche. OpenStreetMap selbst bleibt unverändert."
     :busy="importing"
     @update:open="$emit('update:open', $event)"
   >
@@ -20,7 +20,7 @@
           <option v-for="item in floors" :key="item" :value="item">{{ item }}</option>
         </select>
       </label>
-      <p v-if="feature.properties.feature_type === 'point'" class="rounded-xl bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">Für diesen Punkt sucht Stadtplanner serverseitig eine passende umschließende OSM-Fläche. Wird keine gefunden, wechseln Sie anschließend zum manuellen Zeichnen.</p>
+      <p v-if="feature.properties.feature_type === 'point'" class="rounded-xl bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">Für diesen Punkt sucht Stadtplaner serverseitig eine passende umschließende OSM-Fläche. Wird keine gefunden, wechseln Sie anschließend zum manuellen Zeichnen.</p>
       <p v-if="error" class="rounded-xl bg-rose-50 px-4 py-3 font-semibold text-rose-800" role="alert">{{ error }}</p>
     </div>
     <template #footer>

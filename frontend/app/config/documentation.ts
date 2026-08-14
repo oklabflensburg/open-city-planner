@@ -164,7 +164,7 @@ export const documentationPages: DocumentationPage[] = [
         title: 'Woher kommen die Angaben?',
         blocks: [
           { type: 'paragraph', text: 'Der Stadtplaner lädt relevante Punkte und Flächen für den sichtbaren Kartenausschnitt aus der lokalen OpenStreetMap-Datenbank. Beim Verschieben oder Zoomen wird nur der neue Ausschnitt nachgeladen.' },
-          { type: 'callout', variant: 'info', title: 'Keine externen Kartenabfragen', text: 'Der Viewport-Layer greift ausschließlich auf lokales PostGIS zu. Der optionale serverseitige Overpass-Rückfall gilt nur für den gesonderten Objektabgleich einer Stadtplanner-Fläche.' }
+          { type: 'callout', variant: 'info', title: 'Keine externen Kartenabfragen', text: 'Der Viewport-Layer greift ausschließlich auf lokales PostGIS zu. Der optionale serverseitige Overpass-Rückfall gilt nur für den gesonderten Objektabgleich einer Stadtplaner-Fläche.' }
         ]
       },
       {
@@ -187,19 +187,19 @@ export const documentationPages: DocumentationPage[] = [
       },
       {
         id: 'als-flaeche-uebernehmen',
-        title: 'Als Stadtplanner-Fläche übernehmen',
+        title: 'Als Stadtplaner-Fläche übernehmen',
         blocks: [
-          { type: 'paragraph', text: 'Angemeldete Konten können ein geladenes OSM-Objekt als Ausgangspunkt für eine eigene Stadtplanner-Fläche verwenden. Der Server lädt Geometrie und Tags anhand von OSM-Typ und ID aus der lokalen Datenbank; vom Browser behauptete OSM-Geometrien werden nicht akzeptiert.' },
-          { type: 'paragraph', text: 'Bei OSM-Punkten wird zuerst eine passende umschließende Gebäude- oder Nutzfläche gesucht. Gibt es keine, führt Stadtplanner zum manuellen Zeichnen. Ein künstlicher Punkt-Buffer wird nie als reale Fläche gespeichert.' },
-          { type: 'callout', variant: 'important', title: 'Zwei getrennte Datenebenen', text: 'Die OSM-Quelle bleibt unverändert und schreibgeschützt. Titel, Kategorie, Geometrie sowie Verwaltungs- und Marktdaten der übernommenen Stadtplanner-Fläche können danach entsprechend der Rollenberechtigung eigenständig gepflegt werden.' }
+          { type: 'paragraph', text: 'Angemeldete Konten können ein geladenes OSM-Objekt als Ausgangspunkt für eine eigene Stadtplaner-Fläche verwenden. Der Server lädt Geometrie und Tags anhand von OSM-Typ und ID aus der lokalen Datenbank; vom Browser behauptete OSM-Geometrien werden nicht akzeptiert.' },
+          { type: 'paragraph', text: 'Bei OSM-Punkten wird zuerst eine passende umschließende Gebäude- oder Nutzfläche gesucht. Gibt es keine, führt Stadtplaner zum manuellen Zeichnen. Ein künstlicher Punkt-Buffer wird nie als reale Fläche gespeichert.' },
+          { type: 'callout', variant: 'important', title: 'Zwei getrennte Datenebenen', text: 'Die OSM-Quelle bleibt unverändert und schreibgeschützt. Titel, Kategorie, Geometrie sowie Verwaltungs- und Marktdaten der übernommenen Stadtplaner-Fläche können danach entsprechend der Rollenberechtigung eigenständig gepflegt werden.' }
         ]
       },
       {
         id: 'osm-daten-ergaenzen',
         title: 'OpenStreetMap-Daten ergänzen',
         blocks: [
-          { type: 'paragraph', text: 'Fehlende oder veraltete OSM-Informationen werden nicht in Stadtplanner bearbeitet. Die Aktion „OpenStreetMap-Daten verbessern“ führt nach einem bewussten Klick zu externen OSM-Werkzeugen.' },
-          { type: 'list', items: ['StreetComplete eignet sich besonders für kleine, frageorientierte Ergänzungen direkt vor Ort auf Android.', 'Der iD-Editor auf openstreetmap.org eignet sich für umfangreichere Änderungen im Browser und wird möglichst auf die Position des gewählten Objekts zentriert.', 'Eine erforderliche OSM-Anmeldung erfolgt ausschließlich bei OpenStreetMap; Stadtplanner speichert keine OSM-Zugangsdaten.'] },
+          { type: 'paragraph', text: 'Fehlende oder veraltete OSM-Informationen werden nicht in Stadtplaner bearbeitet. Die Aktion „OpenStreetMap-Daten verbessern“ führt nach einem bewussten Klick zu externen OSM-Werkzeugen.' },
+          { type: 'list', items: ['StreetComplete eignet sich besonders für kleine, frageorientierte Ergänzungen direkt vor Ort auf Android.', 'Der iD-Editor auf openstreetmap.org eignet sich für umfangreichere Änderungen im Browser und wird möglichst auf die Position des gewählten Objekts zentriert.', 'Eine erforderliche OSM-Anmeldung erfolgt ausschließlich bei OpenStreetMap; Stadtplaner speichert keine OSM-Zugangsdaten.'] },
           { type: 'callout', variant: 'tip', title: 'Tipp für Beiträge vor Ort', text: 'Wenn Sie direkt am Objekt stehen und nur fehlende Informationen ergänzen möchten, ist StreetComplete häufig der einfachste Einstieg.' },
           { type: 'links', items: [{ label: 'StreetComplete', to: 'https://streetcomplete.app/', description: 'OpenStreetMap-Editor für Android.' }, { label: 'OpenStreetMap bearbeiten', to: 'https://www.openstreetmap.org/edit?editor=id', description: 'Browserbasierter iD-Editor.' }] }
         ]
