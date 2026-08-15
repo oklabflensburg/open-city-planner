@@ -16,6 +16,7 @@ from app.schemas.osm import OsmPolygonImportRead, OsmPolygonImportRequest
 from app.services.analysis_areas import refresh_polygon_area_assignments
 from app.services.cache_versions import bump_cache_versions
 from app.services.geometry import to_wkb_element
+from app.services.osm_exclusions import should_exclude_osm_feature
 from app.services.osm_features import clear_viewport_cache
 from app.services.osm_occupancy import detect_osm_occupancy_status
 from app.services.polygons import (
@@ -46,6 +47,7 @@ WHERE candidate.geometry && source.geometry
   AND ST_Dimension(candidate.geometry) = 2
   AND ST_IsValid(candidate.geometry)
   AND ST_Covers(candidate.geometry, source.geometry)
+  AND candidate.tags->>'natural' IS DISTINCT FROM 'peninsula'
   AND (candidate.tags ? 'building' OR candidate.tags ? 'shop' OR candidate.tags ? 'amenity')
 ORDER BY
   (NULLIF(lower(candidate.tags->>'name'), '') = NULLIF(lower(source.tags->>'name'), '')) DESC,
@@ -78,6 +80,10 @@ class OsmImportNotFound(LookupError):
 
 
 class OsmImportGeometryRequired(ValueError):
+    pass
+
+
+class OsmImportNotImportable(ValueError):
     pass
 
 
@@ -153,6 +159,8 @@ async def create_polygon_from_osm(
         raise OsmImportNotFound
 
     tags = source["tags"] or {}
+    if should_exclude_osm_feature(tags):
+        raise OsmImportNotImportable("natural=peninsula is not importable")
     geometry_source: Literal["osm_feature", "containing_osm_area", "manual"]
     geometry_source_row: Mapping[str, Any] | None = None
     if source["dimension"] == 2:

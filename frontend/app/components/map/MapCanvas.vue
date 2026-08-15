@@ -34,6 +34,7 @@ import { LoaderCircle, RefreshCw } from 'lucide-vue-next'
 import type { OsmViewportResult } from '~/types/osm'
 import { industryColorExpression } from '~/utils/industries'
 import { osmColorExpression } from '~/utils/osmCategories'
+import { shouldExcludeOsmFeature } from '~/utils/osmExclusions'
 import { loadMapStyle } from '~/config/mapStyles'
 
 const config = useRuntimeConfig()
@@ -212,10 +213,12 @@ function ensureOsmInfrastructure(instance: Map) {
   if (!instance.getSource('osm-polygons')) instance.addSource('osm-polygons', { type: 'geojson', data: empty, promoteId: 'feature_id' })
   if (!instance.getLayer('osm-polygons-fill')) instance.addLayer({
     id: 'osm-polygons-fill', type: 'fill', source: 'osm-polygons', minzoom: 14.5,
+    filter: ['!=', ['get', 'natural'], 'peninsula'],
     paint: { 'fill-color': osmColorExpression() as ColorExpression, 'fill-opacity': 0.11 }
   })
   if (!instance.getLayer('osm-polygons-line')) instance.addLayer({
     id: 'osm-polygons-line', type: 'line', source: 'osm-polygons', minzoom: 14.5,
+    filter: ['!=', ['get', 'natural'], 'peninsula'],
     paint: { 'line-color': osmColorExpression() as ColorExpression, 'line-opacity': 0.55, 'line-width': 1 }
   })
   if (!instance.getLayer('osm-clusters')) instance.addLayer({
@@ -231,23 +234,23 @@ function ensureOsmInfrastructure(instance: Map) {
   })
   if (!instance.getLayer('osm-poi-circle')) instance.addLayer({
     id: 'osm-poi-circle', type: 'circle', source: 'osm-pois', minzoom: 12,
-    filter: ['!', ['has', 'point_count']],
+    filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'natural'], 'peninsula']],
     paint: { 'circle-color': osmColorExpression() as ColorExpression, 'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 4, 17, 7], 'circle-opacity': 0.9, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 }
   })
   if (!instance.getLayer('osm-poi-label')) instance.addLayer({
     id: 'osm-poi-label', type: 'symbol', source: 'osm-pois', minzoom: 18,
-    filter: ['all', ['!', ['has', 'point_count']], ['has', 'name']],
+    filter: ['all', ['!', ['has', 'point_count']], ['has', 'name'], ['!=', ['get', 'natural'], 'peninsula']],
     layout: { 'text-field': ['get', 'name'], 'text-size': 10, 'text-offset': [0, 1.25], 'text-anchor': 'top', 'text-optional': true },
     paint: { 'text-color': '#334155', 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 }
   })
   if (!instance.getLayer('osm-selected-polygon')) instance.addLayer({
     id: 'osm-selected-polygon', type: 'line', source: 'osm-polygons', minzoom: 14.5,
-    filter: ['boolean', ['feature-state', 'selected'], false],
+    filter: ['all', ['boolean', ['feature-state', 'selected'], false], ['!=', ['get', 'natural'], 'peninsula']],
     paint: { 'line-color': '#0f172a', 'line-width': 3 }
   })
   if (!instance.getLayer('osm-selected-point')) instance.addLayer({
     id: 'osm-selected-point', type: 'circle', source: 'osm-pois', minzoom: 11,
-    filter: ['boolean', ['feature-state', 'selected'], false],
+    filter: ['all', ['boolean', ['feature-state', 'selected'], false], ['!=', ['get', 'natural'], 'peninsula']],
     paint: { 'circle-color': '#ffffff', 'circle-radius': 11, 'circle-stroke-color': '#0f172a', 'circle-stroke-width': 3 }
   })
   updateOsmSelection()
@@ -286,14 +289,15 @@ function updateOsmSources(data = osmStore.data) {
   if (!map.value || !data) return
   const started = performance.now()
   const generation = osmStore.generation
-  const pointFeatures = data.features.filter(feature => feature.properties.feature_type === 'point')
-  const polygonFeatures = data.features.filter(feature => feature.properties.feature_type === 'polygon')
+  const safeFeatures = data.features.filter(feature => !shouldExcludeOsmFeature(feature))
+  const pointFeatures = safeFeatures.filter(feature => feature.properties.feature_type === 'point')
+  const polygonFeatures = safeFeatures.filter(feature => feature.properties.feature_type === 'polygon')
   const points: FeatureCollection = { type: 'FeatureCollection', features: pointFeatures } as FeatureCollection
   const polygons: FeatureCollection = { type: 'FeatureCollection', features: polygonFeatures } as FeatureCollection
   if (performanceDebugEnabled) {
     performanceCounters.osmSetDataCalls += 2
-    performanceCounters.osmFeatures = data.features.length
-    performanceCounters.osmVertices = countVertices(data)
+    performanceCounters.osmFeatures = safeFeatures.length
+    performanceCounters.osmVertices = countVertices({ ...data, features: safeFeatures })
     performanceCounters.osmPayloadBytes = osmStore.viewportCache.get(osmStore.dataRequestKey)?.payloadBytes || 0
   }
   ;(map.value.getSource('osm-pois') as GeoJSONSource | undefined)?.setData(points)

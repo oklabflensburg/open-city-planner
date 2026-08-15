@@ -60,6 +60,13 @@ describe('dynamic OSM viewport layer', () => {
     expect(map).toContain('?.setData(polygons)')
   })
 
+  it('defensively removes peninsula features before rendering and from pickable layers', () => {
+    const map = appFile('components/map/MapCanvas.vue')
+    expect(map).toContain('!shouldExcludeOsmFeature(feature)')
+    expect(map).toContain("['!=', ['get', 'natural'], 'peninsula']")
+    expect(map.indexOf('const safeFeatures')).toBeLessThan(map.indexOf('?.setData(points)'))
+  })
+
   it('clusters points and zooms into a tapped cluster', () => {
     const map = appFile('components/map/MapCanvas.vue')
     expect(map).toContain('clusterMaxZoom: 14')

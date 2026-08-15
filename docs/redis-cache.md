@@ -33,7 +33,7 @@ Alle Schlüssel verwenden kanonisches JSON, sortierte mengenartige Filter und SH
 Beispiele für Ressourcen:
 
 ```text
-osm:viewport
+osm:viewport:v2
 analytics:fast-facts
 analytics:overview
 analytics:benchmarks
@@ -46,7 +46,7 @@ polygons:location
 polygons:comparables
 ```
 
-Der OSM-Schlüssel enthält Web-Mercator-Tile-Zoom und X-/Y-Range, gerundeten Darstellungszoom, Kategorien, Gebäudeoption und Limit. Fast identische BBOXen innerhalb derselben Tile-Range teilen damit denselben Cachewert. Die Datenbankabfrage verwendet die normalisierte Tile-Range; die öffentliche API bleibt GeoJSON und es wird keine neue MVT-Infrastruktur eingeführt.
+Der OSM-Schlüssel enthält Web-Mercator-Tile-Zoom und X-/Y-Range, gerundeten Darstellungszoom, Kategorien, Gebäudeoption und Limit. Fast identische BBOXen innerhalb derselben Tile-Range teilen damit denselben Cachewert. Die Datenbankabfrage verwendet die normalisierte Tile-Range; die öffentliche API bleibt GeoJSON und es wird keine neue MVT-Infrastruktur eingeführt. Die OSM-Ressource wurde für den Ausschluss von `natural=peninsula` vom bisherigen `osm:viewport` auf `osm:viewport:v2` erhöht. Alte Antworten laufen regulär per TTL/LRU aus und können ohne `FLUSHALL` nicht mehr getroffen werden.
 
 Analytics-Schlüssel enthalten Gebiet, Kategorien, Etagen, Größenklassen, Belegungsstatus, Unternehmensstruktur und den öffentlichen Scope. Private Verwaltungsantworten, Profile und Eigentümerdaten werden nicht shared gecacht.
 

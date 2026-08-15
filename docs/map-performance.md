@@ -107,6 +107,21 @@ Die Task-Zeit war wesentlich höher als Scripting, Layout und Style-Recalculatio
 
 Bei 390×844 wurden mit Touch-Events ebenfalls 0 Requests und 0 `setData()` während des aktiven Pans gemessen. Zoom 15 enthielt 786 Features/5.653 Vertices, Zoom 17 194 Features/379 Vertices. Die gemessenen FPS lagen bei 18,4 beziehungsweise 23,8 unter derselben Software-WebGL-Begrenzung.
 
+## Ausschluss großer Peninsula-Overlays
+
+Die lokale OSM-Relation `14658378` („Angeln“, `natural=peninsula`) enthielt als Polygon 4.648 Geometriepunkte und 96.940 Bytes reines GeoJSON. Da der Viewport-Pfad Geometrien nicht am Ausschnitt abschneidet, dominierte dieses einzelne Orientierungsobjekt kleine Antworten vollständig. Nach dem serverseitigen Ausschluss ergab derselbe `landuse`-Viewport:
+
+| Zoom | Kennzahl | vorher | nachher | Reduktion |
+|---:|---|---:|---:|---:|
+| 15 | Features | 44 | 43 | 2 % |
+| 15 | Geometriepunkte | 4.649 | 808 | 83 % |
+| 15 | JSON-Bytes | 112.021 | 32.280 | 71 % |
+| 17 | Features | 8 | 7 | 13 % |
+| 17 | Geometriepunkte | 4.738 | 90 | 98 % |
+| 17 | JSON-Bytes | 101.857 | 4.719 | 95 % |
+
+Das Feature gelangt nicht mehr in den MapLibre-Render- oder Picking-Pfad. Die unabhängige VersaTiles-Landdarstellung bleibt unverändert, sodass kein kartografisches Loch entsteht.
+
 ## Datenfluss nach der Änderung
 
 ```text

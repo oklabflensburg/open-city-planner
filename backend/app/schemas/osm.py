@@ -93,6 +93,7 @@ class OsmViewportProperties(BaseModel):
     category: str
     name: str | None = None
     primary_type: str | None = None
+    natural: str | None = None
     feature_type: Literal["point", "polygon"]
     occupancy_status: Literal["VACANT", "UNKNOWN"] = "UNKNOWN"
     occupancy_source: Literal["OSM"] | None = None

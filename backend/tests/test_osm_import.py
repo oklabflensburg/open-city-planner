@@ -13,6 +13,7 @@ from app.schemas.osm import OsmPolygonImportRequest
 from app.services.osm_import import (
     CONTAINER_SQL,
     OsmImportGeometryRequired,
+    OsmImportNotImportable,
     create_polygon_from_osm,
     map_osm_category,
     map_osm_floor,
@@ -93,6 +94,22 @@ def test_import_schema_forbids_geometry_claims_and_management_fields() -> None:
 
 
 @pytest.mark.asyncio
+async def test_peninsula_cannot_be_imported_as_stadtplanner_polygon() -> None:
+    session = AsyncMock()
+    session.execute.return_value = MappingRows(
+        source(dimension=2, tags={"name": "Angeln", "natural": "peninsula"})
+    )
+
+    with pytest.raises(OsmImportNotImportable):
+        await create_polygon_from_osm(
+            session, OsmPolygonImportRequest(osm_type="way", osm_id=42), uuid.uuid4()
+        )
+
+    session.add.assert_not_called()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_polygon_import_uses_authoritative_geometry_and_osm_vacancy() -> None:
     session = AsyncMock()
     session.add = MagicMock()
@@ -143,6 +160,7 @@ async def test_point_import_uses_best_containing_area() -> None:
     ]
     assert "ST_Covers" in str(CONTAINER_SQL)
     assert "ST_Area(ST_Transform" in str(CONTAINER_SQL)
+    assert "candidate.tags->>'natural' IS DISTINCT FROM 'peninsula'" in str(CONTAINER_SQL)
 
 
 @pytest.mark.asyncio

@@ -11,7 +11,11 @@ from app.schemas.osm import OsmViewportQuery
 from app.services import analytics as analytics_service
 from app.services import cache_versions
 from app.services.analysis_area_api import areas_geojson
-from app.services.osm_features import viewport_features
+from app.services.osm_features import (
+    OSM_VIEWPORT_CACHE_RESOURCE,
+    osm_viewport_cache_params,
+    viewport_features,
+)
 
 
 class FakeRedis:
@@ -112,6 +116,11 @@ def test_tile_bucket_reuses_near_viewports_and_keys_include_filters() -> None:
     changed = build_cache_key("osm:viewport", {"categories": ["retail"], "zoom": 17}, version=1)
     assert base == reordered
     assert base != changed
+    old_viewport = build_cache_key("osm:viewport", {"zoom": 17}, version=1)
+    new_viewport = build_cache_key(OSM_VIEWPORT_CACHE_RESOURCE, {"zoom": 17}, version=1)
+    assert ":osm:viewport:v1:" in old_viewport
+    assert ":osm:viewport:v2:v1:" in new_viewport
+    assert old_viewport != new_viewport
 
 
 @pytest.mark.asyncio
@@ -143,6 +152,44 @@ async def test_osm_second_request_is_redis_hit_without_second_feature_query(monk
     second = await viewport_features(session, query)
     assert first == second
     assert session.execute.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_osm_v2_ignores_old_viewport_cache_with_peninsula(monkeypatch) -> None:
+    redis = FakeRedis()
+    monkeypatch.setattr("app.cache.service.get_redis", lambda: redis)
+    cache_versions._local_versions.clear()
+    session = AsyncMock()
+    session.scalar.return_value = 1
+    imported_at = datetime(2026, 8, 13, tzinfo=UTC)
+
+    class Rows:
+        def mappings(self):
+            return self
+
+        def all(self):
+            return [{
+                "osm_type": "node", "osm_id": 2, "tags": {"shop": "supermarket"},
+                "category": "groceries", "dimension": 0, "imported_at": imported_at,
+                "geometry": {"type": "Point", "coordinates": [9.435, 54.783]},
+                "primary_type": "supermarket", "linked_polygons": [],
+            }]
+
+    session.execute.return_value = Rows()
+    query = OsmViewportQuery(
+        west=9.43, south=54.78, east=9.44, north=54.79, zoom=16, limit=100
+    )
+    old_key = build_cache_key(
+        "osm:viewport", osm_viewport_cache_params(query, ()), version=1
+    )
+    redis.values[old_key] = b'{"features":[{"id":"relation/14658378","properties":{"natural":"peninsula"}}]}'
+
+    result = await viewport_features(session, query)
+
+    assert [feature.id for feature in result.features] == ["node/2"]
+    assert session.execute.await_count == 1
+    assert old_key in redis.values
+    assert any(":osm:viewport:v2:" in key for key in redis.values)
 
 
 @pytest.mark.asyncio

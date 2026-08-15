@@ -16,9 +16,12 @@ from app.schemas.osm import (
     OsmViewportQuery,
 )
 from app.services.cache_versions import cache_version
+from app.services.osm_exclusions import should_exclude_osm_feature
 from app.services.osm_lookup import normalize_osm_tags
 from app.services.osm_occupancy import detect_osm_occupancy_status
 from app.services.poi_categories import OSM_FEATURE_CATEGORIES, OSM_FEATURE_CATEGORY_SQL
+
+OSM_VIEWPORT_CACHE_RESOURCE = "osm:viewport:v2"
 
 VIEWPORT_SQL = text(f"""
 WITH bounds AS (
@@ -31,6 +34,7 @@ WITH bounds AS (
   WHERE osm.geometry && bounds.geometry
     AND ST_Intersects(osm.geometry, bounds.geometry)
     AND ST_IsValid(osm.geometry)
+    AND osm.tags->>'natural' IS DISTINCT FROM 'peninsula'
 ), selected AS (
   SELECT *,
     CASE
@@ -159,7 +163,7 @@ async def viewport_features_json(
     bucket = viewport_tile_bucket(query.west, query.south, query.east, query.north, query.zoom)
     version = await cache_version(session, "osm")
     key = build_cache_key(
-        "osm:viewport", osm_viewport_cache_params(query, categories), version=version
+        OSM_VIEWPORT_CACHE_RESOURCE, osm_viewport_cache_params(query, categories), version=version
     )
 
     async def compute() -> bytes:
@@ -180,6 +184,8 @@ async def viewport_features_json(
                 },
             )
         ).mappings().all()
+        # Defense in depth for alternate repositories and mocked/custom row providers.
+        rows = [row for row in rows if not should_exclude_osm_feature(row["tags"] or {})]
         truncated = (
             sum(row["dimension"] == 0 for row in rows) > point_limit
             or sum(row["category"] == "building" for row in rows) > building_limit
@@ -219,6 +225,7 @@ async def viewport_features_json(
                         category=row["category"],
                         name=(row["tags"] or {}).get("name"),
                         primary_type=row["primary_type"],
+                        natural=(row["tags"] or {}).get("natural"),
                         feature_type="point" if row["dimension"] == 0 else "polygon",
                         occupancy_status=occupancy.status,
                         occupancy_source="OSM" if occupancy.status == "VACANT" else None,

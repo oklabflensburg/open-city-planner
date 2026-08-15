@@ -20,6 +20,7 @@ export type OsmViewportFeature = {
     category: OsmFeatureCategory
     name: string | null
     primary_type: string | null
+    natural?: string | null
     feature_type: 'point' | 'polygon'
     occupancy_status: 'VACANT' | 'UNKNOWN'
     occupancy_source: 'OSM' | null

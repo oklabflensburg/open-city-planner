@@ -38,6 +38,7 @@ from app.services.osm_import import (
     OsmImportAlreadyExists,
     OsmImportGeometryRequired,
     OsmImportNotFound,
+    OsmImportNotImportable,
     create_polygon_from_osm,
 )
 from app.services.osm_lookup import OsmLookupError, OsmLookupService
@@ -110,6 +111,15 @@ async def post_polygon_from_osm(
         raise HTTPException(
             status_code=422,
             detail={"error": {"code": "OSM_GEOMETRY_REQUIRED", "message": "Für diesen OSM-Punkt muss eine Fläche eingezeichnet werden."}},
+        ) from exc
+    except OsmImportNotImportable as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=422,
+            detail={"error": {
+                "code": "OSM_FEATURE_NOT_IMPORTABLE",
+                "message": "Dieses OSM-Objekt kann nicht als Stadtplanner-Fläche übernommen werden.",
+            }},
         ) from exc
     except OsmImportAlreadyExists as exc:
         await session.rollback()

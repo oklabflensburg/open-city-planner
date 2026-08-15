@@ -28,6 +28,10 @@ Unter Zoom 11 werden keine interaktiven OSM-Features geliefert. Zoom 11–12 bes
 
 Die kleine Viewport-Antwort enthält nur stabile OSM-ID, Kategorie, Name, Primärtyp und Geometrie. Vollständige freigegebene Sachdaten werden erst nach Auswahl über `GET /api/v1/osm/features/{osm_type}/{osm_id}` geladen. Antworten besitzen einen kurzen öffentlichen Cache, ETag und den lokalen OSM-Importzeitpunkt.
 
+`natural=peninsula` ist zentral von der interaktiven Pipeline ausgeschlossen. Die JSONB-Bedingung `tags->>'natural' IS DISTINCT FROM 'peninsula'` greift in der räumlichen Query vor Kategorisierung, Quoten, Geometrieausgabe und Redis. Eine zentrale Python-Policy fängt alternative Row-Provider defensiv ab; sie betrifft ausdrücklich nicht `natural=wood`, `natural=water`, `natural=coastline`, `place=island` oder `place=islet`. Direkte Details bleiben über den allgemeinen Detail-Endpunkt abrufbar, die Übernahme als Stadtplaner-Fläche antwortet dagegen mit `OSM_FEATURE_NOT_IMPORTABLE`.
+
+Im lokalen Bestand war Relation `14658378` („Angeln“) das einzige betroffene Objekt: Polygon, 4.648 Punkte und 96.940 Bytes GeoJSON-Geometrie. In einem betroffenen Zoom-17-Testviewport sank die Antwort von 8 auf 7 Features, von 4.738 auf 90 Geometriepunkte und von 101.857 auf 4.719 Bytes. Die Landmasse bleibt über die unabhängige VersaTiles-Basemap sichtbar; nur das zusätzliche auswählbare OSM-Overlay entfällt.
+
 MapLibre hält je eine langlebige GeoJSON-Source für Punkte und Polygone. Punkte werden bis Zoom 14 geclustert; Kartenbewegungen aktualisieren nur `setData()`. `moveend`/`zoomend` werden entprellt, laufende Requests abgebrochen und zusätzlich durch eine Request-Generation gegen verspätete Antworten geschützt.
 
 ## Lookup

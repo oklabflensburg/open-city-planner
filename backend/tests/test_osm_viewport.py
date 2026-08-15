@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from app.api.osm import router as osm_router
 from app.schemas.osm import OsmViewportQuery
 from app.services import osm_features
+from app.services.osm_exclusions import should_exclude_osm_feature
 from app.services.osm_features import (
     VIEWPORT_SQL,
     osm_feature_detail,
@@ -55,6 +56,15 @@ def test_category_filter_is_allowlisted() -> None:
         selected_categories("retail,drop table")
 
 
+def test_central_exclusion_policy_only_rejects_peninsulas() -> None:
+    assert should_exclude_osm_feature({"natural": "peninsula"}) is True
+    assert should_exclude_osm_feature({"natural": "wood"}) is False
+    assert should_exclude_osm_feature({"natural": "water"}) is False
+    assert should_exclude_osm_feature({"place": "island"}) is False
+    assert should_exclude_osm_feature({"place": "islet"}) is False
+    assert should_exclude_osm_feature({"shop": "supermarket"}) is False
+
+
 @pytest.mark.asyncio
 async def test_viewport_normalizes_point_polygon_and_multipolygon_and_limits() -> None:
     osm_features._cache.clear()
@@ -75,6 +85,24 @@ async def test_viewport_normalizes_point_polygon_and_multipolygon_and_limits() -
     assert result.meta.truncated is True
     assert result.meta.summary == {"gastronomy": 1, "retail": 1}
     assert result.meta.osm_data_updated_at == imported_at
+
+
+@pytest.mark.asyncio
+async def test_viewport_defensively_excludes_peninsula_points_and_polygons() -> None:
+    imported_at = datetime(2026, 8, 13, tzinfo=UTC)
+    rows = [
+        {"osm_type": "node", "osm_id": 10, "tags": {"natural": "peninsula"}, "category": "landuse", "dimension": 0, "imported_at": imported_at, "geometry": {"type": "Point", "coordinates": [9.435, 54.783]}, "primary_type": "peninsula"},
+        {"osm_type": "relation", "osm_id": 11, "tags": {"natural": "peninsula"}, "category": "landuse", "dimension": 2, "imported_at": imported_at, "geometry": {"type": "Polygon", "coordinates": []}, "primary_type": "peninsula"},
+        {"osm_type": "node", "osm_id": 12, "tags": {"shop": "supermarket"}, "category": "groceries", "dimension": 0, "imported_at": imported_at, "geometry": {"type": "Point", "coordinates": [9.436, 54.784]}, "primary_type": "supermarket"},
+    ]
+    session = AsyncMock()
+    session.execute.return_value = MappingRows(rows)
+
+    result = await viewport_features(session, query(limit=10))
+
+    assert [feature.id for feature in result.features] == ["node/12"]
+    assert result.meta.count == 1
+    assert result.meta.summary == {"groceries": 1}
 
 
 @pytest.mark.asyncio
@@ -107,6 +135,7 @@ def test_viewport_sql_preserves_spatial_index_and_zoom_policy() -> None:
     assert "osm.geometry && bounds.geometry" in sql
     assert "ST_Intersects" in sql
     assert "ST_IsValid" in sql
+    assert "osm.tags->>'natural' IS DISTINCT FROM 'peninsula'" in sql
     assert "ST_SimplifyPreserveTopology" in sql
     assert "category <> 'building'" in sql
     assert ":zoom >= 17 OR category <> 'building'" in sql
