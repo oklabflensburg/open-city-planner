@@ -17,28 +17,28 @@
         </section>
 
         <nav aria-label="Projekt" class="grid content-start gap-3 lg:col-span-2">
-          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Projekt</h2>
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Projekt</h2>
           <NuxtLink v-for="item in primaryNavigation" :key="item.to" class="text-sm font-medium text-slate-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#9ed0dd]" :to="item.to">
             {{ item.label }}
           </NuxtLink>
         </nav>
 
         <nav aria-label="Rechtliches" class="grid content-start gap-3 lg:col-span-2">
-          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Rechtliches</h2>
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Rechtliches</h2>
           <NuxtLink v-for="item in legalNavigation" :key="item.to" class="text-sm font-medium text-slate-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#9ed0dd]" :to="item.to">
             {{ item.label }}
           </NuxtLink>
         </nav>
 
         <nav aria-label="Weitere Links" class="grid content-start gap-3 lg:col-span-3">
-          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Links</h2>
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Links</h2>
           <NuxtLink v-for="item in additionalNavigation" :key="item.to" class="text-sm font-medium text-slate-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#9ed0dd]" :to="item.to">
             {{ item.label }}
           </NuxtLink>
         </nav>
       </div>
 
-      <div class="mt-8 flex flex-col gap-2 border-t border-white/10 pt-5 text-xs font-semibold text-slate-500 md:flex-row md:items-center md:justify-between">
+      <div class="mt-8 flex flex-col gap-2 border-t border-white/10 pt-5 text-xs font-semibold text-slate-400 md:flex-row md:items-center md:justify-between">
         <span>© {{ currentYear }} OK Lab Flensburg</span>
         <span>Open Data · Civic Tech</span>
       </div>

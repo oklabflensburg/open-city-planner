@@ -1,6 +1,6 @@
 <template>
   <div class="relative h-full min-h-0 min-w-0 overflow-hidden rounded-2xl border border-white bg-slate-100 shadow-[0_1px_12px_rgba(20,24,28,0.08)] lg:min-h-[420px]">
-    <div ref="mapEl" class="absolute inset-0 h-full w-full" />
+    <div ref="mapEl" class="absolute inset-0 h-full w-full" role="region" aria-label="Interaktive Stadtkarte von Flensburg" />
     <div v-if="!mapStore.mapLoaded && !mapError" class="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-slate-100/90" role="status" aria-live="polite">
       <div class="flex items-center gap-3 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
         <LoaderCircle class="size-5 animate-spin text-[#154d73]" aria-hidden="true" />
@@ -54,6 +54,8 @@ const initialCenter: [number, number] = [Number(config.public.mapCenterLng), Num
 const initialZoom = Number(config.public.mapZoom)
 let disposed = false
 let osmViewportTimer: ReturnType<typeof setTimeout> | undefined
+let hoverFrame: number | undefined
+let pendingHoverPoint: { x: number, y: number } | null = null
 let hoveredPolygonId: string | null = null
 let selectedPolygonId: string | null = null
 let selectedOsmState: { source: 'osm-pois' | 'osm-polygons', id: string } | null = null
@@ -86,7 +88,8 @@ onMounted(async () => {
   try {
     const [maplibregl, mapStyle] = await Promise.all([
       import('maplibre-gl'),
-      loadMapStyle(String(config.public.mapStyleUrl || ''))
+      loadMapStyle(String(config.public.mapStyleUrl || '')),
+      import('maplibre-gl/dist/maplibre-gl.css')
     ])
     const container = mapEl.value
     if (disposed || !container?.isConnected) return
@@ -161,6 +164,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   disposed = true
   clearTimeout(osmViewportTimer)
+  if (hoverFrame !== undefined) cancelAnimationFrame(hoverFrame)
   osmStore.dispose()
   mapStore.mapLoaded = false
   window.removeEventListener('resize', resizeMap)
@@ -360,10 +364,18 @@ async function handleMapClick(instance: Map, event: MapMouseEvent) {
 }
 
 function handleMapHover(instance: Map, event: MapMouseEvent) {
-  const picked = pickMapEntityAtPoint(instance, event.point, 4)
-  instance.getCanvas().style.cursor = picked ? 'pointer' : ''
-  const polygonId = picked?.kind === 'cityplanner-polygon' ? String(picked.feature.properties?.id || '') : ''
-  updatePolygonHover(polygonId || null)
+  pendingHoverPoint = { x: event.point.x, y: event.point.y }
+  if (hoverFrame !== undefined) return
+  hoverFrame = requestAnimationFrame(() => {
+    hoverFrame = undefined
+    const point = pendingHoverPoint
+    pendingHoverPoint = null
+    if (!point || disposed) return
+    const picked = pickMapEntityAtPoint(instance, point, 4)
+    instance.getCanvas().style.cursor = picked ? 'pointer' : ''
+    const polygonId = picked?.kind === 'cityplanner-polygon' ? String(picked.feature.properties?.id || '') : ''
+    updatePolygonHover(polygonId || null)
+  })
 }
 
 function ensureMapInfrastructure(instance: Map) {
@@ -630,3 +642,10 @@ function retryMap() {
   window.location.reload()
 }
 </script>
+
+<style scoped>
+:deep(.maplibregl-ctrl-attrib a) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+</style>

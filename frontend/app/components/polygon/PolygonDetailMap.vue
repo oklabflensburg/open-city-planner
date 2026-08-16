@@ -61,7 +61,8 @@ onMounted(async () => {
       import('maplibre-gl'),
       import('terra-draw'),
       import('terra-draw-maplibre-gl-adapter'),
-      loadMapStyle(String(config.public.mapStyleUrl || ''))
+      loadMapStyle(String(config.public.mapStyleUrl || '')),
+      import('maplibre-gl/dist/maplibre-gl.css')
     ])
     if (disposed || !container.isConnected) return
     const instance = new maplibregl.Map({

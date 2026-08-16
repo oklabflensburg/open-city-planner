@@ -41,7 +41,7 @@ export const useAuthStore = defineStore('auth', {
       const initialization = (async () => {
         this.loading = true
         try {
-          await Promise.all([this.refreshUser(), this.loadProviders()])
+          await this.refreshUser()
         } finally {
           this.loading = false
           this.initialized = true
@@ -107,7 +107,7 @@ export const useAuthStore = defineStore('auth', {
     async refreshUser() {
       try {
         const { request } = useApi()
-        const result = await request<AuthResponse>('/auth/session')
+        const result = await request<AuthResponse>('/auth/session', { retryOnUnauthorized: false })
         this.applyAuthSession(result)
       } catch (error) {
         if (error instanceof Error && 'statusCode' in error && error.statusCode === 401) {

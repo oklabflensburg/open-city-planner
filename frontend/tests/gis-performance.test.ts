@@ -29,6 +29,7 @@ describe('GIS performance safeguards', () => {
     expect(map).toContain("instance.on('moveend'")
     expect(map).not.toContain("instance.on('move',")
     expect(map).not.toContain("instance.on('render',")
+    expect(map).toContain('hoverFrame = requestAnimationFrame')
     expect(map).toContain("powerPreference: 'high-performance'")
     expect(map).toContain('setFeatureState')
     expect(map).not.toContain('instance.resize()')

@@ -1,11 +1,13 @@
 <template>
   <section class="overview-shell relative min-h-0 min-w-0 overflow-hidden bg-[#f4f4f4] text-[#2f3337] lg:grid lg:gap-3 lg:p-3">
     <div class="hidden min-h-0 min-w-0 lg:block">
-      <LeftSidebar />
+      <ClientOnly>
+        <LazyLeftSidebar v-if="isDesktop" />
+      </ClientOnly>
     </div>
 
     <section class="absolute inset-0 min-h-0 min-w-0 p-2 lg:relative lg:inset-auto lg:p-0" aria-label="Stadtplaner-Karte">
-      <MapCanvas />
+      <LazyMapCanvas hydrate-on-idle />
 
       <nav
         v-if="mapStore.activeMobilePanel === null"
@@ -31,7 +33,9 @@
     </section>
 
     <div class="hidden min-h-0 min-w-0 lg:block">
-      <RightSidebar />
+      <ClientOnly>
+        <LazyRightSidebar v-if="isDesktop" />
+      </ClientOnly>
     </div>
 
     <AppBottomSheet
@@ -43,13 +47,13 @@
       @update:open="handleSheetOpen"
     >
       <template v-if="mapStore.activeMobilePanel === 'filter'">
-        <LeftSidebar />
+        <LazyLeftSidebar />
         <div class="mt-3 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <button class="min-h-11 rounded-xl border border-slate-300 px-3 text-sm font-bold text-[#154d73] hover:bg-slate-50" type="button" @click="resetFilters">Zurücksetzen</button>
           <button class="min-h-11 rounded-xl bg-[#154d73] px-3 text-sm font-bold text-white hover:bg-[#0f3f61]" type="button" @click="closeMobilePanel">Fertig</button>
         </div>
       </template>
-      <RightSidebar v-else-if="mapStore.activeMobilePanel === 'analytics'" />
+      <LazyRightSidebar v-else-if="mapStore.activeMobilePanel === 'analytics'" />
       <div v-else-if="mapStore.activeMobilePanel === 'selection'" class="-m-3 min-h-full bg-white p-4">
         <MapSelectionContent embedded />
       </div>
@@ -67,6 +71,7 @@ const osmStore = useOsmViewportStore()
 const analysisAreasStore = useAnalysisAreasStore()
 const authStore = useAuthStore()
 const mapSelection = useMapSelection()
+const isDesktop = ref(false)
 const activeFilterCount = computed(() => (
   (filterStore.selectedSize !== 'M' ? 1 : 0)
   + (filterStore.selectedFloor !== 'EG' ? 1 : 0)
@@ -103,8 +108,9 @@ let closingFromHistory = false
 
 onMounted(() => {
   mapStore.closeMobilePanels()
-  void analyticsStore.load()
   desktopQuery = window.matchMedia('(min-width: 1024px)')
+  isDesktop.value = desktopQuery.matches
+  if (isDesktop.value) void analyticsStore.load()
   desktopQuery.addEventListener('change', handleDesktopBreakpoint)
   window.addEventListener('popstate', handlePopState)
 })
@@ -123,6 +129,7 @@ watch(() => mapStore.activeMobilePanel, (panel, previous) => {
 watch(
   () => [filterStore.selectedSize, filterStore.selectedFloor, ...filterStore.activeCategories, ...filterStore.occupancyStatuses, ...filterStore.businessStructures],
   () => {
+    if (!analyticsIsVisible()) return
     clearTimeout(analyticsTimer)
     analyticsTimer = setTimeout(() => analyticsStore.load(), 180)
     if (analysisAreasStore.selectedAreaId) void analysisAreasStore.loadDetails()
@@ -130,6 +137,7 @@ watch(
 )
 
 watch(() => analysisAreasStore.selectedAreaId, () => {
+  if (!analyticsIsVisible()) return
   clearTimeout(analyticsTimer)
   analyticsTimer = setTimeout(() => analyticsStore.load(), 80)
 })
@@ -152,6 +160,7 @@ function openFilter() {
 
 function openAnalysis() {
   mapStore.openMobilePanel('analytics')
+  void analyticsStore.load()
 }
 
 function handleSheetOpen(open: boolean) {
@@ -169,7 +178,13 @@ function resetFilters() {
 }
 
 function handleDesktopBreakpoint(event: MediaQueryListEvent) {
+  isDesktop.value = event.matches
+  if (event.matches) void analyticsStore.load()
   if (event.matches) mapStore.closeMobilePanel()
+}
+
+function analyticsIsVisible() {
+  return isDesktop.value || mapStore.activeMobilePanel === 'analytics'
 }
 
 function handlePopState() {

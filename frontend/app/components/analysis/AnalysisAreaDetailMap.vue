@@ -33,7 +33,8 @@ onMounted(async () => {
     const [{ default: maplibregl }, style, polygons] = await Promise.all([
       import('maplibre-gl'),
       loadMapStyle(String(config.public.mapStyleUrl || '')),
-      useApi().request<PolygonFeatureCollection>('/polygons/geojson').catch(() => ({ type: 'FeatureCollection' as const, features: [] }))
+      useApi().request<PolygonFeatureCollection>('/polygons/geojson').catch(() => ({ type: 'FeatureCollection' as const, features: [] })),
+      import('maplibre-gl/dist/maplibre-gl.css')
     ])
     if (disposed || !container.isConnected) return
     const instance = new maplibregl.Map({

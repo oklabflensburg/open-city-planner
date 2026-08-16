@@ -76,7 +76,7 @@ describe('auth store', () => {
       body: JSON.stringify({ token: 'a-valid-random-token' }),
       retryOnUnauthorized: false
     })
-    expect(request).toHaveBeenNthCalledWith(2, '/auth/session')
+    expect(request).toHaveBeenNthCalledWith(2, '/auth/session', { retryOnUnauthorized: false })
     expect(store.user?.is_verified).toBe(true)
     expect(store.canWrite).toBe(true)
   })
@@ -213,7 +213,7 @@ describe('auth store', () => {
 
     await store.startOAuthLink(provider)
 
-    expect(request).toHaveBeenCalledWith('/auth/session')
+    expect(request).toHaveBeenCalledWith('/auth/session', { retryOnUnauthorized: false })
     expect(assign).toHaveBeenCalledWith(`http://localhost:8000/api/v1/auth/oauth/${provider}/link`)
   })
 

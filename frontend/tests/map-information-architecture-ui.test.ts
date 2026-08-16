@@ -58,7 +58,7 @@ describe('map information architecture', () => {
     expect(shell).toContain("mapStore.activeMobilePanel === 'filter'")
     expect(shell).toContain("mapStore.activeMobilePanel === 'analytics'")
     expect(shell).toContain("mapStore.activeMobilePanel === 'selection'")
-    expect(shell).toContain('<LeftSidebar')
+    expect(shell).toContain('<LazyLeftSidebar')
     expect(shell).toContain('<MapSelectionContent embedded')
     expect(left).toContain('<MapLegend')
     expect(right).toContain('<MapSelectionContent')

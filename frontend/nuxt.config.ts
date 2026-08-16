@@ -1,8 +1,13 @@
 import tailwindcss from '@tailwindcss/vite'
 
 const configuredSiteUrl = process.env.NUXT_PUBLIC_SITE_URL
+const configuredMapStyleUrl = process.env.NUXT_PUBLIC_MAP_STYLE_URL || process.env.NUXT_PUBLIC_VERSATILES_STYLE_URL || ''
+const effectiveMapStyleUrl = configuredMapStyleUrl.includes('/assets/styles/colorful/style.json') ? '' : configuredMapStyleUrl
 if (process.env.NODE_ENV === 'production' && !configuredSiteUrl) {
   console.warn('NUXT_PUBLIC_SITE_URL is not set; canonical URLs will use the local fallback.')
+}
+if (configuredMapStyleUrl && !effectiveMapStyleUrl) {
+  console.warn('The heavyweight VersaTiles colorful style is disabled; using the local stadtplaner-light style.')
 }
 
 export default defineNuxtConfig({
@@ -17,7 +22,7 @@ export default defineNuxtConfig({
       pathPrefix: false
     }
   ],
-  css: ['maplibre-gl/dist/maplibre-gl.css', '~/assets/css/main.css'],
+  css: ['~/assets/css/main.css'],
   runtimeConfig: {
     public: {
       siteName: 'OK Lab Flensburg',
@@ -29,7 +34,7 @@ export default defineNuxtConfig({
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1',
       mediaBaseUrl: process.env.NUXT_PUBLIC_MEDIA_BASE_URL || '',
       avatarMaxUploadBytes: Number(process.env.NUXT_PUBLIC_AVATAR_MAX_UPLOAD_BYTES || 5242880),
-      mapStyleUrl: process.env.NUXT_PUBLIC_MAP_STYLE_URL || process.env.NUXT_PUBLIC_VERSATILES_STYLE_URL || '',
+      mapStyleUrl: effectiveMapStyleUrl,
       mapCenterLng: Number(process.env.NUXT_PUBLIC_MAP_CENTER_LNG || 9.435),
       mapCenterLat: Number(process.env.NUXT_PUBLIC_MAP_CENTER_LAT || 54.783),
       mapZoom: Number(process.env.NUXT_PUBLIC_MAP_ZOOM || 16.4),
@@ -47,7 +52,16 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      link: [{ rel: 'shortcut icon', href: '/favicon.ico' }]
+      htmlAttrs: { lang: 'de' },
+      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/branding/ok-lab-flensburg.svg' }]
+    }
+  },
+  nitro: {
+    compressPublicAssets: true,
+    routeRules: {
+      '/_nuxt/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
+      '/branding/**': { headers: { 'cache-control': 'public, max-age=86400' } },
+      '/map-styles/**': { headers: { 'cache-control': 'public, max-age=86400' } }
     }
   },
   typescript: {
