@@ -7,6 +7,8 @@ Produktionsnaher GIS-Monorepo-Scaffold mit Nuxt 4, TailwindCSS 4, MapLibre, Terr
 - `frontend/` Nuxt 4 GIS-UI mit Filter-Drawer, MapLibre-Karte, Terra-Draw-Polygoneditor und Analysepanel
 - `backend/` FastAPI REST API mit SQLAlchemy 2, GeoAlchemy2, Alembic, PostGIS, Argon2id-Passwort-Hashing und JWT/Refresh-Session-Verwaltung
 
+Das offizielle Repository des Stadtplaners ist [oklabflensburg/open-city-planner](https://github.com/oklabflensburg/open-city-planner). Hinweise für Beiträge stehen in [CONTRIBUTING.md](CONTRIBUTING.md). Die im Frontend verwendeten Repository-, Issues- und Beitrags-URLs werden zentral in `frontend/app/config/project.ts` gepflegt.
+
 ## Frontend starten
 
 ```bash

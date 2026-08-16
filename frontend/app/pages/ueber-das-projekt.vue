@@ -64,8 +64,18 @@
         </Card>
       </ContentSection>
 
-      <ContentSection title="Offen und nachvollziehbar">
-        <p class="max-w-4xl leading-7 text-slate-700">Stadtplaner ist als offenes, nachvollziehbares Werkzeug gedacht. Zuständigkeiten, Datenquellen, Aktualisierungsprozesse und Löschfristen müssen für den jeweiligen Produktivbetrieb verbindlich dokumentiert werden. Weitere Erläuterungen zur Bedienung und zu den Rollen bietet die Dokumentation.</p>
+      <ContentSection title="Open Source">
+        <Card class="p-5 sm:p-7">
+          <div class="max-w-4xl">
+            <h3 class="text-lg font-bold text-slate-950">Offen entwickelt und nachvollziehbar</h3>
+            <p class="mt-3 leading-7 text-slate-700">Der Quellcode des Stadtplaners ist öffentlich auf GitHub einsehbar. Dort lassen sich technische Umsetzung und Entwicklung nachvollziehen. Hinweise für Beiträge stehen in der CONTRIBUTING-Datei. Technische Fehler und Feature-Wünsche können über GitHub Issues gemeldet werden; für allgemeine Anfragen bleibt die Kontaktseite der richtige Weg.</p>
+            <div class="mt-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+              <GitHubLink variant="button" />
+              <GitHubLink destination="contributing" label="Beitragen" />
+              <GitHubLink destination="issues" label="Technischen Fehler melden" />
+            </div>
+          </div>
+        </Card>
       </ContentSection>
     </div>
   </ContentPageShell>
@@ -73,7 +83,8 @@
 
 <script setup lang="ts">
 import { ArrowRight, BarChart3, Database, Map, Shapes } from 'lucide-vue-next'
-import { buildWebPageStructuredData } from '~/utils/seo'
+import { projectConfig } from '~/config/project'
+import { buildAbsoluteUrl, buildWebPageStructuredData } from '~/utils/seo'
 
 const config = useRuntimeConfig()
 const description = 'Stadtplaner verbindet interaktive Karten, Verkaufsflächen, offene Geodaten und räumliche Analysen für die Flensburger Innenstadt.'
@@ -93,6 +104,16 @@ usePageSeo({
   title: 'Über das Projekt',
   description,
   path: '/ueber-das-projekt',
-  structuredData: buildWebPageStructuredData(config.public.siteUrl, '/ueber-das-projekt', 'Über das Projekt', description)
+  structuredData: [
+    buildWebPageStructuredData(config.public.siteUrl, '/ueber-das-projekt', 'Über das Projekt', description),
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareSourceCode',
+      name: projectConfig.name,
+      codeRepository: projectConfig.github.url,
+      url: buildAbsoluteUrl(config.public.siteUrl, '/'),
+      programmingLanguage: ['TypeScript', 'Python']
+    }
+  ]
 })
 </script>

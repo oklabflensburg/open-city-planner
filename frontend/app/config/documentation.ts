@@ -1,4 +1,5 @@
 import type { DocumentationPage } from '~/types/documentation'
+import { projectConfig } from '~/config/project'
 
 export const documentationPages: DocumentationPage[] = [
   {
@@ -41,6 +42,14 @@ export const documentationPages: DocumentationPage[] = [
         blocks: [
           { type: 'table', headers: ['Bereich', 'Zugang'], rows: [['Karte, Flächendetails und Dokumentation', 'Öffentlich'], ['Profil und eigene Flächen', 'Angemeldetes Konto'], ['Freigegebene Flächen bearbeiten', 'Verifiziertes, berechtigtes Konto'], ['Interne Verwaltungsfelder und Kennzahlen', 'Rolle VERWALTUNG']] },
           { type: 'links', items: [{ label: 'Rollen und Berechtigungen im Detail', to: '/dokumentation/rollen' }] }
+        ]
+      },
+      {
+        id: 'quellcode-und-entwicklung',
+        title: 'Quellcode und Entwicklung',
+        blocks: [
+          { type: 'paragraph', text: 'Stadtplaner wird als Open-Source-Projekt entwickelt. Das offizielle GitHub-Repository enthält den Quellcode für Frontend und Backend sowie die technische Dokumentation für Entwicklung und Betrieb.' },
+          { type: 'links', items: [{ label: 'Offizielles GitHub-Repository', to: projectConfig.github.url, description: 'Quellcode und technische Projektdokumentation öffnen.' }, { label: 'Zum Projekt beitragen', to: projectConfig.github.contributingUrl, description: 'Lokales Setup, Qualitätsanforderungen und Pull-Request-Ablauf.' }] }
         ]
       }
     ]
@@ -657,6 +666,14 @@ export const documentationPages: DocumentationPage[] = [
         blocks: [
           { type: 'paragraph', text: 'Antworten werden als JSON ausgeliefert. Unbekannte Slugs liefern HTTP 404. Das OpenAPI-Schema ist die maßgebliche Referenz für Felder, Typen, Parameter und mögliche geschützte Operationen.' },
           { type: 'callout', variant: 'warning', title: 'Keine internen Felder', text: 'Die öffentlichen Gebiets- und Flächenantworten enthalten nur freigegebene Attribute. Eigentümer-, Preis- und andere Verwaltungsdaten werden nicht über diese Endpunkte ausgeliefert.' }
+        ]
+      },
+      {
+        id: 'quellcode',
+        title: 'API-Quellcode und lokale Entwicklung',
+        blocks: [
+          { type: 'paragraph', text: 'Implementierung, Datenmodelle, Migrationen und lokale Einrichtungsanleitungen liegen im offiziellen Projekt-Repository. Das veröffentlichte OpenAPI-Schema bleibt die maßgebliche Referenz für die jeweils laufende Instanz.' },
+          { type: 'links', items: [{ label: 'API-Quellcode auf GitHub', to: projectConfig.github.url, description: 'Repository in einem neuen Tab öffnen.' }] }
         ]
       }
     ]

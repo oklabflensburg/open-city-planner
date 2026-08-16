@@ -35,6 +35,7 @@
           <NuxtLink v-for="item in additionalNavigation" :key="item.to" class="text-sm font-medium text-slate-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#9ed0dd]" :to="item.to">
             {{ item.label }}
           </NuxtLink>
+          <GitHubLink variant="footer" />
         </nav>
       </div>
 

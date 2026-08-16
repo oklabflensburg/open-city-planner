@@ -19,7 +19,7 @@
               OK Lab kennenlernen <ExternalLink class="size-4" aria-hidden="true" />
             </a>
             <a href="https://github.com/oklabflensburg" target="_blank" rel="noopener noreferrer" class="page-button-secondary">
-              <Github class="size-4" aria-hidden="true" /> GitHub
+              <Github class="size-4" aria-hidden="true" /> OK Lab auf GitHub
             </a>
           </div>
         </div>
@@ -75,6 +75,16 @@
         <Button class="mt-5" @click="resetFilters">Filter zurücksetzen</Button>
       </Card>
     </ContentSection>
+
+    <Card class="mt-12 overflow-hidden border-[#b8d3e3] bg-[#edf4f8]">
+      <div class="grid gap-5 p-6 sm:p-8 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div>
+          <h2 class="text-xl font-bold text-slate-950 sm:text-2xl">Stadtplaner ist Open Source</h2>
+          <p class="mt-2 max-w-3xl leading-7 text-slate-700">Auch der Stadtplaner selbst ist ein offenes Civic-Tech-Projekt. Der vollständige Quellcode für Frontend, API und Datenbankintegration ist im offiziellen GitHub-Repository öffentlich einsehbar.</p>
+        </div>
+        <GitHubLink variant="button" />
+      </div>
+    </Card>
 
     <Card class="mt-12 overflow-hidden border-[#b8d3e3] bg-[#edf4f8]">
       <div class="grid gap-5 p-6 sm:p-8 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
