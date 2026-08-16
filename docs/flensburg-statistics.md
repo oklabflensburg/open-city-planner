@@ -76,8 +76,11 @@ Import:
 ```bash
 cd backend
 .venv/bin/alembic upgrade head
+.venv/bin/python -m app.cli.sync_analysis_areas --municipality Flensburg
 .venv/bin/python -m app.cli.import_flensburg_statistics
 ```
+
+Der Statistikimport setzt die Gemeinde und alle 13 Stadtteile in `analysis_areas` voraus. Auf einer neuen Installation muss daher zuerst der lokale OSM-Bestand in `osm_features` geladen und anschließend `sync_analysis_areas` ausgeführt werden. Fehlen diese Gebiete, endet der Lauf mit `FAILED`, ohne vorhandene Statistikdaten zu verändern.
 
 Der Import prüft HTTP-Status, Content-Type, UTF-8/BOM, Trennzeichen, exakte Header, Perioden, Zahlenwerte, Dashboard-Inventar und Gebietsmapping. Er schreibt Zeitreihen per Unique-Key-Upsert, erhält frühere Jahre und protokolliert Lauf, Schemahash und SHA-256-Checksumme. Bei Fehlern bleiben alle zuletzt erfolgreich importierten Beobachtungen bestehen. Unterdrückte Werte werden als NULL gespeichert und nicht zu null oder aus anderen Zellen zurückgerechnet.
 

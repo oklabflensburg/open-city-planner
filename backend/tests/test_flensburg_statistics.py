@@ -1,11 +1,15 @@
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 
 from app.main import app
+from app.models.statistics import StatisticalImportRun
 from app.services.flensburg_statistics_import import (
     AREA_MAPPING,
+    _mark_import_failed,
     normalize_rows,
     observation_change,
     parse_value,
@@ -154,6 +158,22 @@ def test_unknown_statistical_dimension_aborts_normalization() -> None:
     }
     with pytest.raises(ValueError, match="Unknown statistical dimension"):
         normalize_rows({6: [row]})
+
+
+@pytest.mark.asyncio
+async def test_failed_import_run_is_recorded_by_stable_id() -> None:
+    failed_run = SimpleNamespace(status="RUNNING", finished_at=None, error_message=None)
+    session = AsyncMock()
+    session.get.return_value = failed_run
+
+    await _mark_import_failed(session, 42, ValueError("mapping unavailable"))
+
+    session.rollback.assert_awaited_once()
+    session.get.assert_awaited_once_with(StatisticalImportRun, 42)
+    session.commit.assert_awaited_once()
+    assert failed_run.status == "FAILED"
+    assert failed_run.finished_at is not None
+    assert failed_run.error_message == "mapping unavailable"
 
 
 def test_openapi_documents_statistics_endpoints() -> None:

@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -20,6 +21,8 @@ from app.models.statistics import (
 )
 from app.services.cache_versions import bump_cache_versions
 from app.services.flensburg_superset import DATASET_SPECS, FlensburgSupersetClient
+
+logger = logging.getLogger(__name__)
 
 SOURCE = "FLENSBURG_STATISTICS"
 DASHBOARD_URL = (
@@ -248,7 +251,12 @@ async def _ensure_mappings(session: AsyncSession) -> dict[str, ExternalAreaMappi
         if (name, area_type) not in by_key
     ]
     if missing:
-        raise ValueError(f"Required analysis areas are missing: {', '.join(missing)}")
+        raise ValueError(
+            "Required analysis areas are missing: "
+            f"{', '.join(missing)}. Synchronize them first with "
+            "`python -m app.cli.sync_analysis_areas --municipality Flensburg` "
+            "after loading the OSM boundary data."
+        )
     existing = {
         mapping.external_area_id: mapping
         for mapping in (
@@ -333,6 +341,18 @@ def _source_hash(metric_key: str, source_area_id: str, year: int, value: Decimal
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
+async def _mark_import_failed(
+    session: AsyncSession, run_id: int, error: Exception
+) -> None:
+    await session.rollback()
+    failed_run = await session.get(StatisticalImportRun, run_id)
+    if failed_run:
+        failed_run.status = "FAILED"
+        failed_run.finished_at = datetime.now(UTC)
+        failed_run.error_message = str(error)[:4000]
+        await session.commit()
+
+
 async def import_flensburg_statistics(
     session: AsyncSession,
     client: FlensburgSupersetClient | None = None,
@@ -341,7 +361,9 @@ async def import_flensburg_statistics(
     run = StatisticalImportRun(source=SOURCE, status="RUNNING", source_url=DASHBOARD_URL)
     session.add(run)
     await session.commit()
+    run_id = run.id
     try:
+        mappings = await _ensure_mappings(session)
         dashboard = await client.dashboard()
         charts = await client.charts()
         datasets_inventory = await client.datasets()
@@ -368,7 +390,6 @@ async def import_flensburg_statistics(
         ).hexdigest()
         observations, source_names = normalize_rows(downloaded)
         validate_source_areas(source_names)
-        mappings = await _ensure_mappings(session)
         datasets, metrics = await _ensure_catalog(session, source_updated_at)
         existing_rows = (
             await session.scalars(select(StatisticalObservation))
@@ -424,7 +445,7 @@ async def import_flensburg_statistics(
                 inserted += 1
         for dataset in datasets.values():
             dataset.last_import_at = imported_at
-        run = await session.get(StatisticalImportRun, run.id)
+        run = await session.get(StatisticalImportRun, run_id)
         if run is None:
             raise RuntimeError("Import run disappeared")
         run.status = "SUCCESS"
@@ -453,11 +474,8 @@ async def import_flensburg_statistics(
             checksum=checksum,
         )
     except Exception as exc:
-        await session.rollback()
-        failed_run = await session.get(StatisticalImportRun, run.id)
-        if failed_run:
-            failed_run.status = "FAILED"
-            failed_run.finished_at = datetime.now(UTC)
-            failed_run.error_message = str(exc)[:4000]
-            await session.commit()
+        try:
+            await _mark_import_failed(session, run_id, exc)
+        except Exception:
+            logger.exception("Could not persist failed Flensburg statistics import run")
         raise
