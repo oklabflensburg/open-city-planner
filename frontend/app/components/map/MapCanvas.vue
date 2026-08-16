@@ -245,13 +245,20 @@ function ensureOsmInfrastructure(instance: Map) {
   })
   if (!instance.getLayer('osm-selected-polygon')) instance.addLayer({
     id: 'osm-selected-polygon', type: 'line', source: 'osm-polygons', minzoom: 14.5,
-    filter: ['all', ['boolean', ['feature-state', 'selected'], false], ['!=', ['get', 'natural'], 'peninsula']],
-    paint: { 'line-color': '#0f172a', 'line-width': 3 }
+    filter: ['!=', ['get', 'natural'], 'peninsula'],
+    paint: {
+      'line-color': '#0f172a', 'line-width': 3,
+      'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]
+    }
   })
   if (!instance.getLayer('osm-selected-point')) instance.addLayer({
     id: 'osm-selected-point', type: 'circle', source: 'osm-pois', minzoom: 11,
-    filter: ['all', ['boolean', ['feature-state', 'selected'], false], ['!=', ['get', 'natural'], 'peninsula']],
-    paint: { 'circle-color': '#ffffff', 'circle-radius': 11, 'circle-stroke-color': '#0f172a', 'circle-stroke-width': 3 }
+    filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'natural'], 'peninsula']],
+    paint: {
+      'circle-color': '#ffffff', 'circle-radius': 11, 'circle-stroke-color': '#0f172a', 'circle-stroke-width': 3,
+      'circle-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0],
+      'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]
+    }
   })
   updateOsmSelection()
 }
@@ -398,8 +405,10 @@ function ensureAnalysisAreaInfrastructure(instance: Map) {
   }
   if (!instance.getLayer('analysis-area-selected')) instance.addLayer({
     id: 'analysis-area-selected', type: 'line', source: 'analysis-areas',
-    filter: ['boolean', ['feature-state', 'selected'], false],
-    paint: { 'line-color': '#0f172a', 'line-width': 3.5, 'line-opacity': 0.95 }
+    paint: {
+      'line-color': '#0f172a', 'line-width': 3.5,
+      'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.95, 0]
+    }
   })
   setAnalysisAreaVisibility()
   updateAnalysisAreaSelection()

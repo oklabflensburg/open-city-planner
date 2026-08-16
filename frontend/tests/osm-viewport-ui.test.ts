@@ -60,6 +60,14 @@ describe('dynamic OSM viewport layer', () => {
     expect(map).toContain('?.setData(polygons)')
   })
 
+  it('uses feature state only in paint expressions, never in layer filters', () => {
+    const map = appFile('components/map/MapCanvas.vue')
+    const filterLines = map.split('\n').filter(line => line.includes('filter:'))
+    expect(filterLines).not.toEqual(expect.arrayContaining([expect.stringContaining("['feature-state'")]))
+    expect(map).toContain("'circle-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]")
+    expect(map).toContain("'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.95, 0]")
+  })
+
   it('defensively removes peninsula features before rendering and from pickable layers', () => {
     const map = appFile('components/map/MapCanvas.vue')
     expect(map).toContain('!shouldExcludeOsmFeature(feature)')
