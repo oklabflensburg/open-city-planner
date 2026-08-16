@@ -94,7 +94,7 @@ def test_import_schema_forbids_geometry_claims_and_management_fields() -> None:
 
 
 @pytest.mark.asyncio
-async def test_peninsula_cannot_be_imported_as_stadtplanner_polygon() -> None:
+async def test_peninsula_cannot_be_imported_as_stadtplaner_polygon() -> None:
     session = AsyncMock()
     session.execute.return_value = MappingRows(
         source(dimension=2, tags={"name": "Angeln", "natural": "peninsula"})

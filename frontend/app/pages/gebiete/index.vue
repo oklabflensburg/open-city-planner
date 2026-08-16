@@ -6,6 +6,12 @@
     :breadcrumbs="[{ label: 'Start', to: '/' }, { label: 'Gebiete' }]"
     max-width="wide"
   >
+    <div
+      data-social-preview-capture
+      data-social-preview-ready="true"
+      :class="socialPreview ? 'rounded-3xl border border-slate-200 bg-slate-50 p-6' : ''"
+    >
+    <div v-if="socialPreview" class="mb-6"><p class="text-sm font-black uppercase tracking-widest text-[#154d73]">Stadtplaner · OK Lab Flensburg</p><h1 class="mt-2 text-4xl font-black text-slate-950">Gebiete in Flensburg</h1><p class="mt-2 text-slate-600">Gemeinde, Stadtteile und Quartiere im Überblick</p></div>
     <p v-if="!areas?.length" class="rounded-2xl border border-slate-200 bg-white p-6 text-slate-600">
       Derzeit sind keine auswertbaren Gebiete veröffentlicht.
     </p>
@@ -34,6 +40,7 @@
         </div>
       </section>
     </div>
+    </div>
   </ContentPageShell>
 </template>
 
@@ -42,16 +49,18 @@ import type { AnalysisArea } from '~/types/analysisArea'
 import { buildAbsoluteUrl, buildBreadcrumbStructuredData, serializeStructuredData, toMetaDescription } from '~/utils/seo'
 
 const config = useRuntimeConfig()
+const route = useRoute()
+const socialPreview = computed(() => route.query['social-preview'] === '1')
 const areaApi = useAnalysisAreaApi()
 const { data: areas } = await useAsyncData('analysis-area-index', () => areaApi.list())
 const municipalities = computed(() => (areas.value || []).filter(area => area.area_type === 'MUNICIPALITY'))
 const childrenOf = (parentId: string) => (areas.value || []).filter(area => area.parent_id === parentId)
 const formatArea = (value: number) => `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(value / 1_000_000)} km²`
-const title = 'Gebiete in Flensburg – Standortdaten | Stadtplanner'
+const title = 'Gebiete in Flensburg – Standortdaten | Stadtplaner'
 const description = toMetaDescription('', 'Gemeinde, Stadtteile und Quartiere in Flensburg: Verkaufsflächen, Leerstand, Branchen, POIs und belastbare Standortdaten im Überblick.')
 const canonical = buildAbsoluteUrl(config.public.siteUrl, '/gebiete')
 
-useSeoMeta({ title, description, robots: 'index,follow', ogTitle: title, ogDescription: description, ogUrl: canonical, ogType: 'website', twitterCard: 'summary' })
+useSeoMeta({ title, description, robots: socialPreview.value ? 'noindex,nofollow' : 'index,follow', ogTitle: title, ogDescription: description, ogUrl: canonical, ogType: 'website', twitterCard: 'summary' })
 useHead({
   link: [{ rel: 'canonical', href: canonical }],
   script: [{ type: 'application/ld+json', innerHTML: serializeStructuredData(buildBreadcrumbStructuredData(config.public.siteUrl, [{ name: 'Start', path: '/' }, { name: 'Gebiete', path: '/gebiete' }])) }]

@@ -1,5 +1,6 @@
 import urllib.parse
 import uuid
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -10,7 +11,7 @@ import app.api.auth as auth_api
 from app.auth import oauth
 from app.core.config import Settings
 from app.main import app
-from app.models.oauth_account import UserOAuthAccount
+from app.models.oauth_account import OAuthFlowGrant, UserOAuthAccount
 from app.models.user import User
 
 
@@ -46,8 +47,8 @@ async def test_provider_discovery_returns_labels_without_secrets(
     serialized = [provider.model_dump() for provider in response]
 
     assert serialized == [
-        {"id": "github", "label": "GitHub"},
-        {"id": "google", "label": "Google"},
+        {"id": "github", "label": "GitHub", "requires_instance": False, "default_instance": None},
+        {"id": "google", "label": "Google", "requires_instance": False, "default_instance": None},
     ]
     assert "secret" not in str(serialized).lower()
 
@@ -59,6 +60,116 @@ def test_oauth_login_and_callback_routes_are_registered() -> None:
     assert "/api/v1/auth/oauth/{provider}/login" in oauth_paths
     assert "/api/v1/auth/oauth/{provider}/link" in oauth_paths
     assert "/api/v1/auth/oauth/{provider}/callback" in oauth_paths
+    assert "/api/v1/auth/oauth/mastodon/start" in oauth_paths
+    assert "/api/v1/auth/oauth/mastodon/link" in oauth_paths
+    assert "/api/v1/auth/oauth/complete-email" in oauth_paths
+
+
+@pytest.mark.asyncio
+async def test_mastodon_provider_requires_instance_without_exposing_secrets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured = settings(
+        mastodon_sso_enabled=True,
+        mastodon_sso_encryption_key="K7jXU8bOzXRBZWxYWxcr0SkwZ1A8HLAPSMHY2cmy6S8=",
+        mastodon_sso_default_instance="https://norden.social",
+    )
+    monkeypatch.setattr(auth_api, "get_settings", lambda: configured)
+    monkeypatch.setattr(auth_api, "configured_providers", lambda: ["mastodon"])
+
+    result = [item.model_dump() for item in await auth_api.get_oauth_providers()]
+
+    assert result == [{
+        "id": "mastodon",
+        "label": "Mastodon",
+        "requires_instance": True,
+        "default_instance": "https://norden.social",
+    }]
+    assert "key" not in str(result).lower()
+
+
+@pytest.mark.asyncio
+async def test_mastodon_login_start_sets_bound_http_only_cookie(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured = oauth_settings()
+    monkeypatch.setattr(auth_api, "get_settings", lambda: configured)
+    monkeypatch.setattr(auth_api, "provider_is_configured", lambda _provider: True)
+    monkeypatch.setattr(auth_api, "check_rate_limit", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        auth_api,
+        "create_mastodon_oauth_flow",
+        async_return(("opaque-state", "https://social.example/oauth/authorize?state=opaque-state")),
+    )
+    response = Response()
+    request = Request({"type": "http", "method": "POST", "path": "/", "headers": [], "client": ("203.0.113.4", 1234)})
+
+    result = await auth_api.start_mastodon_oauth_login(
+        auth_api.MastodonOAuthStartRequest(instance="social.example", redirect="https://evil.example"),
+        response,
+        object(),  # type: ignore[arg-type]
+        request,
+    )
+
+    assert result.authorization_url.startswith("https://social.example/")
+    cookie = response.headers["set-cookie"]
+    assert "ocm_oauth_state_mastodon=" in cookie
+    assert "HttpOnly" in cookie
+    assert "opaque-state" not in cookie
+
+
+@pytest.mark.asyncio
+async def test_mastodon_callback_consumes_grant_and_logs_in_existing_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured = oauth_settings()
+    user = User(id=uuid.uuid4(), email="user@example.org", is_active=True)
+    identity = oauth.OAuthIdentity(
+        provider="mastodon",
+        provider_instance="https://social.example",
+        subject="42",
+        username="@user@social.example",
+    )
+    grant = OAuthFlowGrant(
+        state_hash="hash",
+        provider="mastodon",
+        mode="login",
+        redirect_path="/profil",
+        instance_origin="https://social.example",
+        code_verifier="server-side-verifier",
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
+    )
+    monkeypatch.setattr(oauth, "get_settings", lambda: configured)
+    monkeypatch.setattr(auth_api, "get_settings", lambda: configured)
+    monkeypatch.setattr(auth_api, "provider_is_configured", lambda _provider: True)
+    consume = AsyncMock(return_value=grant)
+    exchange = AsyncMock(return_value=identity)
+    authenticate = AsyncMock(return_value=user)
+    issue = AsyncMock(return_value="csrf")
+    monkeypatch.setattr(auth_api, "consume_mastodon_oauth_flow", consume)
+    monkeypatch.setattr(auth_api, "exchange_mastodon_oauth_code", exchange)
+    monkeypatch.setattr(auth_api, "authenticate_oauth_identity", authenticate)
+    monkeypatch.setattr(auth_api, "issue_session", issue)
+    cookie = oauth.encode_oauth_flow(
+        oauth.OAuthFlowState("random-state", "login", "/profil")
+    )
+    request = request_with_cookie(oauth.oauth_cookie_name("mastodon"), cookie)
+
+    session = object()
+    response = await auth_api.oauth_callback(
+        "mastodon",
+        "random-state",
+        session,  # type: ignore[arg-type]
+        request,
+        Response(),
+        code="authorization-code",
+    )
+
+    consume.assert_awaited_once()
+    exchange.assert_awaited_once_with(session, grant, "authorization-code")
+    authenticate.assert_awaited_once_with(session, identity)
+    issue.assert_awaited_once()
+    assert response.headers["location"].endswith("/auth/callback?redirect=%2Fprofil")
 
 
 @pytest.mark.parametrize(

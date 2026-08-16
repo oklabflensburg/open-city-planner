@@ -49,7 +49,7 @@ describe('central map feature picking', () => {
     expect(pickMapEntityAtPoint(map, { x: 20, y: 20 })?.kind).toBe('cluster')
   })
 
-  it('falls back through OSM polygon, Stadtplanner polygon and analysis area', () => {
+  it('falls back through OSM polygon, Stadtplaner polygon and analysis area', () => {
     expect(pickMapEntityAtPoint(pickingMap({
       'osm-polygons-fill': [renderedFeature('osm-polygons-fill', { feature_id: 'area', category: 'retail' })],
       'overview-polygons-fill': [renderedFeature('overview-polygons-fill', { id: 'polygon' })]

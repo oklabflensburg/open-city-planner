@@ -5,5 +5,12 @@ export const projectConfig = {
     url: 'https://github.com/oklabflensburg/open-city-planner',
     issuesUrl: 'https://github.com/oklabflensburg/open-city-planner/issues',
     contributingUrl: 'https://github.com/oklabflensburg/open-city-planner/blob/main/CONTRIBUTING.md'
+  },
+  social: {
+    mastodon: {
+      label: 'Mastodon',
+      url: 'https://norden.social/@oklabflensburg',
+      handle: '@oklabflensburg@norden.social'
+    }
   }
 } as const

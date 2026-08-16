@@ -12,14 +12,24 @@
         @click="start(provider.id)"
       >
         <Github v-if="provider.id === 'github'" class="mr-2 size-4" aria-hidden="true" />
+        <MessageCircle v-else-if="provider.id === 'mastodon'" class="mr-2 size-4" aria-hidden="true" />
         {{ loadingProvider === provider.id ? `Zu ${provider.label} weiterleiten ...` : buttonLabel(provider.label) }}
       </button>
     </div>
+    <MastodonInstanceDialog
+      :open="mastodonDialogOpen"
+      mode="login"
+      :default-instance="mastodonProvider?.default_instance"
+      :loading="loadingProvider === 'mastodon'"
+      :error="mastodonError"
+      @update:open="mastodonDialogOpen = $event"
+      @submit="startMastodon"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { Github } from 'lucide-vue-next'
+import { Github, MessageCircle } from 'lucide-vue-next'
 import type { OAuthMode } from '~/utils/oauth'
 import { hasOAuthProviders, oauthButtonLabel } from '~/utils/oauth'
 
@@ -33,14 +43,34 @@ const props = withDefaults(defineProps<{
 
 const authStore = useAuthStore()
 const loadingProvider = ref('')
+const mastodonDialogOpen = ref(false)
+const mastodonError = ref('')
+const mastodonProvider = computed(() => authStore.oauthProviders.find(provider => provider.id === 'mastodon'))
 
 onMounted(() => {
   void authStore.loadProviders()
 })
 
 function start(providerId: string) {
+  const provider = authStore.oauthProviders.find(item => item.id === providerId)
+  if (provider?.requires_instance) {
+    mastodonError.value = ''
+    mastodonDialogOpen.value = true
+    return
+  }
   loadingProvider.value = providerId
-  authStore.startOAuthLogin(providerId, props.redirect)
+  void authStore.startOAuthLogin(providerId, props.redirect)
+}
+
+async function startMastodon(instance: string) {
+  loadingProvider.value = 'mastodon'
+  mastodonError.value = ''
+  try {
+    await authStore.startOAuthLogin('mastodon', props.redirect, instance)
+  } catch (error) {
+    loadingProvider.value = ''
+    mastodonError.value = error instanceof Error ? error.message : 'Die Mastodon-Anmeldung konnte nicht vorbereitet werden.'
+  }
 }
 
 function buttonLabel(label: string) {

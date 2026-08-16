@@ -7,7 +7,18 @@ const ACTION_LABELS: Record<string, string> = {
   USER_DEACTIVATED: 'Konto deaktiviert',
   USER_SUPERUSER_GRANTED_DIRECT: 'Superuser-Status zugewiesen',
   REFRESH_TOKEN_REUSE_DETECTED: 'Token-Wiederverwendung erkannt',
-  FLENSBURG_STATISTICS_SYNC: 'Flensburg-Statistik synchronisiert'
+  FLENSBURG_STATISTICS_SYNC: 'Flensburg-Statistik synchronisiert',
+  MASTODON_STATUS_PUBLISHED: 'Mastodon-Status veröffentlicht',
+  MASTODON_PUBLICATION_FAILED: 'Mastodon-Veröffentlichung fehlgeschlagen',
+  MASTODON_PUBLICATION_RETRY_REQUESTED: 'Mastodon-Wiederholung angefordert',
+  MASTODON_PUBLICATION_APPROVED: 'Mastodon-Post freigegeben',
+  MASTODON_PUBLICATION_CANCELLED: 'Mastodon-Post verworfen',
+  SOCIAL_PUBLISHING_SETTINGS_UPDATED: 'Social-Einstellungen geändert',
+  OAUTH_LOGIN_SUCCESS: 'Externe Anmeldung erfolgreich',
+  OAUTH_LOGIN_FAILED: 'Externe Anmeldung fehlgeschlagen',
+  OAUTH_ACCOUNT_LINKED: 'Externes Konto verknüpft',
+  OAUTH_ACCOUNT_LINK_FAILED: 'Kontoverknüpfung fehlgeschlagen',
+  OAUTH_ACCOUNT_UNLINKED: 'Externes Konto getrennt'
 }
 
 export function auditActionLabel(action: string) {

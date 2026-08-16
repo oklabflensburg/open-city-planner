@@ -118,7 +118,7 @@ async def post_polygon_from_osm(
             status_code=422,
             detail={"error": {
                 "code": "OSM_FEATURE_NOT_IMPORTABLE",
-                "message": "Dieses OSM-Objekt kann nicht als Stadtplanner-Fläche übernommen werden.",
+                "message": "Dieses OSM-Objekt kann nicht als Stadtplaner-Fläche übernommen werden.",
             }},
         ) from exc
     except OsmImportAlreadyExists as exc:

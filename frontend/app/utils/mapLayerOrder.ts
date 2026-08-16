@@ -41,19 +41,19 @@ export const MAP_LAYER_ORDER = Object.values(MAP_LAYER_GROUPS).flat()
 
 type LayerOrderMap = Pick<Map, 'getLayer' | 'getStyle' | 'moveLayer'>
 
-export function getStadtplannerLayerOrder(map: Pick<Map, 'getStyle'>) {
+export function getStadtplanerLayerOrder(map: Pick<Map, 'getStyle'>) {
   const customLayerIds = new Set<string>(MAP_LAYER_ORDER)
   return map.getStyle().layers.map(layer => layer.id).filter(id => customLayerIds.has(id))
 }
 
-export function hasValidStadtplannerLayerOrder(map: Pick<Map, 'getStyle'>) {
-  const actual = getStadtplannerLayerOrder(map)
+export function hasValidStadtplanerLayerOrder(map: Pick<Map, 'getStyle'>) {
+  const actual = getStadtplanerLayerOrder(map)
   const expected = MAP_LAYER_ORDER.filter(id => actual.includes(id))
   return actual.every((id, index) => id === expected[index])
 }
 
-export function ensureStadtplannerLayerOrder(map: LayerOrderMap) {
-  if (hasValidStadtplannerLayerOrder(map)) return
+export function ensureStadtplanerLayerOrder(map: LayerOrderMap) {
+  if (hasValidStadtplanerLayerOrder(map)) return
 
   let beforeId: string | undefined
   for (const layerId of [...MAP_LAYER_ORDER].reverse()) {

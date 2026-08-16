@@ -1,0 +1,12 @@
+[Unit]
+Description=Publish due Stadtplaner Mastodon outbox events
+
+[Timer]
+OnBootSec=2m
+OnUnitActiveSec=1m
+AccuracySec=10s
+Persistent=true
+Unit=stadtplaner-social-publisher.service
+
+[Install]
+WantedBy=timers.target

@@ -51,6 +51,15 @@ export const documentationPages: DocumentationPage[] = [
           { type: 'paragraph', text: 'Stadtplaner wird als Open-Source-Projekt entwickelt. Das offizielle GitHub-Repository enthält den Quellcode für Frontend und Backend sowie die technische Dokumentation für Entwicklung und Betrieb.' },
           { type: 'links', items: [{ label: 'Offizielles GitHub-Repository', to: projectConfig.github.url, description: 'Quellcode und technische Projektdokumentation öffnen.' }, { label: 'Zum Projekt beitragen', to: projectConfig.github.contributingUrl, description: 'Lokales Setup, Qualitätsanforderungen und Pull-Request-Ablauf.' }] }
         ]
+      },
+      {
+        id: 'mastodon-und-fediverse',
+        title: 'Mastodon & Fediverse',
+        blocks: [
+          { type: 'paragraph', text: 'Öffentliche Änderungen an Stadtplaner-Gebieten können automatisiert und gebündelt über den Mastodon-Account des OK Lab Flensburg veröffentlicht werden. Der bestehende Mastodon-Account ist bereits ein ActivityPub-Actor; Mastodon übernimmt die Föderation. Stadtplaner betreibt deshalb keinen eigenen WebFinger-, Inbox- oder Outbox-Actor.' },
+          { type: 'list', items: ['Veröffentlicht werden nur bewusst klassifizierte Änderungen an öffentlichen Gemeinde-, Stadtteil- und Quartiersdaten.', 'Mehrere Änderungen desselben Gebiets werden standardmäßig fünf Minuten gesammelt und als ein verständlicher Hinweis veröffentlicht.', 'Jeder automatische Post enthält einen Screenshot einer öffentlichen Stadtplaner-Seite und eine strukturierte Bildbeschreibung. Adminseiten werden dafür niemals geöffnet.', 'Superuser können automatische Veröffentlichung, Freigabemodus, Themen, Hashtags, Sichtbarkeit und Screenshotdarstellung steuern.', 'Der reguläre OSM-Sync erzeugt keine Posts. Ein bewusst gestarteter Lauf kann neue Gebiete oder ausreichend große Grenzänderungen einreihen.', 'Ein Statistikimport erzeugt höchstens einen zusammenfassenden Hinweis statt eines Posts pro Beobachtung.', 'Eigentümer-, Miet-, Benutzer- und andere interne Daten sind nicht Teil der Feld-Allowlist und können nicht in kontrollierten Texten oder Screenshots erscheinen.'] },
+          { type: 'links', items: [{ label: projectConfig.social.mastodon.handle, to: projectConfig.social.mastodon.url, description: 'Öffentliche Aktualisierungen des OK Lab Flensburg auf Mastodon.' }, { label: 'Open-Source-Implementierung', to: projectConfig.github.url, description: 'Outbox, Publishing-Service und technische Dokumentation auf GitHub.' }] }
+        ]
       }
     ]
   },
@@ -415,14 +424,16 @@ export const documentationPages: DocumentationPage[] = [
     navTitle: 'Externe Anmeldung',
     description: 'OAuth-Anmeldung sowie Verknüpfen und Trennen externer Konten.',
     group: 'Konto und Zugriff',
-    keywords: ['OAuth', 'Google', 'GitHub', 'Provider', 'Verknüpfung'],
+    keywords: ['OAuth', 'Google', 'GitHub', 'Mastodon', 'Provider', 'Verknüpfung'],
     audience: 'login',
     sections: [
       {
         id: 'verfuegbare-anbieter',
         title: 'Verfügbare Anbieter',
         blocks: [
-          { type: 'paragraph', text: 'Externe Anmeldeschaltflächen erscheinen nur für Dienste, die auf dem Server eingerichtet und aktiviert sind. Je nach Betrieb können beispielsweise Google oder GitHub angeboten werden.' },
+          { type: 'paragraph', text: 'Externe Anmeldeschaltflächen erscheinen nur für Dienste, die auf dem Server eingerichtet und aktiviert sind. Unterstützt werden je nach Betrieb Google, GitHub und Mastodon.' },
+          { type: 'paragraph', text: 'Für Mastodon geben Sie zunächst die Instanz an, auf der Ihr Konto liegt, zum Beispiel norden.social oder mastodon.social. Anschließend werden Sie zur Anmeldung auf genau diese Instanz weitergeleitet. Stadtplaner fragt kein Mastodon-Passwort ab.' },
+          { type: 'callout', variant: 'info', title: 'Neue Anmeldung ohne E-Mail', text: 'Mastodon übermittelt keine verifizierte E-Mail-Adresse. Bei einem neuen Stadtplaner-Konto hinterlegen und bestätigen Sie die E-Mail deshalb anschließend im Profil.' },
           { type: 'callout', variant: 'info', title: 'Keine Schaltfläche sichtbar', text: 'Dann ist aktuell kein externer Anbieter konfiguriert. Die Anmeldung mit E-Mail-Adresse und Passwort bleibt davon unberührt.' }
         ]
       },
@@ -571,6 +582,16 @@ export const documentationPages: DocumentationPage[] = [
           { type: 'steps', items: [{ title: 'Auditlog öffnen', text: 'Wählen Sie im Kontomenü „Auditlog“.' }, { title: 'Einträge eingrenzen', text: 'Filtern Sie nach Aktion, ausführendem Benutzer und lokalem Zeitraum oder durchsuchen Sie Aktion, Benutzer und Ressource.' }, { title: 'Details prüfen', text: 'Öffnen Sie ein Ereignis, um Zusammenfassung, betroffene Ressource und vorhandene technische Details zu sehen.' }] },
           { type: 'callout', variant: 'info', title: 'Unveränderliche Historie', text: 'Die Ansicht bietet keine Funktion zum Bearbeiten oder Löschen. Nicht gespeicherte Angaben wie IP-Adresse oder User-Agent können auch in der Detailansicht nicht angezeigt werden.' }
         ]
+      },
+      {
+        id: 'social-publishing',
+        title: 'Mastodon-Veröffentlichungen überwachen',
+        audience: 'superuser',
+        blocks: [
+          { type: 'paragraph', text: 'Unter /admin/social sehen Superuser den sicheren Verbindungsstatus, offene und fehlgeschlagene Outbox-Ereignisse sowie die Veröffentlichungshistorie. Der Access Token wird weder von der API zurückgegeben noch in der Oberfläche angezeigt.' },
+          { type: 'steps', items: [{ title: 'Social Publishing öffnen', text: 'Wählen Sie im Kontomenü „Social Publishing“.' }, { title: 'Einstellungen anpassen', text: 'Änderungen an den Social-Publishing-Einstellungen werden automatisch gespeichert. Der Status zeigt „Speichern …“, „Gespeichert“ oder eine erneute Versuchsmöglichkeit.' }, { title: 'Status prüfen', text: 'Prüfen Sie Konfiguration, Erreichbarkeit, Dry-Run und Zähler.' }, { title: 'Fehler untersuchen', text: 'Fehlgeschlagene Ereignisse zeigen einen bereinigten Fehlertyp, aber keine Header oder Secrets.' }, { title: 'Erneut einreihen', text: 'Bestätigen Sie „Erneut versuchen“ im Dialog. Der Worker verwendet weiterhin denselben Idempotency-Key.' }] },
+          { type: 'code', code: '/admin/social', language: 'Route' }
+        ]
       }
     ]
   },
@@ -587,7 +608,7 @@ export const documentationPages: DocumentationPage[] = [
         id: 'gebietsebenen',
         title: 'Drei Gebietsebenen',
         blocks: [
-          { type: 'paragraph', text: 'Stadtplanner gliedert die kommunale Gebietskulisse in Gemeinde, Stadtteile und Quartiere. Jedes gültige Gebiet besitzt eine dauerhafte Seite unter /gebiete/<slug> und verweist auf über- und untergeordnete Gebiete.' },
+          { type: 'paragraph', text: 'Stadtplaner gliedert die kommunale Gebietskulisse in Gemeinde, Stadtteile und Quartiere. Jedes gültige Gebiet besitzt eine dauerhafte Seite unter /gebiete/<slug> und verweist auf über- und untergeordnete Gebiete.' },
           { type: 'list', items: ['Die Gemeinde bildet den kommunalen Bezugsrahmen.', 'Stadtteile sind der Gemeinde räumlich untergeordnet.', 'Quartiere sind einem Stadtteil räumlich untergeordnet.'] }
         ]
       },
@@ -614,7 +635,7 @@ export const documentationPages: DocumentationPage[] = [
         id: 'raeumliche-zuordnung',
         title: 'Räumliche Zuordnung',
         blocks: [
-          { type: 'paragraph', text: 'Gebietsgrenzen stammen aus der gepflegten Analysis-Area-Tabelle und werden überwiegend aus OpenStreetMap synchronisiert. Stadtplanner-Flächen werden anhand eines mit ST_PointOnSurface bestimmten Punkts räumlich genau einem passenden Gebiet je Ebene zugeordnet. So bleiben auch unregelmäßige Polygone robust auswertbar.' },
+          { type: 'paragraph', text: 'Gebietsgrenzen stammen aus der gepflegten Analysis-Area-Tabelle und werden überwiegend aus OpenStreetMap synchronisiert. Stadtplaner-Flächen werden anhand eines mit ST_PointOnSurface bestimmten Punkts räumlich genau einem passenden Gebiet je Ebene zugeordnet. So bleiben auch unregelmäßige Polygone robust auswertbar.' },
           { type: 'callout', variant: 'info', title: 'Stabile Adressen', text: 'Der Gebiets-Slug wird beim Import erzeugt und bei späteren Aktualisierungen nicht überschrieben. Namensänderungen brechen daher keine bestehenden Links.' }
         ]
       },
@@ -639,7 +660,7 @@ export const documentationPages: DocumentationPage[] = [
       {
         id: 'datenstand',
         title: 'Datenstand und Quellen',
-        blocks: [{ type: 'paragraph', text: 'Gebietsseiten nennen den letzten verfügbaren Datenstand und die Herkunft der Grenze. Fachkennzahlen beruhen ausschließlich auf tatsächlich gespeicherten Stadtplanner-Flächen und lokal importierten OSM-Daten; es werden keine Schätzwerte erfunden.' }]
+        blocks: [{ type: 'paragraph', text: 'Gebietsseiten nennen den letzten verfügbaren Datenstand und die Herkunft der Grenze. Fachkennzahlen beruhen ausschließlich auf tatsächlich gespeicherten Stadtplaner-Flächen und lokal importierten OSM-Daten; es werden keine Schätzwerte erfunden.' }]
       }
     ]
   },
@@ -647,7 +668,7 @@ export const documentationPages: DocumentationPage[] = [
     slug: 'api',
     title: 'Öffentliche API',
     navTitle: 'API',
-    description: 'OpenAPI-Dokumentation und öffentliche Lese-Endpunkte für Gebiete und Stadtplanner-Flächen.',
+    description: 'OpenAPI-Dokumentation und öffentliche Lese-Endpunkte für Gebiete und Stadtplaner-Flächen.',
     group: 'Karte und Daten',
     keywords: ['API', 'OpenAPI', 'Swagger', 'ReDoc', 'JSON'],
     audience: 'public',

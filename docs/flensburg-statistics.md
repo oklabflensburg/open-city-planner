@@ -41,7 +41,7 @@ Alle Werte gelten für Stadtteile und die rechnerische Gesamtstadt, jeweils jäh
 
 Superset liefert genau 13 Namen, aber keinen stabilen Gebietsschlüssel. Die amtlichen Stadtteilnummern aus den Zahlenspiegel-Veröffentlichungen werden deshalb in `external_area_mappings` explizit hinterlegt:
 
-| ID | Superset-Name | Stadtplanner-Typ |
+| ID | Superset-Name | Stadtplaner-Typ |
 | --- | --- | --- |
 | 00 | Flensburg (rechnerische Summe) | MUNICIPALITY |
 | 01 | Altstadt | DISTRICT |

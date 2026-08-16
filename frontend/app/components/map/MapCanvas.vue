@@ -36,7 +36,7 @@ import { industryColorExpression } from '~/utils/industries'
 import { osmColorExpression } from '~/utils/osmCategories'
 import { shouldExcludeOsmFeature } from '~/utils/osmExclusions'
 import { pickMapEntityAtPoint } from '~/utils/mapFeaturePicking'
-import { ensureStadtplannerLayerOrder, getStadtplannerLayerOrder, hasValidStadtplannerLayerOrder } from '~/utils/mapLayerOrder'
+import { ensureStadtplanerLayerOrder, getStadtplanerLayerOrder, hasValidStadtplanerLayerOrder } from '~/utils/mapLayerOrder'
 import { loadMapStyle } from '~/config/mapStyles'
 
 const config = useRuntimeConfig()
@@ -382,9 +382,9 @@ function ensureMapInfrastructure(instance: Map) {
   ensureAnalysisAreaInfrastructure(instance)
   ensureOsmInfrastructure(instance)
   ensurePolygonInfrastructure(instance)
-  ensureStadtplannerLayerOrder(instance)
-  if (import.meta.dev && !hasValidStadtplannerLayerOrder(instance)) {
-    console.warn('Stadtplanner overlay layer order is invalid', getStadtplannerLayerOrder(instance))
+  ensureStadtplanerLayerOrder(instance)
+  if (import.meta.dev && !hasValidStadtplanerLayerOrder(instance)) {
+    console.warn('Stadtplaner overlay layer order is invalid', getStadtplanerLayerOrder(instance))
   }
 }
 
@@ -603,7 +603,7 @@ function installPerformanceDebug(instance: Map) {
         loadedEast: osmStore.loadedBounds?.east || 0
       }
     },
-    getLayerOrder: () => getStadtplannerLayerOrder(instance)
+    getLayerOrder: () => getStadtplanerLayerOrder(instance)
   }
 }
 

@@ -77,6 +77,16 @@
           </div>
         </Card>
       </ContentSection>
+
+      <ContentSection title="Mastodon & Fediverse">
+        <Card class="p-5 sm:p-7">
+          <div class="max-w-4xl">
+            <h3 class="text-lg font-bold text-slate-950">Öffentliche Aktualisierungen verfolgen</h3>
+            <p class="mt-3 leading-7 text-slate-700">Relevante öffentliche Änderungen an Gemeinde-, Stadtteil- und Quartiersseiten können gebündelt über den Mastodon-Account des OK Lab Flensburg veröffentlicht werden. Interne Daten und rein technische Aktualisierungen werden nicht geteilt. Mastodon übernimmt die Föderation ins Fediverse über ActivityPub.</p>
+            <MastodonLink identity class="mt-5" :label="projectConfig.social.mastodon.handle" />
+          </div>
+        </Card>
+      </ContentSection>
     </div>
   </ContentPageShell>
 </template>
@@ -113,6 +123,13 @@ usePageSeo({
       codeRepository: projectConfig.github.url,
       url: buildAbsoluteUrl(config.public.siteUrl, '/'),
       programmingLanguage: ['TypeScript', 'Python']
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: 'OK Lab Flensburg',
+      url: buildAbsoluteUrl(config.public.siteUrl, '/ueber-das-projekt'),
+      sameAs: [projectConfig.social.mastodon.url, 'https://github.com/oklabflensburg']
     }
   ]
 })

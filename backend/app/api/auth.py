@@ -1,6 +1,7 @@
 import hmac
 import logging
 import urllib.parse
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -22,6 +23,7 @@ from app.auth.oauth import (
 )
 from app.auth.tokens import hash_token
 from app.core.config import get_settings
+from app.models.admin_audit_log import AdminAuditLog
 from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
@@ -34,12 +36,19 @@ from app.schemas.auth import (
     TokenRequest,
     VerificationResponse,
 )
-from app.schemas.oauth import OAuthProviderRead
+from app.schemas.oauth import (
+    MastodonOAuthLinkRequest,
+    MastodonOAuthStartRequest,
+    OAuthEmailCompletionRequest,
+    OAuthProviderRead,
+    OAuthStartRead,
+)
 from app.schemas.user import UserRead
 from app.services.auth_service import (
     authenticate,
     change_password,
     clear_auth_cookies,
+    complete_oauth_email,
     forgot_password,
     issue_session,
     refresh_session,
@@ -49,6 +58,11 @@ from app.services.auth_service import (
     revoke_current_session,
     signup,
     verify_email,
+)
+from app.services.mastodon_sso import (
+    consume_mastodon_oauth_flow,
+    create_mastodon_oauth_flow,
+    exchange_mastodon_oauth_code,
 )
 from app.services.oauth_account_service import (
     authenticate_oauth_identity,
@@ -69,7 +83,88 @@ async def get_auth_providers() -> dict[str, list[str]]:
 
 @router.get("/oauth/providers", response_model=list[OAuthProviderRead])
 async def get_oauth_providers() -> list[OAuthProviderRead]:
-    return [OAuthProviderRead(id=provider, label=provider_label(provider)) for provider in configured_providers()]
+    settings = get_settings()
+    return [
+        OAuthProviderRead(
+            id=provider,
+            label=provider_label(provider),
+            requires_instance=provider == "mastodon",
+            default_instance=(
+                settings.mastodon_sso_default_instance if provider == "mastodon" else None
+            ),
+        )
+        for provider in configured_providers()
+    ]
+
+
+@router.post("/oauth/mastodon/start", response_model=OAuthStartRead)
+async def start_mastodon_oauth_login(
+    payload: MastodonOAuthStartRequest,
+    response: Response,
+    session: SessionDep,
+    request: Request,
+) -> OAuthStartRead:
+    if not provider_is_configured("mastodon"):
+        raise HTTPException(status_code=404, detail={"error": {"code": "OAUTH_PROVIDER_DISABLED", "message": "Mastodon-Anmeldung ist nicht aktiviert."}})
+    check_rate_limit(
+        f"mastodon-oauth-start:{request.client.host if request.client else 'unknown'}"
+    )
+    state, url = await create_mastodon_oauth_flow(
+        session,
+        payload.instance,
+        mode="login",
+        redirect_path=safe_redirect_path(payload.redirect),
+    )
+    set_oauth_flow_cookie(
+        response,
+        "mastodon",
+        OAuthFlowState(state, "login", safe_redirect_path(payload.redirect)),
+    )
+    return OAuthStartRead(authorization_url=url)
+
+
+@router.post("/oauth/mastodon/link", response_model=OAuthStartRead)
+async def start_mastodon_oauth_link(
+    payload: MastodonOAuthLinkRequest,
+    response: Response,
+    session: SessionDep,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> OAuthStartRead:
+    validate_csrf(request)
+    if not provider_is_configured("mastodon"):
+        raise HTTPException(status_code=404, detail={"error": {"code": "OAUTH_PROVIDER_DISABLED", "message": "Mastodon-Anmeldung ist nicht aktiviert."}})
+    if await get_for_user_provider(session, user.id, "mastodon"):
+        raise HTTPException(status_code=409, detail={"error": {"code": "OAUTH_ACCOUNT_ALREADY_LINKED", "message": "Dein Konto ist bereits mit Mastodon verbunden."}})
+    state, url = await create_mastodon_oauth_flow(
+        session,
+        payload.instance,
+        mode="link",
+        redirect_path="/profil",
+        user_id=user.id,
+    )
+    set_oauth_flow_cookie(
+        response,
+        "mastodon",
+        OAuthFlowState(state, "link", "/profil", str(user.id)),
+    )
+    return OAuthStartRead(authorization_url=url)
+
+
+@router.post("/oauth/complete-email", response_model=VerificationResponse)
+async def post_complete_oauth_email(
+    payload: OAuthEmailCompletionRequest,
+    session: SessionDep,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> VerificationResponse:
+    validate_csrf(request)
+    await complete_oauth_email(session, user, str(payload.email))
+    return VerificationResponse(
+        status="verification_sent",
+        code="VERIFICATION_EMAIL_SENT",
+        message="Bitte bestätige deine E-Mail-Adresse über den zugesandten Link.",
+    )
 
 
 @router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
@@ -309,14 +404,53 @@ async def oauth_callback(
         return redirect_response
     if not hmac.compare_digest(flow.state, state):
         return oauth_flow_error_redirect(flow.mode, provider, "INVALID_OAUTH_STATE")
+    mastodon_grant = None
+    if provider == "mastodon":
+        mastodon_grant = await consume_mastodon_oauth_flow(session, state)
+        if (
+            not mastodon_grant
+            or mastodon_grant.mode != flow.mode
+            or str(mastodon_grant.user_id or "") != (flow.user_id or "")
+            or mastodon_grant.redirect_path != flow.redirect_path
+        ):
+            await audit_oauth_failure(session, provider, None, "INVALID_OAUTH_STATE", flow.user_id)
+            return oauth_flow_error_redirect(flow.mode, provider, "INVALID_OAUTH_STATE")
     if error or not code:
+        if provider == "mastodon":
+            await audit_oauth_failure(
+                session,
+                provider,
+                mastodon_grant.instance_origin if mastodon_grant else None,
+                "OAUTH_ACCESS_DENIED",
+                flow.user_id,
+            )
         return oauth_flow_error_redirect(flow.mode, provider, "OAUTH_ACCESS_DENIED")
     try:
-        identity = await exchange_oauth_code(provider, code)
+        identity = (
+            await exchange_mastodon_oauth_code(session, mastodon_grant, code)
+            if provider == "mastodon" and mastodon_grant
+            else await exchange_oauth_code(provider, code)
+        )
     except HTTPException:
+        if provider == "mastodon":
+            await audit_oauth_failure(
+                session,
+                provider,
+                mastodon_grant.instance_origin if mastodon_grant else None,
+                flow_error_code(flow.mode),
+                flow.user_id,
+            )
         return oauth_flow_error_redirect(flow.mode, provider, flow_error_code(flow.mode))
     except Exception:
-        logger.exception("OAuth code exchange failed for provider %s", provider)
+        logger.exception("OAuth code exchange failed provider=%s instance=%s", provider, mastodon_grant.instance_origin if mastodon_grant else None)
+        if provider == "mastodon":
+            await audit_oauth_failure(
+                session,
+                provider,
+                mastodon_grant.instance_origin if mastodon_grant else None,
+                flow_error_code(flow.mode),
+                flow.user_id,
+            )
         return oauth_flow_error_redirect(flow.mode, provider, flow_error_code(flow.mode))
     if flow.mode == "link":
         current_user = await get_optional_user(request, session)
@@ -326,6 +460,15 @@ async def oauth_callback(
             await link_oauth_account(session, current_user, identity)
         except HTTPException as exc:
             code_value = exc.detail.get("error", {}).get("code", "OAUTH_LINK_FAILED") if isinstance(exc.detail, dict) else "OAUTH_LINK_FAILED"
+            if provider == "mastodon":
+                await audit_oauth_failure(
+                    session,
+                    provider,
+                    identity.provider_instance,
+                    code_value,
+                    flow.user_id,
+                    link=True,
+                )
             redirect_response = oauth_link_result_redirect(provider, error=code_value)
             clear_oauth_cookie(redirect_response, provider)
             return redirect_response
@@ -339,7 +482,12 @@ async def oauth_callback(
         code_value = exc.detail.get("error", {}).get("code", "OAUTH_LOGIN_FAILED") if isinstance(exc.detail, dict) else "OAUTH_LOGIN_FAILED"
         return oauth_flow_error_redirect("login", provider, code_value)
     callback_url = f"{settings.app_base_url.rstrip('/')}/auth/callback"
-    callback_query = urllib.parse.urlencode({"redirect": safe_redirect_path(flow.redirect_path)})
+    redirect_path = (
+        "/profil?oauth_onboarding=email"
+        if user.email_pending
+        else safe_redirect_path(flow.redirect_path)
+    )
+    callback_query = urllib.parse.urlencode({"redirect": redirect_path})
     redirect_response = RedirectResponse(f"{callback_url}?{callback_query}", status_code=302)
     await issue_session(session, redirect_response, user, request)
     redirect_response.delete_cookie(oauth_cookie_name(provider), path="/api/v1/auth/oauth", domain=settings.auth_cookie_domain)
@@ -350,6 +498,7 @@ def provider_label(provider: str) -> str:
     return {
         "github": "GitHub",
         "google": "Google",
+        "mastodon": "Mastodon",
     }.get(provider, provider.capitalize())
 
 
@@ -396,3 +545,51 @@ def clear_oauth_cookie(response: RedirectResponse, provider: str) -> None:
         path="/api/v1/auth/oauth",
         domain=settings.auth_cookie_domain,
     )
+
+
+def set_oauth_flow_cookie(
+    response: Response,
+    provider: str,
+    flow: OAuthFlowState,
+) -> None:
+    settings = get_settings()
+    response.set_cookie(
+        oauth_cookie_name(provider),
+        encode_oauth_flow(flow),
+        httponly=True,
+        secure=settings.auth_cookie_secure,
+        samesite=settings.auth_cookie_samesite,
+        max_age=settings.mastodon_sso_state_ttl_seconds,
+        path="/api/v1/auth/oauth",
+        domain=settings.auth_cookie_domain,
+    )
+
+
+async def audit_oauth_failure(
+    session: SessionDep,
+    provider: str,
+    provider_instance: str | None,
+    error_code: str,
+    user_id: str | None,
+    *,
+    link: bool = False,
+) -> None:
+    try:
+        actor_id = uuid.UUID(user_id) if user_id else None
+    except ValueError:
+        actor_id = None
+    session.add(
+        AdminAuditLog(
+            actor_user_id=actor_id,
+            target_user_id=actor_id,
+            action="OAUTH_ACCOUNT_LINK_FAILED" if link else "OAUTH_LOGIN_FAILED",
+            resource_type="USER" if actor_id else None,
+            resource_id=actor_id,
+            event_metadata={
+                "provider": provider,
+                "provider_instance": provider_instance,
+                "error_code": error_code,
+            },
+        )
+    )
+    await session.commit()

@@ -6,7 +6,10 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
+from app.models.analysis_area import AnalysisArea
 from app.services.cache_versions import bump_cache_versions
+from app.services.social_publishing import enqueue_area_publication
 
 
 @dataclass
@@ -17,6 +20,7 @@ class AnalysisAreaImportReport:
     quarter_admin_level: int | None = None
     counts: dict[str, int] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+    social_events: int = 0
 
 
 MUNICIPALITY_SQL = text("""
@@ -102,6 +106,14 @@ ON CONFLICT (source, source_osm_type, source_osm_id) DO UPDATE SET
 RETURNING id
 """)
 
+CURRENT_AREA_SQL = text("""
+SELECT id, uuid, name, area_type, area_m2,
+       ST_Area(ST_Transform(ST_SymDifference(geometry, ST_GeomFromEWKB(:geometry)),25832)) /
+       NULLIF(GREATEST(area_m2, CAST(:area_m2 AS double precision)),0) AS geometry_difference_ratio
+FROM analysis_areas
+WHERE source='OSM' AND source_osm_type=:osm_type AND source_osm_id=:osm_id
+""")
+
 PARENT_SQL = text("""
 UPDATE analysis_areas child SET
   parent_id = (
@@ -147,7 +159,12 @@ async def refresh_polygon_area_assignments(session: AsyncSession, polygon_id: in
     return len(result.scalars().all())
 
 
-async def sync_osm_analysis_areas(session: AsyncSession, municipality_name: str = "Flensburg") -> AnalysisAreaImportReport:
+async def sync_osm_analysis_areas(
+    session: AsyncSession,
+    municipality_name: str = "Flensburg",
+    *,
+    publish_relevant_updates: bool = False,
+) -> AnalysisAreaImportReport:
     municipality = (await session.execute(MUNICIPALITY_SQL, {"name": municipality_name})).mappings().first()
     if municipality is None:
         raise LookupError(f"Keine administrative OSM-Fläche für {municipality_name!r} gefunden")
@@ -168,15 +185,37 @@ async def sync_osm_analysis_areas(session: AsyncSession, municipality_name: str 
     }
     rows = (await session.execute(CANDIDATES_SQL, params)).mappings().all()
     counts = {"MUNICIPALITY": 0, "DISTRICT": 0, "QUARTER": 0}
+    settings = get_settings()
     for row in rows:
         tags: dict[str, Any] = row["tags"] or {}
         name = str(tags.get("name") or tags.get("name:de") or f"OSM {row['osm_id']}").strip()
-        await session.execute(UPSERT_SQL, {
+        values = {
             "uuid": uuid.uuid4(), "slug": _slug(name, row["osm_id"]), "name": name,
             "area_type": row["area_type"], "geometry": row["geometry"], "centroid": row["centroid"],
             "area_m2": float(row["area_m2"]), "osm_type": row["osm_type"], "osm_id": row["osm_id"],
             "admin_level": row["admin_level"], "place": tags.get("place"), "source_updated_at": row["imported_at"],
-        })
+        }
+        previous = (await session.execute(CURRENT_AREA_SQL, values)).mappings().first() if publish_relevant_updates else None
+        area_id = (await session.execute(UPSERT_SQL, values)).scalar_one()
+        if publish_relevant_updates:
+            model = await session.get(AnalysisArea, area_id, populate_existing=True)
+            if model is not None:
+                if previous is None:
+                    queued = await enqueue_area_publication(
+                        session, model, "AREA_CREATED", {"name", "geometry", "source"}, settings=settings,
+                    )
+                else:
+                    changed_fields = set()
+                    if previous["name"] != name:
+                        changed_fields.add("name")
+                    if previous["area_type"] != row["area_type"]:
+                        changed_fields.add("area_type")
+                    boundary_changed = float(previous["geometry_difference_ratio"] or 0) >= settings.mastodon_boundary_change_min_ratio
+                    if boundary_changed:
+                        changed_fields.update({"geometry", "area_m2"})
+                    event_type = "AREA_BOUNDARY_UPDATED" if boundary_changed else "AREA_PUBLIC_DATA_UPDATED"
+                    queued = await enqueue_area_publication(session, model, event_type, changed_fields, settings=settings)
+                report.social_events += int(queued is not None)
         counts[row["area_type"]] += 1
         if not row["source_valid"]:
             report.warnings.append(f"{name}: ungültige Quellgeometrie wurde beim Import repariert")

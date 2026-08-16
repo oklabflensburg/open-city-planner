@@ -1,12 +1,12 @@
 # GIS layer order
 
-Custom MapLibre overlays are registered in `frontend/app/utils/mapLayerOrder.ts`. New overlay layers must be assigned to one of those groups and created through the structural map-infrastructure lifecycle before `ensureStadtplannerLayerOrder()` runs.
+Custom MapLibre overlays are registered in `frontend/app/utils/mapLayerOrder.ts`. New overlay layers must be assigned to one of those groups and created through the structural map-infrastructure lifecycle before `ensureStadtplanerLayerOrder()` runs.
 
 The permanent bottom-to-top rule is:
 
 1. analysis areas
 2. OSM polygon fills and outlines
-3. Stadtplanner polygon fills and outlines
+3. Stadtplaner polygon fills and outlines
 4. polygon selection highlights
 5. POI clusters
 6. POI points and point selection
@@ -32,7 +32,7 @@ All sources are GeoJSON sources and therefore have no `source-layer`.
 | `analysis-areas-quarter-label` | `analysis-areas` | symbol | 12.3–24 | no |
 | `osm-polygons-fill` | `osm-polygons` | fill | 14.5+ | yes, OSM polygon |
 | `osm-polygons-line` | `osm-polygons` | line | 14.5+ | no |
-| `overview-polygons-fill` | `overview-polygons` | fill | all | yes, Stadtplanner polygon |
+| `overview-polygons-fill` | `overview-polygons` | fill | all | yes, Stadtplaner polygon |
 | `overview-polygons-line` | `overview-polygons` | line | all | no |
 | `osm-selected-polygon` | `osm-polygons` | line | 14.5+ | no |
 | `osm-clusters` | `osm-pois` | circle | 11+ | yes, cluster |
@@ -41,4 +41,4 @@ All sources are GeoJSON sources and therefore have no `source-layer`.
 | `osm-selected-point` | `osm-pois` | circle | 11+ | no |
 | `osm-poi-label` | `osm-pois` | symbol | 18+ | no |
 
-Picking is deliberately independent of rendered-layer return order. Its priority is point POI, cluster, OSM POI polygon, Stadtplanner polygon, contextual OSM `landuse`/`building` polygon, then analysis area. Only the listed interactive custom layers participate; basemap features are excluded.
+Picking is deliberately independent of rendered-layer return order. Its priority is point POI, cluster, OSM POI polygon, Stadtplaner polygon, contextual OSM `landuse`/`building` polygon, then analysis area. Only the listed interactive custom layers participate; basemap features are excluded.

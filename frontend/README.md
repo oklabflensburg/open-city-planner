@@ -1,4 +1,4 @@
-# Stadtplanner Frontend
+# Stadtplaner Frontend
 
 Das Nuxt-4-Frontend verbindet die MapLibre-GIS-Anwendung mit öffentlichen Polygon- und Gebietsdetailseiten, Analytics, Dokumentation und SEO-Ausgabe.
 
@@ -13,7 +13,7 @@ pnpm typecheck
 pnpm build
 ```
 
-`NUXT_PUBLIC_API_BASE_URL` zeigt auf die FastAPI-Basis (typisch `http://localhost:8000/api/v1`). `NUXT_PUBLIC_SITE_URL` muss in Produktion die öffentliche Origin enthalten. Kartenstil, Startposition und optionale Medien-/OG-URLs werden über die Variablen in `.env.example` konfiguriert; ohne externen Kartenstil wird der lokale `stadtplanner-light`-Stil genutzt.
+`NUXT_PUBLIC_API_BASE_URL` zeigt auf die FastAPI-Basis (typisch `http://localhost:8000/api/v1`). `NUXT_PUBLIC_SITE_URL` muss in Produktion die öffentliche Origin enthalten. Kartenstil, Startposition und optionale Medien-/OG-URLs werden über die Variablen in `.env.example` konfiguriert; ohne externen Kartenstil wird der lokale `stadtplaner-light`-Stil genutzt.
 
 ## Gebiete, SEO und Sitemap
 
@@ -31,4 +31,4 @@ Die nicht indexierbare Route `/admin/audit-log` zeigt das administrative Auditlo
 
 ## Kommunale Statistik
 
-Gebietsdetailseiten laden Zahlenspiegel-Kernwerte und die Bevölkerungszeitreihe während SSR aus der lokalen Stadtplanner-API. Gemeinde und Stadtteile zeigen ihre eigene Ebene; Quartiere kennzeichnen ausschließlich die geerbten Werte ihres Parent-Stadtteils. Quelle, Datenstand, Importzeit, Lizenz und der Hinweis zur nicht belegten geometrischen Identität von OSM- und Statistikgrenzen bleiben sichtbar. Die GIS-Sidebar zeigt nur Bevölkerung und Haushalte kompakt an.
+Gebietsdetailseiten laden Zahlenspiegel-Kernwerte und die Bevölkerungszeitreihe während SSR aus der lokalen Stadtplaner-API. Gemeinde und Stadtteile zeigen ihre eigene Ebene; Quartiere kennzeichnen ausschließlich die geerbten Werte ihres Parent-Stadtteils. Quelle, Datenstand, Importzeit, Lizenz und der Hinweis zur nicht belegten geometrischen Identität von OSM- und Statistikgrenzen bleiben sichtbar. Die GIS-Sidebar zeigt nur Bevölkerung und Haushalte kompakt an.

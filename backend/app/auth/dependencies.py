@@ -19,7 +19,7 @@ access_cookie_scheme = APIKeyCookie(
     name=get_settings().auth_access_cookie_name,
     scheme_name="AccessCookie",
     auto_error=False,
-    description="HttpOnly-Zugriffscookie einer Stadtplanner-Sitzung. Schreibzugriffe benötigen zusätzlich den X-CSRF-Token-Header.",
+    description="HttpOnly-Zugriffscookie einer Stadtplaner-Sitzung. Schreibzugriffe benötigen zusätzlich den X-CSRF-Token-Header.",
 )
 
 

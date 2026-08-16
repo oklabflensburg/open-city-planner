@@ -2,10 +2,15 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.analysis_area import AnalysisArea, PolygonAnalysisArea
 from app.models.cache_version import CacheVersion
 from app.models.city_metrics import CityMetrics
-from app.models.oauth_account import UserOAuthAccount
+from app.models.oauth_account import MastodonOAuthInstance, OAuthFlowGrant, UserOAuthAccount
 from app.models.osm_feature import OsmFeature
 from app.models.password_reset_token import PasswordResetToken
 from app.models.polygon_osm_source import PolygonOsmSource
+from app.models.social_publication import (
+    SocialPublication,
+    SocialPublicationOutbox,
+    SocialPublishingSettings,
+)
 from app.models.statistics import (
     ExternalAreaMapping,
     StatisticalDataset,
@@ -25,10 +30,15 @@ __all__ = [
     "CityMetrics",
     "EmailVerificationToken",
     "ExternalAreaMapping",
+    "MastodonOAuthInstance",
+    "OAuthFlowGrant",
     "OsmFeature",
     "PasswordResetToken",
     "PolygonAnalysisArea",
     "PolygonOsmSource",
+    "SocialPublication",
+    "SocialPublicationOutbox",
+    "SocialPublishingSettings",
     "StatisticalDataset",
     "StatisticalImportRun",
     "StatisticalMetric",

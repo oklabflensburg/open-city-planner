@@ -17,6 +17,7 @@
           <p v-if="accountFor(provider.id)?.last_login_at" class="mt-1 text-xs text-[#8b9499]">
             Zuletzt genutzt: {{ formatDate(accountFor(provider.id)?.last_login_at) }}
           </p>
+          <a v-if="accountFor(provider.id)?.provider_profile_url" :href="accountFor(provider.id)?.provider_profile_url || undefined" target="_blank" rel="noopener noreferrer" class="mt-1 inline-block break-all text-sm font-semibold text-[#154d73] underline">Mastodon-Profil öffnen</a>
         </div>
         <button
           v-if="accountFor(provider.id)"
@@ -55,6 +56,15 @@
       @update:open="handleConfirmOpen"
       @confirm="confirmUnlink"
     />
+    <MastodonInstanceDialog
+      :open="mastodonDialogOpen"
+      mode="link"
+      :default-instance="mastodonProvider?.default_instance"
+      :loading="loadingProvider === 'mastodon'"
+      :error="mastodonError"
+      @update:open="mastodonDialogOpen = $event"
+      @submit="linkMastodon"
+    />
   </section>
 </template>
 
@@ -67,6 +77,9 @@ const message = ref('')
 const error = ref('')
 const unlinkError = ref('')
 const pendingUnlink = ref<{ provider: string, label: string } | null>(null)
+const mastodonDialogOpen = ref(false)
+const mastodonError = ref('')
+const mastodonProvider = computed(() => authStore.oauthProviders.find(provider => provider.id === 'mastodon'))
 
 onMounted(async () => {
   try {
@@ -82,6 +95,12 @@ function accountFor(provider: string) {
 }
 
 async function link(provider: string) {
+  const definition = authStore.oauthProviders.find(item => item.id === provider)
+  if (definition?.requires_instance) {
+    mastodonError.value = ''
+    mastodonDialogOpen.value = true
+    return
+  }
   loadingProvider.value = provider
   message.value = ''
   error.value = ''
@@ -90,6 +109,17 @@ async function link(provider: string) {
   } catch (err) {
     loadingProvider.value = ''
     error.value = err instanceof Error ? err.message : 'Die Verknüpfung konnte nicht gestartet werden.'
+  }
+}
+
+async function linkMastodon(instance: string) {
+  loadingProvider.value = 'mastodon'
+  mastodonError.value = ''
+  try {
+    await authStore.startOAuthLink('mastodon', instance)
+  } catch (err) {
+    loadingProvider.value = ''
+    mastodonError.value = err instanceof Error ? err.message : 'Die Mastodon-Verknüpfung konnte nicht vorbereitet werden.'
   }
 }
 
@@ -146,7 +176,7 @@ function applyCallbackFeedback() {
 }
 
 function providerLabel(provider: string) {
-  return { github: 'GitHub', google: 'Google' }[provider] || ''
+  return { github: 'GitHub', google: 'Google', mastodon: 'Mastodon' }[provider] || ''
 }
 
 function oauthLinkErrorText(code: string, provider: string) {
@@ -156,6 +186,8 @@ function oauthLinkErrorText(code: string, provider: string) {
     INVALID_OAUTH_STATE: 'Die Verknüpfung ist abgelaufen. Bitte versuche es erneut.',
     AUTH_REQUIRED: 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.',
     OAUTH_PROVIDER_DISABLED: 'Dieser Anbieter ist aktuell nicht aktiviert.',
+    MASTODON_INSTANCE_UNREACHABLE: 'Die Mastodon-Instanz ist derzeit nicht erreichbar.',
+    MASTODON_INSTANCE_UNSUPPORTED: 'Diese Instanz unterstützt die benötigte Mastodon-Anmeldung nicht.',
     OAUTH_LINK_FAILED: 'Die Verknüpfung konnte nicht abgeschlossen werden.'
   }[code] || 'Die Verknüpfung konnte nicht abgeschlossen werden.'
 }

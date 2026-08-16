@@ -21,6 +21,7 @@ from app.models.statistics import (
 )
 from app.services.cache_versions import bump_cache_versions
 from app.services.flensburg_superset import DATASET_SPECS, FlensburgSupersetClient
+from app.services.social_publishing import enqueue_statistics_summary
 
 logger = logging.getLogger(__name__)
 
@@ -459,6 +460,7 @@ async def import_flensburg_statistics(
         run.schema_hash = schema_hash
         run.column_names = json.dumps(column_names, ensure_ascii=False, sort_keys=True)
         session.add(AdminAuditLog(action="FLENSBURG_STATISTICS_SYNC"))
+        await enqueue_statistics_summary(session, inserted + updated)
         await bump_cache_versions(session, ("statistics", "analysis-areas"))
         await session.commit()
         return StatisticsImportReport(

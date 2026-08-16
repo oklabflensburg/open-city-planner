@@ -64,6 +64,9 @@ textarea {
 @utility field-input {
   min-height: 2.75rem;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   border: 1px solid #cbd5e1;
   border-radius: 0.75rem;
   background: white;

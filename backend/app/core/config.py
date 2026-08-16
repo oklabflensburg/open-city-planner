@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from cryptography.fernet import Fernet
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -55,6 +56,13 @@ class Settings(BaseSettings):
     google_client_id: str | None = None
     google_client_secret: str | None = None
     oauth_redirect_base_url: str | None = None
+    mastodon_sso_enabled: bool = False
+    mastodon_sso_client_name: str = "Stadtplaner"
+    mastodon_sso_default_instance: str = "https://norden.social"
+    mastodon_sso_encryption_key: str | None = None
+    mastodon_sso_timeout_seconds: float = 10.0
+    mastodon_sso_state_ttl_seconds: int = 600
+    mastodon_sso_registration_backoff_seconds: int = 300
     auth_rate_limit_attempts: int = 8
     auth_rate_limit_window_seconds: int = 300
     avatar_upload_dir: str = "data/uploads"
@@ -104,6 +112,21 @@ class Settings(BaseSettings):
     database_pool_size: int = 10
     database_max_overflow: int = 20
     database_pool_timeout_seconds: float = 15.0
+    mastodon_enabled: bool = False
+    mastodon_base_url: str = "https://norden.social"
+    mastodon_access_token: str | None = None
+    mastodon_account_url: str = "https://norden.social/@oklabflensburg"
+    mastodon_account_handle: str = "@oklabflensburg@norden.social"
+    mastodon_default_visibility: str = "public"
+    mastodon_area_updates_enabled: bool = True
+    mastodon_area_update_debounce_seconds: int = 300
+    mastodon_dry_run: bool = False
+    mastodon_timeout_seconds: float = 10.0
+    mastodon_hashtags: str = "Flensburg,OpenData,Stadtplaner"
+    mastodon_max_attempts: int = 5
+    mastodon_boundary_change_min_ratio: float = 0.01
+    mastodon_screenshot_directory: str = "/data/stadtplaner-social"
+    mastodon_screenshot_timeout_seconds: float = 30.0
 
     # Resolve the backend environment independently of the process working directory.
     model_config = SettingsConfigDict(env_file=BACKEND_ENV_FILE, env_file_encoding="utf-8")
@@ -125,6 +148,27 @@ class Settings(BaseSettings):
             not self.turnstile_site_key or not self.turnstile_secret_key
         ):
             raise RuntimeError("Turnstile site and secret keys must be configured when enabled")
+        if self.mastodon_default_visibility not in {"public", "unlisted", "private", "direct"}:
+            raise RuntimeError("MASTODON_DEFAULT_VISIBILITY is invalid")
+        if self.mastodon_enabled and not self.mastodon_access_token:
+            raise RuntimeError("MASTODON_ACCESS_TOKEN must be configured when Mastodon is enabled")
+        if self.mastodon_sso_enabled and not self.mastodon_sso_encryption_key:
+            raise RuntimeError(
+                "MASTODON_SSO_ENCRYPTION_KEY must be configured when Mastodon SSO is enabled"
+            )
+        if self.mastodon_sso_enabled and self.mastodon_sso_encryption_key:
+            try:
+                Fernet(self.mastodon_sso_encryption_key.encode())
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError("MASTODON_SSO_ENCRYPTION_KEY is invalid") from exc
+        if self.mastodon_area_update_debounce_seconds < 0:
+            raise RuntimeError("MASTODON_AREA_UPDATE_DEBOUNCE_SECONDS must not be negative")
+        if not 0 <= self.mastodon_boundary_change_min_ratio <= 1:
+            raise RuntimeError("MASTODON_BOUNDARY_CHANGE_MIN_RATIO must be between 0 and 1")
+
+    @property
+    def mastodon_hashtag_list(self) -> list[str]:
+        return [value.strip().lstrip("#") for value in self.mastodon_hashtags.split(",") if value.strip()]
 
     @property
     def configured_oauth_providers(self) -> list[str]:
@@ -133,6 +177,8 @@ class Settings(BaseSettings):
             providers.append("github")
         if self.google_client_id and self.google_client_secret:
             providers.append("google")
+        if self.mastodon_sso_enabled and self.mastodon_sso_encryption_key:
+            providers.append("mastodon")
         return providers
 
 

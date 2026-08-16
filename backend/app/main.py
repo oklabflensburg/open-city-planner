@@ -34,7 +34,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 OPENAPI_TAGS = [
     {"name": "Analysis Areas", "description": "Öffentliche Gemeinde-, Stadtteil- und Quartiersdaten mit räumlichen Aggregationen."},
-    {"name": "Analytics", "description": "Kennzahlen, Benchmarks und Zeitreihen des Stadtplanners."},
+    {"name": "Analytics", "description": "Kennzahlen, Benchmarks und Zeitreihen des Stadtplaners."},
     {"name": "Polygons", "description": "Öffentliche Verkaufsflächen sowie berechtigungsgeschützte Pflegeoperationen."},
     {"name": "OpenStreetMap", "description": "Lokale OSM-Referenzdaten für Viewports, POIs und Flächenobjekte."},
     {"name": "Authentication", "description": "Cookie-basierte Anmeldung, Sitzungen, OAuth und CSRF-geschützte Änderungen."},
@@ -45,7 +45,7 @@ OPENAPI_TAGS = [
 ]
 
 app = FastAPI(
-    title="Stadtplanner API",
+    title="Stadtplaner API",
     description=(
         "Öffentliche GIS- und Analyse-API für Verkaufsflächen, räumliche Analysegebiete "
         "und lokale OpenStreetMap-Referenzdaten. Schreiboperationen verwenden sichere "

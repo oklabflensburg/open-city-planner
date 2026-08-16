@@ -7,9 +7,10 @@ describe('OAuth login UI', () => {
     expect(hasOAuthProviders([{ id: 'github', label: 'GitHub' }])).toBe(true)
   })
 
-  it('creates login labels for GitHub and Google', () => {
+  it('creates login labels for GitHub, Google and Mastodon', () => {
     expect(oauthButtonLabel('GitHub', 'login')).toBe('Mit GitHub anmelden')
     expect(oauthButtonLabel('Google', 'login')).toBe('Mit Google anmelden')
+    expect(oauthButtonLabel('Mastodon', 'login')).toBe('Mit Mastodon anmelden')
   })
 
   it('uses the same providers for signup with signup-specific labels', () => {
@@ -17,4 +18,3 @@ describe('OAuth login UI', () => {
     expect(oauthButtonLabel('Google', 'signup')).toBe('Mit Google registrieren')
   })
 })
-

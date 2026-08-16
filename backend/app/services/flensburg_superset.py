@@ -177,7 +177,7 @@ class FlensburgSupersetClient:
                 timeout=self.timeout,
                 follow_redirects=False,
                 transport=self.transport,
-                headers={"User-Agent": "Stadtplanner statistics importer/1.0"},
+                headers={"User-Agent": "Stadtplaner statistics importer/1.0"},
             ) as client:
                 response = await client.request(method, endpoint, **kwargs)
         except httpx.TimeoutException as exc:

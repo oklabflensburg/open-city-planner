@@ -1,7 +1,7 @@
 <template>
   <ContentPageShell
     :title="area.name"
-    :description="`${typeLabel} mit aktuellen Standort- und Einzelhandelsdaten aus Stadtplanner.`"
+    :description="`${typeLabel} mit aktuellen Standort- und Einzelhandelsdaten aus Stadtplaner.`"
     :eyebrow="typeLabel"
     :breadcrumbs="breadcrumbs"
     max-width="wide"
@@ -9,6 +9,28 @@
     <template #actions>
       <NuxtLink class="inline-flex min-h-11 items-center rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white hover:bg-[#103c59]" :to="`/?area=${area.slug}`">In der Karte öffnen</NuxtLink>
     </template>
+
+    <section
+      v-if="socialPreview"
+      data-social-preview-capture
+      :data-social-preview-ready="previewReady ? 'true' : 'false'"
+      class="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 p-6"
+    >
+      <div v-if="previewBranding" class="mb-5 flex items-center justify-between gap-4">
+        <div><p class="text-sm font-black uppercase tracking-widest text-[#154d73]">Stadtplaner</p><p class="text-sm text-slate-600">OK Lab Flensburg</p></div>
+        <p class="rounded-full bg-[#154d73] px-4 py-2 text-sm font-bold text-white">{{ typeLabel }}</p>
+      </div>
+      <h1 class="text-4xl font-black text-slate-950">{{ area.name }}</h1>
+      <dl v-if="previewFacts" class="my-5 grid grid-cols-4 gap-3">
+        <div class="rounded-xl bg-white p-3"><dt class="text-xs font-bold text-slate-500">Flächen</dt><dd class="mt-1 text-xl font-black">{{ formatNumber(analytics.metrics.polygon_count) }}</dd></div>
+        <div class="rounded-xl bg-white p-3"><dt class="text-xs font-bold text-slate-500">Leerstand</dt><dd class="mt-1 text-xl font-black">{{ formatPercent(analytics.metrics.vacancy_rate) }}</dd></div>
+        <div class="rounded-xl bg-white p-3"><dt class="text-xs font-bold text-slate-500">Gesamtfläche</dt><dd class="mt-1 text-xl font-black">{{ formatSquareMetres(analytics.metrics.total_area_m2) }}</dd></div>
+        <div class="rounded-xl bg-white p-3"><dt class="text-xs font-bold text-slate-500">POIs</dt><dd class="mt-1 text-xl font-black">{{ previewPois ? formatNumber(analytics.poi_count) : '–' }}</dd></div>
+      </dl>
+      <AnalysisAreaDetailMap v-if="previewMap" :area="area" @ready="mapReady = true" />
+    </section>
+
+    <template v-else>
 
     <section aria-labelledby="kennzahlen">
       <h2 id="kennzahlen" class="text-2xl font-black text-slate-950">Kennzahlen</h2>
@@ -92,6 +114,7 @@
       <p>Datenstand: {{ formatDate(analytics.metrics.data_updated_at || area.updated_at) }}. Gebietsgrenzen: {{ area.source === 'OSM' ? 'OpenStreetMap' : 'manuell gepflegt' }}<template v-if="area.source_osm_id"> ({{ area.source_osm_type }} {{ area.source_osm_id }})</template>.</p>
       <p class="mt-1">Quoten werden nur aus Flächen mit bekanntem Status berechnet. <NuxtLink class="font-semibold text-[#154d73] underline" to="/dokumentation/methodik">Methodik und Datenquellen</NuxtLink></p>
     </footer>
+    </template>
   </ContentPageShell>
 </template>
 
@@ -99,6 +122,13 @@
 import { getIndustryLabel } from '~/utils/industries'
 
 const route = useRoute()
+const socialPreview = computed(() => route.query['social-preview'] === '1')
+const previewMap = computed(() => route.query.map !== '0')
+const previewFacts = computed(() => route.query.facts !== '0')
+const previewPois = computed(() => route.query.pois === '1')
+const previewBranding = computed(() => route.query.branding !== '0')
+const mapReady = ref(false)
+const previewReady = computed(() => !previewMap.value || mapReady.value)
 const nuxtApp = useNuxtApp()
 const slug = Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug
 if (!slug) throw createError({ statusCode: 404, statusMessage: 'Gebiet nicht gefunden' })
@@ -121,6 +151,7 @@ const { data } = await useAsyncData(`analysis-area-page-${slug}`, async () => {
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Gebiet nicht gefunden' })
 const { area, analytics, comparison, polygons, statistics, populationSeries } = data.value
 nuxtApp.runWithContext(() => useAnalysisAreaSeo(area))
+if (socialPreview.value) useSeoMeta({ robots: 'noindex,nofollow' })
 const typeLabel = ({ MUNICIPALITY: 'Gemeinde', DISTRICT: 'Stadtteil', QUARTER: 'Quartier' })[area.area_type]
 const breadcrumbs = [{ label: 'Start', to: '/' }, { label: 'Gebiete', to: '/gebiete' }, ...(area.municipality && area.municipality.id !== area.parent?.id ? [{ label: area.municipality.name, to: `/gebiete/${area.municipality.slug}` }] : []), ...(area.parent ? [{ label: area.parent.name, to: `/gebiete/${area.parent.slug}` }] : []), { label: area.name }]
 const numberFormat = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 })

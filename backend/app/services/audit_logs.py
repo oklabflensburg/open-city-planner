@@ -22,6 +22,7 @@ _SENSITIVE_PARTS = {
     "password", "passwordhash", "token", "accesstoken", "refreshtoken",
     "csrftoken", "secret", "clientsecret", "resettoken",
     "emailverificationtoken", "apikey", "authorization",
+    "authorizationcode", "codeverifier", "clientid",
 }
 
 
@@ -57,6 +58,17 @@ def _summary(log: AdminAuditLog, target: User | None) -> str:
         "USER_SUPERUSER_GRANTED_DIRECT": f"Superuser-Status wurde {label} direkt zugewiesen.",
         "REFRESH_TOKEN_REUSE_DETECTED": f"Wiederverwendung eines Refresh-Tokens für {label} wurde erkannt.",
         "FLENSBURG_STATISTICS_SYNC": "Kommunale Statistik wurde aus dem Flensburger Zahlenspiegel synchronisiert.",
+        "MASTODON_STATUS_PUBLISHED": "Eine öffentliche Gebietsaktualisierung wurde auf Mastodon veröffentlicht.",
+        "MASTODON_PUBLICATION_FAILED": "Eine Mastodon-Veröffentlichung ist endgültig fehlgeschlagen.",
+        "MASTODON_PUBLICATION_RETRY_REQUESTED": "Ein erneuter Mastodon-Veröffentlichungsversuch wurde angefordert.",
+        "MASTODON_PUBLICATION_APPROVED": "Eine vorbereitete Mastodon-Veröffentlichung wurde freigegeben.",
+        "MASTODON_PUBLICATION_CANCELLED": "Eine Mastodon-Veröffentlichung wurde verworfen.",
+        "SOCIAL_PUBLISHING_SETTINGS_UPDATED": "Die Einstellungen für Social Publishing wurden geändert.",
+        "OAUTH_LOGIN_SUCCESS": f"Anmeldung über ein externes Konto für {label} war erfolgreich.",
+        "OAUTH_LOGIN_FAILED": "Eine externe Anmeldung ist fehlgeschlagen oder wurde abgebrochen.",
+        "OAUTH_ACCOUNT_LINKED": f"Ein externes Konto wurde mit {label} verknüpft.",
+        "OAUTH_ACCOUNT_LINK_FAILED": f"Ein externes Konto konnte nicht mit {label} verknüpft werden.",
+        "OAUTH_ACCOUNT_UNLINKED": f"Eine externe Kontoverknüpfung von {label} wurde entfernt.",
     }
     return summaries.get(log.action, f"Administrative Aktion {log.action} für {label}.")
 
@@ -66,14 +78,19 @@ def _serialize(log: AdminAuditLog, actor: User | None, target: User | None) -> A
         id=actor.id, display_name=_display_name(actor), email=actor.email,
     ) if actor else None
     is_system_resource = log.action == "FLENSBURG_STATISTICS_SYNC"
+    resource_type = log.resource_type or ("SYSTEM" if is_system_resource else "USER")
+    if resource_type == "ANALYSIS_AREA":
+        resource_label = "Gebietsveröffentlichung"
+    elif resource_type == "SYSTEM":
+        resource_label = "Flensburg Statistik" if is_system_resource else "Systemereignis"
+    else:
+        resource_label = _display_name(target) or "Gelöschtes Benutzerkonto"
     resource = AuditLogResource(
-        type="SYSTEM" if is_system_resource else "USER",
-        id=log.target_user_id,
-        label="Flensburg Statistik" if is_system_resource else (
-            _display_name(target) or "Gelöschtes Benutzerkonto"
-        ),
+        type=resource_type,
+        id=log.resource_id or log.target_user_id,
+        label=resource_label,
     )
-    details = redact_audit_metadata({"role": log.role} if log.role else {})
+    details = redact_audit_metadata({**(log.event_metadata or {}), **({"role": log.role} if log.role else {})})
     return AuditLogListItem(
         id=log.id, created_at=log.created_at, action=log.action,
         actor=actor_dto, resource=resource, summary=_summary(log, target), details=details,
@@ -101,12 +118,15 @@ async def list_audit_logs(
     if user_id:
         filters.append(AdminAuditLog.actor_user_id == user_id)
     if resource_id:
-        filters.append(AdminAuditLog.target_user_id == resource_id)
+        filters.append(or_(AdminAuditLog.target_user_id == resource_id, AdminAuditLog.resource_id == resource_id))
     if resource_type:
-        if resource_type.upper() == "SYSTEM":
-            filters.append(AdminAuditLog.action == "FLENSBURG_STATISTICS_SYNC")
+        normalized_type = resource_type.upper()
+        if normalized_type == "SYSTEM":
+            filters.append(or_(AdminAuditLog.resource_type == "SYSTEM", AdminAuditLog.action == "FLENSBURG_STATISTICS_SYNC"))
+        elif normalized_type == "USER":
+            filters.append(or_(AdminAuditLog.resource_type == "USER", AdminAuditLog.resource_type.is_(None) & (AdminAuditLog.action != "FLENSBURG_STATISTICS_SYNC")))
         else:
-            filters.append(AdminAuditLog.action != "FLENSBURG_STATISTICS_SYNC")
+            filters.append(AdminAuditLog.resource_type == normalized_type)
     if date_from:
         filters.append(AdminAuditLog.created_at >= date_from)
     if date_to:
@@ -120,6 +140,7 @@ async def list_audit_logs(
             func.concat(actor.first_name, " ", actor.last_name).ilike(pattern),
             func.concat(target.first_name, " ", target.last_name).ilike(pattern),
             cast(AdminAuditLog.target_user_id, String).ilike(pattern),
+            cast(AdminAuditLog.resource_id, String).ilike(pattern),
         ))
 
     joined = (

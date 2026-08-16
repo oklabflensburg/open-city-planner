@@ -13,7 +13,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: '../backend/.venv/bin/uvicorn app.main:app --app-dir ../backend --host 127.0.0.1 --port 8010',
+      command: 'MASTODON_ENABLED=false ../backend/.venv/bin/uvicorn app.main:app --app-dir ../backend --host 127.0.0.1 --port 8010',
       url: 'http://127.0.0.1:8010/health',
       reuseExistingServer: true,
       timeout: 120_000

@@ -1,6 +1,6 @@
 import type { Map } from 'maplibre-gl'
 import { describe, expect, it, vi } from 'vitest'
-import { MAP_LAYER_GROUPS, MAP_LAYER_ORDER, ensureStadtplannerLayerOrder, getStadtplannerLayerOrder, hasValidStadtplannerLayerOrder } from '~/utils/mapLayerOrder'
+import { MAP_LAYER_GROUPS, MAP_LAYER_ORDER, ensureStadtplanerLayerOrder, getStadtplanerLayerOrder, hasValidStadtplanerLayerOrder } from '~/utils/mapLayerOrder'
 
 function layerMap(initialLayerIds: string[]) {
   const layerIds = [...initialLayerIds]
@@ -16,7 +16,7 @@ function layerMap(initialLayerIds: string[]) {
   return { map, layerIds }
 }
 
-describe('Stadtplanner MapLibre layer order', () => {
+describe('Stadtplaner MapLibre layer order', () => {
   it('places every polygon layer below clusters, POIs and POI labels', () => {
     const scrambled = [
       'basemap-label',
@@ -30,11 +30,11 @@ describe('Stadtplanner MapLibre layer order', () => {
     ]
     const { map } = layerMap(scrambled)
 
-    ensureStadtplannerLayerOrder(map)
+    ensureStadtplanerLayerOrder(map)
 
-    expect(getStadtplannerLayerOrder(map)).toEqual(MAP_LAYER_ORDER)
-    expect(hasValidStadtplannerLayerOrder(map)).toBe(true)
-    const order = getStadtplannerLayerOrder(map)
+    expect(getStadtplanerLayerOrder(map)).toEqual(MAP_LAYER_ORDER)
+    expect(hasValidStadtplanerLayerOrder(map)).toBe(true)
+    const order = getStadtplanerLayerOrder(map)
     const polygonIds = [
       ...MAP_LAYER_GROUPS.analysisAreas,
       ...MAP_LAYER_GROUPS.osmPolygons,
@@ -47,18 +47,18 @@ describe('Stadtplanner MapLibre layer order', () => {
 
   it('restores the same order after a style reload and tolerates missing optional layers', () => {
     const { map, layerIds } = layerMap(['basemap', 'osm-poi-circle', 'overview-polygons-fill'])
-    ensureStadtplannerLayerOrder(map)
-    expect(getStadtplannerLayerOrder(map)).toEqual(['overview-polygons-fill', 'osm-poi-circle'])
+    ensureStadtplanerLayerOrder(map)
+    expect(getStadtplanerLayerOrder(map)).toEqual(['overview-polygons-fill', 'osm-poi-circle'])
 
     layerIds.splice(0, layerIds.length, 'new-basemap', 'osm-poi-label', 'osm-polygons-fill', 'osm-clusters')
-    ensureStadtplannerLayerOrder(map)
+    ensureStadtplanerLayerOrder(map)
 
-    expect(getStadtplannerLayerOrder(map)).toEqual(['osm-polygons-fill', 'osm-clusters', 'osm-poi-label'])
+    expect(getStadtplanerLayerOrder(map)).toEqual(['osm-polygons-fill', 'osm-clusters', 'osm-poi-label'])
   })
 
   it('does no layer movement when the custom order is already valid', () => {
     const { map } = layerMap(['basemap', ...MAP_LAYER_ORDER])
-    ensureStadtplannerLayerOrder(map)
+    ensureStadtplanerLayerOrder(map)
     expect(map.moveLayer).not.toHaveBeenCalled()
   })
 })

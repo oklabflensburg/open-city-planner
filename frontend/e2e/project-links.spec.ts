@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 const repositoryUrl = 'https://github.com/oklabflensburg/open-city-planner'
+const mastodonUrl = 'https://norden.social/@oklabflensburg'
 
 for (const viewport of [
   { name: 'desktop', width: 1280, height: 900 },
@@ -21,5 +22,11 @@ for (const viewport of [
     await footerLink.scrollIntoViewIfNeeded()
     await expect(footerLink).toBeVisible()
     await expect(footerLink).toHaveAttribute('href', repositoryUrl)
+
+    const mastodonLink = page.locator('footer').getByRole('link', { name: /Mastodon.*@oklabflensburg@norden.social/ })
+    await expect(mastodonLink).toBeVisible()
+    await expect(mastodonLink).toHaveAttribute('href', mastodonUrl)
+    await expect(mastodonLink).toHaveAttribute('target', '_blank')
+    await expect(mastodonLink).toHaveAttribute('rel', 'me noopener noreferrer')
   })
 }

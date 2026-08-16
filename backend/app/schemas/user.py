@@ -13,6 +13,7 @@ class UserRead(BaseModel):
     avatar_url: str | None
     is_active: bool
     is_verified: bool
+    email_pending: bool = False
     is_superuser: bool
     roles: list[str] = Field(default_factory=list)
     created_at: datetime
@@ -20,6 +21,11 @@ class UserRead(BaseModel):
     last_login_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("email_pending", mode="before")
+    @classmethod
+    def normalize_email_pending(cls, value: bool | None) -> bool:
+        return bool(value)
 
 
 class UserUpdate(BaseModel):

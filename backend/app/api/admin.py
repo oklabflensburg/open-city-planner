@@ -10,6 +10,8 @@ from app.auth.dependencies import (
     require_superuser,
 )
 from app.cache.service import cache_service
+from app.core.config import get_settings
+from app.models.social_publication import SocialPublicationOutbox
 from app.models.user import User
 from app.schemas.admin import (
     AdminRoleRead,
@@ -17,6 +19,26 @@ from app.schemas.admin import (
     AdminUserRead,
     AdminUserStatusUpdate,
     AuditLogListRead,
+)
+from app.schemas.social import (
+    MastodonAdminStatusRead,
+    SocialPublicationApprovalUpdate,
+    SocialPublicationItemRead,
+    SocialPublicationListRead,
+    SocialPublicationPreviewRead,
+    SocialPublishingSettingsRead,
+    SocialPublishingSettingsUpdate,
+)
+from app.services.admin_social import (
+    approve_social_publication,
+    cancel_social_publication,
+    get_social_publication,
+    list_social_publications,
+    mastodon_admin_status,
+    retry_social_publication,
+    social_publication_preview,
+    social_settings_read,
+    update_social_settings,
 )
 from app.services.admin_users import (
     assign_role,
@@ -29,9 +51,161 @@ from app.services.admin_users import (
 )
 from app.services.audit_logs import list_audit_logs
 from app.services.cache_versions import bump_cache_versions
+from app.services.social_screenshots import ScreenshotService
 
 router = APIRouter(prefix="/admin", tags=["Administration"])
 CACHE_NAMESPACES = {"osm", "analytics", "analysis-areas", "polygons"}
+
+
+@router.get("/social/mastodon/status", response_model=MastodonAdminStatusRead)
+async def get_mastodon_status(
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_superuser)],
+) -> MastodonAdminStatusRead:
+    private_no_store(response)
+    return await mastodon_admin_status(session)
+
+
+@router.get("/social/publications", response_model=SocialPublicationListRead)
+async def get_social_publications(
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_superuser)],
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
+    publication_status: str | None = Query(default=None, alias="status", pattern="^(PENDING_APPROVAL|PENDING|PROCESSING|PUBLISHED|FAILED|CANCELLED|DRY_RUN)$"),
+) -> SocialPublicationListRead:
+    private_no_store(response)
+    return await list_social_publications(session, page=page, page_size=page_size, status=publication_status)
+
+
+@router.post("/social/publications/{event_id}/retry", response_model=SocialPublicationItemRead)
+async def retry_failed_social_publication(
+    event_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> SocialPublicationItemRead:
+    private_no_store(response)
+    try:
+        await retry_social_publication(session, event_id, actor)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    item = await get_social_publication(session, event_id)
+    if item is None:
+        raise HTTPException(404, "Publication event not found")
+    return item
+
+
+@router.get("/social/settings", response_model=SocialPublishingSettingsRead)
+async def get_social_settings_admin(
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_superuser)],
+) -> SocialPublishingSettingsRead:
+    private_no_store(response)
+    return await social_settings_read(session)
+
+
+@router.patch("/social/settings", response_model=SocialPublishingSettingsRead)
+async def patch_social_settings_admin(
+    payload: SocialPublishingSettingsUpdate,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> SocialPublishingSettingsRead:
+    """Partially update social publishing settings. Superuser only."""
+    private_no_store(response)
+    try:
+        return await update_social_settings(session, payload, actor)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@router.get(
+    "/social/publications/{event_id}/preview",
+    response_model=SocialPublicationPreviewRead,
+)
+async def get_social_publication_preview(
+    event_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_superuser)],
+) -> SocialPublicationPreviewRead:
+    private_no_store(response)
+    try:
+        return await social_publication_preview(session, event_id)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/social/publications/{event_id}/screenshot")
+async def get_social_publication_screenshot(
+    event_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_superuser)],
+) -> Response:
+    event = await session.get(SocialPublicationOutbox, event_id)
+    if event is None or not event.screenshot_path:
+        raise HTTPException(404, "Screenshot preview is not ready")
+    try:
+        content = ScreenshotService(get_settings()).read(event.screenshot_path)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "Screenshot preview is not available") from exc
+    return Response(
+        content=content,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, no-store", "Content-Disposition": "inline"},
+    )
+
+
+async def _publication_action_result(
+    session: SessionDep,
+    event_id: uuid.UUID,
+) -> SocialPublicationItemRead:
+    item = await get_social_publication(session, event_id)
+    if item is None:
+        raise HTTPException(404, "Publication event not found")
+    return item
+
+
+@router.post("/social/publications/{event_id}/approve", response_model=SocialPublicationItemRead)
+async def approve_social_publication_admin(
+    event_id: uuid.UUID,
+    payload: SocialPublicationApprovalUpdate,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> SocialPublicationItemRead:
+    private_no_store(response)
+    try:
+        await approve_social_publication(session, event_id, actor, alt_text=payload.alt_text)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return await _publication_action_result(session, event_id)
+
+
+@router.post("/social/publications/{event_id}/cancel", response_model=SocialPublicationItemRead)
+async def cancel_social_publication_admin(
+    event_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> SocialPublicationItemRead:
+    private_no_store(response)
+    try:
+        await cancel_social_publication(session, event_id, actor)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return await _publication_action_result(session, event_id)
 
 
 @router.get("/cache/stats")
@@ -85,7 +259,7 @@ async def get_audit_logs(
     page_size: int = Query(default=50, ge=1, le=100),
     action: str | None = Query(default=None, max_length=80),
     user_id: uuid.UUID | None = None,
-    resource_type: str | None = Query(default=None, pattern="^(USER|SYSTEM)$"),
+    resource_type: str | None = Query(default=None, pattern="^(USER|SYSTEM|ANALYSIS_AREA)$"),
     resource_id: uuid.UUID | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,

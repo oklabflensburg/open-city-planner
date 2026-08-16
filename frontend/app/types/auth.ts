@@ -7,6 +7,7 @@ export type AuthUser = {
   avatar_url?: string | null
   is_active: boolean
   is_verified: boolean
+  email_pending?: boolean
   is_superuser: boolean
   roles?: string[]
   created_at: string
@@ -28,8 +29,10 @@ export type VerificationResponse = {
 export type OAuthAccount = {
   id: string
   provider: string
+  provider_instance?: string | null
   provider_username?: string | null
   provider_email?: string | null
+  provider_profile_url?: string | null
   created_at: string
   last_login_at?: string | null
 }
@@ -37,4 +40,6 @@ export type OAuthAccount = {
 export type OAuthProvider = {
   id: string
   label: string
+  requires_instance?: boolean
+  default_instance?: string | null
 }

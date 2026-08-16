@@ -9,7 +9,7 @@
       >
         <section
           ref="panel"
-          class="flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl outline-none"
+          class="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl outline-none"
           :class="sizeClass"
           :role="role"
           aria-modal="true"
@@ -36,7 +36,7 @@
             </button>
           </header>
 
-          <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6">
+          <div class="min-h-0 min-w-0 max-w-full flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6">
             <slot />
           </div>
 

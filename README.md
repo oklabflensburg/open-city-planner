@@ -72,6 +72,74 @@ cd backend
 
 Nach einem externen OSM-Import muss `cache_bump osm` ausgeführt werden. Der Boundary-Sync und Änderungen an Polygonen oder Kennzahlen erhöhen ihre persistenten Versionen automatisch. Details, Messwerte und Cache-Key-Schemata stehen in [docs/redis-cache.md](docs/redis-cache.md).
 
+## Mastodon und Fediverse
+
+Stadtplaner implementiert keinen eigenen ActivityPub-Actor. Öffentliche Aktualisierungen werden über die Mastodon-REST-API an den vorhandenen Account [`@oklabflensburg@norden.social`](https://norden.social/@oklabflensburg) gesendet; Mastodon übernimmt anschließend die ActivityPub-Föderation.
+
+Die Integration ist standardmäßig deaktiviert. Ein Mastodon User Token wird ausschließlich im Backend-Environment gespeichert und niemals an Nuxt oder einen öffentlichen API-Endpunkt ausgeliefert:
+
+```env
+MASTODON_ENABLED=false
+MASTODON_BASE_URL=https://norden.social
+MASTODON_ACCESS_TOKEN=
+MASTODON_ACCOUNT_URL=https://norden.social/@oklabflensburg
+MASTODON_ACCOUNT_HANDLE=@oklabflensburg@norden.social
+MASTODON_DEFAULT_VISIBILITY=public
+MASTODON_AREA_UPDATES_ENABLED=true
+MASTODON_AREA_UPDATE_DEBOUNCE_SECONDS=300
+MASTODON_DRY_RUN=true
+MASTODON_TIMEOUT_SECONDS=10
+MASTODON_HASHTAGS=Flensburg,OpenData,Stadtplaner
+MASTODON_MAX_ATTEMPTS=5
+MASTODON_BOUNDARY_CHANGE_MIN_RATIO=0.01
+MASTODON_SCREENSHOT_DIRECTORY=/data/stadtplaner-social
+MASTODON_SCREENSHOT_TIMEOUT_SECONDS=30
+```
+
+Für Posts mit dem verpflichtenden Screenshot benötigt das Token die minimalen OAuth-Scopes `write:statuses` und `write:media`. Die optionale Prüfung des konkreten Accounts über `GET /api/v1/accounts/verify_credentials` benötigt nach aktueller Mastodon-API zusätzlich `profile` oder `read:accounts`; ohne diesen Zusatz kann weiterhin veröffentlicht werden, die Adminoberfläche kann den Account aber nicht als „Verbunden“ verifizieren. Unnötige Scopes wie `follow` oder `admin` sollen nicht vergeben werden.
+
+Der Screenshot-Worker verwendet Playwright und Chromium. Nach Installation beziehungsweise Aktualisierung der Backend-Abhängigkeiten muss Chromium einmal für den Service-User installiert werden:
+
+```bash
+cd /opt/git/open-city-planner/backend
+sudo .venv/bin/python -m playwright install-deps chromium
+sudo -u oklab .venv/bin/python -m playwright install chromium
+sudo install -d -o oklab -g www-data -m 0770 /data/stadtplaner-social
+```
+
+Vor der ersten Produktivaktivierung wird `MASTODON_DRY_RUN=true` empfohlen. Dabei werden kontrollierte Texte und Publication-History erzeugt, aber keine HTTP-Schreibanfrage an Mastodon gesendet. Statusprüfung ohne Tokenausgabe:
+
+```bash
+cd backend
+.venv/bin/python -m app.cli.mastodon_status
+```
+
+Gebietsänderung und Outbox-Ereignis werden in derselben PostgreSQL-Transaktion gespeichert. Ein periodischer One-shot-Worker verarbeitet fällige Ereignisse unabhängig vom ursprünglichen HTTP- oder Importvorgang:
+
+```bash
+sudo cp deploy/systemd/stadtplaner-social-publisher.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now stadtplaner-social-publisher.timer
+systemctl list-timers stadtplaner-social-publisher.timer
+```
+
+Die `.service`-Unit ist bewusst nicht direkt aktivierbar; der Timer startet sie minütlich. Manuell kann ein sicher begrenzter Lauf mit `python -m app.cli.publish_social_outbox --limit 20` ausgeführt werden. Temporäre Netzwerk-, Screenshot-, HTTP-429- und 5xx-Fehler werden mit Backoff erneut versucht; `Retry-After` wird berücksichtigt. Jeder Outbox-Eintrag besitzt einen stabilen Idempotency-Key und erfolgreiche Posts werden samt Remote-, Media-ID und URL persistiert.
+
+Fachliche Einstellungen liegen in `social_publishing_settings` und werden ausschließlich durch Superuser unter `/admin/social` geändert: Master-Switch, automatische oder manuelle Freigabe, Dry Run, Eventthemen, Debounce, Hashtags, Sichtbarkeit und eines der begrenzten Screenshotformate. Änderungen werden automatisch als partielle PATCH-Anfragen gespeichert; ein dezenter Status zeigt laufende, erfolgreiche oder fehlgeschlagene Speicherung an. Secrets und Instanz-URL bleiben im Environment. `OFF` pausiert die Queue, ohne Historie oder wartende Ereignisse zu löschen.
+
+Publication Policy:
+
+- Die Feld-Allowlist umfasst ausschließlich öffentlich sichtbare Gebietsattribute. Texte stammen aus kontrollierten Vorlagen und übernehmen keine vollständigen Beschreibungen, Mentions oder fremden Hashtags.
+- Änderungen desselben Gebiets werden standardmäßig 300 Sekunden gesammelt.
+- Der reguläre OSM-Sync erzeugt keine Social-Events. Ein bewusst ausgeführter `python -m app.cli.sync_analysis_areas --publish-relevant-updates`-Lauf darf neue Gebiete, Namensänderungen und Grenzänderungen oberhalb des konfigurierten Flächenunterschieds einreihen.
+- Der Statistikimport erzeugt bei tatsächlichen Änderungen höchstens ein Sammelereignis für die Gebietsübersicht, niemals eines pro Beobachtung.
+- Technische Zeitstempel-, Cache-, Index-, Login-, Audit- und Rollenänderungen werden nicht veröffentlicht. Löschungen werden ebenfalls nicht automatisch veröffentlicht.
+- Eigentümerinformationen, interne Mieten, interne Notizen, Benutzerinformationen und andere nicht öffentliche Daten sind nicht zugelassen.
+
+Jede automatische Veröffentlichung enthält einen Screenshot einer serverseitig bestimmten öffentlichen Route und einen deterministischen Alt-Text. Der Worker lädt die Seite ohne Login, wartet auf `data-social-preview-ready="true"`, erlaubt ausschließlich Pfade unter `/gebiete` auf dem konfigurierten Stadtplaner-Origin und lädt das JPEG über Mastodons Media API hoch. Adminseiten und URLs aus Event-Payloads werden nie geöffnet. Bei einem Screenshotfehler wird kein Text-only-Post gesendet.
+
+Superuser sehen unter `/admin/social` Verbindung, persistente Einstellungen, Themen, Screenshotdarstellung, Warteschlange, Vorschau und Publication History. Ereignisse im Modus `MANUAL` bleiben nach der Hintergrund-Screenshot-Erzeugung in `PENDING_APPROVAL`, bis sie veröffentlicht oder über ein konsistentes Modal verworfen werden. Access Tokens und Authorization-Header sind dort grundsätzlich nicht Bestandteil der API-Antwort.
+
 ## Datenbank
 
 Benötigt wird PostgreSQL mit PostGIS. Beispiel:
@@ -264,12 +332,13 @@ Das bestehende `admin_audit_logs`-Modell wird über den paginierten read-only En
 
 Der Zahlenspiegel der Stadt Flensburg wird wöchentlich über die öffentliche Superset-Chart-Data-API geprüft und normalisiert in PostgreSQL importiert. Die Zeitreihen von 2011 bis 2025 werden über eine explizite Zuordnung der amtlichen Stadtteilnummern 01–13 mit `analysis_areas` verknüpft. Quartiere erhalten keine erfundenen Werte, sondern klar gekennzeichnete Parent-Stadtteilwerte. Rohdateien liegen nicht im Repository; Quelle, Datenstand und Datenlizenz Deutschland – Zero – Version 2.0 werden auf den Gebietsseiten angezeigt. Die technische Discovery und Methodik stehen in [docs/flensburg-statistics.md](docs/flensburg-statistics.md).
 
-Externe OAuth-/OIDC-Konten werden über `user_oauth_accounts` mit lokalen Benutzern verknüpft. Die Tabelle speichert nur Provider, stabile Provider-Subject-ID, optionale Metadaten und Zeitpunkte, aber keine Provider Access Tokens. Eindeutig sind sowohl `(provider, provider_subject)` als auch `(user_id, provider)`.
+Externe OAuth-/OIDC-Konten werden über `user_oauth_accounts` mit lokalen Benutzern verknüpft. Die Tabelle speichert nur Provider, stabile Provider-Subject-ID, optionale Metadaten und Zeitpunkte, aber keine Provider Access Tokens. Zentralisierte Identitäten sind über `(provider, provider_subject)` eindeutig; föderierte Mastodon-Identitäten über `(provider, provider_instance, provider_subject)`. Pro lokalem Konto bleibt `(user_id, provider)` eindeutig.
 
 Das Frontend lädt aktivierte Anbieter öffentlich über `GET /api/v1/auth/oauth/providers` und startet OAuth per Browsernavigation zu `/api/v1/auth/oauth/{provider}/login`. In der lokalen Entwicklung müssen beim Provider die Backend-Callback-URLs hinterlegt werden:
 
 - GitHub: `http://localhost:8000/api/v1/auth/oauth/github/callback`
 - Google: `http://localhost:8000/api/v1/auth/oauth/google/callback`
+- Mastodon: `http://localhost:8000/api/v1/auth/oauth/mastodon/callback`
 
 OAuth-Secrets bleiben ausschließlich im Backend (`GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`). Das Frontend benötigt nur `NUXT_PUBLIC_API_BASE_URL`.
 
@@ -280,7 +349,28 @@ GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+
+# Separater föderierter Login; verwendet niemals MASTODON_ACCESS_TOKEN.
+MASTODON_SSO_ENABLED=false
+MASTODON_SSO_CLIENT_NAME=Stadtplaner
+MASTODON_SSO_DEFAULT_INSTANCE=https://norden.social
+MASTODON_SSO_ENCRYPTION_KEY=
 ```
+
+Den separaten Schlüssel für die Verschlüsselung dynamisch registrierter Mastodon-App-Credentials erzeugen:
+
+```bash
+cd backend
+.venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Der Schlüssel muss nach der ersten produktiven Verwendung dauerhaft und gesichert aufbewahrt werden. Ein unvorbereiteter Austausch macht bereits gespeicherte Instanz-Credentials unlesbar; für eine geplante Rotation müssen diese kontrolliert neu verschlüsselt oder die betroffenen App-Registrierungen neu aufgebaut werden.
+
+Mastodon SSO ist föderiert: Der Nutzer gibt zunächst seine Instanz an. Das Backend normalisiert den Host, verwirft lokale/private/reservierte Ziele einschließlich DNS- und Redirect-Zielen, prüft die öffentliche Mastodon-Instance-API und registriert über `POST /api/v1/apps` einmalig eine vertrauliche OAuth-Anwendung pro Instanz. Client-ID und Client-Secret werden mit dem separaten ENV-Master-Key verschlüsselt in `mastodon_oauth_instances` gespeichert und wiederverwendet. Fehlgeschlagene Registrierungen erhalten ein kurzes Backoff.
+
+Der Autorisierungsfluss verwendet Authorization Code, einen opaken kurzlebigen und einmal verwendbaren DB-State sowie PKCE S256. Moderne Instanzen erhalten ausschließlich den Scope `profile`; bei älteren Mastodon-Versionen ohne OAuth-Discovery wird `read:accounts` verwendet. Nach `GET /api/v1/accounts/verify_credentials` wird das individuelle User-Access-Token verworfen. Mastodon liefert keine vertrauenswürdige E-Mail-Adresse; neue Konten müssen daher im Profil eine E-Mail hinterlegen und über den bestehenden Stadtplaner-Versand bestätigen.
+
+`MASTODON_ACCESS_TOKEN` ist davon strikt getrennt und wird ausschließlich für automatische Veröffentlichungen des OK-Lab-Accounts verwendet. Mastodon-SSO fordert weder `write:statuses` noch `write:media`, `follow` oder administrative Scopes an.
 
 Für die GitHub OAuth App ist die Authorization callback URL
 `<öffentliche Backend-Origin>/api/v1/auth/oauth/github/callback` einzutragen. In der Google Cloud Console lautet die Authorized redirect URI entsprechend

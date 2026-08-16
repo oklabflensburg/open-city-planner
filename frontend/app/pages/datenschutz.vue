@@ -108,6 +108,9 @@
       <p class="mt-3 text-sm leading-6 text-[#4f575c]">
         Bei Anmeldung oder Kontoverknüpfung über einen externen Anbieter werden zur Zuordnung des lokalen Benutzerkontos insbesondere die vom Anbieter übermittelte eindeutige Benutzerkennung sowie, abhängig vom Anbieter, E-Mail-Adresse, Benutzername, Anzeigename und Profilbild-URL verarbeitet. OAuth-Zugriffs-, Refresh- oder ID-Tokens werden nicht dauerhaft in der Tabelle für verknüpfte Konten gespeichert.
       </p>
+      <p class="mt-3 text-sm leading-6 text-[#4f575c]">
+        Bei einer freiwilligen Mastodon-Anmeldung geben Nutzerinnen und Nutzer zunächst ihre Mastodon-Instanz an. Das Backend kontaktiert diese gewählte Instanz serverseitig, registriert dort bei Bedarf eine OAuth-Anwendung und leitet den Browser anschließend zur Instanz weiter. Nach der Freigabe werden die instanzbezogene Account-ID, der öffentliche Accountname sowie optional Anzeigename, Profil- und Avatar-URL übernommen. Das kurzzeitig erhaltene Mastodon-Benutzertoken wird nur zur Identitätsabfrage eingesetzt und nicht dauerhaft gespeichert. Da Mastodon dabei keine verifizierte E-Mail-Adresse bereitstellt, muss diese für ein neues Stadtplaner-Konto separat hinterlegt und bestätigt werden. Welche Betreiber und Datenschutzbedingungen gelten, hängt von der jeweils gewählten Mastodon-Instanz ab und muss im Produktivbetrieb berücksichtigt werden.
+      </p>
     </section>
 
     <section>

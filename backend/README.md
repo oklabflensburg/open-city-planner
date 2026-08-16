@@ -1,4 +1,4 @@
-# Stadtplanner Backend
+# Stadtplaner Backend
 
 Das FastAPI-Backend stellt öffentliche GIS-, Polygon-, OSM-, Analytics- und Analysis-Area-Ressourcen bereit. PostgreSQL mit PostGIS ist die fachliche Datenbank; Redis cached ausschließlich wiederberechenbare Leseantworten.
 
@@ -17,7 +17,7 @@ Mindestens `DATABASE_URL`, eine sichere `JWT_SECRET_KEY` und die erlaubten `CORS
 
 ## Analysegebiete und OSM
 
-`analysis_areas` enthält die Typen `MUNICIPALITY`, `DISTRICT` und `QUARTER`, global eindeutige stabile Slugs, Parent-Relationen, MultiPolygon-Geometrien, Zentroid und OSM-Provenienz. Der Boundary-Sync verwendet lokale OSM-Daten, bestimmt räumliche Parents und ordnet Stadtplanner-Flächen über `ST_PointOnSurface` zu. Ausführung und Importvorbereitung sind in [osm-data.md](../docs/osm-data.md) beschrieben.
+`analysis_areas` enthält die Typen `MUNICIPALITY`, `DISTRICT` und `QUARTER`, global eindeutige stabile Slugs, Parent-Relationen, MultiPolygon-Geometrien, Zentroid und OSM-Provenienz. Der Boundary-Sync verwendet lokale OSM-Daten, bestimmt räumliche Parents und ordnet Stadtplaner-Flächen über `ST_PointOnSurface` zu. Ausführung und Importvorbereitung sind in [osm-data.md](../docs/osm-data.md) beschrieben.
 
 Öffentliche Gebiets-Endpunkte liegen unter `/api/v1/analysis-areas`; Detail, Analytics, Gesamtstadtvergleich und eine begrenzte Flächenliste können über `by-slug/{slug}` geladen werden. Eigentümer-, Preis- und interne Verwaltungsfelder sind nicht Teil dieser DTOs.
 

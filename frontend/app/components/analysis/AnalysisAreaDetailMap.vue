@@ -8,7 +8,7 @@
       <div ref="mapElement" class="h-[clamp(300px,45dvh,500px)] w-full" role="img" :aria-label="`Karte des Gebiets ${area.name}`" />
       <p v-if="mapError" class="absolute inset-x-4 top-4 rounded-xl bg-white px-4 py-3 text-sm text-rose-700 shadow" role="alert">{{ mapError }}</p>
     </div>
-    <p class="border-t border-slate-200 px-4 py-3 text-xs leading-5 text-slate-500">Gebietsgrenze und erfasste Stadtplanner-Flächen. Kartendaten © OpenStreetMap-Mitwirkende.</p>
+    <p class="border-t border-slate-200 px-4 py-3 text-xs leading-5 text-slate-500">Gebietsgrenze und erfasste Stadtplaner-Flächen. Kartendaten © OpenStreetMap-Mitwirkende.</p>
   </section>
 </template>
 
@@ -19,6 +19,7 @@ import type { AnalysisAreaDetail } from '~/types/analysisArea'
 import { loadMapStyle } from '~/config/mapStyles'
 
 const props = defineProps<{ area: AnalysisAreaDetail }>()
+const emit = defineEmits<{ ready: [] }>()
 const config = useRuntimeConfig()
 const mapElement = ref<HTMLDivElement | null>(null)
 const map = shallowRef<Map | null>(null)
@@ -54,6 +55,7 @@ onMounted(async () => {
       instance.addSource('area-detail-polygons', { type: 'geojson', data: polygons })
       instance.addLayer({ id: 'area-detail-polygons-fill', type: 'fill', source: 'area-detail-polygons', paint: { 'fill-color': '#d97706', 'fill-opacity': 0.38 } })
       instance.addLayer({ id: 'area-detail-polygons-line', type: 'line', source: 'area-detail-polygons', paint: { 'line-color': '#92400e', 'line-width': 1.5 } })
+      instance.once('render', () => emit('ready'))
       instance.on('mouseenter', 'area-detail-polygons-fill', () => { instance.getCanvas().style.cursor = 'pointer' })
       instance.on('mouseleave', 'area-detail-polygons-fill', () => { instance.getCanvas().style.cursor = '' })
       instance.on('click', 'area-detail-polygons-fill', event => {

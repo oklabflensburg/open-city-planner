@@ -36,6 +36,7 @@
             {{ item.label }}
           </NuxtLink>
           <GitHubLink variant="footer" />
+          <MastodonLink identity variant="footer" />
         </nav>
       </div>
 

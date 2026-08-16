@@ -5,7 +5,7 @@ Description=Weekly check for updated Flensburg statistics
 OnCalendar=Mon *-*-* 03:15:00 Europe/Berlin
 RandomizedDelaySec=30m
 Persistent=true
-Unit=stadtplanner-flensburg-statistics-sync.service
+Unit=stadtplaner-flensburg-statistics-sync.service
 
 [Install]
 WantedBy=timers.target

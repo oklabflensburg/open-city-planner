@@ -76,7 +76,7 @@ Initiale API-Requests im finalen mobilen Lauf:
 | `/auth/session` | 0,5 / 0,1 KB | Auth-Anzeige; liefert für Gäste 401 |
 | `/analysis-areas` | 4,1 / 24,4 KB | Kartenflächen |
 | `/analysis-areas/geojson` | 58,2 / 219,3 KB | Gebietsgrenzen |
-| `/polygons/overview` | 5,9 / 26,6 KB | Stadtplanner-Flächen |
+| `/polygons/overview` | 5,9 / 26,6 KB | Stadtplaner-Flächen |
 | `/osm/features` | 15,7 / 130,8 KB | OSM-Viewport nach Map-Ready |
 
 Der zuvor zusätzliche `/auth/refresh`-Request und die öffentliche OAuth-Provider-Abfrage entfallen. Die Analytics-Übersicht wird mobil erst beim Öffnen von „Analyse“ geladen. Die API-Antworten sind nicht der TBT-Haupttreiber; JSON-Payloads sind moderat, MVT ist für diesen Messstand keine vorrangige Migration.

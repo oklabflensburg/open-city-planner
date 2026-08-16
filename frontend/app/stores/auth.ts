@@ -68,8 +68,18 @@ export const useAuthStore = defineStore('auth', {
         this.oauthProvidersLoading = false
       }
     },
-    startOAuthLogin(providerId: string, redirect?: string) {
+    async startOAuthLogin(providerId: string, redirect?: string, instance?: string) {
       if (typeof window === 'undefined') return
+      if (providerId === 'mastodon') {
+        const { request } = useApi()
+        const result = await request<{ authorization_url: string }>('/auth/oauth/mastodon/start', {
+          method: 'POST',
+          body: JSON.stringify({ instance, redirect: sanitizeInternalRedirect(redirect) }),
+          retryOnUnauthorized: false
+        })
+        window.location.assign(result.authorization_url)
+        return
+      }
       const config = useRuntimeConfig()
       const provider = encodeURIComponent(providerId)
       const url = new URL(buildApiUrl(config.public.apiBaseUrl, `/auth/oauth/${provider}/login`))
@@ -77,11 +87,20 @@ export const useAuthStore = defineStore('auth', {
       this.oauthError = ''
       window.location.assign(url.toString())
     },
-    async startOAuthLink(providerId: string) {
+    async startOAuthLink(providerId: string, instance?: string) {
       if (typeof window === 'undefined') return
       await this.refreshUser()
       if (!this.authenticated) {
         window.location.assign('/login?redirect=%2Fprofil')
+        return
+      }
+      if (providerId === 'mastodon') {
+        const { request } = useApi()
+        const result = await request<{ authorization_url: string }>('/auth/oauth/mastodon/link', {
+          method: 'POST',
+          body: JSON.stringify({ instance })
+        })
+        window.location.assign(result.authorization_url)
         return
       }
       const config = useRuntimeConfig()
@@ -229,6 +248,15 @@ export const useAuthStore = defineStore('auth', {
       const { request } = useApi()
       await request(`/users/me/oauth-accounts/${provider}`, { method: 'DELETE' })
       this.oauthAccounts = this.oauthAccounts.filter((account) => account.provider !== provider)
+    },
+    async completeOAuthEmail(email: string) {
+      const { request } = useApi()
+      const result = await request<VerificationResponse>('/auth/oauth/complete-email', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+      })
+      await this.refreshUser()
+      return result
     },
     async changePassword(currentPassword: string, newPassword: string, newPasswordConfirm: string) {
       const { request } = useApi()

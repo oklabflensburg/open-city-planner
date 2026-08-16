@@ -90,6 +90,28 @@ async def signup(session: AsyncSession, payload: SignupRequest) -> User:
     return user
 
 
+async def complete_oauth_email(session: AsyncSession, user: User, email: str) -> None:
+    if not user.email_pending:
+        raise auth_error(
+            "OAUTH_EMAIL_ALREADY_SET",
+            "Für dieses Konto ist bereits eine E-Mail-Adresse hinterlegt.",
+            status.HTTP_409_CONFLICT,
+        )
+    normalized = email.strip().lower()
+    if await get_user_by_email(session, normalized):
+        raise auth_error(
+            "EMAIL_ALREADY_REGISTERED",
+            "Diese E-Mail-Adresse ist bereits registriert.",
+            status.HTTP_409_CONFLICT,
+        )
+    user.email = normalized
+    user.is_verified = False
+    user.email_pending = False
+    await session.commit()
+    token = await create_verification_token(session, user)
+    send_verification_email(user, token)
+
+
 async def authenticate(session: AsyncSession, payload: LoginRequest) -> User:
     user = await get_user_by_email(session, str(payload.email))
     if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
@@ -338,6 +360,12 @@ async def resend_verification(session: AsyncSession, user: User) -> bool:
     if locked_user.is_verified:
         await session.commit()
         return False
+    if locked_user.email_pending:
+        raise auth_error(
+            "OAUTH_EMAIL_REQUIRED",
+            "Bitte hinterlege zuerst eine E-Mail-Adresse in deinem Profil.",
+            status.HTTP_409_CONFLICT,
+        )
     token = await create_verification_token(session, locked_user)
     send_verification_email(locked_user, token)
     return True

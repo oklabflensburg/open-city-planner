@@ -6,7 +6,7 @@ from app.schemas.analysis_area import AnalysisAreaDetail, AnalysisAreaPolygon
 
 def test_openapi_documents_public_area_routes_and_unique_operations() -> None:
     schema = app.openapi()
-    assert schema["info"]["title"] == "Stadtplanner API"
+    assert schema["info"]["title"] == "Stadtplaner API"
     assert schema["info"]["version"] == "0.2.0"
     paths = schema["paths"]
     for path in (

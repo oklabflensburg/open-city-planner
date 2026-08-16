@@ -8,10 +8,10 @@ export function useAnalysisAreaSeo(area: MaybeRefOrGetter<AnalysisAreaDetail>) {
   const url = computed(() => buildAbsoluteUrl(config.public.siteUrl, path.value))
   const typeLabel = computed(() => ({ MUNICIPALITY: 'Gemeinde', DISTRICT: 'Stadtteil', QUARTER: 'Quartier' })[data.value.area_type])
   const title = computed(() => data.value.area_type === 'MUNICIPALITY'
-    ? `${data.value.name} – Einzelhandel & Standortdaten | Stadtplanner`
+    ? `${data.value.name} – Einzelhandel & Standortdaten | Stadtplaner`
     : data.value.area_type === 'DISTRICT'
-      ? `${data.value.name} Flensburg – Standortanalyse | Stadtplanner`
-      : `${data.value.name} – Standortdaten im Quartier | Stadtplanner Flensburg`)
+      ? `${data.value.name} Flensburg – Standortanalyse | Stadtplaner`
+      : `${data.value.name} – Standortdaten im Quartier | Stadtplaner Flensburg`)
   const description = computed(() => toMetaDescription('', `Statistische Kennzahlen, Standort- und Einzelhandelsdaten für ${data.value.name}: Verkaufsflächen, Leerstand, Branchen, Bevölkerung und POIs.`))
   const breadcrumbItems = computed(() => [
     { name: 'Start', path: '/' },

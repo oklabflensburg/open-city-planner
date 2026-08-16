@@ -202,6 +202,43 @@ describe('auth store', () => {
     expect(assign).toHaveBeenCalledWith('http://localhost:8000/api/v1/auth/oauth/google/login?redirect=%2Fmeine-flaechen%3Fstatus%3Daktiv')
   })
 
+  it('starts federated Mastodon login through the instance-aware API', async () => {
+    const assign = vi.fn()
+    const request = vi.fn().mockResolvedValue({ authorization_url: 'https://social.example/oauth/authorize?state=opaque' })
+    vi.stubGlobal('useApi', () => ({ request }))
+    vi.stubGlobal('useRuntimeConfig', () => ({ public: { apiBaseUrl: 'http://localhost:8000/api/v1' } }))
+    vi.stubGlobal('window', { location: { assign } })
+    const store = useAuthStore()
+
+    await store.startOAuthLogin('mastodon', 'https://evil.example', '@user@social.example')
+
+    expect(request).toHaveBeenCalledWith('/auth/oauth/mastodon/start', {
+      method: 'POST',
+      body: JSON.stringify({ instance: '@user@social.example', redirect: '/' }),
+      retryOnUnauthorized: false
+    })
+    expect(assign).toHaveBeenCalledWith('https://social.example/oauth/authorize?state=opaque')
+  })
+
+  it('links Mastodon directly from the authenticated profile', async () => {
+    const assign = vi.fn()
+    const request = vi.fn()
+      .mockResolvedValueOnce({ user, csrf_token: 'csrf-current' })
+      .mockResolvedValueOnce({ authorization_url: 'https://social.example/oauth/authorize' })
+    vi.stubGlobal('useApi', () => ({ request }))
+    vi.stubGlobal('window', { location: { assign } })
+    const store = useAuthStore()
+    store.user = user
+
+    await store.startOAuthLink('mastodon', 'social.example')
+
+    expect(request).toHaveBeenNthCalledWith(2, '/auth/oauth/mastodon/link', {
+      method: 'POST',
+      body: JSON.stringify({ instance: 'social.example' })
+    })
+    expect(assign).toHaveBeenCalledWith('https://social.example/oauth/authorize')
+  })
+
   it.each(['github', 'google'])('starts authenticated %s account linking after a session check', async (provider) => {
     const assign = vi.fn()
     const request = vi.fn().mockResolvedValue({ user, csrf_token: 'csrf-current' })
