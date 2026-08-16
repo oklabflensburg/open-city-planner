@@ -10,6 +10,7 @@ export type AnalysisArea = {
   area_type: AnalysisAreaType
   parent_id: string | null
   parent_name: string | null
+  parent_slug: string | null
   area_m2: number
   source: 'OSM' | 'MANUAL'
   source_osm_type: string | null
@@ -17,7 +18,35 @@ export type AnalysisArea = {
   source_admin_level: number | null
   source_place: string | null
   source_updated_at: string | null
+  updated_at: string
   child_count: number
+}
+
+export type AnalysisAreaReference = Pick<AnalysisArea, 'id' | 'slug' | 'name' | 'area_type'>
+
+export type AnalysisAreaDetail = AnalysisArea & {
+  parent: AnalysisAreaReference | null
+  municipality: AnalysisAreaReference | null
+  children: AnalysisAreaReference[]
+  geometry: MultiPolygon
+  centroid: [number, number]
+  bbox: [number, number, number, number]
+}
+
+export type AnalysisAreaPolygon = {
+  id: string
+  slug: string
+  name: string
+  category: string
+  floor: string | null
+  address_display_name: string | null
+  occupancy_status: 'OCCUPIED' | 'VACANT' | 'UNKNOWN'
+  area_m2: number | null
+}
+
+export type AnalysisAreaSitemapEntry = {
+  slug: string
+  updated_at: string
 }
 
 export type AnalysisAreaFeatureCollection = FeatureCollection<MultiPolygon, {
@@ -41,4 +70,44 @@ export type AnalysisAreaComparison = {
   area_metrics: BenchmarkMetrics
   municipality_metrics: BenchmarkMetrics
   differences: Array<{ key: string, area_value: number | null, municipality_value: number | null, difference: number | null, unit: string }>
+}
+
+export type StatisticsSource = {
+  name: string
+  url: string
+  license: string
+  source_updated_at: string | null
+  last_import_at: string | null
+}
+
+export type AreaStatisticValue = {
+  key: string
+  name: string
+  category: string
+  value: number | string | null
+  unit: string
+  period: string
+  period_start: string
+  area_level: AnalysisAreaType
+  is_calculated: boolean
+  municipality_value: number | string | null
+  difference: number | string | null
+  relative_difference: number | string | null
+}
+
+export type AreaStatistics = {
+  area: AnalysisAreaReference
+  statistics_area: AnalysisAreaReference
+  inherited_from_parent: boolean
+  source: StatisticsSource | null
+  latest: AreaStatisticValue[]
+}
+
+export type AreaStatisticSeries = {
+  area: AnalysisAreaReference
+  statistics_area: AnalysisAreaReference
+  inherited_from_parent: boolean
+  source: StatisticsSource | null
+  metric: { key: string, name: string, unit: string, category: string }
+  series: Array<{ period: string, period_start: string, value: number | string | null, suppressed: boolean }>
 }

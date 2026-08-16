@@ -552,6 +552,112 @@ export const documentationPages: DocumentationPage[] = [
           { type: 'paragraph', text: 'Aktivieren oder deaktivieren Sie die Checkbox VERWALTUNG und bestätigen Sie die Sicherheitsabfrage. Die Änderung wird unmittelbar gespeichert und wirkt bei nachfolgenden API-Anfragen.' },
           { type: 'callout', variant: 'warning', title: 'Erweiterte fachliche Rechte', text: 'VERWALTUNG darf interne Eigentümer- und Preisdaten sehen, Stadtkennzahlen pflegen sowie alle Flächen bearbeiten und löschen. Vergeben Sie diese Rolle nur, wenn diese Rechte benötigt werden.' }
         ]
+      },
+      {
+        id: 'auditlog',
+        title: 'Administrative Änderungen nachvollziehen',
+        audience: 'superuser',
+        blocks: [
+          { type: 'paragraph', text: 'Das Auditlog unter /admin/audit-log ist eine ausschließlich lesbare Superuser-Ansicht. Es protokolliert die im System vorhandenen administrativen Ereignisse, darunter Rollen- und Kontostatusänderungen sowie erkannte Refresh-Token-Wiederverwendung.' },
+          { type: 'steps', items: [{ title: 'Auditlog öffnen', text: 'Wählen Sie im Kontomenü „Auditlog“.' }, { title: 'Einträge eingrenzen', text: 'Filtern Sie nach Aktion, ausführendem Benutzer und lokalem Zeitraum oder durchsuchen Sie Aktion, Benutzer und Ressource.' }, { title: 'Details prüfen', text: 'Öffnen Sie ein Ereignis, um Zusammenfassung, betroffene Ressource und vorhandene technische Details zu sehen.' }] },
+          { type: 'callout', variant: 'info', title: 'Unveränderliche Historie', text: 'Die Ansicht bietet keine Funktion zum Bearbeiten oder Löschen. Nicht gespeicherte Angaben wie IP-Adresse oder User-Agent können auch in der Detailansicht nicht angezeigt werden.' }
+        ]
+      }
+    ]
+  },
+  {
+    slug: 'gebiete',
+    title: 'Gemeinde, Stadtteile und Quartiere',
+    navTitle: 'Gebietsseiten',
+    description: 'Gebietshierarchie, dauerhafte Detailseiten und der Wechsel zwischen Standortprofil und GIS-Karte.',
+    group: 'Karte und Daten',
+    keywords: ['Gemeinde', 'Stadtteil', 'Quartier', 'Gebiet', 'Standortprofil'],
+    audience: 'public',
+    sections: [
+      {
+        id: 'gebietsebenen',
+        title: 'Drei Gebietsebenen',
+        blocks: [
+          { type: 'paragraph', text: 'Stadtplanner gliedert die kommunale Gebietskulisse in Gemeinde, Stadtteile und Quartiere. Jedes gültige Gebiet besitzt eine dauerhafte Seite unter /gebiete/<slug> und verweist auf über- und untergeordnete Gebiete.' },
+          { type: 'list', items: ['Die Gemeinde bildet den kommunalen Bezugsrahmen.', 'Stadtteile sind der Gemeinde räumlich untergeordnet.', 'Quartiere sind einem Stadtteil räumlich untergeordnet.'] }
+        ]
+      },
+      {
+        id: 'detailseite-und-karte',
+        title: 'Detailseite und GIS-Karte zusammen nutzen',
+        blocks: [
+          { type: 'steps', items: [{ title: 'Gebiet auswählen', text: 'Öffnen Sie die Gebietsübersicht oder wählen Sie eine Grenze in der GIS-Karte.' }, { title: 'Standortprofil lesen', text: 'Die Detailseite bündelt Kennzahlen, Branchen, POIs, Vergleichswerte und zugeordnete Flächen.' }, { title: 'In die Karte wechseln', text: '„In der Karte öffnen“ übernimmt das Gebiet als Auswahl und passt den Kartenausschnitt an.' }] },
+          { type: 'links', items: [{ label: 'Gebietsübersicht öffnen', to: '/gebiete' }, { label: 'Methodik der Kennzahlen', to: '/dokumentation/methodik' }] }
+        ]
+      }
+    ]
+  },
+  {
+    slug: 'methodik',
+    title: 'Methodik und Datenquellen',
+    navTitle: 'Methodik',
+    description: 'Räumliche Zuordnung, Berechnung von Kennzahlen und transparente Darstellung fehlender Daten.',
+    group: 'Karte und Daten',
+    keywords: ['Methodik', 'PostGIS', 'ST_PointOnSurface', 'Leerstandsquote', 'POI', 'OSM', 'Zahlenspiegel', 'Statistik'],
+    audience: 'public',
+    sections: [
+      {
+        id: 'raeumliche-zuordnung',
+        title: 'Räumliche Zuordnung',
+        blocks: [
+          { type: 'paragraph', text: 'Gebietsgrenzen stammen aus der gepflegten Analysis-Area-Tabelle und werden überwiegend aus OpenStreetMap synchronisiert. Stadtplanner-Flächen werden anhand eines mit ST_PointOnSurface bestimmten Punkts räumlich genau einem passenden Gebiet je Ebene zugeordnet. So bleiben auch unregelmäßige Polygone robust auswertbar.' },
+          { type: 'callout', variant: 'info', title: 'Stabile Adressen', text: 'Der Gebiets-Slug wird beim Import erzeugt und bei späteren Aktualisierungen nicht überschrieben. Namensänderungen brechen daher keine bestehenden Links.' }
+        ]
+      },
+      {
+        id: 'kennzahlen',
+        title: 'Kennzahlen berechnen',
+        blocks: [
+          { type: 'table', headers: ['Kennzahl', 'Berechnung'], rows: [['Leerstandsquote', 'Leer stehende Flächen geteilt durch Flächen mit bekanntem Belegungsstatus.'], ['Filialisierungsgrad', 'Filialbetriebe geteilt durch Flächen mit bekannter Betriebsform.'], ['Flächengrößen', 'Summe, arithmetischer Mittelwert und Median der räumlich zugeordneten Flächen.'], ['POIs', 'Anzahl lokal importierter OpenStreetMap-Objekte innerhalb der Gebietsgeometrie.']] },
+          { type: 'callout', variant: 'important', title: 'Fehlend ist nicht null', text: 'Ein Gedankenstrich bedeutet, dass keine belastbare Zahl berechnet werden kann. Er ist nicht als Zahlenwert null zu interpretieren.' }
+        ]
+      },
+      {
+        id: 'kommunale-statistik',
+        title: 'Kommunale Statistik aus dem Zahlenspiegel',
+        blocks: [
+          { type: 'paragraph', text: 'Bevölkerungs- und Haushaltsstatistiken werden strukturiert über die öffentliche Superset-API des Zahlenspiegels der Stadt Flensburg importiert. Gebietsseiten fragen ausschließlich die lokal gespeicherten PostgreSQL-Daten ab und sind nicht von der Erreichbarkeit des Dashboards abhängig.' },
+          { type: 'table', headers: ['Aspekt', 'Umgang'], rows: [['Zeitraum', 'Jährliche Beobachtungen von 2011 bis zum aktuell veröffentlichten Stand.'], ['Stadtteile', 'Zuordnung über eine geprüfte Mappingtabelle mit den amtlich veröffentlichten IDs 01–13.'], ['Quartiere', 'Keine künstliche Verteilung; klar gekennzeichnete Werte des übergeordneten Stadtteils.'], ['Fehlende/unterdrückte Werte', 'Bleiben fehlend und werden weder als null interpretiert noch zurückgerechnet.'], ['Gesamtstadt', 'Als rechnerische Summe derselben 13 Stadtteilbeobachtungen und derselben Periode gekennzeichnet.']] },
+          { type: 'callout', variant: 'warning', title: 'Statistikgebiet und Kartengrenze', text: 'Die Namen und die 13-teilige Stadtgliederung stimmen überein. Die Karte verwendet jedoch OpenStreetMap-Grenzen; eine geometrisch exakte Identität mit der kommunalen Statistikgeografie ist nicht belegt.' },
+          { type: 'links', items: [{ label: 'Flensburger Zahlenspiegel', to: 'https://superset.flensburg.de/superset/dashboard/3b53ff0b-6e8c-435e-83f6-666f8a7cc158/', description: 'Originalquelle der Stadt Flensburg.' }, { label: 'Datenlizenz Deutschland – Zero 2.0', to: 'https://www.govdata.de/dl-de/zero-2-0' }] }
+        ]
+      },
+      {
+        id: 'datenstand',
+        title: 'Datenstand und Quellen',
+        blocks: [{ type: 'paragraph', text: 'Gebietsseiten nennen den letzten verfügbaren Datenstand und die Herkunft der Grenze. Fachkennzahlen beruhen ausschließlich auf tatsächlich gespeicherten Stadtplanner-Flächen und lokal importierten OSM-Daten; es werden keine Schätzwerte erfunden.' }]
+      }
+    ]
+  },
+  {
+    slug: 'api',
+    title: 'Öffentliche API',
+    navTitle: 'API',
+    description: 'OpenAPI-Dokumentation und öffentliche Lese-Endpunkte für Gebiete und Stadtplanner-Flächen.',
+    group: 'Karte und Daten',
+    keywords: ['API', 'OpenAPI', 'Swagger', 'ReDoc', 'JSON'],
+    audience: 'public',
+    sections: [
+      {
+        id: 'dokumentation',
+        title: 'Interaktive API-Dokumentation',
+        blocks: [
+          { type: 'paragraph', text: 'Das FastAPI-Backend veröffentlicht sein OpenAPI-Schema sowie interaktive Dokumentationen unter /docs und /redoc relativ zur API-Origin. Öffentliche Lese-Endpunkte benötigen keine Anmeldung; schreibende und interne Endpunkte sind separat geschützt.' },
+          { type: 'code', language: 'HTTP', code: 'GET /api/v1/analysis-areas\nGET /api/v1/analysis-areas/by-slug/{slug}\nGET /api/v1/analysis-areas/by-slug/{slug}/analytics\nGET /api/v1/analysis-areas/by-slug/{slug}/comparison\nGET /api/v1/analysis-areas/by-slug/{slug}/polygons\nGET /api/v1/analysis-areas/by-slug/{slug}/statistics\nGET /api/v1/analysis-areas/by-slug/{slug}/statistics/{metric_key}\nGET /api/v1/data-sources/status' }
+        ]
+      },
+      {
+        id: 'antworten',
+        title: 'Antworten und Fehler',
+        blocks: [
+          { type: 'paragraph', text: 'Antworten werden als JSON ausgeliefert. Unbekannte Slugs liefern HTTP 404. Das OpenAPI-Schema ist die maßgebliche Referenz für Felder, Typen, Parameter und mögliche geschützte Operationen.' },
+          { type: 'callout', variant: 'warning', title: 'Keine internen Felder', text: 'Die öffentlichen Gebiets- und Flächenantworten enthalten nur freigegebene Attribute. Eigentümer-, Preis- und andere Verwaltungsdaten werden nicht über diese Endpunkte ausgeliefert.' }
+        ]
       }
     ]
   },

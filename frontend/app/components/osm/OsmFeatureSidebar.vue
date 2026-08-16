@@ -1,12 +1,12 @@
 <template>
-  <Card v-if="feature" class="p-4" aria-live="polite">
+  <section v-if="feature" :class="embedded ? 'min-w-0 bg-white p-1' : 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm'" aria-live="polite">
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
         <p class="text-[10px] font-bold uppercase tracking-wide text-[#154d73]">OpenStreetMap · {{ categoryLabel }}</p>
         <h2 class="mt-1 break-words text-base font-bold text-slate-950">{{ detail?.name || feature.properties.name || typeLabel }}</h2>
         <p class="mt-1 text-xs text-slate-500">{{ typeLabel }}</p>
       </div>
-      <button class="grid size-11 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" aria-label="OSM-Auswahl schließen" @click="closeSelection">
+      <button v-if="!embedded" class="grid size-11 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" aria-label="OSM-Auswahl schließen" @click="closeSelection">
         <X class="size-4" aria-hidden="true" />
       </button>
     </div>
@@ -54,7 +54,7 @@
     </div>
     <p class="mt-2 text-[10px] text-slate-500">Daten: © OpenStreetMap-Mitwirkende</p>
     <OsmImportDialog v-if="auth.authenticated" v-model:open="importOpen" :feature="feature" :detail="detail" />
-  </Card>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -66,6 +66,8 @@ const osm = useOsmViewportStore()
 const auth = useAuthStore()
 const mapSelection = useMapSelection()
 const mapStore = useMapStore()
+const props = withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
+const embedded = computed(() => props.embedded)
 const importOpen = ref(false)
 const feature = computed(() => osm.selectedFeature)
 const detail = computed(() => osm.detail)

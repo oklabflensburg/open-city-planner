@@ -7,6 +7,7 @@ def test_analysis_area_model_enforces_hierarchy_and_spatial_index() -> None:
     indexes = {index.name: index for index in AnalysisArea.__table__.indexes}
     assert "ck_analysis_areas_type" in constraints
     assert "uq_analysis_areas_source_osm" in constraints
+    assert AnalysisArea.__table__.c.slug.unique is True
     assert indexes["idx_analysis_areas_geometry"].dialect_options["postgresql"]["using"] == "gist"
     assert next(iter(AnalysisArea.__table__.c.parent_id.foreign_keys)).ondelete == "SET NULL"
 

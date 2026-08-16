@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import type { MapTheme } from '~/utils/mapThemes'
+import type { SelectedMapEntity } from '~/types/mapSelection'
 
 export type DrawingMode = 'select' | 'polygon' | 'edit' | 'delete'
-export type MobilePanel = 'filter' | 'analytics' | null
+export type MobilePanel = 'filter' | 'analytics' | 'selection' | null
 
 export const useMapStore = defineStore('map', {
   state: () => ({
@@ -13,7 +14,7 @@ export const useMapStore = defineStore('map', {
     activeMode: 'select' as DrawingMode,
     mapLoaded: false,
     activeMobilePanel: null as MobilePanel,
-    polygonPreviewOpen: false,
+    selectedMapEntity: null as SelectedMapEntity,
     polygonsVisible: true,
     categoryHighlight: null as string | null,
     thematicStyle: 'category' as MapTheme
@@ -38,7 +39,6 @@ export const useMapStore = defineStore('map', {
       this.pitch = 0
     },
     openMobilePanel(panel: Exclude<MobilePanel, null>) {
-      this.polygonPreviewOpen = false
       this.activeMobilePanel = panel
     },
     closeMobilePanel() {
@@ -46,7 +46,6 @@ export const useMapStore = defineStore('map', {
     },
     closeMobilePanels() {
       this.activeMobilePanel = null
-      this.polygonPreviewOpen = false
     }
   }
 })

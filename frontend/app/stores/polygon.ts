@@ -1,19 +1,32 @@
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
 import type { PolygonMetrics, PolygonOverview } from '~/types/geo'
+import type { PolygonOsmInfo } from '~/types/osm'
+import { useMapStore } from '~/stores/map'
 
 export const usePolygonStore = defineStore('polygon', {
   state: () => ({
     polygons: [] as PolygonOverview[],
-    selectedPolygonId: null as string | null,
     selectedMetrics: null as PolygonMetrics | null,
+    selectedOsmInfo: null as PolygonOsmInfo | null,
+    metricsLoading: false,
+    metricsError: null as string | null,
+    osmLoading: false,
+    osmError: null as string | null,
+    selectionRequestId: 0,
     loading: false,
     saving: false,
     error: null as string | null,
     saveState: 'idle' as 'idle' | 'saving' | 'saved' | 'error'
   }),
   getters: {
-    selectedPolygon: (state) => state.polygons.find((polygon) => polygon.id === state.selectedPolygonId) || null,
+    selectedPolygonId: () => {
+      const entity = useMapStore().selectedMapEntity
+      return entity?.type === 'polygon' ? entity.id : null
+    },
+    selectedPolygon(state): PolygonOverview | null {
+      return state.polygons.find(polygon => polygon.id === this.selectedPolygonId) || null
+    },
     featureCollection: (state) => ({
       type: 'FeatureCollection' as const,
       features: state.polygons.map((polygon) => ({
@@ -46,20 +59,68 @@ export const usePolygonStore = defineStore('polygon', {
         this.loading = false
       }
     },
-    async selectPolygon(id: string | null) {
-      this.selectedPolygonId = id
+    async loadSelection(id: string) {
+      const requestId = ++this.selectionRequestId
       this.selectedMetrics = null
-      if (id) {
-        try {
-          this.selectedMetrics = await usePolygonApi().metrics(id)
-        } catch {
-          this.selectedMetrics = null
+      this.selectedOsmInfo = null
+      this.metricsLoading = true
+      this.osmLoading = true
+      this.metricsError = null
+      this.osmError = null
+      const polygon = this.polygons.find(item => item.id === id)
+      const api = usePolygonApi()
+      const metricsRequest = api.metrics(id).then((metrics) => {
+        if (requestId === this.selectionRequestId && this.selectedPolygonId === id) this.selectedMetrics = metrics
+      }).catch((error) => {
+        if (requestId === this.selectionRequestId && this.selectedPolygonId === id) {
+          this.metricsError = error instanceof Error ? error.message : 'Kennzahlen konnten nicht geladen werden.'
         }
+      }).finally(() => {
+        if (requestId === this.selectionRequestId && this.selectedPolygonId === id) this.metricsLoading = false
+      })
+      const osmRequest = polygon
+        ? api.osmBySlug(polygon.slug).then((info) => {
+            if (requestId === this.selectionRequestId && this.selectedPolygonId === id) this.selectedOsmInfo = info
+          }).catch((error) => {
+            if (requestId === this.selectionRequestId && this.selectedPolygonId === id) {
+              this.osmError = error instanceof Error ? error.message : 'OpenStreetMap-Daten konnten nicht geladen werden.'
+            }
+          }).finally(() => {
+            if (requestId === this.selectionRequestId && this.selectedPolygonId === id) this.osmLoading = false
+          })
+        : Promise.resolve().then(() => {
+            if (requestId === this.selectionRequestId) {
+              this.osmLoading = false
+              this.osmError = 'OpenStreetMap-Daten konnten nicht geladen werden.'
+            }
+          })
+      await Promise.all([metricsRequest, osmRequest])
+    },
+    async retryOsm(id: string) {
+      const polygon = this.polygons.find(item => item.id === id)
+      if (!polygon || this.selectedPolygonId !== id) return
+      const requestId = this.selectionRequestId
+      this.osmLoading = true
+      this.osmError = null
+      try {
+        const info = await usePolygonApi().osmBySlug(polygon.slug)
+        if (requestId === this.selectionRequestId && this.selectedPolygonId === id) this.selectedOsmInfo = info
+      } catch (error) {
+        if (requestId === this.selectionRequestId && this.selectedPolygonId === id) {
+          this.osmError = error instanceof Error ? error.message : 'OpenStreetMap-Daten konnten nicht geladen werden.'
+        }
+      } finally {
+        if (requestId === this.selectionRequestId && this.selectedPolygonId === id) this.osmLoading = false
       }
     },
     clearSelection() {
-      this.selectedPolygonId = null
+      this.selectionRequestId++
       this.selectedMetrics = null
+      this.selectedOsmInfo = null
+      this.metricsLoading = false
+      this.osmLoading = false
+      this.metricsError = null
+      this.osmError = null
     }
   }
 })

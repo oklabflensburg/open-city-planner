@@ -18,28 +18,37 @@ from app.db.session import get_session
 from app.schemas.analysis_area import (
     AnalysisAreaAnalytics,
     AnalysisAreaComparison,
+    AnalysisAreaDetail,
+    AnalysisAreaPolygon,
     AnalysisAreaRead,
+    AnalysisAreaSitemapEntry,
 )
+from app.schemas.statistics import AreaStatisticSeriesRead, AreaStatisticsRead
 from app.services.analysis_area_api import (
+    analysis_area_sitemap_entries,
     area_analytics,
     area_comparison,
     area_detail,
+    area_detail_by_slug,
+    area_polygons_by_slug,
+    area_uuid_by_slug,
     areas_geojson,
     list_areas,
 )
+from app.services.area_statistics import area_statistic_series, area_statistics
 
-router = APIRouter(prefix="/analysis-areas", tags=["analysis-areas"])
+router = APIRouter(prefix="/analysis-areas", tags=["Analysis Areas"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
-@router.get("", response_model=list[AnalysisAreaRead])
+@router.get("", response_model=list[AnalysisAreaRead], summary="Analysegebiete auflisten")
 async def get_areas(session: SessionDep, area_type: Annotated[str | None, Query()] = None, parent_id: uuid.UUID | None = None) -> list[AnalysisAreaRead]:
     if area_type and area_type not in {"MUNICIPALITY", "DISTRICT", "QUARTER"}:
         raise HTTPException(422, "Invalid area_type")
     return await list_areas(session, area_type, parent_id)
 
 
-@router.get("/geojson")
+@router.get("/geojson", summary="Analysegebiete als GeoJSON laden")
 async def get_areas_geojson(session: SessionDep, response: Response) -> dict:
     response.headers["Cache-Control"] = "public, max-age=300"
     result = await areas_geojson(session)
@@ -48,7 +57,59 @@ async def get_areas_geojson(session: SessionDep, response: Response) -> dict:
     return result
 
 
-@router.get("/{area_id}", response_model=AnalysisAreaRead)
+@router.get("/sitemap", response_model=list[AnalysisAreaSitemapEntry], summary="Indexierbare Gebietsseiten auflisten")
+async def get_area_sitemap(session: SessionDep) -> list[AnalysisAreaSitemapEntry]:
+    return await analysis_area_sitemap_entries(session)
+
+
+@router.get("/by-slug/{slug}", response_model=AnalysisAreaDetail, summary="Öffentliches Gebiet per Slug laden")
+async def get_area_by_slug(slug: str, session: SessionDep) -> AnalysisAreaDetail:
+    result = await area_detail_by_slug(session, slug)
+    if result is None:
+        raise HTTPException(404, "Analysis area not found")
+    return result
+
+
+@router.get("/by-slug/{slug}/polygons", response_model=list[AnalysisAreaPolygon], summary="Verkaufsflächen eines Gebiets laden")
+async def get_area_polygons_by_slug(
+    slug: str, session: SessionDep, limit: Annotated[int, Query(ge=1, le=24)] = 8,
+) -> list[AnalysisAreaPolygon]:
+    result = await area_polygons_by_slug(session, slug, limit)
+    if result is None:
+        raise HTTPException(404, "Analysis area not found")
+    return result
+
+
+@router.get(
+    "/by-slug/{slug}/statistics",
+    response_model=AreaStatisticsRead,
+    summary="Kommunale Statistik eines Gebiets laden",
+    description="Liefert lokal importierte Zahlenspiegel-Daten mit Quelle, Periode und Gebietsebene.",
+    tags=["Statistics"],
+)
+async def get_area_statistics(slug: str, session: SessionDep) -> AreaStatisticsRead:
+    result = await area_statistics(session, slug)
+    if result is None:
+        raise HTTPException(404, "Analysis area not found")
+    return result
+
+
+@router.get(
+    "/by-slug/{slug}/statistics/{metric_key}",
+    response_model=AreaStatisticSeriesRead,
+    summary="Zeitreihe einer kommunalen Gebietskennzahl laden",
+    tags=["Statistics"],
+)
+async def get_area_statistic_series(
+    slug: str, metric_key: str, session: SessionDep
+) -> AreaStatisticSeriesRead:
+    result = await area_statistic_series(session, slug, metric_key)
+    if result is None:
+        raise HTTPException(404, "Area statistic not found")
+    return result
+
+
+@router.get("/{area_id}", response_model=AnalysisAreaRead, summary="Analysegebiet per ID laden")
 async def get_area(area_id: uuid.UUID, session: SessionDep) -> AnalysisAreaRead:
     result = await area_detail(session, area_id)
     if result is None:
@@ -66,7 +127,29 @@ def filters(categories: str | None, floors: str | None, area_sizes: str | None, 
     }
 
 
-@router.get("/{area_id}/analytics", response_model=AnalysisAreaAnalytics)
+@router.get("/by-slug/{slug}/analytics", response_model=AnalysisAreaAnalytics, summary="Aggregierte Gebietskennzahlen per Slug laden")
+async def get_area_analytics_by_slug(slug: str, session: SessionDep) -> AnalysisAreaAnalytics:
+    area_id = await area_uuid_by_slug(session, slug)
+    if area_id is None:
+        raise HTTPException(404, "Analysis area not found")
+    result = await area_analytics(session, area_id, **filters(None, None, None, None, None))
+    if result is None:
+        raise HTTPException(404, "Analysis area not found")
+    return result
+
+
+@router.get("/by-slug/{slug}/comparison", response_model=AnalysisAreaComparison, summary="Gebiet mit der Gesamtstadt vergleichen")
+async def get_area_comparison_by_slug(slug: str, session: SessionDep) -> AnalysisAreaComparison:
+    area_id = await area_uuid_by_slug(session, slug)
+    if area_id is None:
+        raise HTTPException(404, "Analysis area not found")
+    result = await area_comparison(session, area_id, **filters(None, None, None, None, None))
+    if result is None:
+        raise HTTPException(404, "Analysis area or municipality not found")
+    return result
+
+
+@router.get("/{area_id}/analytics", response_model=AnalysisAreaAnalytics, summary="Gefilterte Gebietskennzahlen laden")
 async def get_area_analytics(
     area_id: uuid.UUID, session: SessionDep, categories: str | None = None, floors: str | None = None,
     area_sizes: str | None = None, occupancy_statuses: str | None = None, business_structures: str | None = None,
@@ -77,7 +160,7 @@ async def get_area_analytics(
     return result
 
 
-@router.get("/{area_id}/comparison", response_model=AnalysisAreaComparison)
+@router.get("/{area_id}/comparison", response_model=AnalysisAreaComparison, summary="Gefilterten Gesamtstadtvergleich laden")
 async def get_area_comparison(
     area_id: uuid.UUID, session: SessionDep, categories: str | None = None, floors: str | None = None,
     area_sizes: str | None = None, occupancy_statuses: str | None = None, business_structures: str | None = None,

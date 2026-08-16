@@ -8,7 +8,7 @@
       <MapCanvas />
 
       <nav
-        v-if="!mapStore.polygonPreviewOpen"
+        v-if="mapStore.activeMobilePanel === null"
         class="absolute bottom-[calc(env(safe-area-inset-bottom)+2.25rem)] left-1/2 z-20 grid max-w-[calc(100%-1rem)] -translate-x-1/2 grid-flow-col auto-cols-max gap-1.5 rounded-2xl border border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur lg:hidden"
         aria-label="Kartenaktionen"
       >
@@ -38,7 +38,7 @@
       :open="mapStore.activeMobilePanel !== null"
       :title="activePanelTitle"
       :close-label="activePanelCloseLabel"
-      :content-key="mapStore.activeMobilePanel || 'closed'"
+      :content-key="activePanelContentKey"
       initial-snap="medium"
       @update:open="handleSheetOpen"
     >
@@ -50,16 +50,10 @@
         </div>
       </template>
       <RightSidebar v-else-if="mapStore.activeMobilePanel === 'analytics'" />
-    </AppBottomSheet>
-
-    <Drawer :open="mapStore.polygonPreviewOpen" side="bottom" label="Ausgewählte Fläche" @close="closePreview">
-      <div class="min-w-0 bg-[#f4f4f4] p-3 pt-2">
-        <div class="mx-auto mb-2 h-1 w-10 rounded-full bg-slate-300" aria-hidden="true" />
-        <div class="max-h-[calc(min(72dvh,620px)-env(safe-area-inset-bottom))] min-w-0 overflow-y-auto overscroll-contain">
-          <PolygonStatistics />
-        </div>
+      <div v-else-if="mapStore.activeMobilePanel === 'selection'" class="-m-3 min-h-full bg-white p-4">
+        <MapSelectionContent embedded />
       </div>
-    </Drawer>
+    </AppBottomSheet>
   </section>
 </template>
 
@@ -72,6 +66,7 @@ const analyticsStore = useAnalyticsStore()
 const osmStore = useOsmViewportStore()
 const analysisAreasStore = useAnalysisAreasStore()
 const authStore = useAuthStore()
+const mapSelection = useMapSelection()
 const activeFilterCount = computed(() => (
   (filterStore.selectedSize !== 'M' ? 1 : 0)
   + (filterStore.selectedFloor !== 'EG' ? 1 : 0)
@@ -83,11 +78,23 @@ const activeFilterCount = computed(() => (
 ))
 const activePanelTitle = computed(() => {
   if (mapStore.activeMobilePanel === 'filter') return 'Filter & Ansichten'
+  if (mapStore.activeMobilePanel === 'selection' && mapStore.selectedMapEntity?.type === 'polygon') return 'Ausgewählte Fläche'
   if (osmStore.selectedFeature) return 'OpenStreetMap-Objekt'
   if (analysisAreasStore.selectedArea) return analysisAreasStore.selectedArea.name
   return 'Kennzahlen & Analyse'
 })
-const activePanelCloseLabel = computed(() => mapStore.activeMobilePanel === 'filter' ? 'Filter schließen' : 'Analyse schließen')
+const activePanelCloseLabel = computed(() => {
+  if (mapStore.activeMobilePanel === 'filter') return 'Filter schließen'
+  if (mapStore.activeMobilePanel === 'selection') return 'Auswahl schließen'
+  return 'Analyse schließen'
+})
+const activePanelContentKey = computed(() => {
+  const entity = mapStore.selectedMapEntity
+  if (mapStore.activeMobilePanel !== 'selection' || !entity) return mapStore.activeMobilePanel || 'closed'
+  if (entity.type === 'polygon') return `polygon:${entity.id}`
+  if (entity.type === 'osm') return `osm:${entity.feature.properties.osm_type}:${entity.feature.properties.osm_id}`
+  return `analysis-area:${entity.id}`
+})
 
 let analyticsTimer: ReturnType<typeof setTimeout> | undefined
 let desktopQuery: MediaQueryList | undefined
@@ -134,6 +141,7 @@ onBeforeUnmount(() => {
     window.history.back()
   }
   mapStore.closeMobilePanels()
+  mapSelection.clearSelection()
   desktopQuery?.removeEventListener('change', handleDesktopBreakpoint)
   window.removeEventListener('popstate', handlePopState)
 })
@@ -151,11 +159,8 @@ function handleSheetOpen(open: boolean) {
 }
 
 function closeMobilePanel() {
+  if (mapStore.activeMobilePanel === 'selection') mapSelection.clearSelection()
   mapStore.closeMobilePanel()
-}
-
-function closePreview() {
-  mapStore.polygonPreviewOpen = false
 }
 
 function resetFilters() {
@@ -171,6 +176,7 @@ function handlePopState() {
   if (!panelHistoryActive || !mapStore.activeMobilePanel) return
   panelHistoryActive = false
   closingFromHistory = true
+  if (mapStore.activeMobilePanel === 'selection') mapSelection.clearSelection()
   mapStore.closeMobilePanel()
   nextTick(() => { closingFromHistory = false })
 }

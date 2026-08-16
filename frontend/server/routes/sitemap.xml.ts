@@ -1,18 +1,26 @@
 import type { PolygonSitemapEntry } from '~/types/geo'
+import type { AnalysisAreaSitemapEntry } from '~/types/analysisArea'
 import { buildAbsoluteUrl } from '~/utils/seo'
 import { documentationPaths } from '~/config/documentation'
 import { buildSitemapXml, type SitemapUrl } from '../utils/sitemap'
 
-const STATIC_PATHS = ['/', '/vergleich', '/ueber-das-projekt', '/open-data', '/kontakt', ...documentationPaths]
+const STATIC_PATHS = ['/', '/gebiete', '/vergleich', '/ueber-das-projekt', '/open-data', '/kontakt', ...documentationPaths]
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
-  const entries = await $fetch<PolygonSitemapEntry[]>(`${config.public.apiBaseUrl}/polygons/sitemap`)
+  const [entries, areas] = await Promise.all([
+    $fetch<PolygonSitemapEntry[]>(`${config.public.apiBaseUrl}/polygons/sitemap`),
+    $fetch<AnalysisAreaSitemapEntry[]>(`${config.public.apiBaseUrl}/analysis-areas/sitemap`)
+  ])
   const urls: SitemapUrl[] = [
     ...STATIC_PATHS.map(path => ({ loc: buildAbsoluteUrl(config.public.siteUrl, path) })),
     ...entries.map(entry => ({
       loc: buildAbsoluteUrl(config.public.siteUrl, `/flaechen/${entry.slug}`),
       lastmod: entry.updated_at
+    })),
+    ...areas.map(area => ({
+      loc: buildAbsoluteUrl(config.public.siteUrl, `/gebiete/${area.slug}`),
+      lastmod: area.updated_at
     }))
   ]
 

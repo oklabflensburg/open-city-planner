@@ -28,6 +28,9 @@ describe('integrated documentation', () => {
       '/dokumentation/rollen',
       '/dokumentation/verwaltung',
       '/dokumentation/administration',
+      '/dokumentation/gebiete',
+      '/dokumentation/methodik',
+      '/dokumentation/api',
       '/dokumentation/faq'
     ])
     expect(findDocumentationPage('karte')?.title).toBe('Karte bedienen')

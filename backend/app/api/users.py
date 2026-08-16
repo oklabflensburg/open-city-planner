@@ -18,7 +18,7 @@ from app.services.oauth_account_service import (
 )
 from app.services.polygons import serialize_polygon
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get("/me", response_model=UserRead)

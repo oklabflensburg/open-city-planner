@@ -25,7 +25,7 @@ from app.services.contact_service import (
 from app.services.email_service import send_contact_copy, send_contact_notification
 from app.services.rate_limit import check_rate_limit
 
-router = APIRouter(prefix="/contact", tags=["contact"])
+router = APIRouter(prefix="/contact", tags=["Contact"])
 logger = logging.getLogger(__name__)
 
 

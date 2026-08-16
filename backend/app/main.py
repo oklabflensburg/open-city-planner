@@ -32,7 +32,29 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await close_redis()
 
 
-app = FastAPI(title="Open City Map API", version="0.1.0", lifespan=lifespan)
+OPENAPI_TAGS = [
+    {"name": "Analysis Areas", "description": "Öffentliche Gemeinde-, Stadtteil- und Quartiersdaten mit räumlichen Aggregationen."},
+    {"name": "Analytics", "description": "Kennzahlen, Benchmarks und Zeitreihen des Stadtplanners."},
+    {"name": "Polygons", "description": "Öffentliche Verkaufsflächen sowie berechtigungsgeschützte Pflegeoperationen."},
+    {"name": "OpenStreetMap", "description": "Lokale OSM-Referenzdaten für Viewports, POIs und Flächenobjekte."},
+    {"name": "Authentication", "description": "Cookie-basierte Anmeldung, Sitzungen, OAuth und CSRF-geschützte Änderungen."},
+    {"name": "Users", "description": "Profil und benutzerbezogene Ressourcen."},
+    {"name": "Administration", "description": "Rollen- und Verwaltungsfunktionen für berechtigte Konten."},
+    {"name": "Contact", "description": "Öffentliches, rate-limitiertes Kontaktformular."},
+    {"name": "Media", "description": "Öffentlich abrufbare, serverseitig normalisierte Medien."},
+]
+
+app = FastAPI(
+    title="Stadtplanner API",
+    description=(
+        "Öffentliche GIS- und Analyse-API für Verkaufsflächen, räumliche Analysegebiete "
+        "und lokale OpenStreetMap-Referenzdaten. Schreiboperationen verwenden sichere "
+        "HttpOnly-Cookies und CSRF-Schutz; Verwaltungsdaten sind rollenbeschränkt."
+    ),
+    version=settings.api_version,
+    openapi_tags=OPENAPI_TAGS,
+    lifespan=lifespan,
+)
 
 app.add_middleware(GZipMiddleware, minimum_size=1_000, compresslevel=5)
 

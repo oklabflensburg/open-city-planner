@@ -26,24 +26,28 @@ describe('map information architecture', () => {
 
   it('prioritizes OSM and polygon selections before analytics in the right sidebar', () => {
     const sidebar = appFile('components/layout/RightSidebar.vue')
-    expect(sidebar.indexOf('<OsmFeatureSidebar')).toBeLessThan(sidebar.indexOf('<PolygonStatistics'))
-    expect(sidebar.indexOf('<PolygonStatistics')).toBeLessThan(sidebar.indexOf('<FastFacts'))
+    const selection = appFile('components/map/MapSelectionContent.vue')
+    expect(sidebar.indexOf('<MapSelectionContent')).toBeLessThan(sidebar.indexOf('<FastFacts'))
+    expect(selection).toContain('<OsmFeatureSidebar')
+    expect(selection).toContain('<PolygonStatistics')
   })
 
-  it('derives one exclusive polygon, OSM or null selection from existing stores', () => {
+  it('keeps one authoritative polygon, OSM, analysis-area or null selection', () => {
     const selection = appFile('composables/useMapSelection.ts')
+    const store = appFile('stores/map.ts')
     expect(selection).toContain("{ type: 'polygon'")
     expect(selection).toContain("{ type: 'osm'")
-    expect(selection).toContain('| null')
-    expect(selection.indexOf('osmStore.clearSelection()')).toBeLessThan(selection.indexOf('polygonStore.selectPolygon(id)'))
-    expect(selection.indexOf('polygonStore.clearSelection()')).toBeLessThan(selection.indexOf('osmStore.select(feature)'))
+    expect(selection).toContain("{ type: 'analysis-area'")
+    expect(selection).toContain('mapStore.selectedMapEntity = null')
+    expect(store).toContain('selectedMapEntity: null as SelectedMapEntity')
+    expect(selection.indexOf('mapStore.selectedMapEntity = {')).toBeLessThan(selection.indexOf('await polygonStore.loadSelection(id)'))
   })
 
   it('selects OSM features, clears both selections on empty map clicks and opens the mobile selection sheet', () => {
     const map = appFile('components/map/MapCanvas.vue')
     expect(map).toContain('mapSelection.selectOsm(feature)')
     expect(map).toContain('mapSelection.clearSelection()')
-    expect(map).toContain("mapStore.openMobilePanel('analytics')")
+    expect(map).toContain("mapStore.openMobilePanel('selection')")
     expect(map).toContain('mapSelection.selectPolygon(id)')
   })
 
@@ -53,9 +57,10 @@ describe('map information architecture', () => {
     const right = appFile('components/layout/RightSidebar.vue')
     expect(shell).toContain("mapStore.activeMobilePanel === 'filter'")
     expect(shell).toContain("mapStore.activeMobilePanel === 'analytics'")
+    expect(shell).toContain("mapStore.activeMobilePanel === 'selection'")
     expect(shell).toContain('<LeftSidebar')
-    expect(shell).toContain('<RightSidebar')
+    expect(shell).toContain('<MapSelectionContent embedded')
     expect(left).toContain('<MapLegend')
-    expect(right).toContain('<OsmFeatureSidebar')
+    expect(right).toContain('<MapSelectionContent')
   })
 })

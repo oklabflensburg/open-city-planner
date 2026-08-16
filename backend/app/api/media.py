@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 
 from app.services.avatar_service import avatar_storage_dir
 
-router = APIRouter(prefix="/media", tags=["media"])
+router = APIRouter(prefix="/media", tags=["Media"])
 
 
 @router.get("/avatars/{filename}")

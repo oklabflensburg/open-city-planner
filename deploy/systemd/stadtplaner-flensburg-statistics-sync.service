@@ -1,0 +1,16 @@
+[Unit]
+Description=Stadtplanner Flensburg statistics synchronization
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=stadtplanner
+Group=stadtplanner
+WorkingDirectory=/opt/stadtplanner/backend
+EnvironmentFile=/opt/stadtplanner/backend/.env
+ExecStart=/opt/stadtplanner/backend/.venv/bin/python -m app.cli.import_flensburg_statistics
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/stadtplanner/backend/data

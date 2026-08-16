@@ -145,6 +145,8 @@ Das Frontend erzeugt Canonical-, Open-Graph-, Twitter- und JSON-LD-Daten servers
 
 Öffentliche Polygone besitzen persistente URLs unter `/flaechen/<slug>`. Beim Anlegen wird die Geometrie gespeichert, per `ST_PointOnSurface` ein repräsentativer Punkt bestimmt und – falls `NOMINATIM_BASE_URL` gesetzt ist – serverseitig rückwärts geocodiert. Der erste Slug entsteht aus Etage, Straße, Hausnummer und Ort (beispielsweise `eg-holm-42-flensburg`); bei einem Geocoding-Ausfall wird einmalig ein stabiler Fallback wie `eg-flaeche-a83f21` verwendet. Konflikte erhalten `-2`, `-3` usw. Ein einmal vergebener Slug bleibt bei späteren Änderungen stabil.
 
+Gemeinde, Stadtteile und Quartiere verwenden die bereits synchronisierte PostGIS-Struktur `analysis_areas`. Ihre global eindeutigen Slugs werden beim OSM-Sync erzeugt und bei späteren Aktualisierungen bewusst beibehalten. Öffentliche SSR-Seiten unter `/gebiete/<slug>` zeigen ausschließlich räumlich aggregierte Flächen-, Branchen- und POI-Daten, den Vergleich zur Gemeinde sowie Parent-/Child-Beziehungen. Die dynamischen Gebietsrouten werden aus validen Geometrien mit dem gespeicherten `updated_at` in die Sitemap aufgenommen.
+
 Nominatim wird nie direkt aus dem Browser aufgerufen. Der Backend-Service setzt einen konfigurierbaren User-Agent, cached auf fünf Dezimalstellen gerundete Koordinaten und behandelt Timeouts oder Fehler als nicht kritisch: Die Geometrie bleibt gespeichert und die Oberfläche weist getrennt auf die fehlgeschlagene Adressauflösung hin.
 
 Login-, Registrierungs-, Passwort-, Profil- und Sitzungsseiten verwenden `noindex,nofollow`. `/impressum` und `/datenschutz` verwenden `noindex,follow` und sind ausdrücklich von Sitemap, Open Graph, Twitter Cards und JSON-LD ausgeschlossen.
@@ -156,6 +158,8 @@ Das Frontend nutzt ein globales Nuxt-Layout mit fixiertem Header, lokal ausgelie
 Neue Routen:
 
 - `/` interaktive Karte
+- `/gebiete` – hierarchisches Verzeichnis von Gemeinde, Stadtteilen und Quartieren
+- `/gebiete/<slug>` – öffentliche, serverseitig gerenderte Gebiets- und Standortanalyse
 - `/login`
 - `/registrieren`
 - `/passwort-vergessen`
@@ -172,6 +176,7 @@ Neue Routen:
 - `/datenschutz`
 - `/dokumentation` – öffentliches Benutzerhandbuch mit Suche und responsiver Navigation
 - `/dokumentation/<thema>` – thematische Anleitungen, unter anderem Karte, Flächen, Konto und Verwaltung
+- `/dokumentation/gebiete`, `/dokumentation/methodik` und `/dokumentation/api`
 
 ## Frontend-Dokumentation pflegen
 
@@ -248,6 +253,14 @@ API-Endpunkte:
 - `GET /api/v1/analytics/overview` – Kennzahlen zusammen mit berechneter Shopanzahl und Branchenverteilung
 
 Die Kennzahlen-Card auf der Karte ist ausschließlich lesend und zeigt fehlende Werte als `—`. Die Bearbeitung erfolgt auf der eigenen, nicht indexierbaren Seite `/verwaltung/kennzahlen`. Der zugehörige Menüeintrag und die Route sind nur für `VERWALTUNG` und bestehende Superuser verfügbar; normale und ausgeloggte Nutzer haben ausschließlich Lesezugriff. Änderungen werden erst mit „Speichern“ übertragen und anschließend unmittelbar im Analytics-Store aktualisiert. Der Backend-Endpunkt erzwingt die Rolle unabhängig von der Frontend-Navigation zusätzlich serverseitig.
+
+## Administratives Auditlog
+
+Das bestehende `admin_audit_logs`-Modell wird über den paginierten read-only Endpoint `GET /api/v1/admin/audit-logs` und die nicht indexierbare Nuxt-Seite `/admin/audit-log` sichtbar gemacht. Beide Zugriffsebenen sind ausschließlich für `is_superuser = true` vorgesehen; `VERWALTUNG` allein reicht nicht aus. Filterung und Pagination erfolgen in PostgreSQL, die Standardabfrage nutzt den vorhandenen `created_at`-Index, und potenziell sensible Metadaten werden vor der DTO-Ausgabe rekursiv redigiert. Es gibt weder einen Auditlog-Schreib-/Löschendpoint noch eine entsprechende UI-Aktion.
+
+## Kommunale Statistik
+
+Der Zahlenspiegel der Stadt Flensburg wird wöchentlich über die öffentliche Superset-Chart-Data-API geprüft und normalisiert in PostgreSQL importiert. Die Zeitreihen von 2011 bis 2025 werden über eine explizite Zuordnung der amtlichen Stadtteilnummern 01–13 mit `analysis_areas` verknüpft. Quartiere erhalten keine erfundenen Werte, sondern klar gekennzeichnete Parent-Stadtteilwerte. Rohdateien liegen nicht im Repository; Quelle, Datenstand und Datenlizenz Deutschland – Zero – Version 2.0 werden auf den Gebietsseiten angezeigt. Die technische Discovery und Methodik stehen in [docs/flensburg-statistics.md](docs/flensburg-statistics.md).
 
 Externe OAuth-/OIDC-Konten werden über `user_oauth_accounts` mit lokalen Benutzern verknüpft. Die Tabelle speichert nur Provider, stabile Provider-Subject-ID, optionale Metadaten und Zeitpunkte, aber keine Provider Access Tokens. Eindeutig sind sowohl `(provider, provider_subject)` als auch `(user_id, provider)`.
 

@@ -1,0 +1,142 @@
+<template>
+  <ContentPageShell
+    :title="area.name"
+    :description="`${typeLabel} mit aktuellen Standort- und Einzelhandelsdaten aus Stadtplanner.`"
+    :eyebrow="typeLabel"
+    :breadcrumbs="breadcrumbs"
+    max-width="wide"
+  >
+    <template #actions>
+      <NuxtLink class="inline-flex min-h-11 items-center rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white hover:bg-[#103c59]" :to="`/?area=${area.slug}`">In der Karte öffnen</NuxtLink>
+    </template>
+
+    <section aria-labelledby="kennzahlen">
+      <h2 id="kennzahlen" class="text-2xl font-black text-slate-950">Kennzahlen</h2>
+      <dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div><PolygonMetricCard label="Erfasste Flächen" :value="formatNumber(analytics.metrics.polygon_count)" /></div>
+        <div><PolygonMetricCard label="Gesamtfläche" :value="formatSquareMetres(analytics.metrics.total_area_m2)" /></div>
+        <div><PolygonMetricCard label="Leerstandsquote" :value="formatPercent(analytics.metrics.vacancy_rate)" /><p class="mt-1 px-1 text-xs text-slate-500">{{ rateHint(analytics.metrics.known_occupancy_count) }}</p></div>
+        <div><PolygonMetricCard label="Filialisierungsgrad" :value="formatPercent(analytics.metrics.chain_store_rate)" /><p class="mt-1 px-1 text-xs text-slate-500">{{ rateHint(analytics.metrics.known_business_structure_count) }}</p></div>
+        <div><PolygonMetricCard label="Ø Flächengröße" :value="formatSquareMetres(analytics.metrics.average_area_m2)" /></div>
+        <div><PolygonMetricCard label="Median Flächengröße" :value="formatSquareMetres(analytics.metrics.median_area_m2)" /></div>
+        <div><PolygonMetricCard label="POIs im Gebiet" :value="formatNumber(analytics.poi_count)" /></div>
+        <div><PolygonMetricCard label="Verkaufsflächendichte" :value="analytics.retail_area_density_m2_per_km2 == null ? '—' : `${formatNumber(analytics.retail_area_density_m2_per_km2)} m²/km²`" /></div>
+        <div><PolygonMetricCard label="Gebietsfläche" :value="`${formatNumber(area.area_m2 / 1_000_000)} km²`" /></div>
+      </dl>
+    </section>
+
+    <div class="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,.8fr)]">
+      <AnalysisAreaDetailMap :area="area" />
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="einordnung">
+        <h2 id="einordnung" class="text-xl font-black text-slate-950">Einordnung</h2>
+        <p class="mt-3 leading-7 text-slate-700">{{ comparisonText }}</p>
+        <dl v-if="area.area_type !== 'MUNICIPALITY'" class="mt-5 grid grid-cols-2 gap-3 border-t border-slate-200 pt-5 text-sm">
+          <div><dt class="font-semibold text-slate-500">{{ area.name }}</dt><dd class="mt-1 font-black">{{ formatPercent(comparison.area_metrics.vacancy_rate) }}</dd></div>
+          <div><dt class="font-semibold text-slate-500">{{ comparison.municipality.name }}</dt><dd class="mt-1 font-black">{{ formatPercent(comparison.municipality_metrics.vacancy_rate) }}</dd></div>
+        </dl>
+        <dl v-if="area.parent" class="mt-5 border-t border-slate-200 pt-5 text-sm">
+          <dt class="font-semibold text-slate-500">Übergeordnetes Gebiet</dt>
+          <dd class="mt-1"><NuxtLink class="font-bold text-[#154d73] underline" :to="`/gebiete/${area.parent.slug}`">{{ area.parent.name }}</NuxtLink></dd>
+          <template v-if="area.municipality && area.municipality.id !== area.parent.id">
+            <dt class="mt-4 font-semibold text-slate-500">Gemeinde</dt>
+            <dd class="mt-1"><NuxtLink class="font-bold text-[#154d73] underline" :to="`/gebiete/${area.municipality.slug}`">{{ area.municipality.name }}</NuxtLink></dd>
+          </template>
+        </dl>
+      </section>
+    </div>
+
+    <AreaStatistics :statistics="statistics" :series="populationSeries" />
+
+    <div class="mt-8 grid gap-6 lg:grid-cols-2">
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="branchen">
+        <h2 id="branchen" class="text-xl font-black text-slate-950">Branchenverteilung</h2>
+        <p v-if="!analytics.industry_distribution.length" class="mt-4 text-slate-500">Keine Branchendaten verfügbar.</p>
+        <ul v-else class="mt-4 space-y-3">
+          <li v-for="item in analytics.industry_distribution" :key="item.category" class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 text-sm">
+            <span>{{ getIndustryLabel(item.category) }}</span><strong>{{ formatNumber(item.count) }}</strong>
+            <span class="col-span-2 h-2 overflow-hidden rounded-full bg-slate-100"><span class="block h-full rounded-full bg-[#154d73]" :style="{ width: `${industryShare(item.count)}%` }" /></span>
+          </li>
+        </ul>
+      </section>
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="pois">
+        <h2 id="pois" class="text-xl font-black text-slate-950">OpenStreetMap im Gebiet</h2>
+        <p v-if="!analytics.poi_categories.length" class="mt-4 text-slate-500">Keine POI-Daten verfügbar.</p>
+        <dl v-else class="mt-4 grid grid-cols-2 gap-3">
+          <div v-for="item in analytics.poi_categories" :key="item.category" class="rounded-xl bg-slate-50 p-3">
+            <dt class="text-sm text-slate-600">{{ item.category }}</dt><dd class="mt-1 text-xl font-black">{{ formatNumber(item.count) }}</dd>
+          </div>
+        </dl>
+      </section>
+    </div>
+
+    <section v-if="area.children.length" class="mt-8" aria-labelledby="untergebiete">
+      <h2 id="untergebiete" class="text-2xl font-black text-slate-950">Untergeordnete Gebiete</h2>
+      <ul class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <li v-for="child in area.children" :key="child.id"><NuxtLink class="block rounded-2xl border border-slate-200 bg-white p-5 font-bold text-[#154d73] shadow-sm hover:border-[#154d73]" :to="`/gebiete/${child.slug}`">{{ child.name }} <span aria-hidden="true">→</span></NuxtLink></li>
+      </ul>
+    </section>
+
+    <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="flaechen">
+      <div class="flex flex-wrap items-center justify-between gap-3"><h2 id="flaechen" class="text-2xl font-black text-slate-950">Flächen im Gebiet</h2><NuxtLink class="font-bold text-[#154d73] underline" :to="`/?area=${area.slug}`">Alle in der Karte ansehen</NuxtLink></div>
+      <p v-if="!polygons.length" class="mt-4 text-slate-500">Für dieses Gebiet sind derzeit keine öffentlichen Flächen erfasst.</p>
+      <ul v-else class="mt-4 divide-y divide-slate-200">
+        <li v-for="polygon in polygons" :key="polygon.id" class="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div><NuxtLink class="font-bold text-slate-950 hover:text-[#154d73] hover:underline" :to="`/flaechen/${polygon.slug}`">{{ polygon.name }}</NuxtLink><p v-if="polygon.address_display_name" class="mt-1 text-sm text-slate-600">{{ polygon.address_display_name }}</p><p class="mt-1 text-sm text-slate-500">{{ getIndustryLabel(polygon.category) }} · {{ formatSquareMetres(polygon.area_m2) }}</p></div>
+          <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{{ occupancyLabel(polygon.occupancy_status) }}</span>
+        </li>
+      </ul>
+    </section>
+
+    <footer class="mt-8 text-sm leading-6 text-slate-500">
+      <h2 class="text-lg font-black text-slate-950">Datenquellen und Datenstand</h2>
+      <p>Datenstand: {{ formatDate(analytics.metrics.data_updated_at || area.updated_at) }}. Gebietsgrenzen: {{ area.source === 'OSM' ? 'OpenStreetMap' : 'manuell gepflegt' }}<template v-if="area.source_osm_id"> ({{ area.source_osm_type }} {{ area.source_osm_id }})</template>.</p>
+      <p class="mt-1">Quoten werden nur aus Flächen mit bekanntem Status berechnet. <NuxtLink class="font-semibold text-[#154d73] underline" to="/dokumentation/methodik">Methodik und Datenquellen</NuxtLink></p>
+    </footer>
+  </ContentPageShell>
+</template>
+
+<script setup lang="ts">
+import { getIndustryLabel } from '~/utils/industries'
+
+const route = useRoute()
+const nuxtApp = useNuxtApp()
+const slug = Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug
+if (!slug) throw createError({ statusCode: 404, statusMessage: 'Gebiet nicht gefunden' })
+const api = useAnalysisAreaApi()
+const { data } = await useAsyncData(`analysis-area-page-${slug}`, async () => {
+  try {
+    const [area, analytics, comparison, polygons, statistics] = await Promise.all([
+      api.bySlug(slug), api.analyticsBySlug(slug), api.comparisonBySlug(slug), api.polygonsBySlug(slug),
+      api.statisticsBySlug(slug)
+    ])
+    const populationSeries = statistics.latest.some(item => item.key === 'population')
+      ? await api.statisticSeriesBySlug(slug, 'population')
+      : { area: statistics.area, statistics_area: statistics.statistics_area, inherited_from_parent: statistics.inherited_from_parent, source: statistics.source, metric: { key: 'population', name: 'Bevölkerung', unit: 'persons', category: 'Bevölkerung' }, series: [] }
+    return { area, analytics, comparison, polygons, statistics, populationSeries }
+  } catch (error) {
+    const statusCode = typeof error === 'object' && error && 'statusCode' in error ? Number(error.statusCode) : 500
+    throw createError({ statusCode: statusCode === 404 ? 404 : 500, statusMessage: statusCode === 404 ? 'Gebiet nicht gefunden' : 'Gebietsdaten konnten nicht geladen werden' })
+  }
+})
+if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Gebiet nicht gefunden' })
+const { area, analytics, comparison, polygons, statistics, populationSeries } = data.value
+nuxtApp.runWithContext(() => useAnalysisAreaSeo(area))
+const typeLabel = ({ MUNICIPALITY: 'Gemeinde', DISTRICT: 'Stadtteil', QUARTER: 'Quartier' })[area.area_type]
+const breadcrumbs = [{ label: 'Start', to: '/' }, { label: 'Gebiete', to: '/gebiete' }, ...(area.municipality && area.municipality.id !== area.parent?.id ? [{ label: area.municipality.name, to: `/gebiete/${area.municipality.slug}` }] : []), ...(area.parent ? [{ label: area.parent.name, to: `/gebiete/${area.parent.slug}` }] : []), { label: area.name }]
+const numberFormat = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 })
+const formatNumber = (value: number) => numberFormat.format(value)
+const formatSquareMetres = (value: number | null) => value == null ? '—' : `${numberFormat.format(value)} m²`
+const formatPercent = (value: number | null) => value == null ? '—' : `${numberFormat.format(value)} %`
+const formatDate = (value: string | null) => value ? new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium' }).format(new Date(value)) : '—'
+const rateHint = (known: number) => known ? `Basis: ${formatNumber(known)} Flächen mit bekanntem Status` : 'Keine belastbare Basis'
+const industryTotal = analytics.industry_distribution.reduce((sum, item) => sum + item.count, 0)
+const industryShare = (count: number) => industryTotal ? Math.max(2, count / industryTotal * 100) : 0
+const occupancyLabel = (status: string) => ({ OCCUPIED: 'Belegt', VACANT: 'Leerstand', UNKNOWN: 'Unbekannt' })[status] || status
+const comparisonText = computed(() => {
+  if (area.area_type === 'MUNICIPALITY') return `Die Kennzahlen bilden den kommunalen Bezugsrahmen für Vergleiche der untergeordneten Gebiete in ${area.name}.`
+  const vacancy = comparison.differences.find(item => item.key === 'vacancy_rate')
+  if (vacancy?.difference == null) return `Für einen belastbaren Vergleich mit ${comparison.municipality.name} liegen noch nicht genügend Statusdaten vor.`
+  if (vacancy.difference === 0) return `Die berechnete Leerstandsquote entspricht der Quote von ${comparison.municipality.name}.`
+  return `Die berechnete Leerstandsquote liegt ${numberFormat.format(Math.abs(vacancy.difference))} Prozentpunkte ${vacancy.difference > 0 ? 'über' : 'unter'} der Quote von ${comparison.municipality.name}.`
+})
+</script>

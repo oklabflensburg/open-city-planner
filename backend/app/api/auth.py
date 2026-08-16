@@ -58,7 +58,7 @@ from app.services.oauth_account_service import (
 )
 from app.services.rate_limit import check_rate_limit
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 logger = logging.getLogger(__name__)
 
 

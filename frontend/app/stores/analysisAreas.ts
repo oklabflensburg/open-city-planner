@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
-import type { AnalysisArea, AnalysisAreaAnalytics, AnalysisAreaComparison, AnalysisAreaFeatureCollection, AnalysisAreaType } from '~/types/analysisArea'
+import type { AnalysisArea, AnalysisAreaAnalytics, AnalysisAreaComparison, AnalysisAreaFeatureCollection, AnalysisAreaType, AreaStatistics } from '~/types/analysisArea'
+import { useMapStore } from '~/stores/map'
 
 const emptyCollection: AnalysisAreaFeatureCollection = { type: 'FeatureCollection', features: [] }
 
@@ -8,9 +9,9 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
   state: () => ({
     areas: [] as AnalysisArea[],
     featureCollection: emptyCollection,
-    selectedAreaId: null as string | null,
     analytics: null as AnalysisAreaAnalytics | null,
     comparison: null as AnalysisAreaComparison | null,
+    statistics: null as AreaStatistics | null,
     loading: false,
     detailsLoading: false,
     error: null as string | null,
@@ -18,7 +19,13 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
     requestId: 0
   }),
   getters: {
-    selectedArea: state => state.areas.find(area => area.id === state.selectedAreaId) || null
+    selectedAreaId(): string | null {
+      const entity = useMapStore().selectedMapEntity
+      return entity?.type === 'analysis-area' ? entity.id : null
+    },
+    selectedArea(state): AnalysisArea | null {
+      return state.areas.find(area => area.id === this.selectedAreaId) || null
+    }
   },
   actions: {
     async load() {
@@ -39,12 +46,8 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
         this.loading = false
       }
     },
-    async select(id: string) {
-      this.selectedAreaId = id
-      await this.loadDetails()
-    },
-    async loadDetails() {
-      const id = this.selectedAreaId
+    async loadDetails(selectedId?: string) {
+      const id = selectedId || this.selectedAreaId
       if (!id) return
       const current = ++this.requestId
       this.detailsLoading = true
@@ -59,13 +62,16 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
         if (filter.occupancyStatuses.length) query.set('occupancy_statuses', filter.occupancyStatuses.join(','))
         if (filter.businessStructures.length) query.set('business_structures', filter.businessStructures.join(','))
         const api = useApi()
-        const [analytics, comparison] = await Promise.all([
+        const selectedArea = this.areas.find(area => area.id === id)
+        const [analytics, comparison, statistics] = await Promise.all([
           api.request<AnalysisAreaAnalytics>(`/analysis-areas/${id}/analytics?${query}`),
-          api.request<AnalysisAreaComparison>(`/analysis-areas/${id}/comparison?${query}`)
+          api.request<AnalysisAreaComparison>(`/analysis-areas/${id}/comparison?${query}`),
+          selectedArea ? api.request<AreaStatistics>(`/analysis-areas/by-slug/${encodeURIComponent(selectedArea.slug)}/statistics`) : Promise.resolve(null)
         ])
         if (current === this.requestId && this.selectedAreaId === id) {
           this.analytics = analytics
           this.comparison = comparison
+          this.statistics = statistics
         }
       } catch (error) {
         if (current === this.requestId) this.error = error instanceof Error ? error.message : 'Gebietsanalyse konnte nicht geladen werden.'
@@ -74,9 +80,11 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
       }
     },
     clearSelection() {
-      this.selectedAreaId = null
       this.analytics = null
       this.comparison = null
+      this.statistics = null
+      this.detailsLoading = false
+      this.error = null
       this.requestId++
     }
   }

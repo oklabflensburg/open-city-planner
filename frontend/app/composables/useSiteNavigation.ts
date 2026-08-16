@@ -6,6 +6,7 @@ export type NavigationItem = {
 export function useSiteNavigation() {
   const primaryNavigation: NavigationItem[] = [
     { label: 'Karte', to: '/' },
+    { label: 'Gebiete', to: '/gebiete' },
     { label: 'Über das Projekt', to: '/ueber-das-projekt' },
     { label: 'Dokumentation', to: '/dokumentation' }
   ]

@@ -49,7 +49,6 @@
           ref="scroller"
           class="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-[#f4f4f4] p-3"
           data-sheet-scroll
-          @scroll="rememberScrollPosition"
           @pointerdown="prepareContentDrag"
           @pointermove="continueDrag"
           @pointerup="finishDrag"
@@ -72,6 +71,7 @@
 
 <script setup lang="ts">
 import { X } from 'lucide-vue-next'
+import { resetBottomSheetScroll, shouldResetBottomSheetScroll, type BottomSheetContentKey } from '~/utils/bottomSheetScroll'
 
 type SheetSnap = 'medium' | 'expanded'
 type DragSource = 'handle' | 'content'
@@ -82,11 +82,11 @@ const props = withDefaults(defineProps<{
   initialSnap?: SheetSnap
   closeOnOverlay?: boolean
   closeLabel?: string
-  contentKey?: string
+  contentKey?: BottomSheetContentKey
 }>(), {
   initialSnap: 'medium',
   closeOnOverlay: true,
-  contentKey: 'default'
+  contentKey: null
 })
 
 const emit = defineEmits<{
@@ -102,8 +102,6 @@ const snap = ref<SheetSnap>(props.initialSnap)
 const panelHeight = ref(0)
 const dragging = ref(false)
 let returnFocusTo: HTMLElement | null = null
-const storedScrollPositions = new Map<string, number>()
-let renderedContentKey = props.contentKey
 let dragPointerId: number | null = null
 let dragStartY = 0
 let dragStartHeight = 0
@@ -123,9 +121,14 @@ const sheetStyle = computed(() => ({
   maxHeight: 'calc(100dvh - 0.5rem)'
 }))
 
-watch(() => props.open, async (open) => {
+watch([() => props.open, () => props.contentKey], async ([open, contentKey], [wasOpen, previousContentKey]) => {
   if (!import.meta.client) return
-  if (open) {
+  if (!open) {
+    if (wasOpen) cleanupOpenState()
+    return
+  }
+
+  if (!wasOpen) {
     returnFocusTo = document.activeElement instanceof HTMLElement ? document.activeElement : null
     snap.value = props.initialSnap
     panelHeight.value = snapHeight(snap.value)
@@ -133,21 +136,11 @@ watch(() => props.open, async (open) => {
     window.addEventListener('resize', handleViewportChange)
     window.addEventListener('orientationchange', handleOrientationChange)
     window.visualViewport?.addEventListener('resize', handleViewportChange)
-    await nextTick()
-    if (scroller.value) scroller.value.scrollTop = storedScrollPositions.get(props.contentKey) || 0
-    panel.value?.focus()
-  } else {
-    cleanupOpenState()
   }
-}, { immediate: true })
 
-watch(() => props.contentKey, async (contentKey) => {
-  if (!props.open || contentKey === renderedContentKey) return
-  if (scroller.value) storedScrollPositions.set(renderedContentKey, scroller.value.scrollTop)
-  renderedContentKey = contentKey
-  await nextTick()
-  if (scroller.value) scroller.value.scrollTop = storedScrollPositions.get(contentKey) || 0
-})
+  if (shouldResetBottomSheetScroll(open, wasOpen, contentKey, previousContentKey)) await resetScrollPosition()
+  if (!wasOpen) panel.value?.focus()
+}, { immediate: true })
 
 onBeforeUnmount(cleanupOpenState)
 
@@ -273,8 +266,8 @@ function resetDrag() {
   dragSource = null
 }
 
-function rememberScrollPosition() {
-  storedScrollPositions.set(props.contentKey, scroller.value?.scrollTop || 0)
+async function resetScrollPosition() {
+  await resetBottomSheetScroll(() => scroller.value)
 }
 
 function handleViewportChange() {

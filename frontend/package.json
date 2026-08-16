@@ -7,6 +7,7 @@
     "build": "nuxt build",
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "map-style:build": "node scripts/build-map-style.mjs"
   },
@@ -20,13 +21,14 @@
     "maplibre-gl": "^5.6.2",
     "nuxt": "^4.0.0",
     "pinia": "^3.0.3",
-    "vue": "^3.5.18",
     "terra-draw": "^1.32.3",
     "terra-draw-maplibre-gl-adapter": "^1.4.1",
+    "vue": "^3.5.18",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@nuxt/test-utils": "^3.19.2",
+    "@playwright/test": "^1.62.1",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^24.3.0",
     "@vue/test-utils": "^2.4.6",

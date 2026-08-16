@@ -9,6 +9,7 @@ import {
 } from '../app/config/mapStyles'
 
 const style = JSON.parse(readFileSync(resolve(process.cwd(), 'public/map-styles/stadtplaner-light.json'), 'utf8'))
+const mapCanvas = readFileSync(resolve(process.cwd(), 'app/components/map/MapCanvas.vue'), 'utf8')
 const availableSourceLayers = new Set([
   'ocean', 'water_polygons', 'land', 'water_lines', 'dam_polygons', 'dam_lines',
   'pier_polygons', 'pier_lines', 'sites', 'street_polygons', 'streets', 'buildings',
@@ -39,6 +40,15 @@ describe('Stadtplaner Light map style', () => {
     expect(style.layers.find((layer: { id: string }) => layer.id === 'paths').minzoom).toBe(16)
     expect(style.layers.filter((layer: { type: string }) => layer.type === 'symbol')).toHaveLength(5)
     expect(JSON.stringify(style.layers)).not.toMatch(/restaurant|cafe|shop|supermarket/)
+  })
+
+  it('uses glyph stacks that are available from the configured VersaTiles server', () => {
+    for (const layer of style.layers.filter((item: { type: string }) => item.type === 'symbol')) {
+      expect(layer.layout['text-font']).toMatchObject([expect.stringMatching(/^noto_sans_/)])
+    }
+    expect(mapCanvas).toContain("['get', 'point_count_abbreviated'], 'text-font': ['noto_sans_regular']")
+    expect(mapCanvas.match(/'text-font': \['noto_sans_regular'\]/g)).toHaveLength(3)
+    expect(`${JSON.stringify(style)}${mapCanvas}`).not.toContain('Arial Unicode MS')
   })
 
   it('loads Neutrino only after the configured/local style fails', async () => {

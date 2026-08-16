@@ -14,7 +14,7 @@ describe('mobile GIS interface', () => {
     expect(shell).toContain('env(safe-area-inset-bottom)')
   })
 
-  it('renders filter and analytics through the exact same bottom-sheet component', () => {
+  it('renders filter, analytics and selection through the exact same bottom-sheet component', () => {
     const shell = appFile('components/layout/AppShell.vue')
     const map = appFile('components/map/MapCanvas.vue')
     const sheetUses = shell.match(/<AppBottomSheet/g) || []
@@ -24,27 +24,33 @@ describe('mobile GIS interface', () => {
     expect(shell).toContain(':title="activePanelTitle"')
     expect(shell).toContain("mapStore.activeMobilePanel === 'filter'")
     expect(shell).toContain("mapStore.activeMobilePanel === 'analytics'")
+    expect(shell).toContain("mapStore.activeMobilePanel === 'selection'")
     expect(shell.match(/initial-snap="medium"/g)).toHaveLength(1)
-    expect(shell).toContain('label="Ausgewählte Fläche"')
+    expect(shell).toContain('<MapSelectionContent embedded')
+    expect(shell).not.toContain('<Drawer')
     expect(shell).toContain('filterStore.reset')
-    expect(map).toContain('mapStore.polygonPreviewOpen = true')
+    expect(map).not.toContain('polygonPreviewOpen')
+    expect(map).toContain("mapStore.openMobilePanel('selection')")
   })
 
   it('uses one mutually exclusive mobile panel state', () => {
     const store = appFile('stores/map.ts')
     const shell = appFile('components/layout/AppShell.vue')
-    expect(store).toContain("export type MobilePanel = 'filter' | 'analytics' | null")
+    expect(store).toContain("export type MobilePanel = 'filter' | 'analytics' | 'selection' | null")
     expect(store).toContain('activeMobilePanel: null as MobilePanel')
     expect(store).not.toContain('filterDrawerOpen')
     expect(store).not.toContain('analysisDrawerOpen')
+    expect(store).not.toContain('polygonPreviewOpen')
     expect(shell).toContain("mapStore.openMobilePanel('filter')")
     expect(shell).toContain("mapStore.openMobilePanel('analytics')")
   })
 
   it('keeps preview navigation slug-based and OSM data on demand', () => {
     const preview = appFile('components/analysis/PolygonStatistics.vue')
+    const store = appFile('stores/polygon.ts')
     expect(preview).toContain('/flaechen/${polygon.slug}')
-    expect(preview).toContain('osm.loadBySlug')
+    expect(preview).toContain(':info="store.selectedOsmInfo"')
+    expect(store).toContain('api.osmBySlug(polygon.slug)')
   })
 
   it('provides accessible modal, focus and browser-back behavior', () => {
@@ -72,8 +78,21 @@ describe('mobile GIS interface', () => {
     expect(sheet).toContain('isInteractiveTarget')
     expect(sheet).toContain('@touchmove="continueContentTouch"')
     expect(sheet).toContain('event.preventDefault()')
-    expect(sheet).toContain('storedScrollPositions')
+    expect(sheet).not.toContain('storedScrollPositions')
     expect(sheet).toContain('props.contentKey')
+  })
+
+  it('resets only newly opened or identity-changed sheet content to the top', () => {
+    const sheet = appFile('components/ui/AppBottomSheet.vue')
+    const shell = appFile('components/layout/AppShell.vue')
+    expect(sheet).toContain("watch([() => props.open, () => props.contentKey]")
+    expect(sheet).toContain('shouldResetBottomSheetScroll(open, wasOpen, contentKey, previousContentKey)')
+    expect(sheet).toContain('resetBottomSheetScroll(() => scroller.value)')
+    expect(sheet).not.toContain("behavior: 'smooth'")
+    expect(sheet).not.toContain('window.scrollTo')
+    expect(shell).toContain("return `polygon:${entity.id}`")
+    expect(shell).toContain('return `osm:${entity.feature.properties.osm_type}:${entity.feature.properties.osm_id}`')
+    expect(shell).toContain('return `analysis-area:${entity.id}`')
   })
 
   it('uses identical safe-area, animation and reduced-motion handling', () => {

@@ -3,7 +3,8 @@ from collections.abc import Callable
 from typing import Annotated
 
 import jwt
-from fastapi import Cookie, Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, Security, status
+from fastapi.security import APIKeyCookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.csrf import validate_csrf
@@ -14,6 +15,12 @@ from app.models.user import User
 from app.services.auth_service import get_user_by_id
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+access_cookie_scheme = APIKeyCookie(
+    name=get_settings().auth_access_cookie_name,
+    scheme_name="AccessCookie",
+    auto_error=False,
+    description="HttpOnly-Zugriffscookie einer Stadtplanner-Sitzung. Schreibzugriffe benötigen zusätzlich den X-CSRF-Token-Header.",
+)
 
 
 def auth_exception(code: str = "AUTH_REQUIRED", message: str = "Bitte melde dich an.") -> HTTPException:
@@ -35,7 +42,11 @@ async def get_optional_user(request: Request, session: SessionDep) -> User | Non
     return user
 
 
-async def get_current_user(request: Request, session: SessionDep) -> User:
+async def get_current_user(
+    request: Request,
+    session: SessionDep,
+    _documented_access_cookie: Annotated[str | None, Security(access_cookie_scheme)] = None,
+) -> User:
     settings = get_settings()
     token = request.cookies.get(settings.auth_access_cookie_name)
     if not token:
@@ -100,15 +111,6 @@ async def require_csrf_superuser(
 ) -> User:
     validate_csrf(request)
     return user
-
-
-def access_cookie() -> str | None:
-    settings = get_settings()
-
-    async def dependency(token: str | None = Cookie(default=None, alias=settings.auth_access_cookie_name)) -> str | None:
-        return token
-
-    return None
 
 
 def has_role(user: User, role: str) -> bool:

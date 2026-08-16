@@ -1,0 +1,50 @@
+export type AuditTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
+
+const ACTION_LABELS: Record<string, string> = {
+  USER_ROLE_ASSIGNED: 'Rolle zugewiesen',
+  USER_ROLE_REMOVED: 'Rolle entfernt',
+  USER_ACTIVATED: 'Konto aktiviert',
+  USER_DEACTIVATED: 'Konto deaktiviert',
+  USER_SUPERUSER_GRANTED_DIRECT: 'Superuser-Status zugewiesen',
+  REFRESH_TOKEN_REUSE_DETECTED: 'Token-Wiederverwendung erkannt',
+  FLENSBURG_STATISTICS_SYNC: 'Flensburg-Statistik synchronisiert'
+}
+
+export function auditActionLabel(action: string) {
+  return ACTION_LABELS[action] || action.replaceAll('_', ' ')
+}
+
+export function auditActionTone(action: string): AuditTone {
+  if (action.includes('DEACTIVATED') || action.includes('DELETE') || action.includes('REUSE')) return 'danger'
+  if (action.includes('ACTIVATED') || action.includes('ASSIGNED') || action.includes('CREATE')) return 'success'
+  if (action.includes('REMOVED')) return 'warning'
+  if (action.includes('AUTH') || action.includes('LOGIN')) return 'info'
+  return 'neutral'
+}
+
+export function formatAuditDate(value: string) {
+  return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(value))
+}
+
+export function auditChangeRows(details: Record<string, unknown>) {
+  const changes = isRecord(details.changes) ? details.changes : null
+  if (changes) return Object.entries(changes).flatMap(([field, value]) => isRecord(value) && ('before' in value || 'after' in value)
+    ? [{ field, before: value.before, after: value.after }]
+    : [])
+  const before = details.before
+  const after = details.after
+  if (isRecord(before) && isRecord(after)) {
+    return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+      .map(field => ({ field, before: before[field], after: after[field] }))
+  }
+  return []
+}
+
+export function displayAuditValue(value: unknown) {
+  if (value === null || value === undefined || value === '') return '—'
+  return typeof value === 'object' ? JSON.stringify(value) : String(value)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}

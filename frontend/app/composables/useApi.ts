@@ -44,6 +44,7 @@ const DEFINITIVE_AUTH_CODES = new Set([
 export const useApi = () => {
   const config = useRuntimeConfig()
   const authStore = useAuthStore()
+  const forwardedCookie = import.meta.server ? useRequestHeaders(['cookie']).cookie : undefined
 
   async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     return execute<T>(path, options)
@@ -82,8 +83,7 @@ export const useApi = () => {
       headers.set('Content-Type', 'application/json')
     }
     if (import.meta.server && !headers.has('Cookie')) {
-      const requestHeaders = useRequestHeaders(['cookie'])
-      if (requestHeaders.cookie) headers.set('Cookie', requestHeaders.cookie)
+      if (forwardedCookie) headers.set('Cookie', forwardedCookie)
     }
     const csrf = csrfToken(options.method)
     if (csrf) headers.set('X-CSRF-Token', csrf)

@@ -1,7 +1,8 @@
 import uuid
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.auth.dependencies import (
     SessionDep,
@@ -15,6 +16,7 @@ from app.schemas.admin import (
     AdminUserListRead,
     AdminUserRead,
     AdminUserStatusUpdate,
+    AuditLogListRead,
 )
 from app.services.admin_users import (
     assign_role,
@@ -25,9 +27,10 @@ from app.services.admin_users import (
     serialize_admin_user,
     set_user_active,
 )
+from app.services.audit_logs import list_audit_logs
 from app.services.cache_versions import bump_cache_versions
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["Administration"])
 CACHE_NAMESPACES = {"osm", "analytics", "analysis-areas", "polygons"}
 
 
@@ -61,6 +64,43 @@ async def invalidate_cache(
 
 def private_no_store(response: Response) -> None:
     response.headers["Cache-Control"] = "private, no-store"
+
+
+@router.get(
+    "/audit-logs",
+    response_model=AuditLogListRead,
+    summary="Auditlog-Einträge auflisten",
+    description="Liefert das unveränderliche administrative Auditlog ausschließlich für angemeldete Superuser.",
+    responses={
+        401: {"description": "Keine gültige Sitzung"},
+        403: {"description": "Superuser-Berechtigung erforderlich"},
+        422: {"description": "Ungültiger Filter oder Zeitraum"},
+    },
+)
+async def get_audit_logs(
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_superuser)],
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
+    action: str | None = Query(default=None, max_length=80),
+    user_id: uuid.UUID | None = None,
+    resource_type: str | None = Query(default=None, pattern="^(USER|SYSTEM)$"),
+    resource_id: uuid.UUID | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    search: str | None = Query(default=None, max_length=200),
+) -> AuditLogListRead:
+    private_no_store(response)
+    if (date_from and date_from.tzinfo is None) or (date_to and date_to.tzinfo is None):
+        raise HTTPException(status_code=422, detail="date_from and date_to must include a timezone")
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(status_code=422, detail="date_from must not be after date_to")
+    return await list_audit_logs(
+        session, page=page, page_size=page_size, action=action, user_id=user_id,
+        resource_type=resource_type, resource_id=resource_id,
+        date_from=date_from, date_to=date_to, search=search,
+    )
 
 
 @router.get("/roles", response_model=list[AdminRoleRead])

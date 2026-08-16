@@ -25,3 +25,44 @@ export interface AdminUserList {
   page: number
   page_size: number
 }
+
+export interface AuditLogActor {
+  id: string
+  display_name: string | null
+  email: string
+}
+
+export interface AuditLogResource {
+  type: 'USER' | 'SYSTEM' | string
+  id: string | null
+  label: string
+}
+
+export interface AuditLogItem {
+  id: string
+  created_at: string
+  action: string
+  actor: AuditLogActor | null
+  resource: AuditLogResource
+  summary: string
+  details: Record<string, unknown>
+}
+
+export interface AuditLogPage {
+  items: AuditLogItem[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+  available_actions: string[]
+}
+
+export interface AuditLogFilters {
+  search: string
+  action: string
+  userId: string
+  dateFrom: string
+  dateTo: string
+  page: number
+  pageSize: number
+}

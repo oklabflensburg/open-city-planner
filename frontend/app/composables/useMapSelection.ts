@@ -1,43 +1,37 @@
 import type { OsmViewportFeature } from '~/types/osm'
-import type { AnalysisArea } from '~/types/analysisArea'
-
-export type SelectedMapEntity
-  = | { type: 'polygon', id: string }
-    | { type: 'osm', feature: OsmViewportFeature }
-    | { type: 'analysis-area', area: AnalysisArea }
-    | null
 
 export function useMapSelection() {
+  const mapStore = useMapStore()
   const polygonStore = usePolygonStore()
   const osmStore = useOsmViewportStore()
   const analysisAreasStore = useAnalysisAreasStore()
 
-  const selectedMapEntity = computed<SelectedMapEntity>(() => {
-    if (polygonStore.selectedPolygonId) return { type: 'polygon', id: polygonStore.selectedPolygonId }
-    if (osmStore.selectedFeature) return { type: 'osm', feature: osmStore.selectedFeature }
-    if (analysisAreasStore.selectedArea) return { type: 'analysis-area', area: analysisAreasStore.selectedArea }
-    return null
-  })
+  const selectedMapEntity = computed(() => mapStore.selectedMapEntity)
 
   async function selectPolygon(id: string) {
-    osmStore.clearSelection()
-    analysisAreasStore.clearSelection()
-    await polygonStore.selectPolygon(id)
+    clearSelectionData()
+    mapStore.selectedMapEntity = { type: 'polygon', id }
+    await polygonStore.loadSelection(id)
   }
 
   async function selectOsm(feature: OsmViewportFeature) {
-    polygonStore.clearSelection()
-    analysisAreasStore.clearSelection()
-    await osmStore.select(feature)
+    clearSelectionData()
+    mapStore.selectedMapEntity = { type: 'osm', feature }
+    await osmStore.loadDetail(feature)
   }
 
   async function selectAnalysisArea(id: string) {
-    polygonStore.clearSelection()
-    osmStore.clearSelection()
-    await analysisAreasStore.select(id)
+    clearSelectionData()
+    mapStore.selectedMapEntity = { type: 'analysis-area', id }
+    await analysisAreasStore.loadDetails(id)
   }
 
   function clearSelection() {
+    mapStore.selectedMapEntity = null
+    clearSelectionData()
+  }
+
+  function clearSelectionData() {
     polygonStore.clearSelection()
     osmStore.clearSelection()
     analysisAreasStore.clearSelection()

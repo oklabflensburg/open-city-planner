@@ -82,18 +82,21 @@ describe('dynamic OSM viewport layer', () => {
     expect(map).toContain('getClusterExpansionZoom')
   })
 
-  it('gives Stadtplaner polygons click priority and selects OSM points or polygons', () => {
+  it('uses central POI-first picking for points, clusters and polygons', () => {
     const map = appFile('components/map/MapCanvas.vue')
-    expect(map).toContain("layers: ['overview-polygons-fill', 'osm-clusters', 'osm-polygons-fill']")
-    expect(map.indexOf("feature.layer.id === 'overview-polygons-fill'")).toBeLessThan(map.indexOf("feature.layer.id === 'osm-clusters'"))
+    const picking = appFile('utils/mapFeaturePicking.ts')
+    expect(map).toContain('pickMapEntityAtPoint(instance, event.point, tolerance)')
+    expect(picking.indexOf("kind: 'point-poi'")).toBeLessThan(picking.indexOf("kind: 'cluster'"))
+    expect(picking.indexOf("kind: 'cluster'")).toBeLessThan(picking.indexOf("kind: 'osm-poi-polygon'"))
+    expect(picking.indexOf("kind: 'osm-poi-polygon'")).toBeLessThan(picking.indexOf("kind: 'cityplanner-polygon'"))
     expect(map).toContain('mapSelection.selectOsm(feature)')
-    expect(map).toContain("{ layers: ['osm-poi-circle'] }")
+    expect(map).toContain("picked.kind === 'cityplanner-polygon'")
   })
 
   it('loads normalized details only after feature selection', () => {
     const store = appFile('stores/osmViewport.ts')
     const preview = appFile('components/osm/OsmFeatureSidebar.vue')
-    expect(store).toContain('async select(feature: OsmViewportFeature)')
+    expect(store).toContain('async loadDetail(feature: OsmViewportFeature)')
     expect(store).toContain('`/osm/features/${feature.properties.osm_type}/${feature.properties.osm_id}`')
     expect(preview).toContain('detailLoading')
     expect(preview).toContain('Auf OpenStreetMap ansehen')

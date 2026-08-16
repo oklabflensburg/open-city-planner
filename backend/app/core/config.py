@@ -8,6 +8,7 @@ BACKEND_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):
+    api_version: str = "0.2.0"
     database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:5432/open_city_map")
     cors_origins: str = "http://localhost:3000,http://localhost:3001"
     cors_origin_regex: str | None = None
@@ -93,6 +94,10 @@ class Settings(BaseSettings):
     osm_viewport_cache_ttl: int = 1_800
     analytics_cache_ttl: int = 600
     analysis_area_cache_ttl: int = 3_600
+    statistics_cache_ttl: int = 3_600
+    flensburg_superset_base_url: str = "https://superset.flensburg.de"
+    flensburg_superset_dashboard_id: str = "3b53ff0b-6e8c-435e-83f6-666f8a7cc158"
+    flensburg_superset_timeout_seconds: float = 60.0
     polygon_cache_ttl: int = 60
     comparable_cache_ttl: int = 600
     cache_payload_warning_bytes: int = 2_000_000

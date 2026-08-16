@@ -59,7 +59,7 @@ from app.services.polygons import (
     update_polygon_verwaltung,
 )
 
-router = APIRouter(prefix="/polygons", tags=["polygons"])
+router = APIRouter(prefix="/polygons", tags=["Polygons"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 

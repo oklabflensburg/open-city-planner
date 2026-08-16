@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -36,3 +37,34 @@ class AdminUserListRead(BaseModel):
 
 class AdminUserStatusUpdate(BaseModel):
     is_active: bool
+
+
+class AuditLogActor(BaseModel):
+    id: UUID
+    display_name: str | None
+    email: EmailStr
+
+
+class AuditLogResource(BaseModel):
+    type: str
+    id: UUID | None = None
+    label: str
+
+
+class AuditLogListItem(BaseModel):
+    id: UUID
+    created_at: datetime
+    action: str
+    actor: AuditLogActor | None = None
+    resource: AuditLogResource
+    summary: str
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class AuditLogListRead(BaseModel):
+    items: list[AuditLogListItem]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+    available_actions: list[str] = Field(default_factory=list)

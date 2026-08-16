@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
 import type { OsmBounds, OsmFeatureCategory, OsmFeatureDetail, OsmViewportFeature, OsmViewportResult } from '~/types/osm'
 import { osmPoiCategories } from '~/utils/osmCategories'
+import { useMapStore } from '~/stores/map'
 
 const VIEWPORT_BUFFER_RATIO = 0.2
 const VIEWPORT_CACHE_SIZE = 4
@@ -44,10 +45,10 @@ export const useOsmViewportStore = defineStore('osmViewport', {
     data: null as OsmViewportResult | null,
     loading: false,
     error: null as string | null,
-    selectedFeature: null as OsmViewportFeature | null,
     detail: null as OsmFeatureDetail | null,
     detailLoading: false,
     detailError: null as string | null,
+    detailRequestId: 0,
     lastRenderDurationMs: null as number | null,
     generation: 0,
     lastRequestKey: '',
@@ -60,6 +61,10 @@ export const useOsmViewportStore = defineStore('osmViewport', {
     controller: null as AbortController | null
   }),
   getters: {
+    selectedFeature(): OsmViewportFeature | null {
+      const entity = useMapStore().selectedMapEntity
+      return entity?.type === 'osm' ? entity.feature : null
+    },
     requestedCategories(state): OsmFeatureCategory[] {
       return [
         ...(state.showPois ? state.activeCategories : []),
@@ -172,23 +177,27 @@ export const useOsmViewportStore = defineStore('osmViewport', {
       }
       return generation === this.generation && !controller.signal.aborted ? this.data : null
     },
-    async select(feature: OsmViewportFeature) {
-      this.selectedFeature = feature
+    async loadDetail(feature: OsmViewportFeature) {
+      const requestId = ++this.detailRequestId
       this.detail = null
       this.detailError = null
       this.detailLoading = true
       try {
-        this.detail = await useApi().request<OsmFeatureDetail>(`/osm/features/${feature.properties.osm_type}/${feature.properties.osm_id}`)
+        const detail = await useApi().request<OsmFeatureDetail>(`/osm/features/${feature.properties.osm_type}/${feature.properties.osm_id}`)
+        if (requestId === this.detailRequestId && this.selectedFeature?.id === feature.id) this.detail = detail
       } catch (error) {
-        this.detailError = error instanceof Error ? error.message : 'Details konnten nicht geladen werden.'
+        if (requestId === this.detailRequestId && this.selectedFeature?.id === feature.id) {
+          this.detailError = error instanceof Error ? error.message : 'Details konnten nicht geladen werden.'
+        }
       } finally {
-        this.detailLoading = false
+        if (requestId === this.detailRequestId && this.selectedFeature?.id === feature.id) this.detailLoading = false
       }
     },
     clearSelection() {
-      this.selectedFeature = null
+      this.detailRequestId++
       this.detail = null
       this.detailError = null
+      this.detailLoading = false
     },
     setRenderDuration(value: number) {
       this.lastRenderDurationMs = Math.round(value)

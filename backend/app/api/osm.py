@@ -15,7 +15,7 @@ from app.services.osm_features import (
 )
 from app.services.rate_limit import check_rate_limit
 
-router = APIRouter(prefix="/osm", tags=["osm"])
+router = APIRouter(prefix="/osm", tags=["OpenStreetMap"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 

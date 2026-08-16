@@ -129,7 +129,7 @@ const accountNavigation = computed(() => [
   { label: 'Meine Flächen', to: '/meine-flaechen' },
   { label: 'Sicherheit', to: '/profil/sicherheit' },
   ...(hasVerwaltungRole(authStore.user) ? [{ label: 'Kennzahlen verwalten', to: '/verwaltung/kennzahlen' }] : []),
-  ...(authStore.user?.is_superuser ? [{ label: 'Administration', to: '/admin/benutzer' }] : [])
+  ...(authStore.user?.is_superuser ? [{ label: 'Administration', to: '/admin/benutzer' }, { label: 'Auditlog', to: '/admin/audit-log' }] : [])
 ])
 
 function isActive(path: string) {

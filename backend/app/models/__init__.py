@@ -6,6 +6,13 @@ from app.models.oauth_account import UserOAuthAccount
 from app.models.osm_feature import OsmFeature
 from app.models.password_reset_token import PasswordResetToken
 from app.models.polygon_osm_source import PolygonOsmSource
+from app.models.statistics import (
+    ExternalAreaMapping,
+    StatisticalDataset,
+    StatisticalImportRun,
+    StatisticalMetric,
+    StatisticalObservation,
+)
 from app.models.user import User
 from app.models.user_polygon import UserPolygon
 from app.models.user_session import UserSession
@@ -17,10 +24,15 @@ __all__ = [
     "CacheVersion",
     "CityMetrics",
     "EmailVerificationToken",
+    "ExternalAreaMapping",
     "OsmFeature",
     "PasswordResetToken",
     "PolygonAnalysisArea",
     "PolygonOsmSource",
+    "StatisticalDataset",
+    "StatisticalImportRun",
+    "StatisticalMetric",
+    "StatisticalObservation",
     "User",
     "UserOAuthAccount",
     "UserPolygon",

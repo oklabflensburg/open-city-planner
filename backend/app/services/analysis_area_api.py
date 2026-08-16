@@ -12,7 +12,11 @@ from app.models.user_polygon import UserPolygon
 from app.schemas.analysis_area import (
     AnalysisAreaAnalytics,
     AnalysisAreaComparison,
+    AnalysisAreaDetail,
+    AnalysisAreaPolygon,
     AnalysisAreaRead,
+    AnalysisAreaReference,
+    AnalysisAreaSitemapEntry,
     MetricDifference,
 )
 from app.schemas.analytics import IndustryCount
@@ -21,8 +25,9 @@ from app.services.cache_versions import cache_version
 
 AREA_SELECT = text("""
 SELECT area.uuid::text AS id, area.slug, area.name, area.area_type, parent.uuid::text AS parent_id,
-       parent.name AS parent_name, area.area_m2, area.source, area.source_osm_type, area.source_osm_id,
+       parent.name AS parent_name, parent.slug AS parent_slug, area.area_m2, area.source, area.source_osm_type, area.source_osm_id,
        area.source_admin_level, area.source_place, area.source_updated_at,
+       area.updated_at,
        (SELECT count(*) FROM analysis_areas child WHERE child.parent_id=area.id) AS child_count
 FROM analysis_areas area LEFT JOIN analysis_areas parent ON parent.id=area.parent_id
 """)
@@ -41,6 +46,53 @@ async def _list_areas_uncached(session: AsyncSession, area_type: str | None = No
 async def _area_detail_uncached(session: AsyncSession, area_id: uuid.UUID) -> AnalysisAreaRead | None:
     row = (await session.execute(text(AREA_SELECT.text + " WHERE area.uuid=:area_id"), {"area_id": area_id})).mappings().first()
     return _read(dict(row)) if row else None
+
+
+async def _area_detail_by_slug_uncached(session: AsyncSession, slug: str) -> AnalysisAreaDetail | None:
+    row = (await session.execute(text("""
+      SELECT area.uuid::text AS id, area.slug, area.name, area.area_type,
+        parent.uuid::text AS parent_id, parent.name AS parent_name, parent.slug AS parent_slug,
+        parent.area_type AS parent_type, municipality.uuid::text AS municipality_id,
+        municipality.slug AS municipality_slug, municipality.name AS municipality_name,
+        area.area_m2, area.source, area.source_osm_type, area.source_osm_id,
+        area.source_admin_level, area.source_place, area.source_updated_at, area.updated_at,
+        (SELECT count(*) FROM analysis_areas child WHERE child.parent_id=area.id) AS child_count,
+        ST_AsGeoJSON(area.geometry,6)::json AS geometry,
+        ARRAY[ST_X(area.centroid),ST_Y(area.centroid)] AS centroid,
+        ARRAY[ST_XMin(Box2D(area.geometry)),ST_YMin(Box2D(area.geometry)),
+              ST_XMax(Box2D(area.geometry)),ST_YMax(Box2D(area.geometry))] AS bbox
+      FROM analysis_areas area LEFT JOIN analysis_areas parent ON parent.id=area.parent_id
+      LEFT JOIN analysis_areas municipality ON municipality.id=CASE
+        WHEN area.area_type='DISTRICT' THEN parent.id
+        WHEN area.area_type='QUARTER' THEN parent.parent_id
+        ELSE NULL END
+      WHERE area.slug=:slug AND NOT ST_IsEmpty(area.geometry)
+    """), {"slug": slug})).mappings().first()
+    if not row:
+        return None
+    children = (await session.execute(text("""
+      SELECT uuid::text AS id, slug, name, area_type FROM analysis_areas
+      WHERE parent_id=(SELECT id FROM analysis_areas WHERE slug=:slug)
+        AND NOT ST_IsEmpty(geometry)
+      ORDER BY CASE area_type WHEN 'DISTRICT' THEN 1 ELSE 2 END,name
+    """), {"slug": slug})).mappings().all()
+    values = dict(row)
+    parent_type = values.pop("parent_type")
+    municipality_id = values.pop("municipality_id")
+    municipality_slug = values.pop("municipality_slug")
+    municipality_name = values.pop("municipality_name")
+    parent = AnalysisAreaReference(
+        id=values["parent_id"], slug=values["parent_slug"],
+        name=values["parent_name"], area_type=parent_type,
+    ) if values["parent_id"] else None
+    municipality = AnalysisAreaReference(
+        id=municipality_id, slug=municipality_slug,
+        name=municipality_name, area_type="MUNICIPALITY",
+    ) if municipality_id else None
+    return AnalysisAreaDetail(
+        **values, parent=parent, municipality=municipality,
+        children=[AnalysisAreaReference(**dict(child)) for child in children],
+    )
 
 
 async def _areas_geojson_uncached(session: AsyncSession) -> dict:
@@ -150,6 +202,64 @@ async def area_detail(session: AsyncSession, area_id: uuid.UUID) -> AnalysisArea
         key, ttl=get_settings().analysis_area_cache_ttl, resource="analysis-area-detail", compute=compute
     )
     return AnalysisAreaRead.model_validate(data) if data else None
+
+
+async def area_detail_by_slug(session: AsyncSession, slug: str) -> AnalysisAreaDetail | None:
+    version = await cache_version(session, "analysis-areas")
+    key = build_cache_key("analysis-area:detail-by-slug", {"slug": slug}, version=version)
+
+    async def compute() -> dict | None:
+        result = await _area_detail_by_slug_uncached(session, slug)
+        return result.model_dump(mode="json") if result else None
+
+    data, _status = await cache_service.get_or_compute(
+        key, ttl=get_settings().analysis_area_cache_ttl,
+        resource="analysis-area-detail-by-slug", compute=compute,
+    )
+    return AnalysisAreaDetail.model_validate(data) if data else None
+
+
+async def area_polygons_by_slug(session: AsyncSession, slug: str, limit: int = 8) -> list[AnalysisAreaPolygon] | None:
+    area_version = await cache_version(session, "analysis-areas")
+    analytics_version = await cache_version(session, "analytics")
+    key = build_cache_key(
+        "analysis-area:polygons-by-slug", {"slug": slug, "limit": limit},
+        version=f"{area_version}:{analytics_version}",
+    )
+
+    async def compute() -> list[dict] | None:
+        area_id = await session.scalar(select(AnalysisArea.id).where(AnalysisArea.slug == slug))
+        if area_id is None:
+            return None
+        rows = (await session.execute(text("""
+          SELECT polygon.uuid::text AS id, polygon.slug, polygon.name, polygon.category, polygon.floor,
+            polygon.address_display_name, coalesce(polygon.occupancy_status,'UNKNOWN') AS occupancy_status,
+            ST_Area(ST_Transform(polygon.geometry,25832)) AS area_m2
+          FROM polygon_analysis_areas assignment
+          JOIN user_polygons polygon ON polygon.id=assignment.polygon_id
+          WHERE assignment.analysis_area_id=:area_id
+          ORDER BY polygon.updated_at DESC,polygon.id DESC LIMIT :limit
+        """), {"area_id": area_id, "limit": limit})).mappings().all()
+        return [AnalysisAreaPolygon(**dict(row)).model_dump(mode="json") for row in rows]
+
+    data, _status = await cache_service.get_or_compute(
+        key, ttl=get_settings().analytics_cache_ttl,
+        resource="analysis-area-polygons-by-slug", compute=compute,
+    )
+    return [AnalysisAreaPolygon.model_validate(row) for row in data] if data is not None else None
+
+
+async def analysis_area_sitemap_entries(session: AsyncSession) -> list[AnalysisAreaSitemapEntry]:
+    rows = (await session.execute(text("""
+      SELECT slug,updated_at FROM analysis_areas
+      WHERE geometry IS NOT NULL AND NOT ST_IsEmpty(geometry)
+      ORDER BY slug
+    """))).mappings().all()
+    return [AnalysisAreaSitemapEntry(**dict(row)) for row in rows]
+
+
+async def area_uuid_by_slug(session: AsyncSession, slug: str) -> uuid.UUID | None:
+    return await session.scalar(select(AnalysisArea.uuid).where(AnalysisArea.slug == slug))
 
 
 async def areas_geojson(session: AsyncSession) -> dict:

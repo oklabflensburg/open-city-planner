@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.schemas.analytics import BenchmarkMetrics, IndustryCount
+from app.schemas.geojson import AreaGeometry
 
 
 class AnalysisAreaRead(BaseModel):
@@ -12,6 +13,7 @@ class AnalysisAreaRead(BaseModel):
     area_type: str
     parent_id: str | None = None
     parent_name: str | None = None
+    parent_slug: str | None = None
     area_m2: float
     source: str
     source_osm_type: str | None = None
@@ -19,7 +21,40 @@ class AnalysisAreaRead(BaseModel):
     source_admin_level: int | None = None
     source_place: str | None = None
     source_updated_at: datetime | None = None
+    updated_at: datetime
     child_count: int = 0
+
+
+class AnalysisAreaReference(BaseModel):
+    id: str
+    slug: str
+    name: str
+    area_type: str
+
+
+class AnalysisAreaDetail(AnalysisAreaRead):
+    parent: AnalysisAreaReference | None = None
+    municipality: AnalysisAreaReference | None = None
+    children: list[AnalysisAreaReference] = Field(default_factory=list)
+    geometry: AreaGeometry
+    centroid: tuple[float, float]
+    bbox: tuple[float, float, float, float]
+
+
+class AnalysisAreaPolygon(BaseModel):
+    id: str
+    slug: str
+    name: str
+    category: str
+    floor: str | None = None
+    address_display_name: str | None = None
+    occupancy_status: str
+    area_m2: float | None = None
+
+
+class AnalysisAreaSitemapEntry(BaseModel):
+    slug: str
+    updated_at: datetime
 
 
 class AnalysisAreaAnalytics(BaseModel):

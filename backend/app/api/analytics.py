@@ -23,7 +23,7 @@ from app.services.city_metrics import (
     update_city_metrics,
 )
 
-router = APIRouter(prefix="/analytics", tags=["analytics"])
+router = APIRouter(prefix="/analytics", tags=["Analytics"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
