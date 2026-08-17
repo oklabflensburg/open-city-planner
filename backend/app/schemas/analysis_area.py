@@ -6,6 +6,21 @@ from app.schemas.analytics import BenchmarkMetrics, IndustryCount
 from app.schemas.geojson import AreaGeometry
 
 
+class WikidataExternalLink(BaseModel):
+    id: str
+    url: str
+
+
+class WikipediaExternalLink(BaseModel):
+    title: str
+    url: str
+
+
+class AnalysisAreaExternalLinks(BaseModel):
+    wikidata: WikidataExternalLink | None = None
+    wikipedia: WikipediaExternalLink | None = None
+
+
 class AnalysisAreaRead(BaseModel):
     id: str
     slug: str
@@ -23,6 +38,7 @@ class AnalysisAreaRead(BaseModel):
     source_updated_at: datetime | None = None
     updated_at: datetime
     child_count: int = 0
+    external_links: AnalysisAreaExternalLinks = Field(default_factory=AnalysisAreaExternalLinks)
 
 
 class AnalysisAreaReference(BaseModel):

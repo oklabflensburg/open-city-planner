@@ -43,6 +43,8 @@ beziehungsweise keinen neuen Schlüssel erzeugen.
 
 `analysis_areas` enthält die Typen `MUNICIPALITY`, `DISTRICT` und `QUARTER`, global eindeutige stabile Slugs, Parent-Relationen, MultiPolygon-Geometrien, Zentroid und OSM-Provenienz. Der Boundary-Sync verwendet lokale OSM-Daten, bestimmt räumliche Parents und ordnet Stadtplaner-Flächen über `ST_PointOnSurface` zu. Ausführung und Importvorbereitung sind in [osm-data.md](../docs/osm-data.md) beschrieben.
 
+Der Area-Sync übernimmt außerdem die OSM-Tags `wikidata` und `wikipedia`. Anschließend löst `WikidataEnrichmentService` bevorzugt die explizite Q-ID, danach einen deutschen Wikipedia-Titel und zuletzt konservativ Name, Parent und Referenzpunkt über die offizielle Wikibase API auf. Ergebnisse, Prüffrist und Matchzustand werden persistent gespeichert; öffentliche Requests fragen Wikimedia nie live ab. `python -m app.cli.sync_wikidata [--force]` startet nur die Anreicherung, `sync_analysis_areas` führt sie standardmäßig nach dem OSM-Import aus (`--skip-wikidata` deaktiviert sie). Manuell verifizierte Matches werden nicht überschrieben; abweichende OSM-IDs erzeugen `CONFLICT`.
+
 Öffentliche Gebiets-Endpunkte liegen unter `/api/v1/analysis-areas`; Detail, Analytics, Gesamtstadtvergleich und eine begrenzte Flächenliste können über `by-slug/{slug}` geladen werden. Eigentümer-, Preis- und interne Verwaltungsfelder sind nicht Teil dieser DTOs.
 
 ## Administratives Auditlog

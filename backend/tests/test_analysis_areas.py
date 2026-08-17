@@ -1,5 +1,5 @@
 from app.models.analysis_area import AnalysisArea, PolygonAnalysisArea
-from app.services.analysis_areas import CANDIDATES_SQL, PARENT_SQL
+from app.services.analysis_areas import CANDIDATES_SQL, PARENT_SQL, UPSERT_SQL
 
 
 def test_analysis_area_model_enforces_hierarchy_and_spatial_index() -> None:
@@ -26,3 +26,11 @@ def test_osm_area_import_accepts_only_real_polygons_and_spatial_parents() -> Non
     assert "ST_Buffer" not in candidates
     assert "ST_Covers(candidate.geometry, child.centroid)" in parents
     assert "ST_Intersection" in parents
+
+
+def test_osm_area_import_persists_external_source_tags_and_protects_manual_match() -> None:
+    upsert = str(UPSERT_SQL)
+    assert "source_osm_wikidata" in upsert
+    assert "source_osm_wikipedia" in upsert
+    assert "wikidata_match_source='MANUAL'" in upsert
+    assert "THEN 'CONFLICT'" in upsert

@@ -33,6 +33,22 @@ describe('public analysis area pages', () => {
     expect(seo).toContain('buildBreadcrumbStructuredData')
     expect(seo).toContain('ogTitle')
     expect(seo).toContain('twitterCard')
+    expect(seo).toContain('sameAs')
+    expect(seo).toContain('external_links.wikidata?.url')
+  })
+
+  it('renders only persisted external sources with safe new-tab semantics', () => {
+    const page = appFile('pages/gebiete/[slug].vue')
+    const links = appFile('components/analysis/AreaExternalLinks.vue')
+    const sourceLink = appFile('components/analysis/ExternalSourceLink.vue')
+    expect(page).toContain('Externe Quellen')
+    expect(page).toContain('area.external_links.wikipedia')
+    expect(page).toContain('variant="card"')
+    expect(links).toContain('Enzyklopädischer Artikel')
+    expect(links).toContain('Strukturierte offene Wissensdaten')
+    expect(sourceLink).toContain('target="_blank"')
+    expect(sourceLink).toContain('rel="noopener noreferrer"')
+    expect(sourceLink).toContain('break-words')
   })
 
   it('links area pages and the GIS selection in both directions', () => {

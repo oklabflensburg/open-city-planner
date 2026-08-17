@@ -24,6 +24,7 @@
           </div>
           <NuxtLink class="font-bold text-[#154d73] underline" :to="`/gebiete/${municipality.slug}`">Gemeindedaten ansehen</NuxtLink>
         </div>
+        <AreaExternalLinks class="mt-2" :area-name="municipality.name" :links="municipality.external_links" />
         <div class="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           <article v-for="district in childrenOf(municipality.id)" :key="district.id" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Stadtteil</p>
@@ -31,6 +32,7 @@
               <NuxtLink class="hover:text-[#154d73] hover:underline" :to="`/gebiete/${district.slug}`">{{ district.name }}</NuxtLink>
             </h3>
             <p class="mt-2 text-sm text-slate-600">{{ formatArea(district.area_m2) }} · {{ district.child_count }} {{ district.child_count === 1 ? 'Quartier' : 'Quartiere' }}</p>
+            <AreaExternalLinks class="mt-2" :area-name="district.name" :links="district.external_links" />
             <ul v-if="childrenOf(district.id).length" class="mt-4 flex flex-wrap gap-2" aria-label="Quartiere">
               <li v-for="quarter in childrenOf(district.id)" :key="quarter.id">
                 <NuxtLink class="inline-flex min-h-9 items-center rounded-full bg-slate-100 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-200" :to="`/gebiete/${quarter.slug}`">{{ quarter.name }}</NuxtLink>

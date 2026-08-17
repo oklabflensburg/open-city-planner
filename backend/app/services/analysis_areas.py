@@ -95,14 +95,28 @@ ORDER BY CASE area_type WHEN 'MUNICIPALITY' THEN 1 WHEN 'DISTRICT' THEN 2 ELSE 3
 UPSERT_SQL = text("""
 INSERT INTO analysis_areas
   (uuid, slug, name, area_type, geometry, centroid, area_m2, source, source_osm_type,
-   source_osm_id, source_admin_level, source_place, source_updated_at, created_at, updated_at)
+   source_osm_id, source_admin_level, source_place, source_osm_wikidata,
+   source_osm_wikipedia, source_updated_at, created_at, updated_at)
 VALUES
   (:uuid, :slug, :name, :area_type, ST_GeomFromEWKB(:geometry), ST_GeomFromEWKB(:centroid),
-   :area_m2, 'OSM', :osm_type, :osm_id, :admin_level, :place, :source_updated_at, now(), now())
+   :area_m2, 'OSM', :osm_type, :osm_id, :admin_level, :place, :osm_wikidata,
+   :osm_wikipedia, :source_updated_at, now(), now())
 ON CONFLICT (source, source_osm_type, source_osm_id) DO UPDATE SET
   name=excluded.name, area_type=excluded.area_type, geometry=excluded.geometry,
   centroid=excluded.centroid, area_m2=excluded.area_m2, source_admin_level=excluded.source_admin_level,
-  source_place=excluded.source_place, source_updated_at=excluded.source_updated_at, updated_at=now()
+  source_place=excluded.source_place, source_osm_wikidata=excluded.source_osm_wikidata,
+  source_osm_wikipedia=excluded.source_osm_wikipedia,
+  wikidata_match_status=CASE
+    WHEN analysis_areas.wikidata_match_source='MANUAL'
+      AND excluded.source_osm_wikidata IS NOT NULL
+      AND excluded.source_osm_wikidata IS DISTINCT FROM analysis_areas.wikidata_id THEN 'CONFLICT'
+    ELSE analysis_areas.wikidata_match_status END,
+  wikidata_last_checked_at=CASE
+    WHEN analysis_areas.wikidata_match_source='MANUAL' THEN analysis_areas.wikidata_last_checked_at
+    WHEN excluded.source_osm_wikidata IS DISTINCT FROM analysis_areas.source_osm_wikidata
+      OR excluded.source_osm_wikipedia IS DISTINCT FROM analysis_areas.source_osm_wikipedia THEN NULL
+    ELSE analysis_areas.wikidata_last_checked_at END,
+  source_updated_at=excluded.source_updated_at, updated_at=now()
 RETURNING id
 """)
 
@@ -194,6 +208,7 @@ async def sync_osm_analysis_areas(
             "area_type": row["area_type"], "geometry": row["geometry"], "centroid": row["centroid"],
             "area_m2": float(row["area_m2"]), "osm_type": row["osm_type"], "osm_id": row["osm_id"],
             "admin_level": row["admin_level"], "place": tags.get("place"), "source_updated_at": row["imported_at"],
+            "osm_wikidata": tags.get("wikidata"), "osm_wikipedia": tags.get("wikipedia"),
         }
         previous = (await session.execute(CURRENT_AREA_SQL, values)).mappings().first() if publish_relevant_updates else None
         area_id = (await session.execute(UPSERT_SQL, values)).scalar_one()

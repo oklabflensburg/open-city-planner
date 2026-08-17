@@ -101,6 +101,12 @@
       </ul>
     </section>
 
+    <section v-if="area.external_links.wikipedia || area.external_links.wikidata" class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="externe-quellen">
+      <h2 id="externe-quellen" class="text-xl font-black text-slate-950">Externe Quellen</h2>
+      <p class="mt-2 text-sm leading-6 text-slate-600">Geprüfte Verknüpfungen zu weiterführenden Informationen über {{ area.name }}.</p>
+      <AreaExternalLinks class="mt-4" :area-name="area.name" :links="area.external_links" variant="card" />
+    </section>
+
     <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="flaechen">
       <div class="flex flex-wrap items-center justify-between gap-3"><h2 id="flaechen" class="text-2xl font-black text-slate-950">Flächen im Gebiet</h2><NuxtLink class="font-bold text-[#154d73] underline" :to="`/?area=${area.slug}`">Alle in der Karte ansehen</NuxtLink></div>
       <p v-if="!polygons.length" class="mt-4 text-slate-500">Für dieses Gebiet sind derzeit keine öffentlichen Flächen erfasst.</p>
@@ -116,6 +122,7 @@
       <h2 class="text-lg font-black text-slate-950">Datenquellen und Datenstand</h2>
       <p>Datenstand: {{ formatDate(analytics.metrics.data_updated_at || area.updated_at) }}. Gebietsgrenzen: {{ area.source === 'OSM' ? 'OpenStreetMap' : 'manuell gepflegt' }}<template v-if="area.source_osm_id"> ({{ area.source_osm_type }} {{ area.source_osm_id }})</template>.</p>
       <p class="mt-1">Quoten werden nur aus Flächen mit bekanntem Status berechnet. <NuxtLink class="font-semibold text-[#154d73] underline" to="/dokumentation/methodik">Methodik und Datenquellen</NuxtLink></p>
+      <p class="mt-1">Gebiete können mit passenden Einträgen in Wikidata und Wikipedia verknüpft sein. Die Verknüpfungen stammen bevorzugt aus OpenStreetMap und werden automatisch geprüft.</p>
     </footer>
     </template>
   </ContentPageShell>

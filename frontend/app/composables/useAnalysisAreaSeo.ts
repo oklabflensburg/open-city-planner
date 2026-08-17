@@ -29,6 +29,9 @@ export function useAnalysisAreaSeo(area: MaybeRefOrGetter<AnalysisAreaDetail>) {
       description: description.value,
       url: url.value,
       additionalType: typeLabel.value,
+      ...(data.value.external_links.wikidata || data.value.external_links.wikipedia
+        ? { sameAs: [data.value.external_links.wikidata?.url, data.value.external_links.wikipedia?.url].filter(Boolean) }
+        : {}),
       ...(data.value.parent ? { containedInPlace: { '@type': 'AdministrativeArea', name: data.value.parent.name, url: buildAbsoluteUrl(config.public.siteUrl, `/gebiete/${data.value.parent.slug}`) } } : {}),
       geo: { '@type': 'GeoCoordinates', longitude: data.value.centroid[0], latitude: data.value.centroid[1] }
     },

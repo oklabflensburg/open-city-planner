@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import Sequence
+from urllib.parse import quote
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,11 +14,14 @@ from app.schemas.analysis_area import (
     AnalysisAreaAnalytics,
     AnalysisAreaComparison,
     AnalysisAreaDetail,
+    AnalysisAreaExternalLinks,
     AnalysisAreaPolygon,
     AnalysisAreaRead,
     AnalysisAreaReference,
     AnalysisAreaSitemapEntry,
     MetricDifference,
+    WikidataExternalLink,
+    WikipediaExternalLink,
 )
 from app.schemas.analytics import IndustryCount
 from app.services.analytics import _base_filters, _benchmark_metrics, _counts
@@ -27,14 +31,31 @@ AREA_SELECT = text("""
 SELECT area.uuid::text AS id, area.slug, area.name, area.area_type, parent.uuid::text AS parent_id,
        parent.name AS parent_name, parent.slug AS parent_slug, area.area_m2, area.source, area.source_osm_type, area.source_osm_id,
        area.source_admin_level, area.source_place, area.source_updated_at,
+       CASE WHEN area.wikidata_match_status IN ('VERIFIED','AUTO_MATCHED') THEN area.wikidata_id END AS public_wikidata_id,
+       CASE WHEN area.wikidata_match_status IN ('VERIFIED','AUTO_MATCHED') THEN area.wikipedia_title END AS public_wikipedia_title,
        area.updated_at,
        (SELECT count(*) FROM analysis_areas child WHERE child.parent_id=area.id) AS child_count
 FROM analysis_areas area LEFT JOIN analysis_areas parent ON parent.id=area.parent_id
 """)
 
 
+def _external_links(values: dict) -> AnalysisAreaExternalLinks:
+    qid = values.pop("public_wikidata_id", None)
+    title = values.pop("public_wikipedia_title", None)
+    return AnalysisAreaExternalLinks(
+        wikidata=WikidataExternalLink(
+            id=qid, url=f"https://www.wikidata.org/wiki/{qid}"
+        ) if qid else None,
+        wikipedia=WikipediaExternalLink(
+            title=title,
+            url=f"https://de.wikipedia.org/wiki/{quote(title.replace(' ', '_'), safe='()_-')}"
+        ) if title else None,
+    )
+
+
 def _read(row: dict) -> AnalysisAreaRead:
-    return AnalysisAreaRead(**row)
+    values = dict(row)
+    return AnalysisAreaRead(**values, external_links=_external_links(values))
 
 
 async def _list_areas_uncached(session: AsyncSession, area_type: str | None = None, parent_id: uuid.UUID | None = None) -> list[AnalysisAreaRead]:
@@ -56,6 +77,8 @@ async def _area_detail_by_slug_uncached(session: AsyncSession, slug: str) -> Ana
         municipality.slug AS municipality_slug, municipality.name AS municipality_name,
         area.area_m2, area.source, area.source_osm_type, area.source_osm_id,
         area.source_admin_level, area.source_place, area.source_updated_at, area.updated_at,
+        CASE WHEN area.wikidata_match_status IN ('VERIFIED','AUTO_MATCHED') THEN area.wikidata_id END AS public_wikidata_id,
+        CASE WHEN area.wikidata_match_status IN ('VERIFIED','AUTO_MATCHED') THEN area.wikipedia_title END AS public_wikipedia_title,
         (SELECT count(*) FROM analysis_areas child WHERE child.parent_id=area.id) AS child_count,
         ST_AsGeoJSON(area.geometry,6)::json AS geometry,
         ARRAY[ST_X(area.centroid),ST_Y(area.centroid)] AS centroid,
@@ -81,6 +104,7 @@ async def _area_detail_by_slug_uncached(session: AsyncSession, slug: str) -> Ana
     municipality_id = values.pop("municipality_id")
     municipality_slug = values.pop("municipality_slug")
     municipality_name = values.pop("municipality_name")
+    external_links = _external_links(values)
     parent = AnalysisAreaReference(
         id=values["parent_id"], slug=values["parent_slug"],
         name=values["parent_name"], area_type=parent_type,
@@ -90,7 +114,7 @@ async def _area_detail_by_slug_uncached(session: AsyncSession, slug: str) -> Ana
         name=municipality_name, area_type="MUNICIPALITY",
     ) if municipality_id else None
     return AnalysisAreaDetail(
-        **values, parent=parent, municipality=municipality,
+        **values, parent=parent, municipality=municipality, external_links=external_links,
         children=[AnalysisAreaReference(**dict(child)) for child in children],
     )
 

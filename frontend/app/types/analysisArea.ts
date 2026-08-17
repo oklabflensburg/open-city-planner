@@ -20,6 +20,10 @@ export type AnalysisArea = {
   source_updated_at: string | null
   updated_at: string
   child_count: number
+  external_links: {
+    wikidata: { id: string, url: string } | null
+    wikipedia: { title: string, url: string } | null
+  }
 }
 
 export type AnalysisAreaReference = Pick<AnalysisArea, 'id' | 'slug' | 'name' | 'area_type'>

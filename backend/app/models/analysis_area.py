@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from geoalchemy2 import Geometry
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
     Float,
@@ -40,13 +41,38 @@ class AnalysisArea(Base):
     source_osm_id: Mapped[int | None] = mapped_column(BigInteger)
     source_admin_level: Mapped[int | None] = mapped_column(Integer)
     source_place: Mapped[str | None] = mapped_column(String(40))
+    source_osm_wikidata: Mapped[str | None] = mapped_column(String(32))
+    source_osm_wikipedia: Mapped[str | None] = mapped_column(String(255))
     source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    wikidata_id: Mapped[str | None] = mapped_column(String(32))
+    wikipedia_title: Mapped[str | None] = mapped_column(String(255))
+    wikidata_label: Mapped[str | None] = mapped_column(String(200))
+    wikidata_description: Mapped[str | None] = mapped_column(String(500))
+    wikidata_match_source: Mapped[str | None] = mapped_column(String(24))
+    wikidata_match_status: Mapped[str | None] = mapped_column(String(24))
+    wikidata_match_confidence: Mapped[float | None] = mapped_column(Float)
+    wikidata_last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    wikidata_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
     __table_args__ = (
         CheckConstraint("area_type IN ('MUNICIPALITY','DISTRICT','QUARTER')", name="ck_analysis_areas_type"),
         CheckConstraint("source IN ('OSM','MANUAL')", name="ck_analysis_areas_source"),
+        CheckConstraint(
+            "wikidata_id IS NULL OR wikidata_id ~ '^Q[1-9][0-9]*$'",
+            name="ck_analysis_areas_wikidata_id",
+        ),
+        CheckConstraint(
+            "wikidata_match_source IS NULL OR wikidata_match_source IN "
+            "('OSM_WIKIDATA','OSM_WIKIPEDIA','WIKIDATA_SEARCH','MANUAL')",
+            name="ck_analysis_areas_wikidata_source",
+        ),
+        CheckConstraint(
+            "wikidata_match_status IS NULL OR wikidata_match_status IN "
+            "('VERIFIED','AUTO_MATCHED','AMBIGUOUS','NOT_FOUND','CONFLICT')",
+            name="ck_analysis_areas_wikidata_status",
+        ),
         UniqueConstraint("source", "source_osm_type", "source_osm_id", name="uq_analysis_areas_source_osm"),
         Index("idx_analysis_areas_parent", "parent_id"),
         Index("idx_analysis_areas_type", "area_type"),

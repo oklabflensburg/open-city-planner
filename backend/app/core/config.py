@@ -108,6 +108,13 @@ class Settings(BaseSettings):
     osm_viewport_cache_ttl: int = 1_800
     analytics_cache_ttl: int = 600
     analysis_area_cache_ttl: int = 3_600
+    wikidata_api_url: str = "https://www.wikidata.org/w/api.php"
+    wikidata_user_agent: str = "Stadtplaner/1.0 (https://stadtplaner.oklabflensburg.de; OK Lab Flensburg)"
+    wikidata_timeout_seconds: float = 10.0
+    wikidata_cache_ttl_seconds: int = 604_800
+    wikidata_negative_cache_ttl_seconds: int = 86_400
+    wikidata_stale_days: int = 90
+    wikidata_search_limit: int = 8
     statistics_cache_ttl: int = 3_600
     flensburg_superset_base_url: str = "https://superset.flensburg.de"
     flensburg_superset_dashboard_id: str = "3b53ff0b-6e8c-435e-83f6-666f8a7cc158"
