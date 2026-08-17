@@ -8,8 +8,8 @@ describe('notification center UI', () => {
   it('places an accessible unread bell in desktop and mobile headers', () => {
     const header = appFile('components/layout/AppHeader.vue')
     const bell = appFile('components/notifications/NotificationBell.vue')
-    expect(header).toContain('<NotificationBell mode="desktop"')
-    expect(header).toContain('<NotificationBell v-if="authStore.authenticated" mode="mobile"')
+    expect(header).toContain('<LazyNotificationBell mode="desktop"')
+    expect(header).toContain('<LazyNotificationBell v-if="authStore.authenticated" mode="mobile"')
     expect(bell).toContain('aria-label="Benachrichtigungen"')
     expect(bell).toContain("store.unreadCount > 99 ? '99+'")
     expect(bell).toContain('<AppBottomSheet')

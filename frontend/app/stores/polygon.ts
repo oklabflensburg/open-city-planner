@@ -148,18 +148,23 @@ export const usePolygonStore = defineStore('polygon', {
       this.metricsError = null
       this.osmError = null
     },
-    invalidateDeletedPolygon(id: string) {
+    invalidateForPolygonMutation(removedId?: string) {
       overviewController?.abort()
       overviewController = undefined
       this.overviewRequestId += 1
-      this.polygons = markRaw(this.polygons.filter(polygon => polygon.id !== id))
+      if (removedId) {
+        this.polygons = markRaw(this.polygons.filter(polygon => polygon.id !== removedId))
+      }
       this.loadedFilterKey = null
       this.loading = false
       this.error = null
-      if (this.selectedPolygonId === id) {
+      if (removedId && this.selectedPolygonId === removedId) {
         useMapStore().selectedMapEntity = null
         this.clearSelection()
       }
+    },
+    invalidateDeletedPolygon(id: string) {
+      this.invalidateForPolygonMutation(id)
     }
   }
 })

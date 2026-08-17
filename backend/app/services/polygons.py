@@ -31,8 +31,9 @@ from app.schemas.geojson import (
 )
 from app.schemas.polygon_filters import PolygonFilterParams
 from app.services.analysis_areas import refresh_polygon_area_assignments
-from app.services.cache_versions import bump_cache_versions, cache_version
+from app.services.cache_versions import cache_version
 from app.services.geometry import from_wkb_element, to_wkb_element
+from app.services.gis_mutations import invalidate_gis_after_mutation
 from app.services.nominatim import NominatimService
 from app.services.notification_policy import DomainEvent, NotificationEventType
 from app.services.notifications import (
@@ -241,7 +242,7 @@ async def create_polygon(
         await session.commit()
         await session.refresh(polygon)
     await refresh_polygon_area_assignments(session, polygon.id)
-    await bump_cache_versions(session, ("polygons", "analytics", "osm"))
+    await invalidate_gis_after_mutation(session)
     await session.commit()
     return serialize_polygon(polygon)
 
@@ -385,7 +386,7 @@ async def update_polygon(
     if geometry_changed:
         await enrich_polygon_address(session, polygon)
         await refresh_polygon_area_assignments(session, polygon.id)
-    await bump_cache_versions(session, ("polygons", "analytics", "osm"))
+    await invalidate_gis_after_mutation(session)
     event_type = (
         NotificationEventType.GIS_AREA_STATUS_CHANGED
         if "occupancy_status" in data and polygon.occupancy_status != previous_occupancy_status
@@ -432,7 +433,7 @@ async def update_polygon_verwaltung(
         polygon.occupancy_source_updated_at = utcnow()
     polygon.updated_by_user_id = user_id
     polygon.updated_at = utcnow()
-    await bump_cache_versions(session, ("polygons", "analytics", "osm"))
+    await invalidate_gis_after_mutation(session)
     event_type = (
         NotificationEventType.GIS_AREA_STATUS_CHANGED
         if "occupancy_status" in data and polygon.occupancy_status != previous_occupancy_status
@@ -506,7 +507,7 @@ async def delete_polygon(
         )
     )
     await session.delete(polygon)
-    await bump_cache_versions(session, ("polygons", "analytics", "osm"))
+    await invalidate_gis_after_mutation(session)
     await session.commit()
     publish_notifications(notifications)
     logger.info(

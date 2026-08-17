@@ -55,6 +55,7 @@ describe('polygon create and delete UI', () => {
     expect(permissions).toContain('!!editor.value?.can_delete')
     expect(detail).toContain('<PolygonDeleteSection v-if="canDelete"')
     expect(detail).toContain('await polygonApi.remove(polygonData.value.id)')
+    expect(appFile('composables/usePolygonApi.ts')).toContain("invalidateAfterPolygonMutation({ type: 'DELETE'")
     expect(detail).toContain('clearNuxtData(`polygon-${slug}`)')
     expect(detail).toContain("await navigateTo('/')")
   })

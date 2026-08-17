@@ -200,11 +200,6 @@ watch(() => osmStore.selectedFeature?.id, updateOsmSelection)
 watch(() => analysisAreasStore.selectedAreaId, updateAnalysisAreaSelection)
 watch(() => analysisAreasStore.visibility, setAnalysisAreaVisibility, { deep: true })
 watch(() => mapStore.polygonsVisible, setPolygonVisibility)
-watch(() => mapStore.gisDataGeneration, async () => {
-  if (!map.value || disposed) return
-  await polygonStore.loadPolygons({ force: true })
-  scheduleOsmViewportRefresh(0, true)
-})
 watch(
   () => [osmStore.showPois, osmStore.showAreas, osmStore.showBuildings, osmStore.activeCategories.join(',')],
   () => scheduleOsmViewportRefresh(0)

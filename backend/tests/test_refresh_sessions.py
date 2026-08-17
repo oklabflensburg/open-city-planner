@@ -10,6 +10,7 @@ from starlette.requests import Request
 from app.api.auth import get_auth_session
 from app.auth.jwt import create_jwt, decode_jwt
 from app.auth.tokens import hash_token
+from app.core.config import get_settings
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.user import AccountDeactivationReason, User
 from app.models.user_session import UserSession
@@ -99,6 +100,24 @@ async def test_valid_refresh_rotates_token_and_sets_new_cookies() -> None:
     assert response.headers.getlist("set-cookie")
     session.commit.assert_awaited_once()
     assert "FOR UPDATE" in str(session.scalar.await_args.args[0])
+
+
+@pytest.mark.asyncio
+async def test_persistent_refresh_session_survives_application_settings_reload() -> None:
+    account = user()
+    token, record = refresh_record(account)
+    session = session_for(record, account)
+
+    # A new FastAPI worker constructs a fresh Settings singleton but reads the
+    # same persistent secret and the same PostgreSQL session record.
+    get_settings.cache_clear()
+    refreshed_user, _csrf_token = await refresh_session(
+        session, Response(), token, request()
+    )
+
+    assert refreshed_user is account
+    assert record.revocation_reason == "rotated"
+    assert any(isinstance(call.args[0], UserSession) for call in session.add.call_args_list)
 
 
 @pytest.mark.asyncio

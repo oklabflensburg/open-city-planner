@@ -31,23 +31,32 @@ export const usePolygonApi = () => {
       return polygons.map(polygon => polygonOverviewSchema.parse(polygon)) as PolygonOverview[]
     },
     async create(payload: PolygonPayload) {
-      return polygonSchema.parse(
+      const polygon = polygonSchema.parse(
         await request<UserPolygon>('/polygons', {
           method: 'POST',
           body: JSON.stringify(payload)
         })
       )
+      const invalidation = useGisInvalidation()
+      invalidation.invalidateAfterPolygonMutation({ type: 'CREATE', polygonId: polygon.id })
+      invalidation.showMutationSuccess('CREATE')
+      return polygon
     },
     async update(id: string, payload: PublicPolygonPatch) {
-      return polygonSchema.parse(
+      const polygon = polygonSchema.parse(
         await request<UserPolygon>(`/polygons/${id}`, {
           method: 'PATCH',
           body: JSON.stringify(payload)
         })
       )
+      useGisInvalidation().invalidateAfterPolygonMutation({ type: 'UPDATE', polygonId: polygon.id })
+      return polygon
     },
     async remove(id: string) {
       await request<void>(`/polygons/${id}`, { method: 'DELETE' })
+      const invalidation = useGisInvalidation()
+      invalidation.invalidateAfterPolygonMutation({ type: 'DELETE', polygonId: id })
+      invalidation.showMutationSuccess('DELETE')
     },
     async metrics(id: string) {
       return await request<PolygonMetrics>(`/polygons/${id}/metrics`)
@@ -73,11 +82,13 @@ export const usePolygonApi = () => {
       return await request<PolygonVerwaltungDetail>(`/polygons/${id}/verwaltung`, { cache: 'no-store' })
     },
     async updateVerwaltung(id: string, payload: VerwaltungPatch) {
-      return await request<PolygonVerwaltungDetail>(`/polygons/${id}/verwaltung`, {
+      const polygon = await request<PolygonVerwaltungDetail>(`/polygons/${id}/verwaltung`, {
         method: 'PATCH',
         cache: 'no-store',
         body: JSON.stringify(payload)
       })
+      useGisInvalidation().invalidateAfterPolygonMutation({ type: 'UPDATE', polygonId: id })
+      return polygon
     },
     async geojson() {
       return await request('/polygons/geojson')

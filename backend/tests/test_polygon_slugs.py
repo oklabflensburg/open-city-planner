@@ -65,7 +65,7 @@ async def test_polygon_slug_stays_stable_when_name_changes(
     polygon = UserPolygon(name="Alter Name", slug="stabile-url", category="custom")
     session = FakeUpdateSession()
     monkeypatch.setattr(polygon_service, "serialize_polygon", lambda item: item.slug)
-    monkeypatch.setattr(polygon_service, "bump_cache_versions", AsyncMock(return_value=None))
+    monkeypatch.setattr(polygon_service, "invalidate_gis_after_mutation", AsyncMock(return_value=None))
 
     result = await update_polygon(
         session,  # type: ignore[arg-type]
@@ -93,7 +93,7 @@ async def test_delete_invalidates_polygon_analytics_and_osm_namespaces(monkeypat
     polygon.uuid = uuid.uuid4()
     bump = AsyncMock(return_value=None)
     cancel_publications = AsyncMock(return_value=0)
-    monkeypatch.setattr(polygon_service, "bump_cache_versions", bump)
+    monkeypatch.setattr(polygon_service, "invalidate_gis_after_mutation", bump)
     monkeypatch.setattr(
         "app.services.social_publishing.cancel_pending_polygon_publications",
         cancel_publications,
@@ -101,7 +101,7 @@ async def test_delete_invalidates_polygon_analytics_and_osm_namespaces(monkeypat
 
     await delete_polygon(session, polygon, uuid.uuid4())  # type: ignore[arg-type]
 
-    bump.assert_awaited_once_with(session, ("polygons", "analytics", "osm"))
+    bump.assert_awaited_once_with(session)
     cancel_publications.assert_awaited_once_with(session, polygon.uuid)
     assert session.deleted is polygon
     assert session.committed is True

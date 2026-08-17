@@ -4,6 +4,10 @@ Das Nuxt-4-Frontend verbindet die MapLibre-GIS-Anwendung mit öffentlichen Polyg
 
 ## Entwicklung und Build
 
+Die gemessenen Bundle-Grenzen, Produktionsnetzwerk-Werte und Schritte zur
+Reproduktion stehen in
+[`docs/frontend-build-performance.md`](../docs/frontend-build-performance.md).
+
 ```bash
 cp .env.example .env
 pnpm install

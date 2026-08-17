@@ -15,6 +15,30 @@ uvicorn app.main:app --reload
 
 Mindestens `DATABASE_URL`, eine sichere `JWT_SECRET_KEY` und die erlaubten `CORS_ORIGINS` konfigurieren. Redis ist bei `REDIS_REQUIRED=false` optional. Das vollständige Environment-Beispiel und der PostgreSQL-/PostGIS-Aufbau stehen im Root-[README](../README.md) und in [SETUP.md](../SETUP.md).
 
+`JWT_SECRET_KEY` signiert Access- und Refresh-JWTs und muss bei Deployments, Restarts
+und über alle Uvicorn-/Gunicorn-Worker hinweg identisch bleiben. Einen Wert einmalig
+mit `python -c "import secrets; print(secrets.token_urlsafe(64))"` erzeugen und nur in
+der persistenten serverseitigen `backend/.env` beziehungsweise dem systemd-
+`EnvironmentFile` speichern. Ein normaler Deployment-Schritt darf diesen Wert nicht
+neu erzeugen. In Produktion verweigert das Backend den Start bei fehlendem,
+bekanntem Entwicklungs- oder zu kurzem Schlüssel.
+
+Ein systemd-Service muss dieselbe Datei bei jedem Worker und Neustart laden, zum
+Beispiel:
+
+```ini
+[Service]
+WorkingDirectory=/opt/stadtplaner/backend
+EnvironmentFile=/opt/stadtplaner/backend/.env
+ExecStart=/opt/stadtplaner/backend/.venv/bin/uvicorn app.main:app --workers 4
+```
+
+Die `.env` muss außerhalb des Deployment-Austauschs erhalten bleiben und darf nur
+für den Service-Benutzer lesbar sein. Eine bewusste Änderung von `JWT_SECRET_KEY`
+ist eine Schlüsselrotation und invalidiert ohne Key-Ring bestehende Access- und
+Refresh-JWTs; ein gewöhnlicher Restart oder Deployment darf daher keine neue Datei
+beziehungsweise keinen neuen Schlüssel erzeugen.
+
 ## Analysegebiete und OSM
 
 `analysis_areas` enthält die Typen `MUNICIPALITY`, `DISTRICT` und `QUARTER`, global eindeutige stabile Slugs, Parent-Relationen, MultiPolygon-Geometrien, Zentroid und OSM-Provenienz. Der Boundary-Sync verwendet lokale OSM-Daten, bestimmt räumliche Parents und ordnet Stadtplaner-Flächen über `ST_PointOnSurface` zu. Ausführung und Importvorbereitung sind in [osm-data.md](../docs/osm-data.md) beschrieben.

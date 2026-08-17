@@ -127,7 +127,10 @@ export const useAuthStore = defineStore('auth', {
     async refreshUser() {
       try {
         const { request } = useApi()
-        const result = await request<AuthResponse>('/auth/session', { retryOnUnauthorized: false })
+        // Session discovery must use the central refresh/retry path. On a fresh app
+        // instance the access cookie may already be expired while the persistent
+        // refresh session is still valid.
+        const result = await request<AuthResponse>('/auth/session')
         this.applyAuthSession(result)
       } catch (error) {
         const code = error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : undefined

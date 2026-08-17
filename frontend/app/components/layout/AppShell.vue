@@ -76,6 +76,7 @@ const osmStore = useOsmViewportStore()
 const analysisAreasStore = useAnalysisAreasStore()
 const authStore = useAuthStore()
 const mapSelection = useMapSelection()
+useGisFilterHistory()
 const isDesktop = ref(false)
 const activeFilterCount = computed(() => filterStore.activeFilterCount)
 const mobileResultCount = computed(() => usePolygonStore().polygons.length + (osmStore.data?.meta.business_count || 0))
@@ -141,10 +142,6 @@ watch(() => analysisAreasStore.selectedAreaId, () => {
   if (!analyticsIsVisible()) return
   clearTimeout(analyticsTimer)
   analyticsTimer = setTimeout(() => analyticsStore.load(), 80)
-})
-
-watch(() => mapStore.gisDataGeneration, () => {
-  if (analyticsIsVisible()) void analyticsStore.load()
 })
 
 onBeforeUnmount(() => {

@@ -1,7 +1,12 @@
-import { GIS_FILTER_QUERY_KEYS, gisFiltersFromQuery, gisFilterStateKey, gisFilterUrlQuery } from '~/utils/gisFilters'
+import {
+  GIS_FILTER_QUERY_KEYS,
+  gisFiltersFromQuery,
+  gisFilterStateKey,
+  gisFilterUrlQuery
+} from '~/utils/gisFilters'
 
-export default defineNuxtPlugin(() => {
-  const route = useRoute()
+/** Keeps the GIS filter state in the URL only while the map application is mounted. */
+export function useGisFilterHistory() {
   const filters = useFilterStore()
   let applyingLocation = false
   let ready = false
@@ -16,7 +21,6 @@ export default defineNuxtPlugin(() => {
   }
 
   async function applyLocation() {
-    if (window.location.pathname !== '/') return
     const next = gisFiltersFromQuery(locationQuery())
     const nextKey = gisFilterStateKey(next)
     if (nextKey !== filters.stateKey) {
@@ -28,21 +32,26 @@ export default defineNuxtPlugin(() => {
     ready = true
   }
 
-  void applyLocation()
-  window.addEventListener('popstate', applyLocation)
-
-  watch(() => route.path, () => {
+  onMounted(() => {
     void applyLocation()
+    window.addEventListener('popstate', applyLocation)
   })
 
   watch(() => filters.stateKey, () => {
-    if (!ready || applyingLocation || window.location.pathname !== '/') return
+    if (!ready || applyingLocation) return
     clearTimeout(historyTimer)
     historyTimer = setTimeout(() => {
       const url = new URL(window.location.href)
       for (const key of GIS_FILTER_QUERY_KEYS) url.searchParams.delete(key)
-      for (const [key, value] of gisFilterUrlQuery(filters.filterState)) url.searchParams.set(key, value)
+      for (const [key, value] of gisFilterUrlQuery(filters.filterState)) {
+        url.searchParams.set(key, value)
+      }
       window.history.pushState({ ...window.history.state }, '', url)
     }, 200)
   })
-})
+
+  onBeforeUnmount(() => {
+    clearTimeout(historyTimer)
+    window.removeEventListener('popstate', applyLocation)
+  })
+}

@@ -235,6 +235,14 @@ test('mobile filter and analysis summaries scroll below the single sheet header'
     await expect(dialog.getByRole('heading', { name: panel.title, exact: true })).toHaveCount(1)
     await expect(summary).toBeVisible()
 
+    // Measure scrolling after the sheet entrance transition has settled.
+    await expect.poll(async () => {
+      const first = await sheetHeader.boundingBox()
+      await page.waitForTimeout(80)
+      const second = await sheetHeader.boundingBox()
+      return Math.abs((second?.y || 0) - (first?.y || 0))
+    }).toBeLessThan(1)
+
     const headerBefore = await sheetHeader.boundingBox()
     const summaryBefore = await summary.boundingBox()
     await scroller.evaluate(element => { element.scrollTop = 500 })

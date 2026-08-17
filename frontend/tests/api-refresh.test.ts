@@ -45,14 +45,14 @@ describe('central API refresh retry', () => {
     expect(send).toHaveBeenCalledOnce()
   })
 
-  it('uses one refresh flight for five concurrent 401 responses', async () => {
+  it('uses one refresh flight for ten concurrent 401 responses', async () => {
     let refreshCalls = 0
     const refresh = () => singleFlightRefresh(async () => {
       refreshCalls += 1
       await Promise.resolve()
       return true
     })
-    const sends = Array.from({ length: 5 }, () => vi.fn()
+    const sends = Array.from({ length: 10 }, () => vi.fn()
       .mockResolvedValueOnce({ status: 401, code: 'ACCESS_TOKEN_EXPIRED' })
       .mockResolvedValueOnce({ status: 200, value: 'ok' }))
 

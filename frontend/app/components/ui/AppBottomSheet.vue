@@ -271,7 +271,12 @@ async function resetScrollPosition() {
 }
 
 function handleViewportChange() {
-  if (!dragging.value) panelHeight.value = snapHeight(snap.value)
+  // Mobile browser chrome can resize the visual viewport while the sheet body
+  // scrolls. Keep the panel (and therefore its fixed header) stable until the
+  // user returns to the top; CSS max-height still guards the visible viewport.
+  if (!dragging.value && (scroller.value?.scrollTop || 0) === 0) {
+    panelHeight.value = snapHeight(snap.value)
+  }
 }
 
 function handleOrientationChange() {

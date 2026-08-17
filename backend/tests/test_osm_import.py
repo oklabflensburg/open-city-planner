@@ -48,7 +48,7 @@ def disable_nominatim_enrichment(monkeypatch) -> None:
         "app.services.osm_import.refresh_polygon_area_assignments", AsyncMock(return_value=0)
     )
     monkeypatch.setattr(
-        "app.services.osm_import.bump_cache_versions", AsyncMock(return_value=None)
+        "app.services.osm_import.invalidate_gis_after_mutation", AsyncMock(return_value=None)
     )
     monkeypatch.setattr(
         "app.services.osm_import.notify_users", AsyncMock(return_value=[])

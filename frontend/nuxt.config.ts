@@ -15,6 +15,13 @@ export default defineNuxtConfig({
   features: {
     devLogs: false
   },
+  experimental: {
+    defaults: {
+      nuxtLink: {
+        prefetchOn: { visibility: false, interaction: true }
+      }
+    }
+  },
   modules: ['@pinia/nuxt'],
   components: [
     {

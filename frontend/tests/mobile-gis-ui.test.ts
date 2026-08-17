@@ -114,6 +114,7 @@ describe('mobile GIS interface', () => {
     expect(sheet).toContain('env(safe-area-inset-bottom)')
     expect(sheet).toContain("maxHeight: 'calc(100dvh - 0.5rem)'")
     expect(sheet).toContain("window.visualViewport?.addEventListener('resize'")
+    expect(sheet).toContain("(scroller.value?.scrollTop || 0) === 0")
     expect(sheet).toContain('transition: height 250ms ease-out, transform 250ms ease-out')
     expect(sheet).toContain('@media (prefers-reduced-motion: reduce)')
   })

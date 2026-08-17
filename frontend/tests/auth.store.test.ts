@@ -56,6 +56,18 @@ describe('auth store', () => {
     expect(store.initialized).toBe(true)
   })
 
+  it('allows startup session discovery to refresh an expired access cookie', async () => {
+    const request = vi.fn().mockResolvedValue({ user, csrf_token: 'csrf-after-refresh' })
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+
+    await store.initialize()
+
+    expect(request).toHaveBeenCalledWith('/auth/session')
+    expect(store.user).toEqual(user)
+    expect(store.csrfToken).toBe('csrf-after-refresh')
+  })
+
   it('clears a stale session and preserves a self-deactivation code for login UX', async () => {
     const request = vi.fn().mockRejectedValue(new ApiError('disabled', {
       statusCode: 403,
@@ -93,7 +105,7 @@ describe('auth store', () => {
       body: JSON.stringify({ token: 'a-valid-random-token' }),
       retryOnUnauthorized: false
     })
-    expect(request).toHaveBeenNthCalledWith(2, '/auth/session', { retryOnUnauthorized: false })
+    expect(request).toHaveBeenNthCalledWith(2, '/auth/session')
     expect(store.user?.is_verified).toBe(true)
     expect(store.canWrite).toBe(true)
   })
@@ -301,7 +313,7 @@ describe('auth store', () => {
 
     await store.startOAuthLink(provider)
 
-    expect(request).toHaveBeenCalledWith('/auth/session', { retryOnUnauthorized: false })
+    expect(request).toHaveBeenCalledWith('/auth/session')
     expect(assign).toHaveBeenCalledWith(`http://localhost:8000/api/v1/auth/oauth/${provider}/link`)
   })
 

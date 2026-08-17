@@ -35,7 +35,7 @@
         </nav>
 
         <template v-if="authStore.authenticated">
-          <NotificationBell mode="desktop" />
+          <LazyNotificationBell mode="desktop" />
           <NuxtLink
             v-if="route.path === '/'"
             class="inline-flex h-11 items-center gap-2 rounded-xl border border-[#154d73] bg-white px-4 text-sm font-bold text-[#154d73] transition-colors hover:bg-[#edf4f8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
@@ -86,7 +86,7 @@
       </div>
 
       <div class="flex items-center gap-1 lg:hidden">
-        <NotificationBell v-if="authStore.authenticated" mode="mobile" />
+        <LazyNotificationBell v-if="authStore.authenticated" mode="mobile" />
         <button
           class="inline-flex size-11 items-center justify-center rounded-xl text-[#30363a] transition hover:bg-[#f4f6f6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
           type="button"

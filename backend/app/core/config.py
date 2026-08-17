@@ -6,6 +6,8 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+DEVELOPMENT_JWT_SECRET = "development-only-change-me-32-bytes-minimum"
+MINIMUM_JWT_SECRET_LENGTH = 32
 
 
 class Settings(BaseSettings):
@@ -19,7 +21,7 @@ class Settings(BaseSettings):
     app_environment: str = "development"
     app_base_url: str = "http://localhost:3000"
     api_base_url: str = "http://localhost:8000"
-    jwt_secret_key: str = "development-only-change-me-32-bytes-minimum"
+    jwt_secret_key: str = DEVELOPMENT_JWT_SECRET
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
@@ -146,8 +148,14 @@ class Settings(BaseSettings):
         return self.app_environment.lower() == "production"
 
     def validate_security(self) -> None:
-        if self.production and self.jwt_secret_key == "development-only-change-me-32-bytes-minimum":
-            raise RuntimeError("JWT_SECRET_KEY must be configured in production")
+        if self.production and (
+            self.jwt_secret_key == DEVELOPMENT_JWT_SECRET
+            or len(self.jwt_secret_key.strip()) < MINIMUM_JWT_SECRET_LENGTH
+        ):
+            raise RuntimeError(
+                f"JWT_SECRET_KEY must be configured with at least "
+                f"{MINIMUM_JWT_SECRET_LENGTH} characters in production"
+            )
         if self.production and not self.auth_cookie_secure:
             raise RuntimeError("AUTH_COOKIE_SECURE must be true in production")
         if self.contact_turnstile_enabled and (
