@@ -1,3 +1,4 @@
+import uuid
 from unittest.mock import AsyncMock
 
 import pytest
@@ -5,7 +6,7 @@ import pytest
 import app.services.polygons as polygon_service
 from app.models.user_polygon import UserPolygon
 from app.schemas.geojson import PolygonUpdate
-from app.services.polygons import generate_unique_polygon_slug, slugify_polygon_name, update_polygon
+from app.services.polygons import delete_polygon, generate_unique_polygon_slug, slugify_polygon_name, update_polygon
 
 
 @pytest.mark.parametrize(
@@ -71,3 +72,37 @@ class FakeUpdateSession:
 
     async def refresh(self, _item: object) -> None:
         pass
+
+
+@pytest.mark.asyncio
+async def test_delete_invalidates_polygon_analytics_and_osm_namespaces(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = FakeDeleteSession()
+    polygon = UserPolygon(name="Delete me", slug="delete-me", category="custom")
+    polygon.uuid = uuid.uuid4()
+    bump = AsyncMock(return_value=None)
+    monkeypatch.setattr(polygon_service, "bump_cache_versions", bump)
+
+    await delete_polygon(session, polygon, uuid.uuid4())  # type: ignore[arg-type]
+
+    bump.assert_awaited_once_with(session, ("polygons", "analytics", "osm"))
+    assert session.deleted is polygon
+    assert session.committed is True
+    assert session.added[0].action == "POLYGON_DELETED"
+    assert session.added[0].event_metadata == {"title": "Delete me"}
+
+
+class FakeDeleteSession:
+    deleted: object | None = None
+    committed = False
+
+    def __init__(self) -> None:
+        self.added: list[object] = []
+
+    def add(self, item: object) -> None:
+        self.added.append(item)
+
+    async def delete(self, item: object) -> None:
+        self.deleted = item
+
+    async def commit(self) -> None:
+        self.committed = True

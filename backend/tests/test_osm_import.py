@@ -82,10 +82,31 @@ def test_detect_osm_occupancy_status(tags, status, source_tag) -> None:
 
 def test_category_and_floor_mapping_are_conservative() -> None:
     assert map_osm_category({"shop": "clothes"}) == "fashion"
-    assert map_osm_category({"disused:shop": "clothes"}) == "otherAreas"
+    assert map_osm_category({"disused:shop": "clothes"}) == "fashion"
     assert map_osm_category({"amenity": "restaurant"}) == "gastronomy"
     assert map_osm_floor({"level": "0"}, None) == "EG"
     assert map_osm_floor({"building:levels": "4"}, None) is None
+
+
+@pytest.mark.parametrize(
+    ("tags", "category"),
+    [
+        ({"shop": "shoes"}, "fashion"),
+        ({"shop": "supermarket"}, "food"),
+        ({"shop": "mobile_phone"}, "electronics"),
+        ({"shop": "interior_decoration"}, "furniture"),
+        ({"shop": "garden_centre"}, "garden"),
+        ({"shop": "department_store"}, "warehouse"),
+        ({"amenity": "cafe"}, "gastronomy"),
+        ({"shop": "hairdresser"}, "services"),
+        ({"shop": "beauty"}, "services"),
+        ({"shop": "florist"}, "garden"),
+        ({"shop": "cosmetics"}, "food"),
+        ({"office": "insurance"}, "services"),
+    ],
+)
+def test_actual_flensburg_osm_tags_map_to_stadtplanner_categories(tags, category) -> None:
+    assert map_osm_category(tags) == category
 
 
 def test_import_schema_forbids_geometry_claims_and_management_fields() -> None:

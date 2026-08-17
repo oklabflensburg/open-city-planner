@@ -175,7 +175,19 @@ async def post_signup(payload: SignupRequest, session: SessionDep, response: Res
     return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
 
 
-@router.post("/login", response_model=AuthResponse)
+@router.post(
+    "/login",
+    response_model=AuthResponse,
+    responses={
+        401: {"description": "Invalid email address or password"},
+        403: {
+            "description": (
+                "Account cannot authenticate. Error codes include "
+                "ACCOUNT_SELF_DEACTIVATED and ACCOUNT_DISABLED."
+            )
+        },
+    },
+)
 async def post_login(payload: LoginRequest, session: SessionDep, response: Response, request: Request) -> AuthResponse:
     check_rate_limit(f"login:{request.client.host if request.client else 'unknown'}:{payload.email}")
     user = await authenticate(session, payload)
@@ -201,7 +213,15 @@ async def post_refresh(session: SessionDep, response: Response, request: Request
     try:
         user, csrf_token = await refresh_session(session, response, refresh_token, request)
     except HTTPException as exc:
-        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+        error_code = (
+            exc.detail.get("error", {}).get("code")
+            if isinstance(exc.detail, dict)
+            else None
+        )
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED or error_code in {
+            "ACCOUNT_SELF_DEACTIVATED",
+            "ACCOUNT_DISABLED",
+        }:
             clear_auth_cookies(response)
         raise
     return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
@@ -504,7 +524,9 @@ def provider_label(provider: str) -> str:
 
 def oauth_login_error_redirect(code: str) -> RedirectResponse:
     settings = get_settings()
-    return RedirectResponse(f"{settings.app_base_url.rstrip('/')}/login?oauth_error={code}", status_code=302)
+    return RedirectResponse(
+        f"{settings.app_base_url.rstrip('/')}/login?auth_error={code}", status_code=302
+    )
 
 
 def oauth_link_result_redirect(

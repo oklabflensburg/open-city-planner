@@ -5,11 +5,11 @@
       <div class="min-w-0 max-w-3xl">
         <div v-if="$slots.badge || eyebrow" class="mb-3">
           <slot name="badge">
-            <p class="text-xs font-bold uppercase tracking-[0.12em] text-[#154d73]">{{ eyebrow }}</p>
+            <p class="civic-kicker">{{ eyebrow }}</p>
           </slot>
         </div>
-        <h1 class="break-words text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{{ title }}</h1>
-        <p v-if="description" class="mt-4 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">{{ description }}</p>
+        <h1 class="break-words text-3xl font-black tracking-tight text-[var(--c-text)] sm:text-4xl">{{ title }}</h1>
+        <p v-if="description" class="mt-4 max-w-3xl text-base leading-7 text-[var(--c-text-muted)] sm:text-lg sm:leading-8">{{ description }}</p>
       </div>
       <div v-if="$slots.actions" class="flex shrink-0 flex-wrap gap-3 sm:pt-1">
         <slot name="actions" />

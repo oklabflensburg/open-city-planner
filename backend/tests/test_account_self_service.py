@@ -11,9 +11,11 @@ from app.auth.jwt import create_jwt
 from app.db.session import get_session
 from app.main import app
 from app.models.admin_audit_log import AdminAuditLog
-from app.models.user import User
+from app.models.user import AccountDeactivationReason, User
+from app.schemas.auth import LoginRequest
 from app.services import account_service
 from app.services.account_service import deactivate_own_account, delete_own_account
+from app.services.auth_service import authenticate
 
 
 def user(*, superuser: bool = False, password_hash: str | None = None) -> User:
@@ -60,6 +62,8 @@ async def test_deactivation_uses_existing_active_state_revokes_sessions_and_audi
     await deactivate_own_account(session, account.id)
 
     assert account.is_active is False
+    assert account.deactivation_reason == AccountDeactivationReason.SELF_DEACTIVATED
+    assert account.deactivated_at is not None
     statement = str(session.execute.await_args.args[0])
     assert "UPDATE user_sessions" in statement
     audit = session.add.call_args.args[0]
@@ -143,6 +147,54 @@ async def test_delete_removes_personal_dependencies_and_keeps_audit_event() -> N
     session.delete.assert_awaited_once_with(account)
     session.commit.assert_awaited_once()
     assert avatar_url == account.avatar_url
+
+
+@pytest.mark.asyncio
+async def test_correct_password_reveals_only_self_deactivation_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    account = user(password_hash="stored-hash")
+    account.is_active = False
+    account.deactivation_reason = AccountDeactivationReason.SELF_DEACTIVATED
+    session = service_session(account)
+    monkeypatch.setattr("app.services.auth_service.verify_password", lambda *_args: True)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await authenticate(
+            session,
+            LoginRequest(email=account.email, password="correct password"),
+        )
+
+    assert exc_info.value.detail["error"]["code"] == "ACCOUNT_SELF_DEACTIVATED"
+    audit = session.add.call_args.args[0]
+    assert audit.action == "LOGIN_BLOCKED"
+    assert audit.event_metadata == {
+        "reason": "SELF_DEACTIVATED",
+        "provider": "password",
+    }
+    session.commit.assert_awaited_once()
+    session.refresh.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_wrong_password_for_self_deactivated_account_remains_generic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    account = user(password_hash="stored-hash")
+    account.is_active = False
+    account.deactivation_reason = AccountDeactivationReason.SELF_DEACTIVATED
+    session = service_session(account)
+    monkeypatch.setattr("app.services.auth_service.verify_password", lambda *_args: False)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await authenticate(
+            session,
+            LoginRequest(email=account.email, password="wrong password"),
+        )
+
+    assert exc_info.value.detail["error"]["code"] == "INVALID_CREDENTIALS"
+    session.add.assert_not_called()
+    session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -234,3 +286,5 @@ def test_openapi_documents_self_service_account_operations() -> None:
     assert schema["/api/v1/users/me"]["delete"]["summary"] == "Delete current user account"
     assert {"401", "409"}.issubset(schema["/api/v1/users/me/deactivate"]["post"]["responses"])
     assert {"401", "403", "409"}.issubset(schema["/api/v1/users/me"]["delete"]["responses"])
+    login_responses = schema["/api/v1/auth/login"]["post"]["responses"]
+    assert "ACCOUNT_SELF_DEACTIVATED" in login_responses["403"]["description"]

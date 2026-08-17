@@ -7,7 +7,7 @@ const bounds = { west: 9.43, south: 54.78, east: 9.44, north: 54.79 }
 const response: OsmViewportResult = {
   type: 'FeatureCollection',
   features: [],
-  meta: { count: 0, truncated: false, zoom: 16, summary: {}, osm_data_updated_at: '2026-08-14T00:00:00Z' }
+  meta: { count: 0, truncated: false, zoom: 16, summary: {}, canonical_summary: {}, canonical_facets: {}, business_count: 0, context_count: 0, deduplicated_linked_count: 0, osm_data_updated_at: '2026-08-14T00:00:00Z' }
 }
 
 describe('OSM viewport store lifecycle', () => {
@@ -82,5 +82,19 @@ describe('OSM viewport store lifecycle', () => {
     expect(store.covers({ ...bounds, east: buffered.east + 0.001 }, 16)).toBe(false)
     expect(store.covers(bounds, 17)).toBe(false)
     expect(request).toHaveBeenCalledTimes(1)
+  })
+
+  it('drops viewport data and the LRU cache after a polygon mutation changes deduplication', async () => {
+    vi.stubGlobal('useApi', () => ({ request: vi.fn().mockResolvedValue(response) }))
+    const store = useOsmViewportStore()
+    await store.load(bounds, 16)
+    const generation = store.generation
+
+    store.invalidateForPolygonMutation()
+
+    expect(store.data).toBeNull()
+    expect(store.viewportCache.size).toBe(0)
+    expect(store.generation).toBe(generation + 1)
+    expect(store.lastRequestKey).toBe('')
   })
 })

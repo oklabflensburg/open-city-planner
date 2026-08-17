@@ -26,8 +26,8 @@ export const usePolygonApi = () => {
       const polygons = await request<unknown[]>('/polygons')
       return polygons.map((polygon) => polygonSchema.parse(polygon))
     },
-    async overview() {
-      const polygons = await request<unknown[]>('/polygons/overview')
+    async overview(query = '', signal?: AbortSignal) {
+      const polygons = await request<unknown[]>(`/polygons/overview${query ? `?${query}` : ''}`, { signal })
       return polygons.map(polygon => polygonOverviewSchema.parse(polygon)) as PolygonOverview[]
     },
     async create(payload: PolygonPayload) {

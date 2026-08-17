@@ -50,6 +50,11 @@ def _display_name(user: User | None) -> str | None:
 def _summary(log: AdminAuditLog, target: User | None) -> str:
     label = _display_name(target) or "gelöschtes Benutzerkonto"
     role = f" ({log.role})" if log.role else ""
+    login_blocked_summary = (
+        "Anmeldung wurde blockiert, da das Benutzerkonto zuvor selbst deaktiviert wurde."
+        if (log.event_metadata or {}).get("reason") == "SELF_DEACTIVATED"
+        else "Anmeldung wurde blockiert, da das Benutzerkonto deaktiviert ist."
+    )
     summaries = {
         "USER_ROLE_ASSIGNED": f"Rolle{role} wurde {label} zugewiesen.",
         "USER_ROLE_REMOVED": f"Rolle{role} wurde {label} entzogen.",
@@ -57,6 +62,7 @@ def _summary(log: AdminAuditLog, target: User | None) -> str:
         "USER_DEACTIVATED": f"Benutzerkonto {label} wurde deaktiviert.",
         "ACCOUNT_DEACTIVATED": "Benutzerkonto wurde durch den Benutzer selbst deaktiviert.",
         "ACCOUNT_DELETED": "Benutzerkonto wurde auf Wunsch des Benutzers dauerhaft gelöscht.",
+        "LOGIN_BLOCKED": login_blocked_summary,
         "USER_SUPERUSER_GRANTED_DIRECT": f"Superuser-Status wurde {label} direkt zugewiesen.",
         "REFRESH_TOKEN_REUSE_DETECTED": f"Wiederverwendung eines Refresh-Tokens für {label} wurde erkannt.",
         "FLENSBURG_STATISTICS_SYNC": "Kommunale Statistik wurde aus dem Flensburger Zahlenspiegel synchronisiert.",
@@ -71,6 +77,7 @@ def _summary(log: AdminAuditLog, target: User | None) -> str:
         "OAUTH_ACCOUNT_LINKED": f"Ein externes Konto wurde mit {label} verknüpft.",
         "OAUTH_ACCOUNT_LINK_FAILED": f"Ein externes Konto konnte nicht mit {label} verknüpft werden.",
         "OAUTH_ACCOUNT_UNLINKED": f"Eine externe Kontoverknüpfung von {label} wurde entfernt.",
+        "POLYGON_DELETED": f"Die Fläche {(log.event_metadata or {}).get('title') or log.resource_id} wurde gelöscht.",
     }
     return summaries.get(log.action, f"Administrative Aktion {log.action} für {label}.")
 
@@ -83,6 +90,8 @@ def _serialize(log: AdminAuditLog, actor: User | None, target: User | None) -> A
     resource_type = log.resource_type or ("SYSTEM" if is_system_resource else "USER")
     if resource_type == "ANALYSIS_AREA":
         resource_label = "Gebietsveröffentlichung"
+    elif resource_type == "POLYGON":
+        resource_label = str((log.event_metadata or {}).get("title") or "Gelöschte Fläche")
     elif resource_type == "SYSTEM":
         resource_label = "Flensburg Statistik" if is_system_resource else "Systemereignis"
     else:

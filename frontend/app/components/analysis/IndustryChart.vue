@@ -1,72 +1,41 @@
 <template>
   <Card class="p-4">
     <div class="mb-3 flex items-start justify-between gap-3">
-      <div>
-        <h2 class="text-[13px] font-semibold text-[#3f4448]">Shops nach Branche</h2>
-        <p class="mt-1 text-[10px] leading-snug text-[#5f666d]">Aktuell gefilterte Flächen nach Branche</p>
-      </div>
-      <Info class="mt-0.5 size-4 shrink-0 text-[#9aa0a5]" />
+      <div><p class="civic-kicker">Branchenmix</p><h2 class="mt-1 text-sm font-extrabold text-[var(--c-text)]">Standorte nach Branche</h2><p class="mt-1 text-[11px] leading-4 text-[var(--c-text-muted)]">Gefilterte Stadtplanner- und deduplizierte OSM-Daten</p></div>
+      <Info class="mt-0.5 size-4 shrink-0 text-[var(--c-primary-600)]" aria-hidden="true" />
     </div>
-    <div v-if="analytics.loading && !analytics.data" class="mx-auto h-[180px] w-[180px] animate-pulse rounded-full bg-slate-100" />
-    <div v-else-if="segments.length" class="flex justify-center">
-      <svg class="h-[180px] w-[180px]" viewBox="-1 -1 2 2" role="img" aria-label="Branchenverteilung">
-        <path
-          v-for="segment in segments"
-          :key="segment.key"
-          :d="segment.path"
-          :fill="segment.color"
-          stroke="#ffffff"
-          stroke-width="0.012"
-          class="cursor-pointer transition-opacity"
-          :class="{ 'opacity-45': highlighted && highlighted !== segment.key }"
-          @mouseenter="mapStore.categoryHighlight = segment.key"
-          @mouseleave="mapStore.categoryHighlight = null"
-          @focus="mapStore.categoryHighlight = segment.key"
-          @blur="mapStore.categoryHighlight = null"
-          tabindex="0"
-        >
-          <title>{{ segment.label }}: {{ segment.value }}</title>
-        </path>
-      </svg>
-    </div>
-    <p v-else class="rounded-xl bg-slate-50 px-3 py-8 text-center text-xs text-slate-600">Für die aktuelle Auswahl liegen keine Daten vor.</p>
-    <p v-if="segments.length" class="mt-2 text-center text-[11px] text-slate-500">Gesamt: {{ total.toLocaleString('de-DE') }} Flächen</p>
+    <div v-if="analytics.loading && !analytics.data" class="h-52 animate-pulse rounded-xl bg-[var(--c-surface-muted)]" />
+    <div v-else-if="items.length" class="h-[min(18rem,45vh)] min-h-52"><Bar :data="chartData" :options="chartOptions" :aria-label="accessibleLabel" /></div>
+    <p v-else class="rounded-xl bg-[var(--c-surface)] px-3 py-8 text-center text-xs text-[var(--c-text-muted)]">Für die aktuelle Auswahl liegen keine Branchendaten vor.</p>
+    <p v-if="items.length" class="mt-2 text-center text-[11px] text-[var(--c-text-muted)]">Gesamt: {{ total.toLocaleString('de-DE') }} Standorte · Balken anklicken zum Filtern</p>
+    <table class="sr-only"><caption>Standorte nach Branche</caption><tbody><tr v-for="item in items" :key="item.key"><th>{{ item.label }}</th><td>{{ item.value }}</td></tr></tbody></table>
   </Card>
 </template>
 
 <script setup lang="ts">
+import { Bar } from 'vue-chartjs'
+import type { ActiveElement, ChartEvent, ChartOptions } from 'chart.js'
 import { Info } from 'lucide-vue-next'
-import { industries, industryColors } from '~/utils/industries'
+import { barChartOptions } from '~/utils/chartTheme'
+import { industries, industryColors, type IndustryKey } from '~/utils/industries'
 
 const mapStore = useMapStore()
 const analytics = useAnalyticsStore()
-const highlighted = computed(() => mapStore.categoryHighlight)
-
-const polar = (angle: number) => [Math.cos(angle), Math.sin(angle)]
-const segmentPath = (start: number, end: number) => {
-  const [sx, sy] = polar(start)
-  const [ex, ey] = polar(end)
-  const largeArc = end - start > Math.PI ? 1 : 0
-  return `M 0 0 L ${sx} ${sy} A 1 1 0 ${largeArc} 1 ${ex} ${ey} Z`
-}
-
-const segments = computed(() => {
-  const counts = new Map((analytics.data?.industry_distribution || []).map(item => [item.category, item.count]))
-  const available = industries.map(industry => ({ ...industry, value: counts.get(industry.key) || 0 })).filter(industry => industry.value > 0)
-  const sum = available.reduce((value, industry) => value + industry.value, 0)
-  let angle = -Math.PI / 2
-  return available.map((industry) => {
-    const span = (industry.value / sum) * Math.PI * 2
-    const path = segmentPath(angle, angle + span)
-    angle += span
-    return {
-      key: industry.key,
-      label: industry.label,
-      value: industry.value,
-      color: industryColors[industry.key],
-      path
-    }
-  })
+const osm = useOsmViewportStore()
+const filter = useFilterStore()
+const items = computed(() => {
+  const counts = new Map<string, number>()
+  for (const item of analytics.data?.industry_distribution || []) counts.set(item.category, item.count)
+  for (const [key, count] of Object.entries(osm.data?.meta.canonical_summary || {})) counts.set(key, (counts.get(key) || 0) + count)
+  return industries.map(industry => ({ key: industry.key, label: industry.label, value: counts.get(industry.key) || 0, color: industryColors[industry.key] })).filter(item => item.value > 0).sort((a, b) => b.value - a.value)
 })
-const total = computed(() => segments.value.reduce((sum, segment) => sum + segment.value, 0))
+const total = computed(() => items.value.reduce((sum, item) => sum + item.value, 0))
+const chartData = computed(() => ({ labels: items.value.map(item => item.label), datasets: [{ data: items.value.map(item => item.value), backgroundColor: items.value.map(item => item.color), borderRadius: 5, borderSkipped: false, barThickness: 12 }] }))
+const chartOptions = computed<ChartOptions<'bar'>>(() => ({
+  ...barChartOptions(true),
+  onHover: (_event: ChartEvent, elements: ActiveElement[]) => { mapStore.categoryHighlight = elements[0] ? items.value[elements[0].index]?.key || null : null },
+  onClick: (_event: ChartEvent, elements: ActiveElement[]) => { const key = elements[0] ? items.value[elements[0].index]?.key : undefined; if (key) filter.activeCategories = [key as IndustryKey] },
+}))
+const accessibleLabel = computed(() => items.value.map(item => `${item.label}: ${item.value}`).join(', '))
+onBeforeUnmount(() => { mapStore.categoryHighlight = null })
 </script>

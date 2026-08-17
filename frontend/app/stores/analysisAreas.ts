@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
 import type { AnalysisArea, AnalysisAreaAnalytics, AnalysisAreaComparison, AnalysisAreaFeatureCollection, AnalysisAreaType, AreaStatistics } from '~/types/analysisArea'
 import { useMapStore } from '~/stores/map'
+import { gisFilterQuery } from '~/utils/gisFilters'
 
 const emptyCollection: AnalysisAreaFeatureCollection = { type: 'FeatureCollection', features: [] }
 
@@ -54,18 +55,13 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
       this.error = null
       try {
         const filter = useFilterStore()
-        const query = new URLSearchParams({
-          categories: filter.activeCategories.length ? filter.activeCategories.join(',') : '__none__',
-          floors: filter.selectedFloor,
-          area_sizes: filter.selectedSize
-        })
-        if (filter.occupancyStatuses.length) query.set('occupancy_statuses', filter.occupancyStatuses.join(','))
-        if (filter.businessStructures.length) query.set('business_structures', filter.businessStructures.join(','))
+        const query = gisFilterQuery(filter.filterState)
+        const suffix = query.size ? `?${query}` : ''
         const api = useApi()
         const selectedArea = this.areas.find(area => area.id === id)
         const [analytics, comparison, statistics] = await Promise.all([
-          api.request<AnalysisAreaAnalytics>(`/analysis-areas/${id}/analytics?${query}`),
-          api.request<AnalysisAreaComparison>(`/analysis-areas/${id}/comparison?${query}`),
+          api.request<AnalysisAreaAnalytics>(`/analysis-areas/${id}/analytics${suffix}`),
+          api.request<AnalysisAreaComparison>(`/analysis-areas/${id}/comparison${suffix}`),
           selectedArea ? api.request<AreaStatistics>(`/analysis-areas/by-slug/${encodeURIComponent(selectedArea.slug)}/statistics`) : Promise.resolve(null)
         ])
         if (current === this.requestId && this.selectedAreaId === id) {

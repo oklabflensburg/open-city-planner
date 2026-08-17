@@ -16,7 +16,7 @@ from app.auth.tokens import generate_token, hash_token
 from app.core.config import get_settings
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.password_reset_token import PasswordResetToken
-from app.models.user import User
+from app.models.user import AccountDeactivationReason, User
 from app.models.user_session import UserSession
 from app.models.verification_token import EmailVerificationToken
 from app.schemas.auth import LoginRequest, SignupRequest
@@ -41,6 +41,45 @@ def utcnow() -> datetime:
 
 def auth_error(code: str, message: str, status_code: int) -> HTTPException:
     return HTTPException(status_code=status_code, detail={"error": {"code": code, "message": message}})
+
+
+def inactive_account_error(user: User) -> HTTPException:
+    if user.deactivation_reason == AccountDeactivationReason.SELF_DEACTIVATED:
+        return auth_error(
+            "ACCOUNT_SELF_DEACTIVATED",
+            "Dieses Konto wurde selbst deaktiviert.",
+            status.HTTP_403_FORBIDDEN,
+        )
+    return auth_error(
+        "ACCOUNT_DISABLED",
+        "Dieses Konto ist derzeit deaktiviert.",
+        status.HTTP_403_FORBIDDEN,
+    )
+
+
+async def ensure_user_can_authenticate(
+    session: AsyncSession,
+    user: User,
+    *,
+    provider: str,
+    audit_interactive_attempt: bool,
+) -> None:
+    if user.is_active:
+        return
+    if audit_interactive_attempt:
+        reason = user.deactivation_reason or AccountDeactivationReason.ADMIN_DEACTIVATED
+        session.add(
+            AdminAuditLog(
+                actor_user_id=user.id,
+                target_user_id=user.id,
+                action="LOGIN_BLOCKED",
+                resource_type="USER",
+                resource_id=user.id,
+                event_metadata={"reason": reason.value, "provider": provider},
+            )
+        )
+        await session.commit()
+    raise inactive_account_error(user)
 
 
 async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
@@ -116,8 +155,9 @@ async def authenticate(session: AsyncSession, payload: LoginRequest) -> User:
     user = await get_user_by_email(session, str(payload.email))
     if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
         raise auth_error("INVALID_CREDENTIALS", "E-Mail-Adresse oder Passwort ist nicht korrekt.", status.HTTP_401_UNAUTHORIZED)
-    if not user.is_active:
-        raise auth_error("ACCOUNT_INACTIVE", "Dieses Konto ist deaktiviert.", status.HTTP_403_FORBIDDEN)
+    await ensure_user_can_authenticate(
+        session, user, provider="password", audit_interactive_attempt=True
+    )
     user.last_login_at = utcnow()
     await session.commit()
     await session.refresh(user)
@@ -248,11 +288,20 @@ async def refresh_session(session: AsyncSession, response: Response, refresh_tok
         raise auth_error("REFRESH_TOKEN_EXPIRED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
 
     user = await get_user_by_id(session, record.user_id)
-    if not user or not user.is_active:
+    if not user:
         await revoke_token_family(session, record.family_id, now, "user_inactive")
         await session.commit()
         logger.info("AUTH_REFRESH_FAILED reason=USER_INACTIVE family_id=%s", record.family_id)
         raise auth_error("USER_INACTIVE", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+    try:
+        await ensure_user_can_authenticate(
+            session, user, provider="refresh", audit_interactive_attempt=False
+        )
+    except HTTPException:
+        await revoke_token_family(session, record.family_id, now, "user_inactive")
+        await session.commit()
+        logger.info("AUTH_REFRESH_FAILED reason=USER_INACTIVE family_id=%s", record.family_id)
+        raise
 
     access_token, next_refresh_token, next_record = create_session_record(
         user,

@@ -3,7 +3,7 @@
     <Transition name="app-sheet-backdrop">
       <button
         v-if="open"
-        class="fixed inset-0 z-40 cursor-default bg-slate-950/30 lg:hidden"
+        class="fixed inset-0 z-40 cursor-default bg-slate-950/30 xl:hidden"
         type="button"
         tabindex="-1"
         aria-label="Dialog schließen"
@@ -15,7 +15,7 @@
       <section
         v-if="open"
         ref="panel"
-        class="app-bottom-sheet fixed inset-x-0 bottom-0 z-50 flex min-w-0 flex-col overflow-hidden rounded-t-[20px] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_40px_rgba(15,23,42,0.2)] outline-none lg:hidden"
+        class="app-bottom-sheet fixed inset-x-0 bottom-0 z-50 flex min-w-0 flex-col overflow-hidden rounded-t-[var(--radius-panel)] bg-white pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-floating)] outline-none xl:hidden"
         :class="{ 'app-bottom-sheet--dragging': dragging }"
         :style="sheetStyle"
         role="dialog"
@@ -35,7 +35,7 @@
             @pointerup="finishDrag"
             @pointercancel="cancelDrag"
           >
-            <span class="h-1 w-10 rounded-full bg-slate-300" />
+            <span class="h-1 w-10 rounded-full bg-[var(--c-border-strong)]" />
           </div>
           <div class="flex min-h-14 items-center justify-between gap-3 px-4 pb-3">
             <h2 :id="titleId" class="min-w-0 text-base font-bold text-slate-950">{{ title }}</h2>
@@ -47,7 +47,7 @@
 
         <div
           ref="scroller"
-          class="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-[#f4f4f4] p-3"
+          class="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--c-surface)] p-3"
           data-sheet-scroll
           @pointerdown="prepareContentDrag"
           @pointermove="continueDrag"

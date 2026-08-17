@@ -4,14 +4,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.analytics import (
-    AREA_SIZES,
-    BUSINESS_STRUCTURES,
-    CATEGORIES,
-    FLOORS,
-    OCCUPANCY_STATUSES,
-    _checked,
-)
 from app.cache.service import last_cache_status
 from app.core.config import get_settings
 from app.db.session import get_session
@@ -23,6 +15,7 @@ from app.schemas.analysis_area import (
     AnalysisAreaRead,
     AnalysisAreaSitemapEntry,
 )
+from app.schemas.polygon_filters import PolygonFilterParams, polygon_filter_query
 from app.schemas.statistics import AreaStatisticSeriesRead, AreaStatisticsRead
 from app.services.analysis_area_api import (
     analysis_area_sitemap_entries,
@@ -117,13 +110,14 @@ async def get_area(area_id: uuid.UUID, session: SessionDep) -> AnalysisAreaRead:
     return result
 
 
-def filters(categories: str | None, floors: str | None, area_sizes: str | None, occupancy_statuses: str | None, business_structures: str | None) -> dict:
+def filters(params: PolygonFilterParams) -> dict:
     return {
-        "categories": _checked(categories, CATEGORIES, "categories"),
-        "floors": _checked(floors, FLOORS, "floors"),
-        "area_sizes": _checked(area_sizes, AREA_SIZES, "area_sizes"),
-        "occupancy_statuses": _checked(occupancy_statuses, OCCUPANCY_STATUSES, "occupancy_statuses"),
-        "business_structures": _checked(business_structures, BUSINESS_STRUCTURES, "business_structures"),
+        "categories": params.categories,
+        "floors": params.floors,
+        "area_sizes": params.area_sizes,
+        "occupancy_statuses": params.occupancy_statuses,
+        "business_structures": params.business_structures,
+        "sources": params.sources,
     }
 
 
@@ -132,7 +126,7 @@ async def get_area_analytics_by_slug(slug: str, session: SessionDep) -> Analysis
     area_id = await area_uuid_by_slug(session, slug)
     if area_id is None:
         raise HTTPException(404, "Analysis area not found")
-    result = await area_analytics(session, area_id, **filters(None, None, None, None, None))
+    result = await area_analytics(session, area_id, **filters(PolygonFilterParams()))
     if result is None:
         raise HTTPException(404, "Analysis area not found")
     return result
@@ -143,7 +137,7 @@ async def get_area_comparison_by_slug(slug: str, session: SessionDep) -> Analysi
     area_id = await area_uuid_by_slug(session, slug)
     if area_id is None:
         raise HTTPException(404, "Analysis area not found")
-    result = await area_comparison(session, area_id, **filters(None, None, None, None, None))
+    result = await area_comparison(session, area_id, **filters(PolygonFilterParams()))
     if result is None:
         raise HTTPException(404, "Analysis area or municipality not found")
     return result
@@ -151,10 +145,11 @@ async def get_area_comparison_by_slug(slug: str, session: SessionDep) -> Analysi
 
 @router.get("/{area_id}/analytics", response_model=AnalysisAreaAnalytics, summary="Gefilterte Gebietskennzahlen laden")
 async def get_area_analytics(
-    area_id: uuid.UUID, session: SessionDep, categories: str | None = None, floors: str | None = None,
-    area_sizes: str | None = None, occupancy_statuses: str | None = None, business_structures: str | None = None,
+    area_id: uuid.UUID,
+    session: SessionDep,
+    filter_params: Annotated[PolygonFilterParams, Depends(polygon_filter_query)],
 ) -> AnalysisAreaAnalytics:
-    result = await area_analytics(session, area_id, **filters(categories, floors, area_sizes, occupancy_statuses, business_structures))
+    result = await area_analytics(session, area_id, **filters(filter_params))
     if result is None:
         raise HTTPException(404, "Analysis area not found")
     return result
@@ -162,10 +157,11 @@ async def get_area_analytics(
 
 @router.get("/{area_id}/comparison", response_model=AnalysisAreaComparison, summary="Gefilterten Gesamtstadtvergleich laden")
 async def get_area_comparison(
-    area_id: uuid.UUID, session: SessionDep, categories: str | None = None, floors: str | None = None,
-    area_sizes: str | None = None, occupancy_statuses: str | None = None, business_structures: str | None = None,
+    area_id: uuid.UUID,
+    session: SessionDep,
+    filter_params: Annotated[PolygonFilterParams, Depends(polygon_filter_query)],
 ) -> AnalysisAreaComparison:
-    result = await area_comparison(session, area_id, **filters(categories, floors, area_sizes, occupancy_statuses, business_structures))
+    result = await area_comparison(session, area_id, **filters(filter_params))
     if result is None:
         raise HTTPException(404, "Analysis area or municipality not found")
     return result

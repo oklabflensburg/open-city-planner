@@ -1,5 +1,5 @@
 <template>
-  <div class="relative h-full min-h-0 min-w-0 overflow-hidden rounded-2xl border border-white bg-slate-100 shadow-[0_1px_12px_rgba(20,24,28,0.08)] lg:min-h-[420px]">
+  <div class="relative h-full min-h-0 min-w-0 overflow-hidden rounded-[var(--radius-panel)] border border-white bg-[var(--c-surface-muted)] shadow-[var(--shadow-card)] lg:min-h-[420px]">
     <div ref="mapEl" class="absolute inset-0 h-full w-full" role="region" aria-label="Interaktive Stadtkarte von Flensburg" />
     <div v-if="!mapStore.mapLoaded && !mapError" class="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-slate-100/90" role="status" aria-live="polite">
       <div class="flex items-center gap-3 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
@@ -54,6 +54,7 @@ const initialCenter: [number, number] = [Number(config.public.mapCenterLng), Num
 const initialZoom = Number(config.public.mapZoom)
 let disposed = false
 let osmViewportTimer: ReturnType<typeof setTimeout> | undefined
+let forceNextOsmRefresh = false
 let hoverFrame: number | undefined
 let pendingHoverPoint: { x: number, y: number } | null = null
 let hoveredPolygonId: string | null = null
@@ -71,16 +72,7 @@ const performanceCounters = {
 }
 const performanceDebugEnabled = import.meta.dev || config.public.mapPerformanceDebug
 
-const visibleFeatureCollection = computed<FeatureCollection>(() => ({
-  type: 'FeatureCollection',
-  features: polygonStore.featureCollection.features.filter(feature => (
-    filterStore.activeCategories.includes(feature.properties.category as never)
-    && normalizeSize(feature.properties.size) === filterStore.selectedSize
-    && normalizeFloor(feature.properties.floor) === filterStore.selectedFloor
-    && (!filterStore.occupancyStatuses.length || filterStore.occupancyStatuses.includes(feature.properties.occupancy_status as never))
-    && (!filterStore.businessStructures.length || filterStore.businessStructures.includes(feature.properties.business_structure as never))
-  ))
-}))
+const visibleFeatureCollection = computed<FeatureCollection>(() => polygonStore.featureCollection as FeatureCollection)
 
 onMounted(async () => {
   if (!mapEl.value) return
@@ -122,6 +114,7 @@ onMounted(async () => {
         await selectRequestedArea(instance)
       }
       await osmRefresh
+      mapStore.markGisDataFresh()
     })
     instance.on('style.load', () => {
       if (!mapStore.mapLoaded || disposed) return
@@ -164,6 +157,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   disposed = true
   clearTimeout(osmViewportTimer)
+  clearTimeout(polygonFilterTimer)
   if (hoverFrame !== undefined) cancelAnimationFrame(hoverFrame)
   osmStore.dispose()
   mapStore.mapLoaded = false
@@ -180,7 +174,18 @@ onBeforeUnmount(() => {
   if (import.meta.client) delete window.__stadtplanerMapPerformance
 })
 
-watch(visibleFeatureCollection, collection => updateSource(collection), { deep: true })
+watch(visibleFeatureCollection, (collection) => {
+  updateSource(collection)
+  if (polygonStore.selectedPolygonId && !polygonStore.polygons.some(item => item.id === polygonStore.selectedPolygonId)) {
+    mapSelection.clearSelection()
+  }
+}, { deep: true })
+let polygonFilterTimer: ReturnType<typeof setTimeout> | undefined
+watch(() => filterStore.filterKey, () => {
+  clearTimeout(polygonFilterTimer)
+  polygonFilterTimer = setTimeout(() => void polygonStore.loadPolygons(), 200)
+  scheduleOsmViewportRefresh(200)
+})
 watch(() => polygonStore.selectedPolygonId, updatePolygonSelection)
 watch(() => mapStore.categoryHighlight, applyFeatureStyles)
 watch(() => mapStore.thematicStyle, applyFeatureStyles)
@@ -188,6 +193,11 @@ watch(() => osmStore.selectedFeature?.id, updateOsmSelection)
 watch(() => analysisAreasStore.selectedAreaId, updateAnalysisAreaSelection)
 watch(() => analysisAreasStore.visibility, setAnalysisAreaVisibility, { deep: true })
 watch(() => mapStore.polygonsVisible, setPolygonVisibility)
+watch(() => mapStore.gisDataGeneration, async () => {
+  if (!map.value || disposed) return
+  await polygonStore.loadPolygons({ force: true })
+  scheduleOsmViewportRefresh(0, true)
+})
 watch(
   () => [osmStore.showPois, osmStore.showAreas, osmStore.showBuildings, osmStore.activeCategories.join(',')],
   () => scheduleOsmViewportRefresh(0)
@@ -204,12 +214,12 @@ function ensureOsmInfrastructure(instance: Map) {
   if (!instance.getLayer('osm-polygons-fill')) instance.addLayer({
     id: 'osm-polygons-fill', type: 'fill', source: 'osm-polygons', minzoom: 14.5,
     filter: ['!=', ['get', 'natural'], 'peninsula'],
-    paint: { 'fill-color': osmColorExpression() as ColorExpression, 'fill-opacity': 0.11 }
+    paint: { 'fill-color': osmBusinessColorExpression(), 'fill-opacity': 0.11 }
   })
   if (!instance.getLayer('osm-polygons-line')) instance.addLayer({
     id: 'osm-polygons-line', type: 'line', source: 'osm-polygons', minzoom: 14.5,
     filter: ['!=', ['get', 'natural'], 'peninsula'],
-    paint: { 'line-color': osmColorExpression() as ColorExpression, 'line-opacity': 0.55, 'line-width': 1 }
+    paint: { 'line-color': osmBusinessColorExpression(), 'line-opacity': 0.65, 'line-width': 1 }
   })
   if (!instance.getLayer('osm-clusters')) instance.addLayer({
     id: 'osm-clusters', type: 'circle', source: 'osm-pois', minzoom: 11,
@@ -225,7 +235,7 @@ function ensureOsmInfrastructure(instance: Map) {
   if (!instance.getLayer('osm-poi-circle')) instance.addLayer({
     id: 'osm-poi-circle', type: 'circle', source: 'osm-pois', minzoom: 12,
     filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'natural'], 'peninsula']],
-    paint: { 'circle-color': osmColorExpression() as ColorExpression, 'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 4, 17, 7], 'circle-opacity': 0.9, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 }
+    paint: { 'circle-color': osmBusinessColorExpression(), 'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 4, 17, 7], 'circle-opacity': 0.9, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 }
   })
   if (!instance.getLayer('osm-poi-label')) instance.addLayer({
     id: 'osm-poi-label', type: 'symbol', source: 'osm-pois', minzoom: 18,
@@ -253,10 +263,15 @@ function ensureOsmInfrastructure(instance: Map) {
   updateOsmSelection()
 }
 
-function scheduleOsmViewportRefresh(delay = 220) {
+function scheduleOsmViewportRefresh(delay = 220, force = false) {
+  forceNextOsmRefresh ||= force
   clearTimeout(osmViewportTimer)
   if (!map.value || disposed) return
-  osmViewportTimer = setTimeout(() => void refreshOsmViewportForCurrentMap(), delay)
+  osmViewportTimer = setTimeout(() => {
+    const forceRefresh = forceNextOsmRefresh
+    forceNextOsmRefresh = false
+    void refreshOsmViewportForCurrentMap({ force: forceRefresh })
+  }, delay)
 }
 
 async function refreshOsmViewportForCurrentMap(options: { force?: boolean } = {}) {
@@ -264,6 +279,10 @@ async function refreshOsmViewportForCurrentMap(options: { force?: boolean } = {}
   const instance = map.value
   const container = mapEl.value
   if (!instance || disposed || !container?.isConnected || container.clientWidth === 0 || container.clientHeight === 0) return
+  if (instance.isMoving()) {
+    scheduleOsmViewportRefresh(120, options.force === true)
+    return
+  }
   if (!instance.isStyleLoaded() && !instance.getSource('osm-pois')) return
 
   const bounds = instance.getBounds()
@@ -336,7 +355,7 @@ async function handleMapClick(instance: Map, event: MapMouseEvent) {
     const feature = osmStore.data?.features.find(item => item.id === featureId)
     if (!feature) return
     const detailRequest = mapSelection.selectOsm(feature)
-    if (window.matchMedia('(max-width: 1023px)').matches) mapStore.openMobilePanel('selection')
+    if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openMobilePanel('selection')
     await detailRequest
     return
   }
@@ -358,7 +377,7 @@ async function handleMapClick(instance: Map, event: MapMouseEvent) {
 
   if (picked.kind === 'analysis-area' && picked.feature.properties?.id) {
     const detailRequest = mapSelection.selectAnalysisArea(String(picked.feature.properties.id))
-    if (window.matchMedia('(max-width: 1023px)').matches) mapStore.openMobilePanel('selection')
+    if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openMobilePanel('selection')
     await detailRequest
   }
 }
@@ -462,7 +481,7 @@ function ensurePolygonInfrastructure(instance: Map) {
 
 async function selectPolygon(id: string) {
   const selectionRequest = mapSelection.selectPolygon(id)
-  if (window.matchMedia('(max-width: 1023px)').matches) mapStore.openMobilePanel('selection')
+  if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openMobilePanel('selection')
   await selectionRequest
   if (mapStore.selectedMapEntity?.type !== 'polygon' || mapStore.selectedMapEntity.id !== id) return
   const bbox = polygonStore.selectedMetrics?.bbox
@@ -474,7 +493,7 @@ async function selectRequestedArea(instance: Map) {
   const area = analysisAreasStore.areas.find(candidate => candidate.slug === slug)
   if (!area) return
   const request = mapSelection.selectAnalysisArea(area.id)
-  if (window.matchMedia('(max-width: 1023px)').matches) mapStore.openMobilePanel('selection')
+  if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openMobilePanel('selection')
   const feature = analysisAreasStore.featureCollection.features.find(candidate => candidate.properties.id === area.id)
   const bounds = feature ? geometryBounds(feature.geometry.coordinates) : null
   if (bounds) instance.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 72, maxZoom: 16, duration: 0 })
@@ -537,6 +556,15 @@ type ColorExpression = NonNullable<NonNullable<FillLayerSpecification['paint']>[
 
 function categoryColorExpression() { return industryColorExpression() as ColorExpression }
 
+function osmBusinessColorExpression() {
+  return [
+    'case',
+    ['all', ['has', 'canonical_category'], ['!=', ['get', 'canonical_category'], null]],
+    industryColorExpression('canonical_category'),
+    osmColorExpression()
+  ] as unknown as ColorExpression
+}
+
 function thematicColorExpression() {
   if (mapStore.thematicStyle === 'occupancy') {
     return ['match', ['get', 'occupancy_status'], 'OCCUPIED', '#10b981', 'VACANT', '#f43f5e', '#94a3b8'] as ColorExpression
@@ -548,14 +576,6 @@ function thematicColorExpression() {
     return ['match', ['get', 'business_structure'], 'CHAIN', '#7c3aed', 'INDEPENDENT', '#f59e0b', '#94a3b8'] as ColorExpression
   }
   return categoryColorExpression()
-}
-
-function normalizeSize(value: unknown) {
-  return ['S', 'M', 'L', 'XL'].includes(String(value)) ? String(value) : 'M'
-}
-
-function normalizeFloor(value: unknown) {
-  return ['UG', 'EG', 'OG'].includes(String(value)) ? String(value) : 'EG'
 }
 
 function updateSource(data: FeatureCollection) {

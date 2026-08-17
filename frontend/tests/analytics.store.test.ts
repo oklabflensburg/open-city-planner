@@ -5,6 +5,7 @@ import { useAnalyticsStore } from '~/stores/analytics'
 const response = {
   fast_facts: {
     shops: 2,
+    polygon_count: 2,
     vacancy_rate: null,
     chain_store_rate: null,
     centrality_index: null,
@@ -29,10 +30,14 @@ describe('analytics store', () => {
     setActivePinia(createPinia())
     vi.stubGlobal('useFilterStore', () => ({
       activeCategories: ['fashion'],
-      selectedFloor: 'EG',
-      selectedSize: 'M',
+      selectedFloors: ['EG'],
+      selectedSizes: ['M'],
       occupancyStatuses: [],
-      businessStructures: []
+      businessStructures: [],
+      selectedSources: ['STADTPLANNER', 'OSM'],
+      filterState: {
+        sizes: ['M'], floors: ['EG'], categories: ['fashion'], statuses: [], businessStructures: [], sources: ['STADTPLANNER', 'OSM']
+      }
     }))
   })
 
@@ -43,7 +48,7 @@ describe('analytics store', () => {
 
     await store.load()
 
-    expect(request).toHaveBeenCalledWith('/analytics/overview?categories=fashion&floors=EG&area_sizes=M')
+    expect(request).toHaveBeenCalledWith('/analytics/overview?area_sizes=M&floors=EG&categories=fashion', { signal: expect.any(AbortSignal) })
     expect(store.data?.fast_facts.shops).toBe(2)
     expect(store.data?.fast_facts.vacancy_rate).toBeNull()
     expect(store.categoryCounts).toEqual({ fashion: 2 })

@@ -1,5 +1,9 @@
 import { defineStore } from 'pinia'
 import type { AnalyticsOverview, CityMetricsUpdate, CityMetricsVerwaltung, MarketBenchmarkResult } from '~/types/analytics'
+import { gisFilterQuery } from '~/utils/gisFilters'
+
+let overviewController: AbortController | undefined
+let benchmarkController: AbortController | undefined
 
 export const useAnalyticsStore = defineStore('analytics', {
   state: () => ({
@@ -13,6 +17,7 @@ export const useAnalyticsStore = defineStore('analytics', {
     saveError: null as string | null,
     validationErrors: {} as Record<string, string>,
     requestId: 0,
+    benchmarkRequestId: 0,
     benchmarks: null as MarketBenchmarkResult | null,
     benchmarksLoading: false,
     benchmarksError: null as string | null
@@ -26,22 +31,19 @@ export const useAnalyticsStore = defineStore('analytics', {
     async load() {
       const currentRequest = ++this.requestId
       const filter = useFilterStore()
+      overviewController?.abort()
+      overviewController = new AbortController()
       this.loading = true
       this.error = null
       try {
-        const query = new URLSearchParams({
-          categories: filter.activeCategories.length ? filter.activeCategories.join(',') : '__none__',
-          floors: filter.selectedFloor,
-          area_sizes: filter.selectedSize
-        })
-        if (filter.occupancyStatuses.length) query.set('occupancy_statuses', filter.occupancyStatuses.join(','))
-        if (filter.businessStructures.length) query.set('business_structures', filter.businessStructures.join(','))
+        const query = gisFilterQuery(filter.filterState)
         const areaId = typeof useAnalysisAreasStore === 'function' ? useAnalysisAreasStore().selectedAreaId : null
         if (areaId) query.set('area_id', areaId)
-        const result = await useApi().request<AnalyticsOverview>(`/analytics/overview?${query}`)
+        const suffix = query.size ? `?${query}` : ''
+        const result = await useApi().request<AnalyticsOverview>(`/analytics/overview${suffix}`, { signal: overviewController.signal })
         if (currentRequest === this.requestId) this.data = result
       } catch (error) {
-        if (currentRequest === this.requestId) {
+        if (currentRequest === this.requestId && !(error instanceof DOMException && error.name === 'AbortError')) {
           this.error = error instanceof Error ? error.message : 'Kennzahlen konnten nicht geladen werden.'
         }
       } finally {
@@ -49,24 +51,25 @@ export const useAnalyticsStore = defineStore('analytics', {
       }
     },
     async loadBenchmarks() {
+      const currentRequest = ++this.benchmarkRequestId
       const filter = useFilterStore()
+      benchmarkController?.abort()
+      benchmarkController = new AbortController()
       this.benchmarksLoading = true
       this.benchmarksError = null
       try {
-        const query = new URLSearchParams({
-          categories: filter.activeCategories.length ? filter.activeCategories.join(',') : '__none__',
-          floors: filter.selectedFloor,
-          area_sizes: filter.selectedSize
-        })
-        if (filter.occupancyStatuses.length) query.set('occupancy_statuses', filter.occupancyStatuses.join(','))
-        if (filter.businessStructures.length) query.set('business_structures', filter.businessStructures.join(','))
+        const query = gisFilterQuery(filter.filterState)
         const areaId = typeof useAnalysisAreasStore === 'function' ? useAnalysisAreasStore().selectedAreaId : null
         if (areaId) query.set('area_id', areaId)
-        this.benchmarks = await useApi().request<MarketBenchmarkResult>(`/analytics/benchmarks?${query}`)
+        const suffix = query.size ? `?${query}` : ''
+        const result = await useApi().request<MarketBenchmarkResult>(`/analytics/benchmarks${suffix}`, { signal: benchmarkController.signal })
+        if (currentRequest === this.benchmarkRequestId) this.benchmarks = result
       } catch (error) {
-        this.benchmarksError = error instanceof Error ? error.message : 'Vergleich konnte nicht geladen werden.'
+        if (currentRequest === this.benchmarkRequestId && !(error instanceof DOMException && error.name === 'AbortError')) {
+          this.benchmarksError = error instanceof Error ? error.message : 'Vergleich konnte nicht geladen werden.'
+        }
       } finally {
-        this.benchmarksLoading = false
+        if (currentRequest === this.benchmarkRequestId) this.benchmarksLoading = false
       }
     },
     async loadManagement() {
@@ -123,6 +126,20 @@ export const useAnalyticsStore = defineStore('analytics', {
       } finally {
         this.saving = false
       }
+    },
+    invalidateGisData() {
+      overviewController?.abort()
+      benchmarkController?.abort()
+      overviewController = undefined
+      benchmarkController = undefined
+      this.requestId += 1
+      this.benchmarkRequestId += 1
+      this.data = null
+      this.benchmarks = null
+      this.loading = false
+      this.benchmarksLoading = false
+      this.error = null
+      this.benchmarksError = null
     }
   }
 })

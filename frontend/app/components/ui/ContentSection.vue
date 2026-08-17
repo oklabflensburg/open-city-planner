@@ -1,8 +1,8 @@
 <template>
   <section class="scroll-mt-24" :aria-labelledby="headingId">
     <div v-if="title || description" class="mb-5 max-w-3xl">
-      <h2 v-if="title" :id="headingId" class="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">{{ title }}</h2>
-      <p v-if="description" class="mt-2 leading-7 text-slate-600">{{ description }}</p>
+      <h2 v-if="title" :id="headingId" class="text-xl font-bold tracking-tight text-[var(--c-text)] sm:text-2xl">{{ title }}</h2>
+      <p v-if="description" class="mt-2 leading-7 text-[var(--c-text-muted)]">{{ description }}</p>
     </div>
     <slot />
   </section>

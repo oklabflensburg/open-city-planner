@@ -33,7 +33,7 @@ Alle Schlüssel verwenden kanonisches JSON, sortierte mengenartige Filter und SH
 Beispiele für Ressourcen:
 
 ```text
-osm:viewport:v2
+osm:viewport:v3
 analytics:fast-facts
 analytics:overview
 analytics:benchmarks
@@ -46,7 +46,7 @@ polygons:location
 polygons:comparables
 ```
 
-Der OSM-Schlüssel enthält Web-Mercator-Tile-Zoom und X-/Y-Range, gerundeten Darstellungszoom, Kategorien, Gebäudeoption und Limit. Fast identische BBOXen innerhalb derselben Tile-Range teilen damit denselben Cachewert. Die Datenbankabfrage verwendet die normalisierte Tile-Range; die öffentliche API bleibt GeoJSON und es wird keine neue MVT-Infrastruktur eingeführt. Die OSM-Ressource wurde für den Ausschluss von `natural=peninsula` vom bisherigen `osm:viewport` auf `osm:viewport:v2` erhöht. Alte Antworten laufen regulär per TTL/LRU aus und können ohne `FLUSHALL` nicht mehr getroffen werden.
+Der OSM-Schlüssel enthält Web-Mercator-Tile-Zoom und X-/Y-Range, gerundeten Darstellungszoom, Umfeldkategorien, Gebäudeoption, Limit und den kanonischen GIS-Filterzustand. Fast identische BBOXen innerhalb derselben Tile-Range teilen damit denselben Cachewert. Die Datenbankabfrage verwendet die normalisierte Tile-Range; die öffentliche API bleibt GeoJSON und es wird keine neue MVT-Infrastruktur eingeführt. Die OSM-Ressource wurde für das quellenübergreifende Canonical Mapping und die neuen Filter-Metadaten auf `osm:viewport:v3` erhöht. Alte Antworten laufen regulär per TTL/LRU aus und können ohne `FLUSHALL` nicht mehr getroffen werden.
 
 Analytics-Schlüssel enthalten Gebiet, Kategorien, Etagen, Größenklassen, Belegungsstatus, Unternehmensstruktur und den öffentlichen Scope. Private Verwaltungsantworten, Profile und Eigentümerdaten werden nicht shared gecacht.
 
@@ -107,3 +107,12 @@ maxmemory-policy allkeys-lru
 Redis darf nicht öffentlich auf `0.0.0.0:6379` angeboten oder über Nginx weitergereicht werden. Für getrennte Umgebungen sind eindeutige Prefixe wie `stadtplaner:dev`, `stadtplaner:test` und `stadtplaner:prod` erforderlich. Authentifizierung beziehungsweise ACL wird ausschließlich in `REDIS_URL` konfiguriert; Zugangsdaten werden weder geloggt noch dokumentiert.
 
 Da Redis nur Cache ist, darf ein Neustart alle Schlüssel verlieren. AOF/RDB ist fachlich nicht erforderlich. Relevante Diagnosebefehle sind `redis-cli INFO memory`, `redis-cli INFO stats` und `redis-cli DBSIZE`.
+# Mutationen und GIS-Invalidierung
+
+CREATE, UPDATE und DELETE einer Stadtplanner-Fläche erhöhen gemeinsam die
+DB-gestützten Versionen `polygons`, `analytics` und `osm`. Dadurch werden alte
+Redis-Einträge für Polygonlisten, Kennzahlen und OSM-Deduplizierung nicht erneut
+gelesen. Die Versionserhöhung und die Polygonmutation werden in derselben
+Datenbanktransaktion committed. Beim Löschen bleiben die OSM-Rohdaten erhalten; nur
+die verknüpfende Stadtplanner-Entität fällt per Fremdschlüssel-Kaskade weg, sodass das
+öffentliche OSM-Objekt nach der nächsten Viewport-Abfrage wieder erscheinen kann.

@@ -10,7 +10,7 @@ from app.auth.jwt import create_jwt
 from app.db.session import get_session
 from app.main import app
 from app.models.admin_audit_log import AdminAuditLog
-from app.models.user import User
+from app.models.user import AccountDeactivationReason, User
 from app.schemas.admin import AdminUserRead
 from app.services.admin_users import assign_role, ensure_known_role, remove_role, set_user_active
 
@@ -208,3 +208,18 @@ async def test_superuser_cannot_disable_own_account() -> None:
         await set_user_active(RoleSession(), actor, False, actor)  # type: ignore[arg-type]
     assert exc_info.value.status_code == 409
     assert exc_info.value.detail["error"]["code"] == "CANNOT_DISABLE_SELF"
+
+
+@pytest.mark.asyncio
+async def test_admin_status_change_tracks_and_clears_admin_deactivation_reason() -> None:
+    actor = user(superuser=True)
+    target = user()
+    session = RoleSession()
+
+    await set_user_active(session, target, False, actor)  # type: ignore[arg-type]
+    assert target.deactivation_reason == AccountDeactivationReason.ADMIN_DEACTIVATED
+    assert target.deactivated_at is not None
+
+    await set_user_active(session, target, True, actor)  # type: ignore[arg-type]
+    assert target.deactivation_reason is None
+    assert target.deactivated_at is None

@@ -16,6 +16,7 @@ from app.schemas.osm import OsmPolygonImportRead, OsmPolygonImportRequest
 from app.services.analysis_areas import refresh_polygon_area_assignments
 from app.services.cache_versions import bump_cache_versions
 from app.services.geometry import to_wkb_element
+from app.services.osm_canonical import osm_business_category, osm_floor_group
 from app.services.osm_exclusions import should_exclude_osm_feature
 from app.services.osm_features import clear_viewport_cache
 from app.services.osm_occupancy import detect_osm_occupancy_status
@@ -103,44 +104,17 @@ def _text(tags: Mapping[str, Any], key: str) -> str | None:
 
 
 def map_osm_category(tags: Mapping[str, Any]) -> str:
-    if _text(tags, "disused:shop") or _text(tags, "shop") == "vacant":
-        return "otherAreas"
-    shop = (_text(tags, "shop") or "").lower()
-    amenity = (_text(tags, "amenity") or "").lower()
-    if shop in {"clothes", "shoes", "fashion", "boutique", "jewelry"}:
-        return "fashion"
-    if shop in {"supermarket", "convenience", "bakery", "butcher", "greengrocer", "chemist"}:
-        return "food"
-    if shop in {"electronics", "computer", "mobile_phone", "appliance"}:
-        return "electronics"
-    if shop in {"furniture", "interior_decoration", "kitchen"}:
-        return "furniture"
-    if shop in {"garden_centre", "doityourself", "sports", "outdoor"}:
-        return "garden"
-    if shop in {"department_store", "mall"}:
-        return "warehouse"
-    if amenity in {"restaurant", "cafe", "fast_food", "bar", "pub", "ice_cream"}:
-        return "gastronomy"
-    if _text(tags, "office") or _text(tags, "craft") or amenity in {"bank", "pharmacy"}:
-        return "services"
-    if shop:
-        return "other"
-    return "otherAreas"
+    return osm_business_category(tags) or "otherAreas"
 
 
 def map_osm_floor(tags: Mapping[str, Any], requested: str | None) -> str | None:
     if requested:
         return requested
-    level = _text(tags, "level")
-    if level == "0":
-        return "EG"
-    if level and level.lstrip("-").isdigit():
-        number = int(level)
-        if number < 0:
-            return "UG"
-        if number > 0:
-            return f"{number}OG"
-    return None
+    group = osm_floor_group(tags)
+    if group == "OG":
+        level = _text(tags, "level")
+        return f"{int(level)}OG" if level and level.isdigit() else "OG"
+    return group
 
 
 def _snapshot(tags: Mapping[str, Any]) -> dict[str, str]:
@@ -255,7 +229,7 @@ async def create_polygon_from_osm(
         await session.commit()
         await session.refresh(polygon)
     await refresh_polygon_area_assignments(session, polygon.id)
-    await bump_cache_versions(session, ("polygons", "analytics"))
+    await bump_cache_versions(session, ("polygons", "analytics", "osm"))
     await session.commit()
     clear_viewport_cache()
     logger.info(

@@ -17,7 +17,10 @@ export const useMapStore = defineStore('map', {
     selectedMapEntity: null as SelectedMapEntity,
     polygonsVisible: true,
     categoryHighlight: null as string | null,
-    thematicStyle: 'category' as MapTheme
+    thematicStyle: 'category' as MapTheme,
+    gisDataGeneration: 0,
+    gisDataDirty: false,
+    notice: null as string | null
   }),
   actions: {
     setView(center: [number, number], zoom: number, bearing: number, pitch: number) {
@@ -46,6 +49,19 @@ export const useMapStore = defineStore('map', {
     },
     closeMobilePanels() {
       this.activeMobilePanel = null
+    },
+    markGisDataDirty() {
+      this.gisDataGeneration += 1
+      this.gisDataDirty = true
+    },
+    markGisDataFresh() {
+      this.gisDataDirty = false
+    },
+    showNotice(message: string) {
+      this.notice = message
+    },
+    clearNotice() {
+      this.notice = null
     }
   }
 })

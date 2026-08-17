@@ -8,6 +8,7 @@ from app.cache.service import last_cache_status
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.schemas.osm import OsmObjectInfo, OsmViewportFeatureCollection, OsmViewportQuery
+from app.schemas.polygon_filters import PolygonFilterParams, polygon_filter_query
 from app.services.osm_features import (
     osm_feature_detail,
     selected_categories,
@@ -24,6 +25,7 @@ async def get_osm_viewport_features(
     request: Request,
     session: SessionDep,
     query: Annotated[OsmViewportQuery, Query()],
+    filters: Annotated[PolygonFilterParams, Depends(polygon_filter_query)],
 ):
     settings = get_settings()
     check_rate_limit(
@@ -34,10 +36,10 @@ async def get_osm_viewport_features(
         message="Zu viele Kartenabfragen. Bitte kurz warten.",
     )
     try:
-        selected_categories(query.categories)
+        selected_categories(query.osm_categories)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    payload = await viewport_features_json(session, query)
+    payload = await viewport_features_json(session, query, filters)
     etag = f'"{hashlib.sha256(payload).hexdigest()[:20]}"'
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers={"ETag": etag, "Cache-Control": "public, max-age=20"})

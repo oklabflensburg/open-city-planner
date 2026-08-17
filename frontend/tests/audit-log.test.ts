@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { buildAuditLogQuery } from '../app/composables/useAuditLog'
-import { auditChangeRows } from '../app/utils/auditLog'
+import { auditActionLabel, auditChangeRows, blockedLoginDetailRows } from '../app/utils/auditLog'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
 
@@ -68,5 +68,14 @@ describe('superuser audit log', () => {
     expect(auditChangeRows({ before: { role: null }, after: { role: 'VERWALTUNG' } })).toEqual([
       { field: 'role', before: null, after: 'VERWALTUNG' }
     ])
+  })
+
+  it('labels blocked logins and exposes reason and provider without raw codes', () => {
+    expect(auditActionLabel('LOGIN_BLOCKED')).toBe('Anmeldung blockiert')
+    expect(blockedLoginDetailRows({ reason: 'SELF_DEACTIVATED', provider: 'google' })).toEqual([
+      { label: 'Grund', value: 'Selbst deaktiviert' },
+      { label: 'Anmeldemethode', value: 'Google' }
+    ])
+    expect(appFile('components/admin/AuditLogDetailModal.vue')).toContain('Anmeldestatus')
   })
 })

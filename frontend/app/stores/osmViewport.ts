@@ -3,6 +3,8 @@ import { markRaw } from 'vue'
 import type { OsmBounds, OsmFeatureCategory, OsmFeatureDetail, OsmViewportFeature, OsmViewportResult } from '~/types/osm'
 import { osmPoiCategories } from '~/utils/osmCategories'
 import { useMapStore } from '~/stores/map'
+import { useFilterStore } from '~/stores/filter'
+import { gisFilterQuery } from '~/utils/gisFilters'
 
 const VIEWPORT_BUFFER_RATIO = 0.2
 const VIEWPORT_CACHE_SIZE = 4
@@ -83,15 +85,19 @@ export const useOsmViewportStore = defineStore('osmViewport', {
       const categories = this.requestedCategories
       const mobile = import.meta.client && window.matchMedia('(max-width: 767px)').matches
       const limit = mobile ? 800 : zoom < 15 ? 800 : zoom < 17 ? 1200 : 2000
-      const query = new URLSearchParams({
-        west: bounds.west.toFixed(6), south: bounds.south.toFixed(6),
-        east: bounds.east.toFixed(6), north: bounds.north.toFixed(6), zoom: zoom.toFixed(2),
-        categories: categories.join(','), buildings: String(this.showBuildings), limit: String(limit)
-      })
+      const query = gisFilterQuery(useFilterStore().filterState)
+      query.set('west', bounds.west.toFixed(6))
+      query.set('south', bounds.south.toFixed(6))
+      query.set('east', bounds.east.toFixed(6))
+      query.set('north', bounds.north.toFixed(6))
+      query.set('zoom', zoom.toFixed(2))
+      query.set('osm_categories', categories.join(','))
+      query.set('buildings', String(this.showBuildings))
+      query.set('limit', String(limit))
       return query.toString()
     },
     viewportFilterKey() {
-      return `${this.requestedCategories.slice().sort().join(',')}|${this.showBuildings}`
+      return `${this.requestedCategories.slice().sort().join(',')}|${this.showBuildings}|${useFilterStore().filterKey}`
     },
     hasCacheFor(bounds: OsmBounds, zoom: number) {
       return Boolean(this.data && this.dataRequestKey === this.viewportRequestKey(bounds, zoom))
@@ -104,10 +110,11 @@ export const useOsmViewportStore = defineStore('osmViewport', {
     },
     async load(bounds: OsmBounds, zoom: number, options: { force?: boolean } = {}) {
       const categories = this.requestedCategories
+      const osmEnabled = useFilterStore().selectedSources.includes('OSM')
       const key = this.viewportRequestKey(bounds, zoom)
       const filterKey = this.viewportFilterKey()
       const bucket = zoomBucket(zoom)
-      if (!categories.length) {
+      if (!categories.length || !osmEnabled) {
         this.controller?.abort()
         this.controller = null
         this.loading = false
@@ -118,7 +125,11 @@ export const useOsmViewportStore = defineStore('osmViewport', {
         this.loadedFilterKey = filterKey
         const empty: OsmViewportResult = {
           type: 'FeatureCollection', features: [],
-          meta: { count: 0, truncated: false, zoom, summary: {}, osm_data_updated_at: null }
+          meta: {
+            count: 0, truncated: false, zoom, summary: {}, canonical_summary: {}, canonical_facets: {},
+            business_count: 0, context_count: 0, deduplicated_linked_count: 0,
+            osm_data_updated_at: null
+          }
         }
         this.data = markRaw(empty)
         return this.data
@@ -198,6 +209,22 @@ export const useOsmViewportStore = defineStore('osmViewport', {
       this.detail = null
       this.detailError = null
       this.detailLoading = false
+    },
+    invalidateForPolygonMutation() {
+      this.controller?.abort()
+      this.controller = null
+      this.generation += 1
+      this.data = null
+      this.loading = false
+      this.error = null
+      this.lastRequestKey = ''
+      this.dataRequestKey = ''
+      this.loadedBounds = null
+      this.loadedZoomBucket = -1
+      this.loadedFilterKey = ''
+      this.viewportCache = markRaw(new Map<string, CachedViewport>())
+      this.viewportCacheBytes = 0
+      this.clearSelection()
     },
     setRenderDuration(value: number) {
       this.lastRenderDurationMs = Math.round(value)

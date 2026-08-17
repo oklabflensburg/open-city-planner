@@ -50,12 +50,17 @@ class CityMetricsUpdate(BaseModel):
 
 class AnalyticsFastFacts(CityMetricsPublicRead):
     shops: int
+    polygon_count: int = 0
     total_area_m2: float | None = None
     average_area_m2: float | None = None
+    median_area_m2: float | None = None
+    vacant_area_m2: float | None = None
+    vacancy_area_rate: float | None = None
     calculated_vacancy_rate: float | None = None
     calculated_chain_store_rate: float | None = None
     known_occupancy_count: int = 0
     known_business_structure_count: int = 0
+    data_updated_at: datetime | None = None
 
 
 class BenchmarkMetrics(BaseModel):
@@ -67,11 +72,32 @@ class BenchmarkMetrics(BaseModel):
     total_area_m2: float | None = None
     average_area_m2: float | None = None
     median_area_m2: float | None = None
+    vacant_area_m2: float | None = None
+    vacancy_area_rate: float | None = None
     vacancy_rate: float | None = None
     chain_store_rate: float | None = None
     known_occupancy_count: int
     known_business_structure_count: int
     data_updated_at: datetime | None = None
+    size_distribution: list["DimensionCount"] = Field(default_factory=list)
+    floor_distribution: list["DimensionCount"] = Field(default_factory=list)
+    status_distribution: list["DimensionCount"] = Field(default_factory=list)
+    business_structure_distribution: list["DimensionCount"] = Field(default_factory=list)
+    data_completeness: list["CompletenessMetric"] = Field(default_factory=list)
+
+
+class DimensionCount(BaseModel):
+    key: str
+    label: str
+    count: int
+
+
+class CompletenessMetric(BaseModel):
+    key: str
+    label: str
+    complete: int
+    total: int
+    percent: float | None = None
 
 
 class MarketBenchmark(BaseModel):
@@ -148,4 +174,9 @@ class AnalyticsOverview(BaseModel):
     fast_facts: AnalyticsFastFacts
     industry_distribution: list[IndustryCount]
     category_counts: list[IndustryCount]
+    size_distribution: list[DimensionCount] = Field(default_factory=list)
+    floor_distribution: list[DimensionCount] = Field(default_factory=list)
+    status_distribution: list[DimensionCount] = Field(default_factory=list)
+    business_structure_distribution: list[DimensionCount] = Field(default_factory=list)
+    data_completeness: list[CompletenessMetric] = Field(default_factory=list)
     prime_rents: PrimeRentData

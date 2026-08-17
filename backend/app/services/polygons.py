@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cache.keys import build_cache_key
 from app.cache.service import cache_service
 from app.core.config import get_settings
+from app.models.admin_audit_log import AdminAuditLog
 from app.models.polygon_osm_source import PolygonOsmSource
 from app.models.user_polygon import UserPolygon, utcnow
 from app.schemas.geojson import (
@@ -28,10 +29,12 @@ from app.schemas.geojson import (
     PolygonVerwaltungUpdate,
     PublicPolygonDetail,
 )
+from app.schemas.polygon_filters import PolygonFilterParams
 from app.services.analysis_areas import refresh_polygon_area_assignments
 from app.services.cache_versions import bump_cache_versions, cache_version
 from app.services.geometry import from_wkb_element, to_wkb_element
 from app.services.nominatim import NominatimService
+from app.services.polygon_filters import polygon_filter_clauses
 
 METRIC_SRID = 25832
 logger = logging.getLogger(__name__)
@@ -59,8 +62,14 @@ async def list_polygons(session: AsyncSession) -> list[PolygonRead]:
     return [serialize_polygon(row) for row in rows]
 
 
-async def list_polygon_overview(session: AsyncSession) -> list[PolygonOverviewRead]:
-    rows = await session.scalars(select(UserPolygon).order_by(UserPolygon.created_at.desc()))
+async def list_polygon_overview(
+    session: AsyncSession,
+    filters: PolygonFilterParams | None = None,
+) -> list[PolygonOverviewRead]:
+    statement = select(UserPolygon).where(
+        *polygon_filter_clauses(filters or PolygonFilterParams())
+    ).order_by(UserPolygon.created_at.desc())
+    rows = await session.scalars(statement)
     return [
         PolygonOverviewRead(
             id=str(row.uuid),
@@ -210,7 +219,7 @@ async def create_polygon(session: AsyncSession, payload: PolygonCreate, user_id:
         await session.commit()
         await session.refresh(polygon)
     await refresh_polygon_area_assignments(session, polygon.id)
-    await bump_cache_versions(session, ("polygons", "analytics"))
+    await bump_cache_versions(session, ("polygons", "analytics", "osm"))
     await session.commit()
     return serialize_polygon(polygon)
 
@@ -350,7 +359,7 @@ async def update_polygon(session: AsyncSession, polygon: UserPolygon, payload: P
     if geometry_changed:
         await enrich_polygon_address(session, polygon)
         await refresh_polygon_area_assignments(session, polygon.id)
-    await bump_cache_versions(session, ("polygons", "analytics"))
+    await bump_cache_versions(session, ("polygons", "analytics", "osm"))
     await session.commit()
     return serialize_polygon(polygon)
 
@@ -373,7 +382,7 @@ async def update_polygon_verwaltung(
         polygon.occupancy_source_updated_at = utcnow()
     polygon.updated_by_user_id = user_id
     polygon.updated_at = utcnow()
-    await bump_cache_versions(session, ("polygons", "analytics"))
+    await bump_cache_versions(session, ("polygons", "analytics", "osm"))
     await session.commit()
     await session.refresh(polygon)
     logger.info(
@@ -391,8 +400,15 @@ async def delete_polygon(
     deleted_by_user_id: uuid.UUID,
 ) -> None:
     polygon_id = polygon.uuid
+    session.add(AdminAuditLog(
+        actor_user_id=deleted_by_user_id,
+        action="POLYGON_DELETED",
+        resource_type="POLYGON",
+        resource_id=polygon_id,
+        event_metadata={"title": polygon.name},
+    ))
     await session.delete(polygon)
-    await bump_cache_versions(session, ("polygons", "analytics"))
+    await bump_cache_versions(session, ("polygons", "analytics", "osm"))
     await session.commit()
     logger.info(
         "Polygon deleted polygon_id=%s deleted_by_user_id=%s",

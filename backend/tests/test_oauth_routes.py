@@ -220,6 +220,20 @@ def test_safe_redirect_path(redirect: str, expected: str) -> None:
     assert oauth.safe_redirect_path(redirect) == expected
 
 
+def test_self_deactivated_oauth_login_redirects_to_structured_login_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured = oauth_settings()
+    monkeypatch.setattr(auth_api, "get_settings", lambda: configured)
+
+    response = auth_api.oauth_login_error_redirect("ACCOUNT_SELF_DEACTIVATED")
+
+    assert response.status_code == 302
+    assert response.headers["location"].endswith(
+        "/login?auth_error=ACCOUNT_SELF_DEACTIVATED"
+    )
+
+
 def test_oauth_flow_cookie_is_signed_and_bound_to_user(monkeypatch: pytest.MonkeyPatch) -> None:
     configured = settings(jwt_secret_key="test-secret-at-least-32-bytes-long")
     monkeypatch.setattr(oauth, "get_settings", lambda: configured)

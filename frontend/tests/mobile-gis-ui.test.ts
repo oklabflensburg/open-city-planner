@@ -8,9 +8,9 @@ describe('mobile GIS interface', () => {
   it('uses the map as the viewport-height surface below the desktop breakpoint', () => {
     const shell = appFile('components/layout/AppShell.vue')
     expect(shell).toContain('height: calc(100dvh - 4rem)')
-    expect(shell).toContain('@media (min-width: 1024px)')
-    expect(shell).toContain('lg:grid')
-    expect(shell).toContain('lg:hidden')
+    expect(shell).toContain('@media (min-width: 1280px)')
+    expect(shell).toContain('xl:grid')
+    expect(shell).toContain('xl:hidden')
     expect(shell).toContain('env(safe-area-inset-bottom)')
   })
 

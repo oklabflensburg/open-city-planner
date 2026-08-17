@@ -62,14 +62,12 @@ class PolygonOsmInfo(BaseModel):
 
 
 class OsmViewportQuery(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     west: float = Field(ge=-180, le=180)
     south: float = Field(ge=-90, le=90)
     east: float = Field(ge=-180, le=180)
     north: float = Field(ge=-90, le=90)
     zoom: float = Field(ge=0, le=24)
-    categories: str | None = None
+    osm_categories: str | None = None
     buildings: bool = False
     limit: int = Field(default=2_000, ge=1, le=2_500)
 
@@ -91,10 +89,14 @@ class OsmViewportProperties(BaseModel):
     osm_type: Literal["node", "way", "relation"]
     osm_id: int
     category: str
+    canonical_category: str | None = None
     name: str | None = None
     primary_type: str | None = None
     natural: str | None = None
     feature_type: Literal["point", "polygon"]
+    source: Literal["OSM"] = "OSM"
+    canonical_floor: Literal["UG", "EG", "OG"] | None = None
+    mapped_area_m2: float | None = None
     occupancy_status: Literal["VACANT", "UNKNOWN"] = "UNKNOWN"
     occupancy_source: Literal["OSM"] | None = None
     stadtplaner: list["OsmLinkedPolygon"] = Field(default_factory=list)
@@ -138,6 +140,11 @@ class OsmViewportMeta(BaseModel):
     truncated: bool
     zoom: float
     summary: dict[str, int]
+    canonical_summary: dict[str, int] = Field(default_factory=dict)
+    canonical_facets: dict[str, int] = Field(default_factory=dict)
+    business_count: int = 0
+    context_count: int = 0
+    deduplicated_linked_count: int = 0
     osm_data_updated_at: datetime | None = None
 
 

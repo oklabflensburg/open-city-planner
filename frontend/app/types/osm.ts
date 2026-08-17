@@ -18,10 +18,14 @@ export type OsmViewportFeature = {
     osm_type: 'node' | 'way' | 'relation'
     osm_id: number
     category: OsmFeatureCategory
+    canonical_category: import('~/utils/industries').IndustryKey | null
     name: string | null
     primary_type: string | null
     natural?: string | null
     feature_type: 'point' | 'polygon'
+    source: 'OSM'
+    canonical_floor: 'UG' | 'EG' | 'OG' | null
+    mapped_area_m2: number | null
     occupancy_status: 'VACANT' | 'UNKNOWN'
     occupancy_source: 'OSM' | null
     stadtplaner: Array<{ id: string, slug: string, name: string, floor?: string | null }>
@@ -36,6 +40,11 @@ export type OsmViewportResult = {
     truncated: boolean
     zoom: number
     summary: Partial<Record<OsmFeatureCategory, number>>
+    canonical_summary: Partial<Record<import('~/utils/industries').IndustryKey, number>>
+    canonical_facets: Partial<Record<import('~/utils/industries').IndustryKey, number>>
+    business_count: number
+    context_count: number
+    deduplicated_linked_count: number
     osm_data_updated_at: string | null
   }
 }

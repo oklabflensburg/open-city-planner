@@ -84,7 +84,7 @@ export const documentationPages: DocumentationPage[] = [
         id: 'ergebnisse-eingrenzen',
         title: 'Ergebnisse eingrenzen',
         blocks: [
-          { type: 'paragraph', text: 'Die Filter für Verkaufsflächengröße, Etage, Branche, Belegungsstatus und Betriebsform wirken gemeinsam auf Karte, Kennzahlen und Vergleiche.' },
+          { type: 'paragraph', text: 'Die Filter für Verkaufsflächengröße, Etage, Branche, Belegungsstatus und Betriebsform wirken gemeinsam auf Stadtplanner-Flächen, passende lokale OpenStreetMap-Objekte, Karte und Auswertungen.' },
           { type: 'links', items: [{ label: 'Filter verstehen', to: '/dokumentation/filter' }, { label: 'Kennzahlen einordnen', to: '/dokumentation/fast-facts' }] }
         ]
       },
@@ -143,7 +143,7 @@ export const documentationPages: DocumentationPage[] = [
   },
   {
     slug: 'filter',
-    title: 'Filter und Ansichten',
+    title: 'Filter und Kartendarstellung',
     navTitle: 'Filter',
     description: 'Flächen nach Größe, Etage und Branche eingrenzen.',
     group: 'Karte und Daten',
@@ -154,15 +154,19 @@ export const documentationPages: DocumentationPage[] = [
         id: 'verfuegbare-filter',
         title: 'Verfügbare Filter',
         blocks: [
-          { type: 'table', headers: ['Filter', 'Auswahl'], rows: [['Verkaufsfläche', 'Eine Größenklasse: S, M, L oder XL'], ['Etage', 'Eine zusammengefasste Lage: UG, EG oder OG'], ['Branchen', 'Eine oder mehrere Branchen'], ['Status', 'Belegt, leerstehend oder unbekannt'], ['Betriebsform', 'Filialist, inhabergeführt oder unbekannt']] },
-          { type: 'paragraph', text: 'Mit „Alle auswählen“ beziehungsweise „Alle abwählen“ lässt sich die Branchenliste schnell umstellen.' }
+          { type: 'table', headers: ['Filter', 'Mehrfachauswahl'], rows: [['Verkaufsfläche', 'S, M, L und XL frei kombinierbar'], ['Etage', 'UG, EG und OG frei kombinierbar; OG umfasst die gepflegten Ober- und Dachgeschosse'], ['Branchen', 'Eine oder mehrere quellenübergreifende Branchen'], ['Status', 'Belegt, leerstehend oder unbekannt'], ['Betriebsform', 'Filialist, inhabergeführt oder unbekannt'], ['Datenquellen', 'Stadtplanner und OpenStreetMap einzeln ein- oder ausblendbar']] },
+          { type: 'paragraph', text: 'Innerhalb einer Filtergruppe gilt ODER, zwischen verschiedenen Gruppen gilt UND. S + M sowie EG + OG bedeutet daher: kleine oder mittlere Fläche und Erd- oder Obergeschoss.' },
+          { type: 'paragraph', text: 'Keine Auswahl bedeutet ungefiltert. Jede Gruppe bietet „Alle auswählen“ und „Auswahl aufheben“; „Filter zurücksetzen“ leert alle fachlichen Filter gemeinsam. Der Zustand wird in der URL gespeichert und kann geteilt sowie mit Vor/Zurück wiederhergestellt werden.' }
         ]
       },
       {
         id: 'wirkung-auf-auswertung',
         title: 'Wirkung auf Karte und Auswertung',
         blocks: [
-          { type: 'paragraph', text: 'Aktive Filter bestimmen, welche Flächen auf der Karte, in berechneten Kennzahlen, in der Branchenverteilung und im Benchmark berücksichtigt werden. Manuell gepflegte Zentralitäts- und Kaufkraftwerte bleiben eigenständige Referenzwerte.' },
+          { type: 'paragraph', text: 'Aktive Filter bestimmen, welche Stadtplanner-Flächen und fachlich passenden OpenStreetMap-Geschäftsobjekte auf der Karte erscheinen. Kontext-POIs wie ÖPNV, Parken oder Kultur bleiben davon getrennt als Umfeld sichtbar. Manuell gepflegte Zentralitäts- und Kaufkraftwerte bleiben eigenständige Referenzwerte.' },
+          { type: 'callout', variant: 'info', title: 'Größenklassen', text: 'S, M, L und XL sind derzeit fachlich gepflegte Klassen. Es existiert keine automatische Einteilung anhand zentral festgelegter Quadratmetergrenzen; deshalb werden keine erfundenen Grenzwerte angezeigt.' },
+          { type: 'callout', variant: 'important', title: 'Grenzen der OSM-Filterung', text: 'Nicht jedes OpenStreetMap-Objekt enthält Angaben zu Etage, Flächengröße oder Leerstand. Fehlt ein Wert, wird er nicht als Erdgeschoss, belegt oder als bestimmte Größenklasse angenommen. Eine kartierte Gebäude- oder Polygonfläche ist keine behauptete Verkaufsfläche.' },
+          { type: 'paragraph', text: 'Die Branchenzahlen berücksichtigen Stadtplanner und passende OSM-Objekte. Sie wenden alle anderen aktiven Filter an, lassen den Branchenfilter selbst aber bewusst außen vor. Ein Tooltip trennt die Counts nach Quelle.' },
           { type: 'callout', variant: 'info', title: 'Keine Treffer', text: 'Eine leere Karte kann eine gültige Filterkombination ohne passende Flächen bedeuten. Ändern Sie einen Filter oder aktivieren Sie weitere Branchen.' }
         ]
       }
@@ -190,6 +194,8 @@ export const documentationPages: DocumentationPage[] = [
         title: 'Was wird angezeigt?',
         blocks: [
           { type: 'paragraph', text: 'Farbige POIs und dezente Flächenobjekte werden zoomabhängig dargestellt. Punkte werden bei kleinerem Maßstab gruppiert. Gebäude können separat aktiviert werden und erscheinen ab Zoom 17.' },
+          { type: 'paragraph', text: 'Geschäftsbezogene OSM-Tags werden serverseitig auf dieselben Branchen wie Stadtplanner-Flächen abgebildet. Explizites level=-1 wird UG, level=0 EG und ein positives level OG. building:levels wird dabei bewusst nicht als Lage eines Geschäfts verwendet. Leerstand wird nur aus belastbaren Lifecycle-Tags wie shop=vacant oder disused:shop=* abgeleitet.' },
+          { type: 'paragraph', text: 'Ist ein OSM-Objekt bereits mit einer Stadtplanner-Fläche verknüpft, hat die gepflegte Stadtplanner-Fläche Vorrang und das OSM-Objekt wird bei aktiven beiden Quellen nicht doppelt dargestellt oder gezählt.' },
           { type: 'paragraph', text: 'Ein Klick zeigt sofort eine Vorschau; zusätzliche Sachdaten werden erst für das ausgewählte Objekt geladen. Im Analysebereich stehen die Kategorienzahlen des aktuellen Kartenausschnitts.' },
           { type: 'list', items: ['Name und OSM-Kategorie, zum Beispiel shop oder amenity', 'Marke und Betreiber', 'Öffnungszeiten und OpenStreetMap-Adresse', 'Auf der Detailseite gegebenenfalls Telefon, E-Mail, Ebene und Gebäudeebenen', 'Sicher verlinkte Website und Link zum Objekt auf OpenStreetMap'] },
           { type: 'paragraph', text: 'OSM-Daten sind ergänzend und schreibgeschützt. Änderungen im Stadtplaner verändern OpenStreetMap nicht.' }
@@ -345,7 +351,7 @@ export const documentationPages: DocumentationPage[] = [
         id: 'berechnete-werte',
         title: 'Aus Flächen berechnete Werte',
         blocks: [
-          { type: 'paragraph', text: 'Shopzahl, Gesamt- und Durchschnittsfläche, Branchenverteilung sowie – bei bekannten Objektattributen – Leerstands- und Filialisierungsquote werden aus den erfassten Flächen berechnet. Aktive Kartenfilter wirken auf diese Auswertung; unbekannte Statuswerte werden aus dem jeweiligen Quotienten ausgeschlossen.' },
+          { type: 'paragraph', text: 'Anzahl der Verkaufsflächen, Gesamt- und Durchschnittsfläche, Branchenverteilung sowie – bei bekannten Objektattributen – Leerstands- und Filialisierungsquote werden aus den erfassten Flächen berechnet. Aktive Kartenfilter wirken auf diese Auswertung; unbekannte Statuswerte werden aus dem jeweiligen Quotienten ausgeschlossen.' },
           { type: 'links', items: [{ label: 'Standorte vergleichen', to: '/vergleich', description: 'Aktuelle Filterauswahl mit der Gesamtstadt vergleichen.' }] }
         ]
       },
@@ -412,7 +418,7 @@ export const documentationPages: DocumentationPage[] = [
         id: 'konto-deaktivieren-und-loeschen',
         title: 'Konto deaktivieren oder löschen',
         blocks: [
-          { type: 'paragraph', text: 'Im Gefahrenbereich am Ende des Profils stehen zwei getrennte Aktionen zur Verfügung. Beim Deaktivieren wird der Login sofort gesperrt und alle Sitzungen werden beendet; Kontodaten und bisherige Beiträge bleiben bestehen. Eine Reaktivierung ist über die Administration möglich.' },
+          { type: 'paragraph', text: 'Im Gefahrenbereich am Ende des Profils stehen zwei getrennte Aktionen zur Verfügung. Beim Deaktivieren wird der Login sofort gesperrt und alle Sitzungen werden beendet; Kontodaten und bisherige Beiträge bleiben bestehen. Wenn Sie anschließend erneut eine Anmeldung versuchen, weist Stadtplaner verständlich auf die selbst vorgenommene Deaktivierung hin. Eine Reaktivierung ist über die Administration beziehungsweise den Support möglich.' },
           { type: 'paragraph', text: 'Die dauerhafte Löschung entfernt persönliche Profildaten, Passwort, externe Kontoverknüpfungen, Sitzungen, Einmal-Tokens und den lokalen Avatar. Sie erfordert eine zweistufige Bestätigung sowie bei Passwortkonten das aktuelle Passwort. Bei ausschließlich externer Anmeldung muss die Sitzung ausreichend aktuell sein.' },
           { type: 'callout', variant: 'important', title: 'Dauerhafte Aktion', text: 'Ein gelöschtes Konto kann nicht wiederhergestellt werden. Öffentliche fachliche Flächen bleiben als gemeinsame Datengrundlage ohne Verknüpfung zum gelöschten Konto erhalten. Auditdaten können im erforderlichen, minimierten Umfang für die Nachvollziehbarkeit bestehen bleiben.' },
           { type: 'links', items: [{ label: 'Profil und Gefahrenbereich öffnen', to: '/profil' }, { label: 'Datenschutzerklärung', to: '/datenschutz' }] }
@@ -688,7 +694,8 @@ export const documentationPages: DocumentationPage[] = [
         title: 'Interaktive API-Dokumentation',
         blocks: [
           { type: 'paragraph', text: 'Das FastAPI-Backend veröffentlicht sein OpenAPI-Schema sowie interaktive Dokumentationen unter /docs und /redoc relativ zur API-Origin. Öffentliche Lese-Endpunkte benötigen keine Anmeldung; schreibende und interne Endpunkte sind separat geschützt.' },
-          { type: 'code', language: 'HTTP', code: 'GET /api/v1/analysis-areas\nGET /api/v1/analysis-areas/by-slug/{slug}\nGET /api/v1/analysis-areas/by-slug/{slug}/analytics\nGET /api/v1/analysis-areas/by-slug/{slug}/comparison\nGET /api/v1/analysis-areas/by-slug/{slug}/polygons\nGET /api/v1/analysis-areas/by-slug/{slug}/statistics\nGET /api/v1/analysis-areas/by-slug/{slug}/statistics/{metric_key}\nGET /api/v1/data-sources/status' }
+          { type: 'code', language: 'HTTP', code: 'GET /api/v1/polygons/overview?area_sizes=S,M&floors=EG,OG&categories=fashion,gastronomy&occupancy_statuses=VACANT\nGET /api/v1/osm/features?west=9.42&south=54.78&east=9.44&north=54.80&zoom=16&categories=fashion,gastronomy&floors=EG,OG\nGET /api/v1/analytics/overview?area_sizes=S,M&floors=EG,OG&sources=STADTPLANNER,OSM\nGET /api/v1/analysis-areas/{area_id}/analytics?area_sizes=S,M' },
+          { type: 'paragraph', text: 'Die gemeinsamen Multi-Value-Parameter heißen categories, floors, area_sizes, occupancy_statuses, business_structures und sources. Der OSM-Viewport verwendet osm_categories separat für Umfeldlayer. Kommagetrennte Werte und wiederholte Parameter werden akzeptiert. Innerhalb eines Parameters gilt OR, zwischen Parametern AND; ungültige Enumwerte liefern HTTP 422.' }
         ]
       },
       {

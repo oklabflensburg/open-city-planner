@@ -3,6 +3,9 @@ import { markRaw } from 'vue'
 import type { PolygonMetrics, PolygonOverview } from '~/types/geo'
 import type { PolygonOsmInfo } from '~/types/osm'
 import { useMapStore } from '~/stores/map'
+import { gisFilterQuery } from '~/utils/gisFilters'
+
+let overviewController: AbortController | undefined
 
 export const usePolygonStore = defineStore('polygon', {
   state: () => ({
@@ -17,6 +20,8 @@ export const usePolygonStore = defineStore('polygon', {
     loading: false,
     saving: false,
     error: null as string | null,
+    overviewRequestId: 0,
+    loadedFilterKey: null as string | null,
     saveState: 'idle' as 'idle' | 'saving' | 'saved' | 'error'
   }),
   getters: {
@@ -48,15 +53,36 @@ export const usePolygonStore = defineStore('polygon', {
     })
   },
   actions: {
-    async loadPolygons() {
+    async loadPolygons(options: { force?: boolean } = {}) {
+      const filter = useFilterStore()
+      const key = filter.filterKey
+      if (!options.force && this.loadedFilterKey === key) return
+      if (!filter.selectedSources.includes('STADTPLANNER')) {
+        overviewController?.abort()
+        this.overviewRequestId++
+        this.polygons = []
+        this.loadedFilterKey = key
+        this.loading = false
+        this.error = null
+        return
+      }
+      const requestId = ++this.overviewRequestId
+      overviewController?.abort()
+      overviewController = new AbortController()
       this.loading = true
       this.error = null
       try {
-        this.polygons = markRaw(await usePolygonApi().overview())
+        const query = gisFilterQuery(filter.filterState).toString()
+        const polygons = await usePolygonApi().overview(query, overviewController.signal)
+        if (requestId !== this.overviewRequestId) return
+        this.polygons = markRaw(polygons)
+        this.loadedFilterKey = key
       } catch (error) {
-        this.error = error instanceof Error ? error.message : 'Polygone konnten nicht geladen werden.'
+        if (requestId === this.overviewRequestId && !(error instanceof DOMException && error.name === 'AbortError')) {
+          this.error = error instanceof Error ? error.message : 'Polygone konnten nicht geladen werden.'
+        }
       } finally {
-        this.loading = false
+        if (requestId === this.overviewRequestId) this.loading = false
       }
     },
     async loadSelection(id: string) {
@@ -121,6 +147,19 @@ export const usePolygonStore = defineStore('polygon', {
       this.osmLoading = false
       this.metricsError = null
       this.osmError = null
+    },
+    invalidateDeletedPolygon(id: string) {
+      overviewController?.abort()
+      overviewController = undefined
+      this.overviewRequestId += 1
+      this.polygons = markRaw(this.polygons.filter(polygon => polygon.id !== id))
+      this.loadedFilterKey = null
+      this.loading = false
+      this.error = null
+      if (this.selectedPolygonId === id) {
+        useMapStore().selectedMapEntity = null
+        this.clearSelection()
+      }
     }
   }
 })

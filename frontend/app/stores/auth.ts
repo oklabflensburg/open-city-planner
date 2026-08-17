@@ -21,6 +21,7 @@ export const useAuthStore = defineStore('auth', {
     refreshing: false,
     sessionExpired: false,
     sessionUncertain: false,
+    blockedAuthCode: '' as string,
     authGeneration: 0,
     oauthProviders: [] as OAuthProvider[],
     oauthProvidersLoading: false,
@@ -129,8 +130,10 @@ export const useAuthStore = defineStore('auth', {
         const result = await request<AuthResponse>('/auth/session', { retryOnUnauthorized: false })
         this.applyAuthSession(result)
       } catch (error) {
-        if (error instanceof Error && 'statusCode' in error && error.statusCode === 401) {
-          this.clearAuthSession(false)
+        const code = error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : undefined
+        const statusCode = error instanceof Error && 'statusCode' in error ? error.statusCode : undefined
+        if (statusCode === 401 || ['ACCOUNT_SELF_DEACTIVATED', 'ACCOUNT_DISABLED'].includes(code || '')) {
+          this.clearAuthSession(false, code)
         } else {
           this.sessionUncertain = true
         }
@@ -145,7 +148,7 @@ export const useAuthStore = defineStore('auth', {
       this.sessionExpired = false
       this.sessionUncertain = false
     },
-    clearAuthSession(expired = false) {
+    clearAuthSession(expired = false, blockedAuthCode?: string) {
       const wasAuthenticated = this.authenticated
       this.authGeneration += 1
       this.user = null
@@ -153,6 +156,7 @@ export const useAuthStore = defineStore('auth', {
       this.refreshing = false
       this.sessionExpired = expired && wasAuthenticated
       this.sessionUncertain = false
+      this.blockedAuthCode = ['ACCOUNT_SELF_DEACTIVATED', 'ACCOUNT_DISABLED'].includes(blockedAuthCode || '') ? blockedAuthCode || '' : ''
     },
     async login(payload: { email: string; password: string; remember?: boolean }) {
       const { request } = useApi()

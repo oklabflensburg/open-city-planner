@@ -30,22 +30,22 @@ const style = {
     }
   },
   layers: [
-    { id: 'background', type: 'background', paint: { 'background-color': '#f7f5ef' } },
+    { id: 'background', type: 'background', paint: { 'background-color': '#f2f7f8' } },
     vectorLayer('ocean', 'fill', 'ocean', {
       paint: { 'fill-color': '#d9e9ef' }
     }),
     vectorLayer('land-use', 'fill', 'land', {
       paint: {
         'fill-color': ['match', ['get', 'kind'],
-          ['forest', 'wood', 'scrub'], '#dce9d7',
-          ['park', 'garden', 'grass', 'grassland', 'meadow', 'recreation_ground', 'village_green', 'golf_course'], '#e5efdf',
-          ['farmland', 'farmyard', 'orchard', 'vineyard', 'plant_nursery', 'greenhouse_horticulture'], '#f2efe1',
-          ['cemetery', 'grave_yard'], '#e3ebe0',
-          ['commercial', 'retail'], '#f2ece8',
-          ['industrial', 'railway', 'landfill', 'quarry'], '#eceae6',
-          ['residential'], '#f1eee8',
-          ['beach', 'sand'], '#f2ead5',
-          '#f3f1eb'],
+          ['forest', 'wood', 'scrub'], '#dcecdf',
+          ['park', 'garden', 'grass', 'grassland', 'meadow', 'recreation_ground', 'village_green', 'golf_course'], '#e5f1e7',
+          ['farmland', 'farmyard', 'orchard', 'vineyard', 'plant_nursery', 'greenhouse_horticulture'], '#eef3e8',
+          ['cemetery', 'grave_yard'], '#e1ece5',
+          ['commercial', 'retail'], '#eef4f5',
+          ['industrial', 'railway', 'landfill', 'quarry'], '#e9eff1',
+          ['residential'], '#edf3f4',
+          ['beach', 'sand'], '#f3eedc',
+          '#f2f7f8'],
         'fill-opacity': 0.74
       }
     }),
@@ -76,7 +76,7 @@ const style = {
     }),
     vectorLayer('buildings', 'fill', 'buildings', {
       minzoom: 15,
-      paint: { 'fill-color': '#e8e4dc', 'fill-outline-color': '#dcd7cd', 'fill-opacity': 0.88 }
+      paint: { 'fill-color': '#e4ecee', 'fill-outline-color': '#d4e0e3', 'fill-opacity': 0.88 }
     }),
     vectorLayer('waterways', 'line', 'water_lines', {
       filter: kinds(['river', 'canal']),
@@ -143,7 +143,7 @@ const style = {
         'symbol-placement': 'line', 'symbol-spacing': 450, 'text-field': name,
         'text-font': ['noto_sans_regular'], 'text-size': ['interpolate', ['linear'], ['zoom'], 11, 10, 17, 12.5]
       },
-      paint: { 'text-color': '#59636a', 'text-halo-color': '#f7f5ef', 'text-halo-width': 1.2 }
+      paint: { 'text-color': '#506970', 'text-halo-color': '#f2f7f8', 'text-halo-width': 1.2 }
     }),
     vectorLayer('local-road-labels', 'symbol', 'street_labels', {
       minzoom: 16,
@@ -152,7 +152,7 @@ const style = {
         'symbol-placement': 'line', 'symbol-spacing': 350, 'text-field': name,
         'text-font': ['noto_sans_regular'], 'text-size': 11
       },
-      paint: { 'text-color': '#68747b', 'text-halo-color': '#f7f5ef', 'text-halo-width': 1.1 }
+      paint: { 'text-color': '#607781', 'text-halo-color': '#f2f7f8', 'text-halo-width': 1.1 }
     }),
     vectorLayer('place-labels', 'symbol', 'place_labels', {
       minzoom: 5,
@@ -162,13 +162,13 @@ const style = {
         'text-size': ['interpolate', ['linear'], ['zoom'], 5, 12, 12, 16, 17, 18],
         'text-variable-anchor': ['top', 'bottom', 'left', 'right'], 'text-radial-offset': 0.4
       },
-      paint: { 'text-color': '#46515a', 'text-halo-color': '#f7f5ef', 'text-halo-width': 1.4 }
+      paint: { 'text-color': '#294a52', 'text-halo-color': '#f2f7f8', 'text-halo-width': 1.4 }
     }),
     vectorLayer('district-labels', 'symbol', 'place_labels', {
       minzoom: 12,
       filter: kinds(['suburb', 'quarter']),
       layout: { 'text-field': name, 'text-font': ['noto_sans_regular'], 'text-size': 12, 'text-letter-spacing': 0.08 },
-      paint: { 'text-color': '#778087', 'text-halo-color': '#f7f5ef', 'text-halo-width': 1.2, 'text-opacity': 0.75 }
+      paint: { 'text-color': '#6d848b', 'text-halo-color': '#f2f7f8', 'text-halo-width': 1.2, 'text-opacity': 0.75 }
     }),
     vectorLayer('important-site-labels', 'symbol', 'sites', {
       minzoom: 15,
@@ -177,7 +177,7 @@ const style = {
         'text-field': name, 'text-font': ['noto_sans_regular'], 'text-size': 10.5,
         'text-variable-anchor': ['top', 'bottom'], 'text-radial-offset': 0.45
       },
-      paint: { 'text-color': '#66727a', 'text-halo-color': '#f7f5ef', 'text-halo-width': 1.1 }
+      paint: { 'text-color': '#607781', 'text-halo-color': '#f2f7f8', 'text-halo-width': 1.1 }
     })
   ]
 }

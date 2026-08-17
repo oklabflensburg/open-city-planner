@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-[calc(100dvh-4rem)] bg-slate-50">
+  <div class="min-h-[calc(100dvh-4rem)] bg-[var(--c-surface)]">
     <div class="mx-auto w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:py-12" :class="widthClass">
       <PageHeader
         v-if="title"

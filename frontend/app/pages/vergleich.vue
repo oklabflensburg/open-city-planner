@@ -12,7 +12,7 @@ const analytics = useAnalyticsStore()
 const filter = useFilterStore()
 let timer: ReturnType<typeof setTimeout> | undefined
 onMounted(() => analytics.loadBenchmarks())
-watch(() => [filter.selectedSize, filter.selectedFloor, ...filter.activeCategories, ...filter.occupancyStatuses, ...filter.businessStructures], () => {
+watch(() => filter.filterKey, () => {
   clearTimeout(timer)
   timer = setTimeout(() => analytics.loadBenchmarks(), 180)
 })

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.admin_audit_log import AdminAuditLog
-from app.models.user import User
+from app.models.user import AccountDeactivationReason, User
 from app.models.user_session import UserSession
 from app.schemas.admin import AdminRoleRead, AdminUserRead
 
@@ -191,6 +191,10 @@ async def set_user_active(
                 },
             )
     target.is_active = is_active
+    target.deactivated_at = None if is_active else datetime.now(UTC)
+    target.deactivation_reason = (
+        None if is_active else AccountDeactivationReason.ADMIN_DEACTIVATED
+    )
     session.add(
         AdminAuditLog(
             actor_user_id=actor.id,

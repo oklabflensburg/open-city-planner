@@ -7,6 +7,7 @@ const ACTION_LABELS: Record<string, string> = {
   USER_DEACTIVATED: 'Konto deaktiviert',
   ACCOUNT_DEACTIVATED: 'Konto selbst deaktiviert',
   ACCOUNT_DELETED: 'Konto selbst gelöscht',
+  LOGIN_BLOCKED: 'Anmeldung blockiert',
   USER_SUPERUSER_GRANTED_DIRECT: 'Superuser-Status zugewiesen',
   REFRESH_TOKEN_REUSE_DETECTED: 'Token-Wiederverwendung erkannt',
   FLENSBURG_STATISTICS_SYNC: 'Flensburg-Statistik synchronisiert',
@@ -28,11 +29,30 @@ export function auditActionLabel(action: string) {
 }
 
 export function auditActionTone(action: string): AuditTone {
+  if (action === 'LOGIN_BLOCKED') return 'warning'
   if (action.includes('DEACTIVATED') || action.includes('DELETE') || action.includes('REUSE')) return 'danger'
   if (action.includes('ACTIVATED') || action.includes('ASSIGNED') || action.includes('CREATE')) return 'success'
   if (action.includes('REMOVED')) return 'warning'
   if (action.includes('AUTH') || action.includes('LOGIN')) return 'info'
   return 'neutral'
+}
+
+export function blockedLoginDetailRows(details: Record<string, unknown>) {
+  if (!details.reason && !details.provider) return []
+  const reason = {
+    SELF_DEACTIVATED: 'Selbst deaktiviert',
+    ADMIN_DEACTIVATED: 'Konto deaktiviert'
+  }[String(details.reason)] || 'Konto deaktiviert'
+  const provider = {
+    password: 'E-Mail / Passwort',
+    google: 'Google',
+    github: 'GitHub',
+    mastodon: 'Mastodon'
+  }[String(details.provider)] || String(details.provider || 'Unbekannt')
+  return [
+    { label: 'Grund', value: reason },
+    { label: 'Anmeldemethode', value: provider }
+  ]
 }
 
 export function formatAuditDate(value: string) {

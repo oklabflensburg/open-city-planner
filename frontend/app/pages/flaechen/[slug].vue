@@ -253,7 +253,9 @@ async function removePolygon() {
   deleting.value = true
   deleteError.value = ''
   try {
+    const deletedId = polygonData.value.id
     await polygonApi.remove(polygonData.value.id)
+    useGisInvalidation().handlePolygonDeleted(deletedId)
     clearNuxtData(`polygon-${slug}`)
     await navigateTo('/')
   } catch (cause) {

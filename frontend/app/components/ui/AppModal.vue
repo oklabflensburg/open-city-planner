@@ -9,7 +9,7 @@
       >
         <section
           ref="panel"
-          class="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl outline-none"
+          class="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-[var(--radius-panel)] border border-[var(--c-border)] bg-white shadow-[var(--shadow-floating)] outline-none"
           :class="sizeClass"
           :role="role"
           aria-modal="true"

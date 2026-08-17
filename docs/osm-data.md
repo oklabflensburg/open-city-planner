@@ -20,13 +20,41 @@ Vor Einführung dieser Schnittstelle enthielten Datenbank und Repository keinen 
 
 Ein bestehender osm2pgsql-/Imposm-Prozess kann seine relevanten POIs und Gebäude in diesen Vertrag projizieren. Die Anwendung selbst lädt oder seedet keine erfundenen OSM-Daten.
 
+## Quellenübergreifendes Filtermodell
+
+Die fachlichen Filter `area_sizes`, `floors`, `categories`, `occupancy_statuses`, `business_structures` und `sources` werden sowohl an die Stadtplanner- als auch an die OSM-Abfrage übergeben. Innerhalb einer Dimension gilt OR, zwischen Dimensionen AND. `osm_categories` steuert davon getrennt die Umfeldlayer wie ÖPNV, Parken oder Kultur.
+
+OSM-Tags werden in `app/services/osm_canonical.py` serverseitig auf die bestehenden Stadtplanner-Kategorien normalisiert. Das Mapping basiert auf dem lokal importierten Flensburger Tagbestand. Beispiele:
+
+| Stadtplanner-Kategorie | OSM-Tags, auszugsweise |
+| --- | --- |
+| `fashion` | `shop=clothes`, `shoes`, `fashion`, `jewelry` |
+| `food` | `shop=supermarket`, `bakery`, `butcher`, `chemist`, `cosmetics` |
+| `electronics` | `shop=electronics`, `computer`, `mobile_phone` |
+| `furniture` | `shop=furniture`, `interior_decoration`, `kitchen` |
+| `garden` | `shop=garden_centre`, `doityourself`, `sports`, `outdoor`, `florist` |
+| `warehouse` | `shop=department_store`, `mall`, `variety_store` |
+| `gastronomy` | `amenity=restaurant`, `cafe`, `fast_food`, `bar`, `pub` |
+| `services` | `shop=hairdresser/beauty/tattoo/massage/...`, `office=*`, `craft=*`, `amenity=bank/pharmacy` |
+| `other` | sonstige vorhandene `shop=*`-Werte |
+
+Lifecycle-Tags behalten dabei ihre frühere Branche: `disused:shop=clothes` ist beispielsweise `fashion` mit Status `VACANT`. Nicht geschäftsbezogene OSM-Objekte erhalten keine Canonical Category und bleiben als Umfeld erhalten.
+
+Für Etagen wird ausschließlich ein einfaches, numerisches `level` verwendet: negative Werte werden `UG`, `0` wird `EG`, positive Werte werden `OG`. `building:levels` beschreibt das Gebäude und wird niemals als Lage des Geschäfts interpretiert. Fehlendes oder mehrdeutiges `level` bleibt unbekannt. Leerstand wird konservativ aus `shop=vacant`, `disused:shop=*` oder einem gewerblich eingeordneten `disused=yes` erkannt; alle anderen Objekte bleiben `UNKNOWN`, nicht automatisch `OCCUPIED`.
+
+OSM-Geometrien erhalten im Viewport eine als `mapped_area_m2` bezeichnete projizierte Kartierungsfläche. Sie wird nicht als Verkaufsfläche ausgegeben und derzeit keiner S/M/L/XL-Klasse zugeordnet: Im Projekt existieren weder belastbare Verkaufsflächen-Tags noch zentral belegte Quadratmetergrenzen für diese Klassen. Ein aktiver Größen- oder Betriebsformfilter schließt deshalb OSM-Geschäftsobjekte ohne dieses fachliche Attribut aus, während Umfeldobjekte sichtbar bleiben.
+
+Die Normalisierung wird bewusst in der BBOX-beschränkten SQL-Abfrage berechnet. Damit spiegeln Upserts in `osm_features` sofort neue oder geänderte Tags wider und es gibt keine veralteten materialisierten Felder. GiST auf `geometry`, GIN auf `tags` sowie die BTree-Verknüpfungsindizes bleiben die gemessene Indexbasis; zusätzliche Indizes wurden ohne belastbaren Nutzen nicht angelegt.
+
+`polygon_osm_sources` bildet die Deduplication ab. Sind Stadtplanner und OSM gleichzeitig aktiv, gewinnt die gepflegte Stadtplanner-Fläche und verknüpfte OSM-Objekte werden aus Karte, OSM-Counts und Facetten entfernt. Wird ausdrücklich nur OSM gewählt, bleibt das OSM-Original sichtbar. Raw Tags werden ausschließlich im Detail-Endpunkt freigegeben; der Kartenrequest enthält nur normalisierte Summary-Felder.
+
 ## Dynamischer Kartenausschnitt
 
 `GET /api/v1/osm/features` erwartet West-, Süd-, Ost- und Nordgrenze sowie den MapLibre-Zoom. Die Abfrage baut mit `ST_MakeEnvelope` eine Geometrie in EPSG:4326 auf und verwendet zuerst `geometry && bbox`, anschließend `ST_Intersects`. Ungültige Importgeometrien werden ausgelassen. Der GiST-Index bleibt damit nutzbar; die Geometriespalte wird in der Filterbedingung nicht transformiert.
 
 Unter Zoom 11 werden keine interaktiven OSM-Features geliefert. Zoom 11–12 beschränkt sich auf benannte wichtige POIs, Zoom 13–14 ergänzt weitere POIs und ab Zoom 15 kommen relevante Flächen hinzu. Reine Gebäude werden nur bei aktivem Gebäudelayer und ab Zoom 17 geliefert. Polygongeometrien werden bei niedrigeren Detailstufen topologieerhaltend vereinfacht. Pro Antwort gelten maximal 2.500 Features und eine zoomabhängige BBOX-Grenze; `truncated` fordert bei Überschreitung zum Hineinzoomen auf.
 
-Die kleine Viewport-Antwort enthält nur stabile OSM-ID, Kategorie, Name, Primärtyp und Geometrie. Vollständige freigegebene Sachdaten werden erst nach Auswahl über `GET /api/v1/osm/features/{osm_type}/{osm_id}` geladen. Antworten besitzen einen kurzen öffentlichen Cache, ETag und den lokalen OSM-Importzeitpunkt.
+Die kleine Viewport-Antwort enthält nur stabile OSM-ID, Umfeld- und Canonical Category, normalisierten Status bzw. Etage, kartierte Fläche, Name, Primärtyp und Geometrie. Vollständige freigegebene Sachdaten und Raw Tags werden erst nach Auswahl über `GET /api/v1/osm/features/{osm_type}/{osm_id}` geladen. Antworten besitzen einen kurzen öffentlichen Cache, ETag und den lokalen OSM-Importzeitpunkt.
 
 `natural=peninsula` ist zentral von der interaktiven Pipeline ausgeschlossen. Die JSONB-Bedingung `tags->>'natural' IS DISTINCT FROM 'peninsula'` greift in der räumlichen Query vor Kategorisierung, Quoten, Geometrieausgabe und Redis. Eine zentrale Python-Policy fängt alternative Row-Provider defensiv ab; sie betrifft ausdrücklich nicht `natural=wood`, `natural=water`, `natural=coastline`, `place=island` oder `place=islet`. Direkte Details bleiben über den allgemeinen Detail-Endpunkt abrufbar, die Übernahme als Stadtplaner-Fläche antwortet dagegen mit `OSM_FEATURE_NOT_IMPORTABLE`.
 

@@ -9,6 +9,12 @@
         <div class="min-w-0"><dt class="font-semibold text-slate-500">Ressource</dt><dd class="mt-1 min-w-0 text-slate-950 [overflow-wrap:anywhere]">{{ item.resource.label }}<span class="block text-slate-500 [overflow-wrap:anywhere]">{{ item.resource.type }}<template v-if="item.resource.id"> · {{ item.resource.id }}</template></span></dd></div>
       </dl>
       <section class="mt-6 min-w-0 border-t border-slate-200 pt-6" aria-labelledby="audit-summary"><h3 id="audit-summary" class="font-bold text-slate-950">Zusammenfassung</h3><p class="mt-2 leading-7 text-slate-700 [overflow-wrap:anywhere]">{{ item.summary }}</p></section>
+      <section v-if="blockedLoginDetails.length" class="mt-6 min-w-0" aria-labelledby="blocked-login-details">
+        <h3 id="blocked-login-details" class="font-bold text-slate-950">Anmeldestatus</h3>
+        <dl class="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+          <div v-for="detail in blockedLoginDetails" :key="detail.label" class="rounded-xl border border-slate-200 p-4"><dt class="font-semibold text-slate-500">{{ detail.label }}</dt><dd class="mt-1 font-semibold text-slate-950">{{ detail.value }}</dd></div>
+        </dl>
+      </section>
       <section v-if="changes.length" class="mt-6 min-w-0" aria-labelledby="audit-changes">
         <h3 id="audit-changes" class="font-bold text-slate-950">Änderungen</h3>
         <dl class="mt-3 grid min-w-0 gap-3 sm:hidden">
@@ -29,9 +35,10 @@
 
 <script setup lang="ts">
 import type { AuditLogItem } from '~/types/admin'
-import { auditActionLabel, auditActionTone, auditChangeRows, displayAuditValue, formatAuditDate } from '~/utils/auditLog'
+import { auditActionLabel, auditActionTone, auditChangeRows, blockedLoginDetailRows, displayAuditValue, formatAuditDate } from '~/utils/auditLog'
 
 const props = defineProps<{ item: AuditLogItem | null }>()
 defineEmits<{ close: [] }>()
 const changes = computed(() => props.item ? auditChangeRows(props.item.details) : [])
+const blockedLoginDetails = computed(() => props.item?.action === 'LOGIN_BLOCKED' ? blockedLoginDetailRows(props.item.details) : [])
 </script>

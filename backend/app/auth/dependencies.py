@@ -12,7 +12,7 @@ from app.auth.jwt import decode_jwt
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.models.user import User
-from app.services.auth_service import get_user_by_id
+from app.services.auth_service import get_user_by_id, inactive_account_error
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 access_cookie_scheme = APIKeyCookie(
@@ -63,7 +63,7 @@ async def get_current_user(
     if not user:
         raise auth_exception("AUTH_REQUIRED", "Bitte melde dich erneut an.")
     if not user.is_active:
-        raise auth_exception("USER_INACTIVE", "Dieses Konto ist deaktiviert.")
+        raise inactive_account_error(user)
     return user
 
 

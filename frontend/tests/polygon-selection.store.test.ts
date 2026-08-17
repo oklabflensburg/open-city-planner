@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMapStore } from '~/stores/map'
+import { useFilterStore } from '~/stores/filter'
 import { usePolygonStore } from '~/stores/polygon'
 import type { PolygonMetrics, PolygonOverview } from '~/types/geo'
 
@@ -86,5 +87,35 @@ describe('polygon map selection loading', () => {
     expect(map.selectedMapEntity).toEqual({ type: 'polygon', id: 'a' })
     expect(store.metricsError).toBe('metrics offline')
     expect(store.selectedOsmInfo?.polygon_id).toBe('a')
+  })
+
+  it('removes a deleted polygon immediately and clears its active selection', () => {
+    const map = useMapStore()
+    const store = usePolygonStore()
+    store.polygons = [polygon('a'), polygon('b')]
+    store.loadedFilterKey = 'cached-filter'
+    map.selectedMapEntity = { type: 'polygon', id: 'a' }
+
+    store.invalidateDeletedPolygon('a')
+
+    expect(store.polygons.map(item => item.id)).toEqual(['b'])
+    expect(store.loadedFilterKey).toBeNull()
+    expect(map.selectedMapEntity).toBeNull()
+  })
+
+  it('does not allow a response started before deletion to reintroduce the polygon', async () => {
+    let resolveOverview!: (value: PolygonOverview[]) => void
+    vi.stubGlobal('usePolygonApi', () => ({ overview: vi.fn(() => new Promise<PolygonOverview[]>(resolve => { resolveOverview = resolve })) }))
+    const filter = useFilterStore()
+    vi.stubGlobal('useFilterStore', () => filter)
+    const store = usePolygonStore()
+    const request = store.loadPolygons({ force: true })
+    await Promise.resolve()
+
+    store.invalidateDeletedPolygon('a')
+    resolveOverview([polygon('a')])
+    await request
+
+    expect(store.polygons).toEqual([])
   })
 })

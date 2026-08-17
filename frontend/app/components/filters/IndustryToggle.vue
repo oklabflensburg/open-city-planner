@@ -5,6 +5,8 @@
     :aria-pressed="active"
     role="checkbox"
     :aria-checked="active"
+    :aria-label="`${label}, ${active ? 'ausgewählt' : 'nicht ausgewählt'}, ${count ?? 0} Treffer`"
+    :title="countDescription"
     @click="$emit('toggle')"
   >
     <span class="relative mt-0.5 h-[16px] w-[28px] shrink-0 rounded-full border border-black/10" :style="{ backgroundColor: active ? color : '#a7aaad' }">
@@ -16,6 +18,6 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{ label: string; color: string; active: boolean; count?: number }>()
+defineProps<{ label: string; color: string; active: boolean; count?: number; countDescription?: string }>()
 defineEmits<{ toggle: [] }>()
 </script>

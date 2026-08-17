@@ -109,8 +109,8 @@ async def _areas_geojson_uncached(session: AsyncSession) -> dict:
     ]}
 
 
-def _filters(area_db_id: int, *, categories: Sequence[str], floors: Sequence[str], area_sizes: Sequence[str], occupancy_statuses: Sequence[str], business_structures: Sequence[str]) -> list[object]:
-    result = _base_filters(floors, area_sizes, occupancy_statuses, business_structures)
+def _filters(area_db_id: int, *, categories: Sequence[str], floors: Sequence[str], area_sizes: Sequence[str], occupancy_statuses: Sequence[str], business_structures: Sequence[str], sources: Sequence[str]) -> list[object]:
+    result = _base_filters(floors, area_sizes, occupancy_statuses, business_structures, sources)
     result.append(UserPolygon.id.in_(select(PolygonAnalysisArea.polygon_id).where(PolygonAnalysisArea.analysis_area_id == area_db_id)))
     if categories:
         result.append(UserPolygon.category.in_(categories))
@@ -131,12 +131,14 @@ async def _area_analytics_uncached(session: AsyncSession, area_id: uuid.UUID, **
     selected_filters = _filters(area.id, **kwargs)
     metrics = await _benchmark_metrics(session, selected_filters)
     distribution = await _counts(session, selected_filters)
-    poi_rows = (await session.execute(text("""
-      SELECT coalesce(tags->>'shop',tags->>'amenity',tags->>'tourism',tags->>'leisure','other') AS category, count(*) AS count
-      FROM osm_features WHERE ST_Covers((SELECT geometry FROM analysis_areas WHERE id=:id), ST_PointOnSurface(geometry))
-        AND (tags ? 'shop' OR tags ? 'amenity' OR tags ? 'tourism' OR tags ? 'leisure')
-      GROUP BY 1 ORDER BY count(*) DESC, 1
-    """), {"id": area.id})).all()
+    poi_rows = []
+    if not kwargs["sources"] or "OSM" in kwargs["sources"]:
+        poi_rows = (await session.execute(text("""
+          SELECT coalesce(tags->>'shop',tags->>'amenity',tags->>'tourism',tags->>'leisure','other') AS category, count(*) AS count
+          FROM osm_features WHERE ST_Covers((SELECT geometry FROM analysis_areas WHERE id=:id), ST_PointOnSurface(geometry))
+            AND (tags ? 'shop' OR tags ? 'amenity' OR tags ? 'tourism' OR tags ? 'leisure')
+          GROUP BY 1 ORDER BY count(*) DESC, 1
+        """), {"id": area.id})).all()
     poi_categories = [IndustryCount(category=str(category), count=int(count)) for category, count in poi_rows]
     density = metrics.total_area_m2 / (area.area_m2 / 1_000_000) if metrics.total_area_m2 is not None and area.area_m2 else None
     return AnalysisAreaAnalytics(area=detail, metrics=metrics, industry_distribution=distribution,

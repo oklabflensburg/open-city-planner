@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_verwaltung_user
@@ -16,6 +16,7 @@ from app.schemas.analytics import (
     CityMetricsVerwaltungRead,
     MarketBenchmarkResult,
 )
+from app.schemas.polygon_filters import PolygonFilterParams, polygon_filter_query
 from app.services.analytics import analytics_overview, market_benchmarks
 from app.services.city_metrics import (
     get_public_city_metrics,
@@ -25,30 +26,6 @@ from app.services.city_metrics import (
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
-
-
-def _split(value: str | None) -> tuple[str, ...]:
-    if not value:
-        return ()
-    return tuple(dict.fromkeys(part.strip() for part in value.split(",") if part.strip()))
-
-
-def _checked(value: str | None, allowed: set[str], field: str) -> tuple[str, ...]:
-    values = _split(value)
-    invalid = set(values) - allowed
-    if invalid:
-        raise HTTPException(status_code=422, detail=f"Invalid {field} filter")
-    return values
-
-
-CATEGORIES = {
-    "warehouse", "fashion", "food", "electronics", "furniture", "garden",
-    "other", "gastronomy", "services", "otherAreas", "__none__",
-}
-FLOORS = {"UG", "EG", "OG"}
-AREA_SIZES = {"S", "M", "L", "XL"}
-OCCUPANCY_STATUSES = {"OCCUPIED", "VACANT", "UNKNOWN"}
-BUSINESS_STRUCTURES = {"CHAIN", "INDEPENDENT", "UNKNOWN"}
 
 
 @router.get("/fast-facts", response_model=CityMetricsPublicRead)
@@ -81,20 +58,17 @@ async def patch_fast_facts(
 async def get_analytics_overview(
     session: SessionDep,
     response: Response,
-    categories: Annotated[str | None, Query()] = None,
-    floors: Annotated[str | None, Query()] = None,
-    area_sizes: Annotated[str | None, Query()] = None,
-    occupancy_statuses: Annotated[str | None, Query()] = None,
-    business_structures: Annotated[str | None, Query()] = None,
+    filters: Annotated[PolygonFilterParams, Depends(polygon_filter_query)],
     area_id: uuid.UUID | None = None,
 ) -> AnalyticsOverview:
     result = await analytics_overview(
         session,
-        categories=_checked(categories, CATEGORIES, "categories"),
-        floors=_checked(floors, FLOORS, "floors"),
-        area_sizes=_checked(area_sizes, AREA_SIZES, "area_sizes"),
-        occupancy_statuses=_checked(occupancy_statuses, OCCUPANCY_STATUSES, "occupancy_statuses"),
-        business_structures=_checked(business_structures, BUSINESS_STRUCTURES, "business_structures"),
+        categories=filters.categories,
+        floors=filters.floors,
+        area_sizes=filters.area_sizes,
+        occupancy_statuses=filters.occupancy_statuses,
+        business_structures=filters.business_structures,
+        sources=filters.sources,
         area_id=area_id,
     )
     if get_settings().cache_debug_headers and (status := last_cache_status()):
@@ -106,20 +80,17 @@ async def get_analytics_overview(
 async def get_market_benchmarks(
     session: SessionDep,
     response: Response,
-    categories: Annotated[str | None, Query()] = None,
-    floors: Annotated[str | None, Query()] = None,
-    area_sizes: Annotated[str | None, Query()] = None,
-    occupancy_statuses: Annotated[str | None, Query()] = None,
-    business_structures: Annotated[str | None, Query()] = None,
+    filters: Annotated[PolygonFilterParams, Depends(polygon_filter_query)],
     area_id: uuid.UUID | None = None,
 ) -> MarketBenchmarkResult:
     result = await market_benchmarks(
         session,
-        categories=_checked(categories, CATEGORIES, "categories"),
-        floors=_checked(floors, FLOORS, "floors"),
-        area_sizes=_checked(area_sizes, AREA_SIZES, "area_sizes"),
-        occupancy_statuses=_checked(occupancy_statuses, OCCUPANCY_STATUSES, "occupancy_statuses"),
-        business_structures=_checked(business_structures, BUSINESS_STRUCTURES, "business_structures"),
+        categories=filters.categories,
+        floors=filters.floors,
+        area_sizes=filters.area_sizes,
+        occupancy_statuses=filters.occupancy_statuses,
+        business_structures=filters.business_structures,
+        sources=filters.sources,
         area_id=area_id,
     )
     if get_settings().cache_debug_headers and (status := last_cache_status()):

@@ -1,7 +1,11 @@
 export type AnalyticsFastFacts = {
   shops: number
+  polygon_count: number
   total_area_m2: number | null
   average_area_m2: number | null
+  median_area_m2: number | null
+  vacant_area_m2: number | null
+  vacancy_area_rate: number | null
   calculated_vacancy_rate: number | null
   calculated_chain_store_rate: number | null
   known_occupancy_count: number
@@ -82,6 +86,9 @@ export type IndustryCount = {
   count: number
 }
 
+export type DimensionCount = { key: string, label: string, count: number }
+export type CompletenessMetric = { key: string, label: string, complete: number, total: number, percent: number | null }
+
 export type PrimeRentRow = {
   location: string
   s: number | null
@@ -94,6 +101,11 @@ export type AnalyticsOverview = {
   fast_facts: AnalyticsFastFacts
   industry_distribution: IndustryCount[]
   category_counts: IndustryCount[]
+  size_distribution: DimensionCount[]
+  floor_distribution: DimensionCount[]
+  status_distribution: DimensionCount[]
+  business_structure_distribution: DimensionCount[]
+  data_completeness: CompletenessMetric[]
   prime_rents: {
     unit: string
     period: string | null

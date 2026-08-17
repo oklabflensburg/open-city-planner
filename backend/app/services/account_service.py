@@ -11,7 +11,7 @@ from app.models.city_metrics import CityMetrics
 from app.models.oauth_account import OAuthFlowGrant, UserOAuthAccount
 from app.models.password_reset_token import PasswordResetToken
 from app.models.social_publication import SocialPublishingSettings
-from app.models.user import User
+from app.models.user import AccountDeactivationReason, User
 from app.models.user_polygon import UserPolygon
 from app.models.user_session import UserSession
 from app.models.verification_token import EmailVerificationToken
@@ -64,6 +64,8 @@ async def deactivate_own_account(session: AsyncSession, user_id: uuid.UUID) -> N
         return
     user.is_active = False
     now = datetime.now(UTC)
+    user.deactivated_at = now
+    user.deactivation_reason = AccountDeactivationReason.SELF_DEACTIVATED
     await session.execute(
         update(UserSession)
         .where(UserSession.user_id == user.id, UserSession.revoked_at.is_(None))

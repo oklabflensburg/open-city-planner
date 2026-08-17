@@ -1,11 +1,17 @@
 import uuid as uuid_pkg
 from datetime import datetime
+from enum import StrEnum
 
-from sqlalchemy import Boolean, DateTime, Index, String, func
+from sqlalchemy import Boolean, DateTime, Enum, Index, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+
+class AccountDeactivationReason(StrEnum):
+    SELF_DEACTIVATED = "SELF_DEACTIVATED"
+    ADMIN_DEACTIVATED = "ADMIN_DEACTIVATED"
 
 
 class User(Base):
@@ -19,6 +25,10 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String(180), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    deactivated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deactivation_reason: Mapped[AccountDeactivationReason | None] = mapped_column(
+        Enum(AccountDeactivationReason, name="account_deactivation_reason"), nullable=True
+    )
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     email_pending: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

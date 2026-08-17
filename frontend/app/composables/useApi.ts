@@ -38,7 +38,9 @@ const DEFINITIVE_AUTH_CODES = new Set([
   'REFRESH_TOKEN_MISSING',
   'REFRESH_TOKEN_REUSE_DETECTED',
   'SESSION_REVOKED',
-  'USER_INACTIVE'
+  'USER_INACTIVE',
+  'ACCOUNT_SELF_DEACTIVATED',
+  'ACCOUNT_DISABLED'
 ])
 
 export const useApi = () => {
@@ -71,7 +73,13 @@ export const useApi = () => {
       throw error
     }
 
-    if (!response.ok) throw await apiError(response)
+    if (!response.ok) {
+      const error = await apiError(response)
+      if (DEFINITIVE_AUTH_CODES.has(error.code || '') && authStore.authenticated) {
+        authStore.clearAuthSession(false, error.code)
+      }
+      throw error
+    }
     if (response.status === 204) return undefined as T
     return await response.json() as T
   }
@@ -114,8 +122,9 @@ export const useApi = () => {
       const response = await rawRequest('/auth/refresh', { method: 'POST' })
       if (!response.ok) {
         const error = await apiError(response)
-        if (error.statusCode === 401 && DEFINITIVE_AUTH_CODES.has(error.code || '')) {
-          authStore.clearAuthSession(authStore.authenticated)
+        if (DEFINITIVE_AUTH_CODES.has(error.code || '')) {
+          const isBlockedAccount = ['ACCOUNT_SELF_DEACTIVATED', 'ACCOUNT_DISABLED'].includes(error.code || '')
+          authStore.clearAuthSession(authStore.authenticated && !isBlockedAccount, error.code)
         }
         throw error
       }

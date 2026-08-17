@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from app.api.osm import router as osm_router
 from app.schemas.osm import OsmViewportQuery
+from app.schemas.polygon_filters import PolygonFilterParams
 from app.services import osm_features
 from app.services.osm_exclusions import should_exclude_osm_feature
 from app.services.osm_features import (
@@ -143,6 +144,87 @@ def test_viewport_sql_preserves_spatial_index_and_zoom_policy() -> None:
     assert "group_rank <= :point_limit" in sql
     assert "group_rank <= :polygon_limit" in sql
     assert "group_rank <= :building_limit" in sql
+    assert "canonical_category" in sql
+    assert "canonical_floor" in sql
+    assert "canonical_status" in sql
+    assert "polygon_osm_sources" in sql
+    assert "ST_Area(ST_Transform(osm.geometry, 25832))" in sql
+
+
+@pytest.mark.asyncio
+async def test_business_filters_apply_to_osm_while_context_pois_remain_visible() -> None:
+    imported_at = datetime(2026, 8, 13, tzinfo=UTC)
+    rows = [
+        {"osm_type": "node", "osm_id": 20, "tags": {"shop": "clothes", "level": "0"}, "category": "retail", "dimension": 0, "imported_at": imported_at, "geometry": {"type": "Point", "coordinates": [9.43, 54.78]}, "primary_type": "clothes"},
+        {"osm_type": "node", "osm_id": 21, "tags": {"shop": "supermarket", "level": "0"}, "category": "groceries", "dimension": 0, "imported_at": imported_at, "geometry": {"type": "Point", "coordinates": [9.43, 54.78]}, "primary_type": "supermarket"},
+        {"osm_type": "node", "osm_id": 22, "tags": {"amenity": "parking"}, "category": "parking", "dimension": 0, "imported_at": imported_at, "geometry": {"type": "Point", "coordinates": [9.43, 54.78]}, "primary_type": "parking"},
+    ]
+    session = AsyncMock()
+    session.execute.return_value = MappingRows(rows)
+
+    result = await viewport_features(
+        session, query(limit=10),
+        PolygonFilterParams(categories=("fashion",), floors=("EG",)),
+    )
+
+    assert [feature.id for feature in result.features] == ["node/20", "node/22"]
+    assert result.meta.business_count == 1
+    assert result.meta.context_count == 1
+    assert result.meta.canonical_summary == {"fashion": 1}
+
+
+@pytest.mark.asyncio
+async def test_unknown_osm_attributes_do_not_satisfy_explicit_filters() -> None:
+    imported_at = datetime(2026, 8, 13, tzinfo=UTC)
+    rows = [{
+        "osm_type": "node", "osm_id": 23, "tags": {"shop": "clothes"},
+        "category": "retail", "dimension": 0, "imported_at": imported_at,
+        "geometry": {"type": "Point", "coordinates": [9.43, 54.78]},
+        "primary_type": "clothes",
+    }]
+    session = AsyncMock()
+    session.execute.return_value = MappingRows(rows)
+
+    floor_result = await viewport_features(
+        session, query(limit=10), PolygonFilterParams(floors=("EG",)),
+    )
+    occupied_result = await viewport_features(
+        session, query(limit=10), PolygonFilterParams(occupancy_statuses=("OCCUPIED",)),
+    )
+    size_result = await viewport_features(
+        session, query(limit=10), PolygonFilterParams(area_sizes=("M",)),
+    )
+
+    assert floor_result.features == []
+    assert occupied_result.features == []
+    assert size_result.features == []
+
+
+@pytest.mark.asyncio
+async def test_linked_osm_feature_is_deduplicated_in_favour_of_stadtplanner() -> None:
+    imported_at = datetime(2026, 8, 13, tzinfo=UTC)
+    session = AsyncMock()
+    session.execute.return_value = MappingRows([{
+        "osm_type": "node", "osm_id": 24, "tags": {"shop": "clothes"},
+        "category": "retail", "dimension": 0, "imported_at": imported_at,
+        "geometry": {"type": "Point", "coordinates": [9.43, 54.78]},
+        "primary_type": "clothes", "linked_polygons": [{"id": "polygon-1"}],
+        "deduplicated_linked_count": 1,
+    }])
+
+    result = await viewport_features(session, query(limit=10))
+
+    assert result.features == []
+
+
+@pytest.mark.asyncio
+async def test_osm_source_can_be_disabled_without_querying_database() -> None:
+    session = AsyncMock()
+    result = await viewport_features(
+        session, query(limit=10), PolygonFilterParams(sources=("STADTPLANNER",)),
+    )
+    assert result.features == []
+    session.execute.assert_not_awaited()
 
 
 def test_public_osm_routes_are_registered_without_auth_dependency() -> None:

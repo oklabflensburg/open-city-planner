@@ -95,3 +95,64 @@ test('danger zone and dialogs remain viewport-safe on mobile', async ({ page }) 
     document.documentElement.scrollWidth <= document.documentElement.clientWidth
   )).toBe(true)
 })
+
+async function mockAnonymousSession(page: Page) {
+  await page.route('**/api/v1/auth/session', route => route.fulfill({
+    status: 401,
+    json: { detail: { error: { code: 'AUTH_REQUIRED', message: 'Bitte melde dich an.' } } }
+  }))
+  await page.route('**/api/v1/auth/oauth/providers', route => route.fulfill({ json: [] }))
+}
+
+test('password login shows the self-deactivation explanation without creating a session', async ({ page }) => {
+  await mockAnonymousSession(page)
+  let loginAttempts = 0
+  await page.route('**/api/v1/auth/login', route => {
+    loginAttempts += 1
+    return route.fulfill({
+      status: 403,
+      json: {
+        detail: {
+          error: {
+            code: 'ACCOUNT_SELF_DEACTIVATED',
+            message: 'Dieses Konto wurde selbst deaktiviert.'
+          }
+        }
+      }
+    })
+  })
+  await page.goto('/login')
+  await page.getByLabel('E-Mail').fill(account.email)
+  await page.getByLabel('Passwort').fill('correct password')
+  await page.getByRole('button', { name: 'Anmelden', exact: true }).click()
+
+  const status = page.getByRole('status').filter({ hasText: 'Dein Konto ist deaktiviert' })
+  await expect(status).toContainText('Du hast dieses Konto zuvor selbst deaktiviert.')
+  await expect(status.getByRole('link', { name: 'Kontakt aufnehmen' })).toBeVisible()
+  await expect(page.getByText('ACCOUNT_SELF_DEACTIVATED')).toHaveCount(0)
+  expect(loginAttempts).toBe(1)
+})
+
+test('Mastodon callback redirects to a readable and query-safe status on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockAnonymousSession(page)
+  let callbackCount = 0
+  await page.route('**/api/v1/auth/oauth/mastodon/callback**', (route) => {
+    callbackCount += 1
+    return route.fulfill({
+      status: 302,
+      headers: { location: '/login?auth_error=ACCOUNT_SELF_DEACTIVATED' }
+    })
+  })
+  await page.goto('/api/v1/auth/oauth/mastodon/callback?code=mock-code&state=mock-state')
+
+  const status = page.getByRole('status').filter({ hasText: 'Dein Konto ist deaktiviert' })
+  await expect(status).toBeVisible()
+  await expect(status).toContainText('wende dich bitte an den Support')
+  await expect(page.getByText('ACCOUNT_SELF_DEACTIVATED')).toHaveCount(0)
+  await expect(page).toHaveURL(/\/login$/)
+  await expect.poll(() => page.evaluate(() =>
+    document.documentElement.scrollWidth <= document.documentElement.clientWidth
+  )).toBe(true)
+  expect(callbackCount).toBe(1)
+})

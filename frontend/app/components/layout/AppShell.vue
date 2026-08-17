@@ -1,17 +1,31 @@
 <template>
-  <section class="overview-shell relative min-h-0 min-w-0 overflow-hidden bg-[#f4f4f4] text-[#2f3337] lg:grid lg:gap-3 lg:p-3">
-    <div class="hidden min-h-0 min-w-0 lg:block">
+  <section class="overview-shell relative min-h-0 min-w-0 overflow-hidden bg-[var(--c-surface)] text-[var(--c-text)] xl:grid xl:gap-4 xl:p-4">
+    <Transition name="notice">
+      <div
+        v-if="mapStore.notice"
+        class="pointer-events-auto fixed left-1/2 top-20 z-[80] flex min-h-11 -translate-x-1/2 items-center gap-3 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-bold text-emerald-900 shadow-xl"
+        role="status"
+        aria-live="polite"
+      >
+        <CircleCheck class="size-5 text-emerald-600" aria-hidden="true" />
+        <span>{{ mapStore.notice }}</span>
+        <button class="rounded-lg p-1 text-emerald-900 hover:bg-emerald-50" type="button" aria-label="Hinweis schließen" @click="mapStore.clearNotice()">
+          <X class="size-4" aria-hidden="true" />
+        </button>
+      </div>
+    </Transition>
+    <div class="hidden min-h-0 min-w-0 xl:block">
       <ClientOnly>
         <LazyLeftSidebar v-if="isDesktop" />
       </ClientOnly>
     </div>
 
-    <section class="absolute inset-0 min-h-0 min-w-0 p-2 lg:relative lg:inset-auto lg:p-0" aria-label="Stadtplaner-Karte">
+    <section class="absolute inset-0 min-h-0 min-w-0 p-2 xl:relative xl:inset-auto xl:p-0" aria-label="Stadtplaner-Karte">
       <LazyMapCanvas hydrate-on-idle />
 
       <nav
         v-if="mapStore.activeMobilePanel === null"
-        class="absolute bottom-[calc(env(safe-area-inset-bottom)+2.25rem)] left-1/2 z-20 grid max-w-[calc(100%-1rem)] -translate-x-1/2 grid-flow-col auto-cols-max gap-1.5 rounded-2xl border border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur lg:hidden"
+        class="absolute bottom-[calc(env(safe-area-inset-bottom)+2.25rem)] left-1/2 z-20 grid max-w-[calc(100%-1rem)] -translate-x-1/2 grid-flow-col auto-cols-max gap-1.5 rounded-2xl border border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur xl:hidden"
         aria-label="Kartenaktionen"
       >
         <button class="map-action" :class="{ 'map-action-active': mapStore.activeMobilePanel === 'filter' }" type="button" aria-label="Filter öffnen" :aria-pressed="mapStore.activeMobilePanel === 'filter'" @click="openFilter">
@@ -32,7 +46,7 @@
       </nav>
     </section>
 
-    <div class="hidden min-h-0 min-w-0 lg:block">
+    <div class="hidden min-h-0 min-w-0 xl:block">
       <ClientOnly>
         <LazyRightSidebar v-if="isDesktop" />
       </ClientOnly>
@@ -50,7 +64,7 @@
         <LazyLeftSidebar />
         <div class="mt-3 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <button class="min-h-11 rounded-xl border border-slate-300 px-3 text-sm font-bold text-[#154d73] hover:bg-slate-50" type="button" @click="resetFilters">Zurücksetzen</button>
-          <button class="min-h-11 rounded-xl bg-[#154d73] px-3 text-sm font-bold text-white hover:bg-[#0f3f61]" type="button" @click="closeMobilePanel">Fertig</button>
+          <button class="min-h-11 rounded-xl bg-[#154d73] px-3 text-sm font-bold text-white hover:bg-[#0f3f61]" type="button" @click="closeMobilePanel">{{ mobileResultLabel }}</button>
         </div>
       </template>
       <LazyRightSidebar v-else-if="mapStore.activeMobilePanel === 'analytics'" />
@@ -62,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { BarChart3, ListFilter, Plus } from 'lucide-vue-next'
+import { BarChart3, CircleCheck, ListFilter, Plus, X } from 'lucide-vue-next'
 
 const mapStore = useMapStore()
 const filterStore = useFilterStore()
@@ -72,21 +86,15 @@ const analysisAreasStore = useAnalysisAreasStore()
 const authStore = useAuthStore()
 const mapSelection = useMapSelection()
 const isDesktop = ref(false)
-const activeFilterCount = computed(() => (
-  (filterStore.selectedSize !== 'M' ? 1 : 0)
-  + (filterStore.selectedFloor !== 'EG' ? 1 : 0)
-  + (filterStore.allCategoriesActive ? 0 : 1)
-  + (filterStore.occupancyStatuses.length ? 1 : 0)
-  + (filterStore.businessStructures.length ? 1 : 0)
-  + (!osmStore.showPois || !osmStore.showAreas || osmStore.showBuildings ? 1 : 0)
-  + (osmStore.activeCategories.length === 15 ? 0 : 1)
-))
+const activeFilterCount = computed(() => filterStore.activeFilterCount)
+const mobileResultCount = computed(() => usePolygonStore().polygons.length + (osmStore.data?.meta.business_count || 0))
+const mobileResultLabel = computed(() => mobileResultCount.value ? `${mobileResultCount.value} Ergebnisse anzeigen` : 'Keine Ergebnisse')
 const activePanelTitle = computed(() => {
-  if (mapStore.activeMobilePanel === 'filter') return 'Filter & Ansichten'
+  if (mapStore.activeMobilePanel === 'filter') return activeFilterCount.value ? `Filter · ${activeFilterCount.value} aktiv` : 'Filter'
   if (mapStore.activeMobilePanel === 'selection' && mapStore.selectedMapEntity?.type === 'polygon') return 'Ausgewählte Fläche'
   if (osmStore.selectedFeature) return 'OpenStreetMap-Objekt'
   if (analysisAreasStore.selectedArea) return analysisAreasStore.selectedArea.name
-  return 'Kennzahlen & Analyse'
+  return 'Analyse'
 })
 const activePanelCloseLabel = computed(() => {
   if (mapStore.activeMobilePanel === 'filter') return 'Filter schließen'
@@ -102,13 +110,14 @@ const activePanelContentKey = computed(() => {
 })
 
 let analyticsTimer: ReturnType<typeof setTimeout> | undefined
+let noticeTimer: ReturnType<typeof setTimeout> | undefined
 let desktopQuery: MediaQueryList | undefined
 let panelHistoryActive = false
 let closingFromHistory = false
 
 onMounted(() => {
   mapStore.closeMobilePanels()
-  desktopQuery = window.matchMedia('(min-width: 1024px)')
+  desktopQuery = window.matchMedia('(min-width: 1280px)')
   isDesktop.value = desktopQuery.matches
   if (isDesktop.value) void analyticsStore.load()
   desktopQuery.addEventListener('change', handleDesktopBreakpoint)
@@ -122,12 +131,14 @@ watch(() => mapStore.activeMobilePanel, (panel, previous) => {
     panelHistoryActive = true
   } else if (!panel && previous && panelHistoryActive && !closingFromHistory) {
     panelHistoryActive = false
-    window.history.back()
+    const state = { ...window.history.state }
+    delete state.mobileGisPanel
+    window.history.replaceState(state, '')
   }
 })
 
 watch(
-  () => [filterStore.selectedSize, filterStore.selectedFloor, ...filterStore.activeCategories, ...filterStore.occupancyStatuses, ...filterStore.businessStructures],
+  () => filterStore.filterKey,
   () => {
     if (!analyticsIsVisible()) return
     clearTimeout(analyticsTimer)
@@ -142,12 +153,19 @@ watch(() => analysisAreasStore.selectedAreaId, () => {
   analyticsTimer = setTimeout(() => analyticsStore.load(), 80)
 })
 
+watch(() => mapStore.gisDataGeneration, () => {
+  if (analyticsIsVisible()) void analyticsStore.load()
+})
+
+watch(() => mapStore.notice, (notice) => {
+  clearTimeout(noticeTimer)
+  if (notice) noticeTimer = setTimeout(() => mapStore.clearNotice(), 5000)
+})
+
 onBeforeUnmount(() => {
   clearTimeout(analyticsTimer)
-  if (panelHistoryActive && window.history.state?.mobileGisPanel) {
-    panelHistoryActive = false
-    window.history.back()
-  }
+  clearTimeout(noticeTimer)
+  panelHistoryActive = false
   mapStore.closeMobilePanels()
   mapSelection.clearSelection()
   desktopQuery?.removeEventListener('change', handleDesktopBreakpoint)
@@ -225,18 +243,21 @@ function handlePopState() {
 .map-action-primary { border-color: #154d73; background: #154d73; color: white; }
 .map-action-primary:hover { background: #0f3f61; }
 
+.notice-enter-active, .notice-leave-active { transition: opacity 160ms ease, transform 160ms ease; }
+.notice-enter-from, .notice-leave-to { opacity: 0; transform: translate(-50%, -0.5rem); }
+
 @supports (height: 100dvh) {
   .overview-shell { height: calc(100dvh - 4rem); }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
   .overview-shell {
     min-height: 620px;
-    grid-template-columns: 260px minmax(0, 1fr) 300px;
+    grid-template-columns: 272px minmax(0, 1fr) 312px;
   }
 }
 
 @media (min-width: 1440px) {
-  .overview-shell { grid-template-columns: 280px minmax(600px, 1fr) 320px; }
+  .overview-shell { grid-template-columns: 288px minmax(600px, 1fr) 328px; }
 }
 </style>

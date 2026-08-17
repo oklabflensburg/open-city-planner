@@ -31,6 +31,7 @@ from app.schemas.geojson import (
     PublicPolygonDetail,
 )
 from app.schemas.osm import OsmPolygonImportRead, OsmPolygonImportRequest, PolygonOsmInfo
+from app.schemas.polygon_filters import PolygonFilterParams, polygon_filter_query
 from app.services.comparables import comparable_polygons
 from app.services.geometry import GeometryValidationError
 from app.services.location_analytics import polygon_location_analysis
@@ -143,8 +144,11 @@ async def get_geojson(session: SessionDep) -> FeatureCollection:
 
 
 @router.get("/overview", response_model=list[PolygonOverviewRead])
-async def get_polygon_overview(session: SessionDep) -> list[PolygonOverviewRead]:
-    return await list_polygon_overview(session)
+async def get_polygon_overview(
+    session: SessionDep,
+    filters: Annotated[PolygonFilterParams, Depends(polygon_filter_query)],
+) -> list[PolygonOverviewRead]:
+    return await list_polygon_overview(session, filters)
 
 
 @router.get("/sitemap", response_model=list[PolygonSitemapEntry])

@@ -114,8 +114,9 @@ describe('dynamic OSM viewport layer', () => {
 
   it('shows viewport counts, truncation and local OSM data date', () => {
     const summary = appFile('components/analysis/ViewportOsmSummary.vue')
-    expect(summary).toContain('Aktueller Kartenausschnitt')
+    expect(summary).toContain('Lokale, deduplizierte Daten im Kartenausschnitt')
     expect(summary).toContain('meta.summary')
+    expect(summary).toContain('meta.canonical_summary')
     expect(summary).toContain('meta.truncated')
     expect(summary).toContain('meta.osm_data_updated_at')
   })

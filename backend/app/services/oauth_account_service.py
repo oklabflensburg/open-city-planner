@@ -11,7 +11,7 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.oauth_account import UserOAuthAccount
 from app.models.user import User
 from app.schemas.oauth import OAuthIdentity
-from app.services.auth_service import get_user_by_email
+from app.services.auth_service import ensure_user_can_authenticate, get_user_by_email
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +115,14 @@ async def authenticate_oauth_identity(session: AsyncSession, identity: OAuthIden
     )
     if account:
         user = await session.get(User, account.user_id)
-        if not user or not user.is_active:
-            raise oauth_error("ACCOUNT_INACTIVE", "Dieses Konto ist deaktiviert.", status.HTTP_403_FORBIDDEN)
+        if not user:
+            raise oauth_error("ACCOUNT_DISABLED", "Dieses Konto ist deaktiviert.", status.HTTP_403_FORBIDDEN)
+        await ensure_user_can_authenticate(
+            session,
+            user,
+            provider=provider,
+            audit_interactive_attempt=True,
+        )
         update_oauth_account(account, identity)
         verify_matching_provider_email(user, identity)
         touch_last_login(account, user)
@@ -190,7 +196,13 @@ async def authenticate_oauth_identity(session: AsyncSession, identity: OAuthIden
         )
         if existing:
             linked_user = await session.get(User, existing.user_id)
-            if linked_user and linked_user.is_active:
+            if linked_user:
+                await ensure_user_can_authenticate(
+                    session,
+                    linked_user,
+                    provider=provider,
+                    audit_interactive_attempt=True,
+                )
                 update_oauth_account(existing, identity)
                 verify_matching_provider_email(linked_user, identity)
                 touch_last_login(existing, linked_user)

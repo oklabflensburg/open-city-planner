@@ -24,7 +24,7 @@ onMounted(async () => {
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Die Anmeldung konnte nicht abgeschlossen werden.'
     window.setTimeout(() => {
-      void router.replace({ path: '/login', query: { oauth_error: 'OAUTH_LOGIN_FAILED' } })
+      void router.replace({ path: '/login', query: { auth_error: 'OAUTH_LOGIN_FAILED' } })
     }, 900)
   }
 })

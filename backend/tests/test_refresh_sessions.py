@@ -11,7 +11,7 @@ from app.api.auth import get_auth_session
 from app.auth.jwt import create_jwt, decode_jwt
 from app.auth.tokens import hash_token
 from app.models.admin_audit_log import AdminAuditLog
-from app.models.user import User
+from app.models.user import AccountDeactivationReason, User
 from app.models.user_session import UserSession
 from app.services.auth_service import (
     create_session_record,
@@ -143,9 +143,27 @@ async def test_inactive_user_revokes_token_family() -> None:
     with pytest.raises(HTTPException) as exc:
         await refresh_session(session, Response(), token, request())
 
-    assert exc.value.detail["error"]["code"] == "USER_INACTIVE"
+    assert exc.value.detail["error"]["code"] == "ACCOUNT_DISABLED"
     session.execute.assert_awaited_once()
     session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_self_deactivated_user_refresh_returns_stable_status_without_login_audit() -> None:
+    account = user(active=False)
+    account.deactivation_reason = AccountDeactivationReason.SELF_DEACTIVATED
+    token, record = refresh_record(account)
+    session = session_for(record, account)
+
+    with pytest.raises(HTTPException) as exc:
+        await refresh_session(session, Response(), token, request())
+
+    assert exc.value.detail["error"]["code"] == "ACCOUNT_SELF_DEACTIVATED"
+    assert not any(
+        isinstance(call.args[0], AdminAuditLog) and call.args[0].action == "LOGIN_BLOCKED"
+        for call in session.add.call_args_list
+    )
+    session.execute.assert_awaited_once()
 
 
 @pytest.mark.asyncio

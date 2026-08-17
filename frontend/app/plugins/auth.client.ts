@@ -14,5 +14,14 @@ export default defineNuxtPlugin(async () => {
     )
   })
 
+  watch(() => authStore.blockedAuthCode, async (code) => {
+    if (!code) return
+    authStore.blockedAuthCode = ''
+    await navigateTo(
+      { path: '/login', query: { auth_error: code } },
+      { replace: true }
+    )
+  })
+
   await authStore.initialize()
 })

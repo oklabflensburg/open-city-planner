@@ -16,6 +16,12 @@
       <span class="mt-0.5 block text-amber-800">Datenquelle: OpenStreetMap</span>
     </div>
 
+    <dl v-if="feature.properties.canonical_category || feature.properties.canonical_floor || feature.properties.mapped_area_m2" class="mt-3 grid gap-2 rounded-xl bg-slate-50 p-3 text-xs">
+      <div v-if="feature.properties.canonical_category" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Branche</dt><dd>{{ getIndustryLabel(feature.properties.canonical_category) }}</dd></div>
+      <div v-if="feature.properties.canonical_floor" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Etage</dt><dd>{{ feature.properties.canonical_floor }}</dd></div>
+      <div v-if="feature.properties.mapped_area_m2" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Kartierte Fläche</dt><dd>{{ Math.round(feature.properties.mapped_area_m2).toLocaleString('de-DE') }} m²</dd></div>
+    </dl>
+
     <div v-if="osm.detailLoading" class="mt-3 flex items-center gap-2 text-xs text-slate-500">
       <LoaderCircle class="size-4 animate-spin" aria-hidden="true" /> Details werden geladen …
     </div>
@@ -60,6 +66,7 @@
 <script setup lang="ts">
 import { LoaderCircle, X } from 'lucide-vue-next'
 import { osmCategoryLabels } from '~/utils/osmCategories'
+import { getIndustryLabel } from '~/utils/industries'
 import { safeOsmWebsite } from '~/utils/osm'
 
 const osm = useOsmViewportStore()
@@ -71,7 +78,9 @@ const embedded = computed(() => props.embedded)
 const importOpen = ref(false)
 const feature = computed(() => osm.selectedFeature)
 const detail = computed(() => osm.detail)
-const categoryLabel = computed(() => feature.value ? osmCategoryLabels[feature.value.properties.category] : '')
+const categoryLabel = computed(() => feature.value?.properties.canonical_category
+  ? getIndustryLabel(feature.value.properties.canonical_category)
+  : feature.value ? osmCategoryLabels[feature.value.properties.category] : '')
 const typeLabel = computed(() => feature.value?.properties.primary_type || (feature.value?.properties.feature_type === 'point' ? 'POI' : 'Flächenobjekt'))
 const isVacant = computed(() => detail.value?.occupancy_status === 'VACANT' || feature.value?.properties.occupancy_status === 'VACANT')
 const address = computed(() => {

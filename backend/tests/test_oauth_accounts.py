@@ -5,7 +5,7 @@ from fastapi import HTTPException
 
 import app.services.oauth_account_service as service
 from app.models.oauth_account import UserOAuthAccount
-from app.models.user import User
+from app.models.user import AccountDeactivationReason, User
 from app.schemas.oauth import OAuthIdentity
 from app.services.oauth_account_service import (
     authenticate_oauth_identity,
@@ -106,6 +106,7 @@ async def test_authenticate_existing_inactive_oauth_user_is_denied_without_dupli
 ) -> None:
     session = FakeSession()
     user = User(id=uuid.uuid4(), email="inactive@example.org", is_active=False)
+    user.deactivation_reason = AccountDeactivationReason.SELF_DEACTIVATED
     account = UserOAuthAccount(
         user_id=user.id,
         provider=provider,
@@ -121,9 +122,37 @@ async def test_authenticate_existing_inactive_oauth_user_is_denied_without_dupli
     with pytest.raises(HTTPException) as exc_info:
         await authenticate_oauth_identity(session, oauth_identity)
 
-    assert exc_info.value.detail["error"]["code"] == "ACCOUNT_INACTIVE"
+    assert exc_info.value.detail["error"]["code"] == "ACCOUNT_SELF_DEACTIVATED"
     assert not any(isinstance(item, User) for item in session.added)
-    assert session.commits == 0
+    audit = next(item for item in session.added if isinstance(item, service.AdminAuditLog))
+    assert audit.action == "LOGIN_BLOCKED"
+    assert audit.event_metadata == {"reason": "SELF_DEACTIVATED", "provider": provider}
+    assert session.commits == 1
+
+
+@pytest.mark.asyncio
+async def test_admin_deactivated_oauth_user_gets_neutral_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = FakeSession()
+    user = User(
+        id=uuid.uuid4(),
+        email="admin-disabled@example.org",
+        is_active=False,
+        deactivation_reason=AccountDeactivationReason.ADMIN_DEACTIVATED,
+    )
+    account = UserOAuthAccount(
+        user_id=user.id, provider="google", provider_subject="subject-1"
+    )
+    session.users[user.id] = user
+    monkeypatch.setattr(service, "get_by_provider_subject", async_return(account))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await authenticate_oauth_identity(session, identity("google"))
+
+    assert exc_info.value.detail["error"]["code"] == "ACCOUNT_DISABLED"
+    audit = next(item for item in session.added if isinstance(item, service.AdminAuditLog))
+    assert audit.event_metadata["reason"] == "ADMIN_DEACTIVATED"
 
 
 @pytest.mark.asyncio

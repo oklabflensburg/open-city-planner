@@ -1,6 +1,7 @@
 import { setActivePinia, createPinia } from 'pinia'
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { useAuthStore } from '~/stores/auth'
+import { ApiError } from '~/composables/useApi'
 import type { AuthUser } from '~/types/auth'
 
 const user: AuthUser = {
@@ -53,6 +54,22 @@ describe('auth store', () => {
     expect(store.authenticated).toBe(true)
     expect(store.sessionUncertain).toBe(true)
     expect(store.initialized).toBe(true)
+  })
+
+  it('clears a stale session and preserves a self-deactivation code for login UX', async () => {
+    const request = vi.fn().mockRejectedValue(new ApiError('disabled', {
+      statusCode: 403,
+      code: 'ACCOUNT_SELF_DEACTIVATED'
+    }))
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+    store.user = user
+
+    await store.refreshUser()
+
+    expect(store.user).toBeNull()
+    expect(store.blockedAuthCode).toBe('ACCOUNT_SELF_DEACTIVATED')
+    expect(store.sessionUncertain).toBe(false)
   })
 
   it('refreshes the global user after successful email verification', async () => {
