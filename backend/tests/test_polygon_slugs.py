@@ -14,6 +14,13 @@ from app.services.polygons import (
 )
 
 
+@pytest.fixture(autouse=True)
+def disable_notification_delivery(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(polygon_service, "subscription_recipient_ids", AsyncMock(return_value=[]))
+    monkeypatch.setattr(polygon_service, "notify_users", AsyncMock(return_value=[]))
+    monkeypatch.setattr(polygon_service, "publish_notifications", lambda _items: None)
+
+
 @pytest.mark.parametrize(
     ("name", "expected"),
     [

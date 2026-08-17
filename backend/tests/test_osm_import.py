@@ -50,6 +50,21 @@ def disable_nominatim_enrichment(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.services.osm_import.bump_cache_versions", AsyncMock(return_value=None)
     )
+    monkeypatch.setattr(
+        "app.services.osm_import.notify_users", AsyncMock(return_value=[])
+    )
+    monkeypatch.setattr(
+        "app.services.osm_import.publish_notifications", lambda _items: None
+    )
+    monkeypatch.setattr(
+        "app.services.polygons.subscription_recipient_ids", AsyncMock(return_value=[])
+    )
+    monkeypatch.setattr(
+        "app.services.polygons.notify_users", AsyncMock(return_value=[])
+    )
+    monkeypatch.setattr(
+        "app.services.polygons.publish_notifications", lambda _items: None
+    )
 
 
 def source(*, dimension: int, tags: dict[str, str], geometry: dict[str, object] | None = None):

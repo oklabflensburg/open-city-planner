@@ -3,6 +3,7 @@ export function useGisInvalidation() {
   const osmStore = useOsmViewportStore()
   const analyticsStore = useAnalyticsStore()
   const mapStore = useMapStore()
+  const notifications = useNotificationsStore()
 
   function handlePolygonDeleted(id: string) {
     polygonStore.invalidateDeletedPolygon(id)
@@ -13,7 +14,7 @@ export function useGisInvalidation() {
     }
     mapStore.categoryHighlight = null
     mapStore.markGisDataDirty()
-    mapStore.showNotice('Fläche wurde gelöscht.')
+    notifications.showToast({ title: 'Fläche wurde gelöscht.', priority: 'SUCCESS' })
   }
 
   return { handlePolygonDeleted }

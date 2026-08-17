@@ -10,6 +10,8 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.user import AccountDeactivationReason, User
 from app.models.user_session import UserSession
 from app.schemas.admin import AdminRoleRead, AdminUserRead
+from app.services.notification_policy import DomainEvent, NotificationEventType
+from app.services.notifications import notify_users, publish_notifications
 
 ROLE_DEFINITIONS: dict[str, str] = {
     "VERWALTUNG": (
@@ -28,13 +30,18 @@ def ensure_known_role(role: str) -> str:
     if normalized not in ROLE_DEFINITIONS:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": {"code": "ROLE_NOT_FOUND", "message": "Diese Rolle ist nicht bekannt."}},
+            detail={
+                "error": {"code": "ROLE_NOT_FOUND", "message": "Diese Rolle ist nicht bekannt."}
+            },
         )
     return normalized
 
 
 def role_list() -> list[AdminRoleRead]:
-    return [AdminRoleRead(name=name, description=description) for name, description in ROLE_DEFINITIONS.items()]
+    return [
+        AdminRoleRead(name=name, description=description)
+        for name, description in ROLE_DEFINITIONS.items()
+    ]
 
 
 def serialize_admin_user(user: User) -> AdminUserRead:
@@ -101,7 +108,9 @@ async def get_admin_user(session: AsyncSession, user_id: uuid.UUID) -> User:
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": {"code": "USER_NOT_FOUND", "message": "Benutzerkonto nicht gefunden."}},
+            detail={
+                "error": {"code": "USER_NOT_FOUND", "message": "Benutzerkonto nicht gefunden."}
+            },
         )
     return user
 
@@ -114,9 +123,7 @@ async def revoke_user_sessions(session: AsyncSession, user_id: uuid.UUID) -> Non
     )
 
 
-async def assign_role(
-    session: AsyncSession, target: User, role: str, actor: User
-) -> bool:
+async def assign_role(session: AsyncSession, target: User, role: str, actor: User) -> bool:
     normalized_role = ensure_known_role(role)
     roles = normalize_roles(target.roles)
     if normalized_role in roles:
@@ -130,14 +137,24 @@ async def assign_role(
             role=normalized_role,
         )
     )
+    notifications = await notify_users(
+        session,
+        [target.id],
+        DomainEvent(
+            event_type=NotificationEventType.ROLE_ASSIGNED,
+            actor_user_id=actor.id,
+            resource_type="USER",
+            resource_id=str(target.id),
+            metadata={"role": normalized_role},
+        ),
+    )
     await revoke_user_sessions(session, target.id)
     await session.commit()
+    publish_notifications(notifications)
     return True
 
 
-async def remove_role(
-    session: AsyncSession, target: User, role: str, actor: User
-) -> bool:
+async def remove_role(session: AsyncSession, target: User, role: str, actor: User) -> bool:
     normalized_role = ensure_known_role(role)
     roles = normalize_roles(target.roles)
     if normalized_role not in roles:
@@ -151,8 +168,20 @@ async def remove_role(
             role=normalized_role,
         )
     )
+    notifications = await notify_users(
+        session,
+        [target.id],
+        DomainEvent(
+            event_type=NotificationEventType.ROLE_REMOVED,
+            actor_user_id=actor.id,
+            resource_type="USER",
+            resource_id=str(target.id),
+            metadata={"role": normalized_role},
+        ),
+    )
     await revoke_user_sessions(session, target.id)
     await session.commit()
+    publish_notifications(notifications)
     return True
 
 
@@ -192,9 +221,7 @@ async def set_user_active(
             )
     target.is_active = is_active
     target.deactivated_at = None if is_active else datetime.now(UTC)
-    target.deactivation_reason = (
-        None if is_active else AccountDeactivationReason.ADMIN_DEACTIVATED
-    )
+    target.deactivation_reason = None if is_active else AccountDeactivationReason.ADMIN_DEACTIVATED
     session.add(
         AdminAuditLog(
             actor_user_id=actor.id,
@@ -202,6 +229,21 @@ async def set_user_active(
             action="USER_ACTIVATED" if is_active else "USER_DEACTIVATED",
         )
     )
+    notifications = await notify_users(
+        session,
+        [target.id],
+        DomainEvent(
+            event_type=(
+                NotificationEventType.ACCOUNT_REACTIVATED
+                if is_active
+                else NotificationEventType.ACCOUNT_DEACTIVATED
+            ),
+            actor_user_id=actor.id,
+            resource_type="USER",
+            resource_id=str(target.id),
+        ),
+    )
     if not is_active:
         await revoke_user_sessions(session, target.id)
     await session.commit()
+    publish_notifications(notifications)

@@ -14,6 +14,8 @@ from app.models.analysis_area import AnalysisArea
 from app.models.social_publication import SocialPublication, SocialPublicationOutbox
 from app.models.user_polygon import UserPolygon
 from app.schemas.social import PublicAdoptedPolygonSnapshot
+from app.services.notification_policy import DomainEvent, NotificationEventType
+from app.services.notifications import notify_superusers, publish_notifications
 from app.services.social_policy import enabled_event_types, event_is_enabled, get_social_settings
 from app.services.social_screenshots import (
     ScreenshotError,
@@ -22,20 +24,38 @@ from app.services.social_screenshots import (
 )
 
 PUBLISHABLE_AREA_TYPES = {"MUNICIPALITY", "DISTRICT", "QUARTER"}
-PUBLISHABLE_AREA_FIELDS = frozenset({
-    "name", "area_type", "parent_id", "geometry", "area_m2", "source", "statistics",
-})
-AREA_EVENTS = {"AREA_CREATED", "AREA_PUBLIC_DATA_UPDATED", "AREA_BOUNDARY_UPDATED", "AREA_STATISTICS_UPDATED"}
+PUBLISHABLE_AREA_FIELDS = frozenset(
+    {
+        "name",
+        "area_type",
+        "parent_id",
+        "geometry",
+        "area_m2",
+        "source",
+        "statistics",
+    }
+)
+AREA_EVENTS = {
+    "AREA_CREATED",
+    "AREA_PUBLIC_DATA_UPDATED",
+    "AREA_BOUNDARY_UPDATED",
+    "AREA_STATISTICS_UPDATED",
+}
 RETRY_DELAYS = (60, 300, 900, 3600)
 COLLECTION_RESOURCE_ID = uuid.UUID(int=0)
 POLYGON_ADOPTION_EVENT = "POLYGON_ADOPTED_FROM_OSM"
 POLYGON_ADOPTION_DELAY_SECONDS = 30
 POLYGON_CATEGORY_LABELS = {
-    "warehouse": "Warenhaus", "fashion": "Mode / Bekleidung",
-    "food": "Nahrungsmittel / Drogerie", "electronics": "Elektro / Technik",
-    "furniture": "Einrichtungsbedarf", "garden": "Garten / Freizeit",
-    "other": "Sonstige Waren", "gastronomy": "Gastronomie",
-    "services": "Einzelhandelsnahe Dienstleister", "otherAreas": "Sonstige Flächen",
+    "warehouse": "Warenhaus",
+    "fashion": "Mode / Bekleidung",
+    "food": "Nahrungsmittel / Drogerie",
+    "electronics": "Elektro / Technik",
+    "furniture": "Einrichtungsbedarf",
+    "garden": "Garten / Freizeit",
+    "other": "Sonstige Waren",
+    "gastronomy": "Gastronomie",
+    "services": "Einzelhandelsnahe Dienstleister",
+    "otherAreas": "Sonstige Flächen",
 }
 
 
@@ -95,7 +115,9 @@ def render_polygon_adoption_post(
     hashtags: list[str] | None = None,
 ) -> str:
     title = _safe_label(snapshot.title)
-    detail_parts = [f"Branche: {POLYGON_CATEGORY_LABELS.get(snapshot.category, _safe_label(snapshot.category))}"]
+    detail_parts = [
+        f"Branche: {POLYGON_CATEGORY_LABELS.get(snapshot.category, _safe_label(snapshot.category))}"
+    ]
     if snapshot.floor:
         detail_parts.append(f"Etage: {snapshot.floor}")
     if snapshot.area_size:
@@ -125,7 +147,9 @@ def render_area_post(
     hashtags: list[str] | None = None,
 ) -> str:
     name = _safe_label(area.name)
-    type_label = {"MUNICIPALITY": "Gemeinde", "DISTRICT": "Stadtteil", "QUARTER": "Quartier"}.get(area.area_type, "Gebiet")
+    type_label = {"MUNICIPALITY": "Gemeinde", "DISTRICT": "Stadtteil", "QUARTER": "Quartier"}.get(
+        area.area_type, "Gebiet"
+    )
     if event_type == "AREA_CREATED":
         heading = f"🏙️ Neue Gebietsseite im Stadtplaner: {name}"
         detail = f"Die öffentliche Seite für das {type_label.lower()} {name} ist jetzt verfügbar."
@@ -138,11 +162,18 @@ def render_area_post(
     else:
         heading = f"📍 Gebietsdaten für {name} aktualisiert"
         labels = {
-            "name": "Bezeichnung", "area_m2": "Flächengröße", "source": "Datenquelle",
-            "source_updated_at": "Datenstand", "parent_id": "Gebietshierarchie",
+            "name": "Bezeichnung",
+            "area_m2": "Flächengröße",
+            "source": "Datenquelle",
+            "source_updated_at": "Datenstand",
+            "parent_id": "Gebietshierarchie",
         }
         visible = [labels[field] for field in sorted(changed_fields) if field in labels]
-        detail = "Aktualisiert wurden: " + (", ".join(visible) if visible else "öffentliche Gebietsinformationen") + "."
+        detail = (
+            "Aktualisiert wurden: "
+            + (", ".join(visible) if visible else "öffentliche Gebietsinformationen")
+            + "."
+        )
     hashtag_text = " ".join(f"#{tag}" for tag in (hashtags or settings.mastodon_hashtag_list)[:5])
     return f"{heading}\n\n{detail}\n\n{canonical_area_url(settings, area.slug)}\n\n{hashtag_text}".strip()
 
@@ -171,33 +202,56 @@ def mastodon_idempotency_key(event_id: uuid.UUID) -> str:
     return hashlib.sha256(str(event_id).encode()).hexdigest()
 
 
-async def enqueue_area_publication(session: AsyncSession, area: AnalysisArea, event_type: str, changed_fields: set[str], *, settings: Settings | None = None) -> SocialPublicationOutbox | None:
+async def enqueue_area_publication(
+    session: AsyncSession,
+    area: AnalysisArea,
+    event_type: str,
+    changed_fields: set[str],
+    *,
+    settings: Settings | None = None,
+) -> SocialPublicationOutbox | None:
     settings = settings or get_settings()
     allowed = changed_fields & PUBLISHABLE_AREA_FIELDS
-    if not settings.mastodon_enabled or area.area_type not in PUBLISHABLE_AREA_TYPES or event_type not in AREA_EVENTS or not allowed:
+    if (
+        not settings.mastodon_enabled
+        or area.area_type not in PUBLISHABLE_AREA_TYPES
+        or event_type not in AREA_EVENTS
+        or not allowed
+    ):
         return None
     policy = await get_social_settings(session, settings, create=False)
     if not policy.enabled or not event_is_enabled(policy, event_type):
         return None
     pending = await session.scalar(
-        select(SocialPublicationOutbox).where(
+        select(SocialPublicationOutbox)
+        .where(
             SocialPublicationOutbox.platform == "MASTODON",
             SocialPublicationOutbox.resource_type == "ANALYSIS_AREA",
             SocialPublicationOutbox.resource_id == area.uuid,
             SocialPublicationOutbox.status.in_(("PENDING", "PENDING_APPROVAL")),
-        ).with_for_update()
+        )
+        .with_for_update()
     )
     due = _now() + timedelta(seconds=policy.debounce_seconds)
     if pending:
         fields = set(pending.payload.get("changed_fields", [])) | allowed
         pending.payload = {**pending.payload, "changed_fields": sorted(fields)}
-        if event_type == "AREA_CREATED" or pending.event_type != "AREA_CREATED" and event_type == "AREA_BOUNDARY_UPDATED":
+        if (
+            event_type == "AREA_CREATED"
+            or pending.event_type != "AREA_CREATED"
+            and event_type == "AREA_BOUNDARY_UPDATED"
+        ):
             pending.event_type = event_type
         pending.next_attempt_at = due
         return pending
     event = SocialPublicationOutbox(
-        event_type=event_type, resource_type="ANALYSIS_AREA", resource_id=area.uuid,
-        payload={"changed_fields": sorted(allowed), "approval_required": policy.approval_mode == "MANUAL"},
+        event_type=event_type,
+        resource_type="ANALYSIS_AREA",
+        resource_id=area.uuid,
+        payload={
+            "changed_fields": sorted(allowed),
+            "approval_required": policy.approval_mode == "MANUAL",
+        },
         status="PENDING_APPROVAL" if policy.approval_mode == "MANUAL" else "PENDING",
         next_attempt_at=due,
     )
@@ -205,19 +259,25 @@ async def enqueue_area_publication(session: AsyncSession, area: AnalysisArea, ev
     return event
 
 
-async def enqueue_statistics_summary(session: AsyncSession, changed_rows: int, *, settings: Settings | None = None) -> SocialPublicationOutbox | None:
+async def enqueue_statistics_summary(
+    session: AsyncSession, changed_rows: int, *, settings: Settings | None = None
+) -> SocialPublicationOutbox | None:
     settings = settings or get_settings()
     if not settings.mastodon_enabled or changed_rows <= 0:
         return None
     policy = await get_social_settings(session, settings, create=False)
     if not policy.enabled or not event_is_enabled(policy, "AREA_STATISTICS_BULK_UPDATED"):
         return None
-    pending = await session.scalar(select(SocialPublicationOutbox).where(
-        SocialPublicationOutbox.platform == "MASTODON",
-        SocialPublicationOutbox.resource_type == "ANALYSIS_AREA_COLLECTION",
-        SocialPublicationOutbox.resource_id == COLLECTION_RESOURCE_ID,
-        SocialPublicationOutbox.status.in_(("PENDING", "PENDING_APPROVAL")),
-    ).with_for_update())
+    pending = await session.scalar(
+        select(SocialPublicationOutbox)
+        .where(
+            SocialPublicationOutbox.platform == "MASTODON",
+            SocialPublicationOutbox.resource_type == "ANALYSIS_AREA_COLLECTION",
+            SocialPublicationOutbox.resource_id == COLLECTION_RESOURCE_ID,
+            SocialPublicationOutbox.status.in_(("PENDING", "PENDING_APPROVAL")),
+        )
+        .with_for_update()
+    )
     due = _now() + timedelta(seconds=policy.debounce_seconds)
     if pending:
         pending.payload = {
@@ -227,9 +287,13 @@ async def enqueue_statistics_summary(session: AsyncSession, changed_rows: int, *
         pending.next_attempt_at = due
         return pending
     event = SocialPublicationOutbox(
-        event_type="AREA_STATISTICS_BULK_UPDATED", resource_type="ANALYSIS_AREA_COLLECTION",
+        event_type="AREA_STATISTICS_BULK_UPDATED",
+        resource_type="ANALYSIS_AREA_COLLECTION",
         resource_id=COLLECTION_RESOURCE_ID,
-        payload={"changed_rows": changed_rows, "approval_required": policy.approval_mode == "MANUAL"},
+        payload={
+            "changed_rows": changed_rows,
+            "approval_required": policy.approval_mode == "MANUAL",
+        },
         status="PENDING_APPROVAL" if policy.approval_mode == "MANUAL" else "PENDING",
         next_attempt_at=due,
     )
@@ -252,14 +316,18 @@ async def enqueue_polygon_adoption(
     policy = await get_social_settings(session, settings, create=False)
     if not policy.enabled or not event_is_enabled(policy, POLYGON_ADOPTION_EVENT):
         return None
-    existing = await session.scalar(select(SocialPublicationOutbox).where(
-        SocialPublicationOutbox.event_type == POLYGON_ADOPTION_EVENT,
-        SocialPublicationOutbox.resource_id == polygon.uuid,
-    ))
+    existing = await session.scalar(
+        select(SocialPublicationOutbox).where(
+            SocialPublicationOutbox.event_type == POLYGON_ADOPTION_EVENT,
+            SocialPublicationOutbox.resource_id == polygon.uuid,
+        )
+    )
     if existing is not None:
         return existing
     snapshot = public_adopted_polygon_snapshot(
-        polygon, osm_type=osm_type, osm_id=osm_id,
+        polygon,
+        osm_type=osm_type,
+        osm_id=osm_id,
     )
     event = SocialPublicationOutbox(
         event_type=POLYGON_ADOPTION_EVENT,
@@ -282,11 +350,19 @@ async def cancel_pending_polygon_publications(
     session: AsyncSession,
     polygon_id: uuid.UUID,
 ) -> int:
-    rows = (await session.scalars(select(SocialPublicationOutbox).where(
-        SocialPublicationOutbox.resource_type == "USER_POLYGON",
-        SocialPublicationOutbox.resource_id == polygon_id,
-        SocialPublicationOutbox.status.in_(("PENDING_APPROVAL", "PENDING", "PROCESSING", "FAILED")),
-    ).with_for_update())).all()
+    rows = (
+        await session.scalars(
+            select(SocialPublicationOutbox)
+            .where(
+                SocialPublicationOutbox.resource_type == "USER_POLYGON",
+                SocialPublicationOutbox.resource_id == polygon_id,
+                SocialPublicationOutbox.status.in_(
+                    ("PENDING_APPROVAL", "PENDING", "PROCESSING", "FAILED")
+                ),
+            )
+            .with_for_update()
+        )
+    ).all()
     screenshots = ScreenshotService(get_settings())
     for event in rows:
         screenshots.remove(event.screenshot_path)
@@ -307,7 +383,9 @@ async def _event_context(
     if event.resource_type == "ANALYSIS_AREA_COLLECTION":
         return render_statistics_summary_post(settings, hashtags), None
     if event.resource_type == "USER_POLYGON" and event.event_type == POLYGON_ADOPTION_EVENT:
-        polygon = await session.scalar(select(UserPolygon).where(UserPolygon.uuid == event.resource_id))
+        polygon = await session.scalar(
+            select(UserPolygon).where(UserPolygon.uuid == event.resource_id)
+        )
         if polygon is None:
             raise PublicationResourceGone("Die zu veröffentlichende Fläche wurde gelöscht.")
         try:
@@ -327,7 +405,9 @@ async def _event_context(
         policy = await get_social_settings(session, settings, create=False)
         return (
             render_polygon_adoption_post(
-                snapshot, polygon, settings,
+                snapshot,
+                polygon,
+                settings,
                 policy.polygon_osm_adoption_link_target,
                 hashtags,
             ),
@@ -369,10 +449,15 @@ def _audit(event: SocialPublicationOutbox, action: str) -> AdminAuditLog:
     return AdminAuditLog(
         action=action,
         resource_type=(
-            "ANALYSIS_AREA" if event.resource_type == "ANALYSIS_AREA"
-            else "POLYGON" if event.resource_type == "USER_POLYGON" else "SYSTEM"
+            "ANALYSIS_AREA"
+            if event.resource_type == "ANALYSIS_AREA"
+            else "POLYGON"
+            if event.resource_type == "USER_POLYGON"
+            else "SYSTEM"
         ),
-        resource_id=event.resource_id if event.resource_type in {"ANALYSIS_AREA", "USER_POLYGON"} else None,
+        resource_id=event.resource_id
+        if event.resource_type in {"ANALYSIS_AREA", "USER_POLYGON"}
+        else None,
         event_metadata=metadata,
     )
 
@@ -401,10 +486,14 @@ async def publish_due_events(
     if not policy.enabled:
         return result
     stale = _now() - timedelta(minutes=15)
-    stale_rows = (await session.scalars(select(SocialPublicationOutbox).where(
-        SocialPublicationOutbox.status == "PROCESSING",
-        SocialPublicationOutbox.processing_started_at < stale,
-    ))).all()
+    stale_rows = (
+        await session.scalars(
+            select(SocialPublicationOutbox).where(
+                SocialPublicationOutbox.status == "PROCESSING",
+                SocialPublicationOutbox.processing_started_at < stale,
+            )
+        )
+    ).all()
     for row in stale_rows:
         row.status = "PENDING_APPROVAL" if row.payload.get("approval_required") else "PENDING"
         row.processing_started_at = None
@@ -421,7 +510,8 @@ async def publish_due_events(
     max_alt_characters: int | None = 1500 if dry_run else None
     for _ in range(limit):
         event = await session.scalar(
-            select(SocialPublicationOutbox).where(
+            select(SocialPublicationOutbox)
+            .where(
                 SocialPublicationOutbox.event_type.in_(enabled_event_types(policy)),
                 SocialPublicationOutbox.next_attempt_at <= _now(),
                 or_(
@@ -470,13 +560,25 @@ async def publish_due_events(
                 event.processing_started_at = None
                 event.last_error = None
                 result["prepared"] += 1
+                notifications = await notify_superusers(
+                    session,
+                    DomainEvent(
+                        event_type=NotificationEventType.SOCIAL_PUBLICATION_APPROVAL_REQUIRED,
+                        resource_type=event.resource_type,
+                        resource_id=str(event.resource_id),
+                        metadata={"outbox_event_id": str(event.id)},
+                    ),
+                )
                 await session.commit()
+                publish_notifications(notifications)
                 continue
-            duplicate = await session.scalar(select(SocialPublication).where(
-                SocialPublication.content_hash == event.content_hash,
-                SocialPublication.resource_id == event.resource_id,
-                SocialPublication.event_type == event.event_type,
-            ))
+            duplicate = await session.scalar(
+                select(SocialPublication).where(
+                    SocialPublication.content_hash == event.content_hash,
+                    SocialPublication.resource_id == event.resource_id,
+                    SocialPublication.event_type == event.event_type,
+                )
+            )
             if duplicate:
                 event.status = "PUBLISHED"
                 event.published_at = duplicate.published_at
@@ -488,16 +590,18 @@ async def publish_due_events(
                 event.status = "DRY_RUN"
                 event.dry_run = True
                 event.published_at = _now()
-                session.add(SocialPublication(
-                    outbox_event_id=event.id,
-                    platform=event.platform,
-                    event_type=event.event_type,
-                    resource_type=event.resource_type,
-                    resource_id=event.resource_id,
-                    content_hash=event.content_hash,
-                    dry_run=True,
-                    published_at=event.published_at,
-                ))
+                session.add(
+                    SocialPublication(
+                        outbox_event_id=event.id,
+                        platform=event.platform,
+                        event_type=event.event_type,
+                        resource_type=event.resource_type,
+                        resource_id=event.resource_id,
+                        content_hash=event.content_hash,
+                        dry_run=True,
+                        published_at=event.published_at,
+                    )
+                )
                 result["dry_run"] += 1
             else:
                 if max_alt_characters is None:
@@ -519,25 +623,39 @@ async def publish_due_events(
                 event.published_at = _now()
                 event.mastodon_status_id = remote.id
                 event.mastodon_status_url = remote.url
-                session.add(SocialPublication(
-                    outbox_event_id=event.id,
-                    platform=event.platform,
-                    event_type=event.event_type,
-                    resource_type=event.resource_type,
-                    resource_id=event.resource_id,
-                    remote_id=remote.id,
-                    remote_url=remote.url,
-                    remote_media_id=event.mastodon_media_id,
-                    content_hash=event.content_hash,
-                    published_at=event.published_at,
-                ))
+                session.add(
+                    SocialPublication(
+                        outbox_event_id=event.id,
+                        platform=event.platform,
+                        event_type=event.event_type,
+                        resource_type=event.resource_type,
+                        resource_id=event.resource_id,
+                        remote_id=remote.id,
+                        remote_url=remote.url,
+                        remote_media_id=event.mastodon_media_id,
+                        content_hash=event.content_hash,
+                        published_at=event.published_at,
+                    )
+                )
                 session.add(_audit(event, "MASTODON_STATUS_PUBLISHED"))
                 result["published"] += 1
             event.last_error = None
             event.processing_started_at = None
             screenshots.remove(event.screenshot_path)
             event.screenshot_path = None
+            notifications = []
+            if event.status == "PUBLISHED":
+                notifications = await notify_superusers(
+                    session,
+                    DomainEvent(
+                        event_type=NotificationEventType.SOCIAL_PUBLICATION_PUBLISHED,
+                        resource_type=event.resource_type,
+                        resource_id=str(event.resource_id),
+                        metadata={"outbox_event_id": str(event.id)},
+                    ),
+                )
             await session.commit()
+            publish_notifications(notifications)
         except PublicationResourceGone as exc:
             event.status = "CANCELLED"
             event.processing_started_at = None
@@ -549,14 +667,16 @@ async def publish_due_events(
             await session.commit()
         except (MastodonError, ScreenshotError) as exc:
             event.processing_started_at = None
-            kind = "SCREENSHOT" if isinstance(exc, ScreenshotError) else exc.status_code or "NETWORK"
+            kind = (
+                "SCREENSHOT" if isinstance(exc, ScreenshotError) else exc.status_code or "NETWORK"
+            )
             event.last_error = f"{kind}: {str(exc)[:500]}"
             retryable = exc.retryable
             if retryable and event.attempt_count < settings.mastodon_max_attempts:
                 retry_after = exc.retry_after if isinstance(exc, MastodonError) else None
-                delay = retry_after or RETRY_DELAYS[
-                    min(event.attempt_count - 1, len(RETRY_DELAYS) - 1)
-                ]
+                delay = (
+                    retry_after or RETRY_DELAYS[min(event.attempt_count - 1, len(RETRY_DELAYS) - 1)]
+                )
                 event.status = "PENDING_APPROVAL" if approval_required else "PENDING"
                 event.next_attempt_at = _now() + timedelta(seconds=delay)
                 result["retried"] += 1
@@ -564,12 +684,30 @@ async def publish_due_events(
                 event.status = "FAILED"
                 session.add(_audit(event, "MASTODON_PUBLICATION_FAILED"))
                 result["failed"] += 1
+                notifications = await notify_superusers(
+                    session,
+                    DomainEvent(
+                        event_type=NotificationEventType.SOCIAL_PUBLICATION_FAILED,
+                        resource_type=event.resource_type,
+                        resource_id=str(event.resource_id),
+                        metadata={"outbox_event_id": str(event.id), "failure_kind": str(kind)},
+                    ),
+                )
+            if event.status != "FAILED":
+                notifications = []
             await session.commit()
+            publish_notifications(notifications)
     return result
 
 
 async def publication_counts(session: AsyncSession) -> dict[str, int]:
-    rows = (await session.execute(select(SocialPublicationOutbox.status, func.count()).group_by(SocialPublicationOutbox.status))).all()
+    rows = (
+        await session.execute(
+            select(SocialPublicationOutbox.status, func.count()).group_by(
+                SocialPublicationOutbox.status
+            )
+        )
+    ).all()
     return {status: int(count) for status, count in rows}
 
 

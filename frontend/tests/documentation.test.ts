@@ -24,6 +24,7 @@ describe('integrated documentation', () => {
       '/dokumentation/flaechen-bearbeiten',
       '/dokumentation/fast-facts',
       '/dokumentation/benutzerkonto',
+      '/dokumentation/benachrichtigungen',
       '/dokumentation/oauth',
       '/dokumentation/rollen',
       '/dokumentation/verwaltung',

@@ -21,14 +21,20 @@ from app.models.statistics import (
 )
 from app.services.cache_versions import bump_cache_versions
 from app.services.flensburg_superset import DATASET_SPECS, FlensburgSupersetClient
+from app.services.notification_policy import DomainEvent, NotificationEventType
+from app.services.notifications import (
+    notify_superusers,
+    notify_users,
+    publish_notifications,
+    subscription_recipient_ids,
+)
 from app.services.social_publishing import enqueue_statistics_summary
 
 logger = logging.getLogger(__name__)
 
 SOURCE = "FLENSBURG_STATISTICS"
 DASHBOARD_URL = (
-    "https://superset.flensburg.de/superset/dashboard/"
-    "3b53ff0b-6e8c-435e-83f6-666f8a7cc158/"
+    "https://superset.flensburg.de/superset/dashboard/3b53ff0b-6e8c-435e-83f6-666f8a7cc158/"
 )
 LICENSE = "Datenlizenz Deutschland – Zero – Version 2.0"
 
@@ -64,13 +70,9 @@ class MetricDefinition:
 
 METRICS = (
     MetricDefinition("population", "Bevölkerung", "Bevölkerung", 6),
-    MetricDefinition(
-        "population_non_german", "Bevölkerung nicht deutsch", "Bevölkerung", 6
-    ),
+    MetricDefinition("population_non_german", "Bevölkerung nicht deutsch", "Bevölkerung", 6),
     MetricDefinition("population_age_0_17", "Bevölkerung unter 18", "Altersstruktur", 6),
-    MetricDefinition(
-        "population_age_18_64", "Bevölkerung 18 bis unter 65", "Altersstruktur", 6
-    ),
+    MetricDefinition("population_age_18_64", "Bevölkerung 18 bis unter 65", "Altersstruktur", 6),
     MetricDefinition("population_age_65_plus", "Bevölkerung 65 plus", "Altersstruktur", 6),
     MetricDefinition("population_marital_single", "Ledig", "Familienstand", 6),
     MetricDefinition("population_marital_married", "Verheiratet", "Familienstand", 6),
@@ -190,9 +192,7 @@ def _row_metrics(dataset_id: int, row: dict[str, str]) -> list[str]:
 
 
 def validate_source_areas(source_names: set[str]) -> tuple[list[str], list[str]]:
-    expected_names = {
-        name for name, area_type in AREA_MAPPING.values() if area_type == "DISTRICT"
-    }
+    expected_names = {name for name, area_type in AREA_MAPPING.values() if area_type == "DISTRICT"}
     unmapped = sorted(source_names - expected_names)
     missing = sorted(expected_names - source_names)
     if unmapped or missing:
@@ -342,9 +342,7 @@ def _source_hash(metric_key: str, source_area_id: str, year: int, value: Decimal
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
-async def _mark_import_failed(
-    session: AsyncSession, run_id: int, error: Exception
-) -> None:
+async def _mark_import_failed(session: AsyncSession, run_id: int, error: Exception) -> None:
     await session.rollback()
     failed_run = await session.get(StatisticalImportRun, run_id)
     if failed_run:
@@ -386,21 +384,18 @@ async def import_flensburg_statistics(
             downloaded[spec.id] = rows
             column_names[spec.id] = list(rows[0])
         checksum = hashlib.sha256(b"\0".join(raw_parts)).hexdigest()
-        schema_hash = hashlib.sha256(
-            json.dumps(column_names, sort_keys=True).encode()
-        ).hexdigest()
+        schema_hash = hashlib.sha256(json.dumps(column_names, sort_keys=True).encode()).hexdigest()
         observations, source_names = normalize_rows(downloaded)
         validate_source_areas(source_names)
         datasets, metrics = await _ensure_catalog(session, source_updated_at)
-        existing_rows = (
-            await session.scalars(select(StatisticalObservation))
-        ).all()
+        existing_rows = (await session.scalars(select(StatisticalObservation))).all()
         existing = {
             (row.metric_id, row.analysis_area_id, row.period_start, row.source_area_id): row
             for row in existing_rows
         }
         external_ids = {name: external_id for external_id, (name, _type) in AREA_MAPPING.items()}
         inserted = updated = unchanged = 0
+        changed_area_ids: set[object] = set()
         imported_at = datetime.now(UTC)
         for (metric_key, area_name, year), value in observations.items():
             metric = metrics[metric_key]
@@ -444,6 +439,7 @@ async def import_flensburg_statistics(
                 updated += 1
             else:
                 inserted += 1
+            changed_area_ids.add(mapping.analysis_area_id)
         for dataset in datasets.values():
             dataset.last_import_at = imported_at
         run = await session.get(StatisticalImportRun, run_id)
@@ -462,7 +458,33 @@ async def import_flensburg_statistics(
         session.add(AdminAuditLog(action="FLENSBURG_STATISTICS_SYNC"))
         await enqueue_statistics_summary(session, inserted + updated)
         await bump_cache_versions(session, ("statistics", "analysis-areas"))
+        notifications = []
+        if changed_area_ids:
+            areas = await session.scalars(
+                select(AnalysisArea).where(AnalysisArea.id.in_(changed_area_ids))
+            )
+            for area in areas:
+                recipients = await subscription_recipient_ids(
+                    session,
+                    resource_type="AREA",
+                    resource_id=str(area.id),
+                    event_type=NotificationEventType.AREA_STATISTICS_UPDATED,
+                )
+                notifications.extend(
+                    await notify_users(
+                        session,
+                        recipients,
+                        DomainEvent(
+                            event_type=NotificationEventType.AREA_STATISTICS_UPDATED,
+                            resource_type="AREA",
+                            resource_id=str(area.id),
+                            resource_slug=area.slug,
+                            resource_title=area.name,
+                        ),
+                    )
+                )
         await session.commit()
+        publish_notifications(notifications)
         return StatisticsImportReport(
             status="SUCCESS",
             rows_downloaded=run.rows_downloaded,
@@ -478,6 +500,17 @@ async def import_flensburg_statistics(
     except Exception as exc:
         try:
             await _mark_import_failed(session, run_id, exc)
+            notifications = await notify_superusers(
+                session,
+                DomainEvent(
+                    event_type=NotificationEventType.IMPORT_FAILED,
+                    resource_type="IMPORT",
+                    resource_id=str(run_id),
+                    resource_title="Flensburg-Statistik",
+                ),
+            )
+            await session.commit()
+            publish_notifications(notifications)
         except Exception:
             logger.exception("Could not persist failed Flensburg statistics import run")
         raise

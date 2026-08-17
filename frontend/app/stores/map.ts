@@ -19,8 +19,7 @@ export const useMapStore = defineStore('map', {
     categoryHighlight: null as string | null,
     thematicStyle: 'category' as MapTheme,
     gisDataGeneration: 0,
-    gisDataDirty: false,
-    notice: null as string | null
+    gisDataDirty: false
   }),
   actions: {
     setView(center: [number, number], zoom: number, bearing: number, pitch: number) {
@@ -56,12 +55,6 @@ export const useMapStore = defineStore('map', {
     },
     markGisDataFresh() {
       this.gisDataDirty = false
-    },
-    showNotice(message: string) {
-      this.notice = message
-    },
-    clearNotice() {
-      this.notice = null
     }
   }
 })

@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -13,6 +14,12 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.user import AccountDeactivationReason, User
 from app.schemas.admin import AdminUserRead
 from app.services.admin_users import assign_role, ensure_known_role, remove_role, set_user_active
+
+
+@pytest.fixture(autouse=True)
+def disable_notification_delivery(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.services.admin_users.notify_users", AsyncMock(return_value=[]))
+    monkeypatch.setattr("app.services.admin_users.publish_notifications", lambda _items: None)
 
 
 class AuthSession:

@@ -7,7 +7,10 @@
     max-width="wide"
   >
     <template #actions>
-      <NuxtLink class="inline-flex min-h-11 items-center rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white hover:bg-[#103c59]" :to="`/?area=${area.slug}`">In der Karte öffnen</NuxtLink>
+      <div class="flex flex-wrap gap-2">
+        <NotificationFollowButton v-if="authStore.authenticated" resource-type="AREA" :resource-id="area.id" follow-label="Gebiet folgen" followed-label="Du folgst diesem Gebiet" />
+        <NuxtLink class="inline-flex min-h-11 items-center rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white hover:bg-[#103c59]" :to="`/?area=${area.slug}`">In der Karte öffnen</NuxtLink>
+      </div>
     </template>
 
     <section
@@ -122,6 +125,7 @@
 import { getIndustryLabel } from '~/utils/industries'
 
 const route = useRoute()
+const authStore = useAuthStore()
 const socialPreview = computed(() => route.query['social-preview'] === '1')
 const previewMap = computed(() => route.query.map !== '0')
 const previewFacts = computed(() => route.query.facts !== '0')

@@ -10,7 +10,9 @@ BACKEND_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 class Settings(BaseSettings):
     api_version: str = "0.2.0"
-    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:5432/open_city_map")
+    database_url: str = Field(
+        default="postgresql+asyncpg://postgres:postgres@localhost:5432/open_city_map"
+    )
     cors_origins: str = "http://localhost:3000,http://localhost:3001"
     cors_origin_regex: str | None = None
     log_level: str = "INFO"
@@ -50,6 +52,7 @@ class Settings(BaseSettings):
     contact_email_rate_limit_attempts: int = 3
     contact_rate_limit_window_seconds: int = 3600
     contact_turnstile_enabled: bool = False
+    notification_retention_days: int = Field(default=90, ge=1)
     turnstile_site_key: str | None = None
     turnstile_secret_key: str | None = None
     github_client_id: str | None = None
@@ -134,7 +137,9 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [origin.strip().rstrip("/") for origin in self.cors_origins.split(",") if origin.strip()]
+        return [
+            origin.strip().rstrip("/") for origin in self.cors_origins.split(",") if origin.strip()
+        ]
 
     @property
     def production(self) -> bool:
@@ -169,7 +174,11 @@ class Settings(BaseSettings):
 
     @property
     def mastodon_hashtag_list(self) -> list[str]:
-        return [value.strip().lstrip("#") for value in self.mastodon_hashtags.split(",") if value.strip()]
+        return [
+            value.strip().lstrip("#")
+            for value in self.mastodon_hashtags.split(",")
+            if value.strip()
+        ]
 
     @property
     def configured_oauth_providers(self) -> list[str]:

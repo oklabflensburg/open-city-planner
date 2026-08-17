@@ -435,6 +435,50 @@ export const documentationPages: DocumentationPage[] = [
     ]
   },
   {
+    slug: 'benachrichtigungen',
+    title: 'Benachrichtigungen',
+    navTitle: 'Benachrichtigungen',
+    description: 'Persönliche Hinweise zu Flächen, Gebieten, Importen, Veröffentlichungen und Kontosicherheit.',
+    group: 'Konto und Zugriff',
+    keywords: ['Benachrichtigung', 'Glocke', 'Folgen', 'Ungelesen', 'Hinweise', 'Einstellungen'],
+    audience: 'login',
+    sections: [
+      {
+        id: 'notification-center',
+        title: 'Notification Center verwenden',
+        blocks: [
+          { type: 'paragraph', text: 'Die Glocke im Kopfbereich zeigt die Zahl ungelesener Hinweise. Am Desktop öffnet sie ein kompaktes Panel, auf kleinen Bildschirmen ein Bottom Sheet. Ungelesene Einträge sind zusätzlich textlich und nicht nur durch Farbe gekennzeichnet.' },
+          { type: 'list', items: ['Filtern Sie Hinweise nach Themenbereich oder zeigen Sie nur ungelesene Einträge.', 'Markieren Sie einzelne Einträge oder alle sichtbaren Hinweise als gelesen.', 'Ein vorhandenes Aktionsziel führt ausschließlich zu einer geprüften internen Stadtplaner-Seite.', 'Weitere Einträge werden seitenweise nachgeladen; das Panel bleibt dabei der einzige Scrollbereich.'] }
+        ]
+      },
+      {
+        id: 'flaechen-und-gebieten-folgen',
+        title: 'Flächen und Gebieten folgen',
+        blocks: [
+          { type: 'paragraph', text: 'Auf Detailseiten können angemeldete Personen einer Fläche oder einem Gebiet folgen. Relevante Änderungen an diesem Objekt erscheinen anschließend im persönlichen Notification Center. Das Abonnement kann an derselben Stelle jederzeit beendet werden.' },
+          { type: 'callout', variant: 'info', title: 'Keine Autosave-Flut', text: 'Mehrere gleichartige Änderungen desselben Objekts werden innerhalb eines kurzen Zeitfensters zu einem Hinweis zusammengeführt. Eigene gewöhnliche Bearbeitungsschritte erzeugen keinen persönlichen Hinweis.' }
+        ]
+      },
+      {
+        id: 'einstellungen',
+        title: 'Themen einstellen',
+        blocks: [
+          { type: 'paragraph', text: 'Im Profil lassen sich Hinweise zu GIS-Flächen, OpenStreetMap, Gebietsstatistiken, Social Publishing und Systemvorgängen getrennt ein- oder ausschalten. Die Einstellungen gelten kontoweit.' },
+          { type: 'callout', variant: 'important', title: 'Sicherheitshinweise bleiben aktiv', text: 'Kontorelevante Sicherheitsmeldungen, etwa zu Rollen oder einer Deaktivierung, können nicht über die allgemeinen Themenfilter abgeschaltet werden.' },
+          { type: 'links', items: [{ label: 'Benachrichtigungseinstellungen öffnen', to: '/profil' }] }
+        ]
+      },
+      {
+        id: 'zustellung-und-datenschutz',
+        title: 'Zustellung und Datenschutz',
+        blocks: [
+          { type: 'paragraph', text: 'Hinweise werden dauerhaft dem angemeldeten Konto zugeordnet und nach dem Laden in Echtzeit ergänzt. Nach einer unterbrochenen Verbindung gleicht die Anwendung den persistenten Stand erneut ab.' },
+          { type: 'paragraph', text: 'Titel, Nachricht und Link verwenden kontrollierte Vorlagen. Interne Eigentümer-, Miet-, Kontakt- oder Authentifizierungsdaten werden nicht in Benachrichtigungstexte übernommen. Ein Benachrichtigungseintrag ist kein Auditlog: Das Auditlog dient der administrativen Nachvollziehbarkeit, das Notification Center ausschließlich der persönlichen Information.' }
+        ]
+      }
+    ]
+  },
+  {
     slug: 'oauth',
     title: 'Anmeldung mit externen Diensten',
     navTitle: 'Externe Anmeldung',

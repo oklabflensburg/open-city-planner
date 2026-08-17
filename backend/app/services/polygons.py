@@ -34,6 +34,12 @@ from app.services.analysis_areas import refresh_polygon_area_assignments
 from app.services.cache_versions import bump_cache_versions, cache_version
 from app.services.geometry import from_wkb_element, to_wkb_element
 from app.services.nominatim import NominatimService
+from app.services.notification_policy import DomainEvent, NotificationEventType
+from app.services.notifications import (
+    notify_users,
+    publish_notifications,
+    subscription_recipient_ids,
+)
 from app.services.polygon_filters import polygon_filter_clauses
 
 METRIC_SRID = 25832
@@ -66,9 +72,11 @@ async def list_polygon_overview(
     session: AsyncSession,
     filters: PolygonFilterParams | None = None,
 ) -> list[PolygonOverviewRead]:
-    statement = select(UserPolygon).where(
-        *polygon_filter_clauses(filters or PolygonFilterParams())
-    ).order_by(UserPolygon.created_at.desc())
+    statement = (
+        select(UserPolygon)
+        .where(*polygon_filter_clauses(filters or PolygonFilterParams()))
+        .order_by(UserPolygon.created_at.desc())
+    )
     rows = await session.scalars(statement)
     return [
         PolygonOverviewRead(
@@ -106,7 +114,9 @@ async def read_polygon(session: AsyncSession, polygon_id: uuid.UUID) -> PolygonR
 
 
 def slugify_polygon_name(name: str) -> str:
-    value = name.strip().lower().translate(str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}))
+    value = (
+        name.strip().lower().translate(str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}))
+    )
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
     slug = re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", value)).strip("-")
     return slug[:240].rstrip("-") or "flaeche"
@@ -137,7 +147,11 @@ def polygon_slug_source(polygon: UserPolygon) -> str:
         polygon.address_city,
     ]
     useful = [part.strip() for part in parts if part and part.strip()]
-    return " ".join(useful) if useful else f"{polygon.floor or 'flaeche'} flaeche {str(polygon.uuid)[:8]}"
+    return (
+        " ".join(useful)
+        if useful
+        else f"{polygon.floor or 'flaeche'} flaeche {str(polygon.uuid)[:8]}"
+    )
 
 
 def _same_version(actual: datetime, expected: datetime | None) -> bool:
@@ -148,15 +162,21 @@ def _same_version(actual: datetime, expected: datetime | None) -> bool:
     return abs((actual_utc.astimezone(UTC) - expected_utc.astimezone(UTC)).total_seconds()) < 0.001
 
 
-async def polygon_point_on_surface(session: AsyncSession, polygon_id: uuid.UUID) -> tuple[float, float] | None:
+async def polygon_point_on_surface(
+    session: AsyncSession, polygon_id: uuid.UUID
+) -> tuple[float, float] | None:
     row = (
-        await session.execute(
-            select(
-                func.ST_X(func.ST_PointOnSurface(UserPolygon.geometry)).label("longitude"),
-                func.ST_Y(func.ST_PointOnSurface(UserPolygon.geometry)).label("latitude"),
-            ).where(UserPolygon.uuid == polygon_id)
+        (
+            await session.execute(
+                select(
+                    func.ST_X(func.ST_PointOnSurface(UserPolygon.geometry)).label("longitude"),
+                    func.ST_Y(func.ST_PointOnSurface(UserPolygon.geometry)).label("latitude"),
+                ).where(UserPolygon.uuid == polygon_id)
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     if row is None:
         return None
     return float(row["latitude"]), float(row["longitude"])
@@ -195,7 +215,9 @@ async def enrich_polygon_address(session: AsyncSession, polygon: UserPolygon) ->
         return False
 
 
-async def create_polygon(session: AsyncSession, payload: PolygonCreate, user_id: uuid.UUID | None = None) -> PolygonRead:
+async def create_polygon(
+    session: AsyncSession, payload: PolygonCreate, user_id: uuid.UUID | None = None
+) -> PolygonRead:
     polygon_uuid = uuid.uuid4()
     polygon = UserPolygon(
         uuid=polygon_uuid,
@@ -224,9 +246,7 @@ async def create_polygon(session: AsyncSession, payload: PolygonCreate, user_id:
     return serialize_polygon(polygon)
 
 
-async def polygon_osm_sources(
-    session: AsyncSession, polygon_id: int
-) -> list[PolygonOsmSourceRead]:
+async def polygon_osm_sources(session: AsyncSession, polygon_id: int) -> list[PolygonOsmSourceRead]:
     rows = await session.scalars(
         select(PolygonOsmSource)
         .where(PolygonOsmSource.polygon_id == polygon_id)
@@ -279,9 +299,7 @@ async def _public_detail(
     )
 
 
-async def public_polygon_by_slug(
-    session: AsyncSession, slug: str
-) -> PublicPolygonDetail | None:
+async def public_polygon_by_slug(session: AsyncSession, slug: str) -> PublicPolygonDetail | None:
     polygon = await session.scalar(select(UserPolygon).where(UserPolygon.slug == slug))
     if polygon is None:
         return None
@@ -306,7 +324,9 @@ async def polygon_editor_detail(
     )
 
 
-async def polygon_verwaltung_detail(session: AsyncSession, polygon: UserPolygon) -> PolygonVerwaltungRead:
+async def polygon_verwaltung_detail(
+    session: AsyncSession, polygon: UserPolygon
+) -> PolygonVerwaltungRead:
     metrics = await polygon_metrics(session, polygon.uuid)
     if metrics is None:
         raise LookupError("Polygon not found")
@@ -333,8 +353,14 @@ async def polygon_sitemap_entries(session: AsyncSession) -> list[PolygonSitemapE
     return [PolygonSitemapEntry(slug=row.slug, updated_at=row.updated_at) for row in rows]
 
 
-async def update_polygon(session: AsyncSession, polygon: UserPolygon, payload: PolygonUpdate, user_id: uuid.UUID | None = None) -> PolygonRead:
+async def update_polygon(
+    session: AsyncSession,
+    polygon: UserPolygon,
+    payload: PolygonUpdate,
+    user_id: uuid.UUID | None = None,
+) -> PolygonRead:
     data = payload.model_dump(exclude_unset=True)
+    previous_occupancy_status = polygon.occupancy_status
     expected = data.pop("expected_updated_at", None)
     if not _same_version(polygon.updated_at, expected):
         raise RuntimeError("POLYGON_VERSION_CONFLICT")
@@ -360,7 +386,30 @@ async def update_polygon(session: AsyncSession, polygon: UserPolygon, payload: P
         await enrich_polygon_address(session, polygon)
         await refresh_polygon_area_assignments(session, polygon.id)
     await bump_cache_versions(session, ("polygons", "analytics", "osm"))
+    event_type = (
+        NotificationEventType.GIS_AREA_STATUS_CHANGED
+        if "occupancy_status" in data and polygon.occupancy_status != previous_occupancy_status
+        else NotificationEventType.GIS_AREA_UPDATED
+    )
+    recipients = await subscription_recipient_ids(
+        session, resource_type="POLYGON", resource_id=str(polygon.uuid), event_type=event_type
+    )
+    if owner_id := getattr(polygon, "created_by_user_id", None):
+        recipients.append(owner_id)
+    notifications = await notify_users(
+        session,
+        recipients,
+        DomainEvent(
+            event_type=event_type,
+            actor_user_id=user_id,
+            resource_type="POLYGON",
+            resource_id=str(polygon.uuid),
+            resource_slug=getattr(polygon, "slug", None),
+            resource_title=getattr(polygon, "name", None),
+        ),
+    )
     await session.commit()
+    publish_notifications(notifications)
     return serialize_polygon(polygon)
 
 
@@ -371,6 +420,7 @@ async def update_polygon_verwaltung(
     user_id: uuid.UUID,
 ) -> PolygonVerwaltungRead:
     data = payload.model_dump(exclude_unset=True)
+    previous_occupancy_status = polygon.occupancy_status
     expected = data.pop("expected_updated_at", None)
     if not _same_version(polygon.updated_at, expected):
         raise RuntimeError("POLYGON_VERSION_CONFLICT")
@@ -383,7 +433,30 @@ async def update_polygon_verwaltung(
     polygon.updated_by_user_id = user_id
     polygon.updated_at = utcnow()
     await bump_cache_versions(session, ("polygons", "analytics", "osm"))
+    event_type = (
+        NotificationEventType.GIS_AREA_STATUS_CHANGED
+        if "occupancy_status" in data and polygon.occupancy_status != previous_occupancy_status
+        else NotificationEventType.GIS_AREA_UPDATED
+    )
+    recipients = await subscription_recipient_ids(
+        session, resource_type="POLYGON", resource_id=str(polygon.uuid), event_type=event_type
+    )
+    if owner_id := getattr(polygon, "created_by_user_id", None):
+        recipients.append(owner_id)
+    notifications = await notify_users(
+        session,
+        recipients,
+        DomainEvent(
+            event_type=event_type,
+            actor_user_id=user_id,
+            resource_type="POLYGON",
+            resource_id=str(polygon.uuid),
+            resource_slug=getattr(polygon, "slug", None),
+            resource_title=getattr(polygon, "name", None),
+        ),
+    )
     await session.commit()
+    publish_notifications(notifications)
     await session.refresh(polygon)
     logger.info(
         "Polygon management fields changed polygon_id=%s user_id=%s fields=%s",
@@ -402,17 +475,40 @@ async def delete_polygon(
     from app.services.social_publishing import cancel_pending_polygon_publications
 
     polygon_id = polygon.uuid
-    await cancel_pending_polygon_publications(session, polygon_id)
-    session.add(AdminAuditLog(
-        actor_user_id=deleted_by_user_id,
-        action="POLYGON_DELETED",
+    recipients = await subscription_recipient_ids(
+        session,
         resource_type="POLYGON",
-        resource_id=polygon_id,
-        event_metadata={"title": polygon.name},
-    ))
+        resource_id=str(polygon_id),
+        event_type=NotificationEventType.GIS_AREA_DELETED,
+    )
+    if polygon.created_by_user_id:
+        recipients.append(polygon.created_by_user_id)
+    notifications = await notify_users(
+        session,
+        recipients,
+        DomainEvent(
+            event_type=NotificationEventType.GIS_AREA_DELETED,
+            actor_user_id=deleted_by_user_id,
+            resource_type="POLYGON",
+            resource_id=str(polygon_id),
+            resource_slug=polygon.slug,
+            resource_title=polygon.name,
+        ),
+    )
+    await cancel_pending_polygon_publications(session, polygon_id)
+    session.add(
+        AdminAuditLog(
+            actor_user_id=deleted_by_user_id,
+            action="POLYGON_DELETED",
+            resource_type="POLYGON",
+            resource_id=polygon_id,
+            event_metadata={"title": polygon.name},
+        )
+    )
     await session.delete(polygon)
     await bump_cache_versions(session, ("polygons", "analytics", "osm"))
     await session.commit()
+    publish_notifications(notifications)
     logger.info(
         "Polygon deleted polygon_id=%s deleted_by_user_id=%s",
         polygon_id,
@@ -464,7 +560,9 @@ async def polygon_metrics(session: AsyncSession, polygon_id: uuid.UUID) -> Polyg
     row = await session.execute(
         select(
             func.ST_Area(func.ST_Transform(UserPolygon.geometry, METRIC_SRID)).label("area_m2"),
-            func.ST_Perimeter(func.ST_Transform(UserPolygon.geometry, METRIC_SRID)).label("perimeter_m"),
+            func.ST_Perimeter(func.ST_Transform(UserPolygon.geometry, METRIC_SRID)).label(
+                "perimeter_m"
+            ),
             func.ST_X(func.ST_Centroid(UserPolygon.geometry)).label("centroid_lng"),
             func.ST_Y(func.ST_Centroid(UserPolygon.geometry)).label("centroid_lat"),
             func.ST_XMin(func.ST_Envelope(UserPolygon.geometry)).label("min_lng"),
@@ -480,5 +578,10 @@ async def polygon_metrics(session: AsyncSession, polygon_id: uuid.UUID) -> Polyg
         area_m2=float(metrics["area_m2"]),
         perimeter_m=float(metrics["perimeter_m"]),
         centroid=(float(metrics["centroid_lng"]), float(metrics["centroid_lat"])),
-        bbox=(float(metrics["min_lng"]), float(metrics["min_lat"]), float(metrics["max_lng"]), float(metrics["max_lat"])),
+        bbox=(
+            float(metrics["min_lng"]),
+            float(metrics["min_lat"]),
+            float(metrics["max_lng"]),
+            float(metrics["max_lat"]),
+        ),
     )

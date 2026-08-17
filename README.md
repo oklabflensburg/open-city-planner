@@ -144,6 +144,16 @@ Die Datenbank begrenzt `POLYGON_ADOPTED_FROM_OSM` zusätzlich mit einem eindeuti
 
 Superuser sehen unter `/admin/social` Verbindung, persistente Einstellungen, Themen, Screenshotdarstellung, Warteschlange, Vorschau und Publication History. Ereignisse im Modus `MANUAL` bleiben nach der Hintergrund-Screenshot-Erzeugung in `PENDING_APPROVAL`, bis sie veröffentlicht oder über ein konsistentes Modal verworfen werden. Access Tokens und Authorization-Header sind dort grundsätzlich nicht Bestandteil der API-Antwort.
 
+## Persönliche Benachrichtigungen
+
+Angemeldete Personen erhalten persistente, empfängerbezogene Hinweise über die Glocke im Kopfbereich. Fachliche Ereignisse aus GIS, Gebietsstatistik, Social Publishing, Importen sowie Konto- und Rollenverwaltung werden durch eine zentrale Policy in kontrollierte Texte, Prioritäten und ausschließlich interne Aktionsziele übersetzt. Abonnements ermöglichen das explizite Folgen von Flächen und Gebieten; Themenpräferenzen liegen kontoweit im Profil. Sicherheitsrelevante Kontohinweise bleiben unabhängig von allgemeinen Präferenzen aktiv.
+
+Gleichartige Änderungen derselben Ressource werden pro Empfänger innerhalb von fünf Minuten zusammengeführt. Gewöhnliche eigene Autosaves erzeugen keine Benachrichtigung. PostgreSQL ist die persistente Zustellquelle; Server-Sent-Events liefern neue Einträge in Echtzeit, während Fokus- und Reconnect-Abgleiche verlorene Verbindungen auffangen. Das fachliche Notification Center ist getrennt vom Auditlog und vom öffentlichen Social-Publishing-Outbox-System.
+
+API-Vertrag, Ereignistaxonomie, Integrationsregeln und Erweiterungsschritte stehen in [docs/notifications.md](docs/notifications.md). Nach dem Alembic-Upgrade sind keine zusätzlichen Secrets erforderlich.
+
+Die reguläre Aufbewahrung beträgt konfigurierbar `NOTIFICATION_RETENTION_DAYS=90`. Alte Einträge werden außerhalb von Requests mit `python -m app.cli.cleanup_notifications` bereinigt; ungelesene handlungsrelevante Hinweise bleiben bis zur Erledigung oder einem expliziten Ablaufdatum bestehen.
+
 ## Datenbank
 
 Benötigt wird PostgreSQL mit PostGIS. Beispiel:

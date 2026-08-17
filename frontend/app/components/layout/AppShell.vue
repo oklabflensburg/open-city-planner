@@ -3,20 +3,6 @@
     class="overview-shell relative min-h-0 min-w-0 overflow-hidden bg-[var(--c-surface)] text-[var(--c-text)] xl:grid xl:gap-4 xl:p-4"
     :data-social-preview-capture="socialPreview ? '' : undefined"
   >
-    <Transition name="notice">
-      <div
-        v-if="mapStore.notice"
-        class="pointer-events-auto fixed left-1/2 top-20 z-[80] flex min-h-11 -translate-x-1/2 items-center gap-3 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-bold text-emerald-900 shadow-xl"
-        role="status"
-        aria-live="polite"
-      >
-        <CircleCheck class="size-5 text-emerald-600" aria-hidden="true" />
-        <span>{{ mapStore.notice }}</span>
-        <button class="rounded-lg p-1 text-emerald-900 hover:bg-emerald-50" type="button" aria-label="Hinweis schließen" @click="mapStore.clearNotice()">
-          <X class="size-4" aria-hidden="true" />
-        </button>
-      </div>
-    </Transition>
     <div class="hidden min-h-0 min-w-0 xl:block">
       <ClientOnly>
         <LazyLeftSidebar v-if="isDesktop" />
@@ -79,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { BarChart3, CircleCheck, ListFilter, Plus, X } from 'lucide-vue-next'
+import { BarChart3, ListFilter, Plus } from 'lucide-vue-next'
 
 const mapStore = useMapStore()
 const route = useRoute()
@@ -115,7 +101,6 @@ const activePanelContentKey = computed(() => {
 })
 
 let analyticsTimer: ReturnType<typeof setTimeout> | undefined
-let noticeTimer: ReturnType<typeof setTimeout> | undefined
 let desktopQuery: MediaQueryList | undefined
 let panelHistoryActive = false
 let closingFromHistory = false
@@ -162,14 +147,8 @@ watch(() => mapStore.gisDataGeneration, () => {
   if (analyticsIsVisible()) void analyticsStore.load()
 })
 
-watch(() => mapStore.notice, (notice) => {
-  clearTimeout(noticeTimer)
-  if (notice) noticeTimer = setTimeout(() => mapStore.clearNotice(), 5000)
-})
-
 onBeforeUnmount(() => {
   clearTimeout(analyticsTimer)
-  clearTimeout(noticeTimer)
   panelHistoryActive = false
   mapStore.closeMobilePanels()
   mapSelection.clearSelection()
@@ -248,8 +227,6 @@ function handlePopState() {
 .map-action-primary { border-color: #154d73; background: #154d73; color: white; }
 .map-action-primary:hover { background: #0f3f61; }
 
-.notice-enter-active, .notice-leave-active { transition: opacity 160ms ease, transform 160ms ease; }
-.notice-enter-from, .notice-leave-to { opacity: 0; transform: translate(-50%, -0.5rem); }
 
 @supports (height: 100dvh) {
   .overview-shell { height: calc(100dvh - 4rem); }

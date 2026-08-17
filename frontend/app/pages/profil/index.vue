@@ -28,6 +28,7 @@
         <button class="page-button-primary" type="submit">Profil speichern</button>
       </form>
     </Card>
+    <NotificationPreferencesCard />
     <AccountDangerZone />
     </div>
   </ContentPageShell>

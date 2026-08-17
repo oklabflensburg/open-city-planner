@@ -42,6 +42,7 @@ OPENAPI_TAGS = [
     {"name": "Administration", "description": "Rollen- und Verwaltungsfunktionen für berechtigte Konten."},
     {"name": "Contact", "description": "Öffentliches, rate-limitiertes Kontaktformular."},
     {"name": "Media", "description": "Öffentlich abrufbare, serverseitig normalisierte Medien."},
+    {"name": "Notifications", "description": "Persönliche, persistente Benachrichtigungen, Präferenzen, Abonnements und Realtime-Auslieferung."},
 ]
 
 app = FastAPI(

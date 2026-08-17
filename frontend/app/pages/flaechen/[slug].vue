@@ -38,6 +38,7 @@
       <div class="h-1.5" :style="{ backgroundColor: categoryColor }" />
       <div class="p-5 sm:p-8">
         <PolygonCategoryBadge :category="polygonData.category" />
+        <NotificationFollowButton v-if="authStore.authenticated" class="ml-2 align-middle" resource-type="POLYGON" :resource-id="polygonData.id" follow-label="Dieser Fläche folgen" followed-label="Du folgst dieser Fläche" />
         <h1 v-if="canEditPublicFields" class="sr-only">{{ polygonData.name }}</h1>
         <label v-if="canEditPublicFields" class="mt-5 block max-w-3xl">
           <span class="field-label">Titel</span>
