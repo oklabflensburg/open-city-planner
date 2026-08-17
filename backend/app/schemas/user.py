@@ -37,3 +37,8 @@ class UserUpdate(BaseModel):
     @classmethod
     def strip_optional(cls, value: str | None) -> str | None:
         return value.strip() if isinstance(value, str) else value
+
+
+class AccountDeletionRequest(BaseModel):
+    confirmation_text: str = Field(min_length=1, max_length=32)
+    current_password: str | None = Field(default=None, max_length=512)

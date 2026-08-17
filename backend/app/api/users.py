@@ -1,15 +1,22 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, UploadFile
+import jwt
+from fastapi import APIRouter, Depends, Request, Response, UploadFile
 from sqlalchemy import select
 
 from app.auth.csrf import validate_csrf
 from app.auth.dependencies import SessionDep, get_current_active_user
+from app.auth.jwt import decode_jwt
+from app.core.config import get_settings
 from app.models.user import User
 from app.models.user_polygon import UserPolygon
+from app.schemas.auth import MessageResponse
 from app.schemas.geojson import PolygonRead
 from app.schemas.oauth import UserOAuthAccountRead
-from app.schemas.user import UserRead, UserUpdate
+from app.schemas.user import AccountDeletionRequest, UserRead, UserUpdate
+from app.services.account_service import deactivate_own_account, delete_own_account
+from app.services.auth_service import clear_auth_cookies
 from app.services.avatar_service import delete_avatar_file, save_avatar
 from app.services.oauth_account_service import (
     get_for_user,
@@ -19,6 +26,17 @@ from app.services.oauth_account_service import (
 from app.services.polygons import serialize_polygon
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+
+def _access_authenticated_at(request: Request) -> datetime | None:
+    token = request.cookies.get(get_settings().auth_access_cookie_name)
+    if not token:
+        return None
+    try:
+        authenticated_at = decode_jwt(token, "access").get("auth_time")
+        return datetime.fromtimestamp(int(authenticated_at), UTC)
+    except (jwt.PyJWTError, TypeError, ValueError, OverflowError):
+        return None
 
 
 @router.get("/me", response_model=UserRead)
@@ -84,7 +102,10 @@ async def get_user_oauth_accounts(
     session: SessionDep,
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> list[UserOAuthAccountRead]:
-    return [UserOAuthAccountRead.model_validate(account) for account in await get_for_user(session, user.id)]
+    return [
+        UserOAuthAccountRead.model_validate(account)
+        for account in await get_for_user(session, user.id)
+    ]
 
 
 @router.delete("/me/oauth-accounts/{provider}", status_code=204)
@@ -99,10 +120,65 @@ async def delete_user_oauth_account(
 
 
 @router.get("/me/polygons", response_model=list[PolygonRead])
-async def get_my_polygons(session: SessionDep, user: Annotated[User, Depends(get_current_active_user)]) -> list[PolygonRead]:
+async def get_my_polygons(
+    session: SessionDep, user: Annotated[User, Depends(get_current_active_user)]
+) -> list[PolygonRead]:
     rows = await session.scalars(
         select(UserPolygon)
         .where(UserPolygon.created_by_user_id == user.id)
         .order_by(UserPolygon.updated_at.desc())
     )
     return [serialize_polygon(row) for row in rows]
+
+
+@router.post(
+    "/me/deactivate",
+    response_model=MessageResponse,
+    summary="Deactivate current user account",
+    responses={
+        401: {"description": "Authentication required"},
+        409: {"description": "The final active superuser cannot be deactivated"},
+    },
+)
+async def post_deactivate_user_me(
+    session: SessionDep,
+    response: Response,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> MessageResponse:
+    validate_csrf(request)
+    await deactivate_own_account(session, user.id)
+    clear_auth_cookies(response)
+    return MessageResponse(message="Dein Konto wurde deaktiviert.")
+
+
+@router.delete(
+    "/me",
+    response_model=MessageResponse,
+    summary="Delete current user account",
+    responses={
+        401: {"description": "Authentication required"},
+        403: {"description": "Password or recent authentication required"},
+        409: {"description": "The final active superuser cannot be deleted"},
+    },
+)
+async def delete_user_me(
+    payload: AccountDeletionRequest,
+    session: SessionDep,
+    response: Response,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> MessageResponse:
+    validate_csrf(request)
+    settings = get_settings()
+    avatar_url = await delete_own_account(
+        session,
+        user.id,
+        confirmation_text=payload.confirmation_text,
+        current_password=payload.current_password,
+        authenticated_at=_access_authenticated_at(request),
+        recent_auth_seconds=settings.account_deletion_recent_auth_seconds,
+    )
+    delete_avatar_file(avatar_url)
+    clear_auth_cookies(response)
+    return MessageResponse(message="Dein Konto wurde dauerhaft gelöscht.")

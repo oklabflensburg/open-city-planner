@@ -5,6 +5,8 @@ const ACTION_LABELS: Record<string, string> = {
   USER_ROLE_REMOVED: 'Rolle entfernt',
   USER_ACTIVATED: 'Konto aktiviert',
   USER_DEACTIVATED: 'Konto deaktiviert',
+  ACCOUNT_DEACTIVATED: 'Konto selbst deaktiviert',
+  ACCOUNT_DELETED: 'Konto selbst gelöscht',
   USER_SUPERUSER_GRANTED_DIRECT: 'Superuser-Status zugewiesen',
   REFRESH_TOKEN_REUSE_DETECTED: 'Token-Wiederverwendung erkannt',
   FLENSBURG_STATISTICS_SYNC: 'Flensburg-Statistik synchronisiert',

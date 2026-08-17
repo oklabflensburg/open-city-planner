@@ -2,6 +2,7 @@
   <AuthPageShell label="Anmelden">
     <ClientOnly>
       <AuthCard eyebrow="Konto" title="Anmelden">
+      <p v-if="accountStatusMessage" class="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900" role="status">{{ accountStatusMessage }}</p>
       <p v-if="sessionExpired" class="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900" role="status">Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.</p>
       <p v-if="oauthErrorMessage" class="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" role="alert">{{ oauthErrorMessage }}</p>
       <form class="grid gap-4" @submit.prevent="submit">
@@ -46,6 +47,10 @@ const loading = ref(false)
 const error = ref('')
 const redirectTarget = computed(() => sanitizeInternalRedirect(route.query.redirect))
 const sessionExpired = computed(() => route.query.session_expired === '1')
+const accountStatusMessage = computed(() => ({
+  deactivated: 'Dein Konto wurde deaktiviert. Eine Reaktivierung ist über die Administration möglich.',
+  deleted: 'Dein Konto wurde dauerhaft gelöscht.'
+}[typeof route.query.account === 'string' ? route.query.account : ''] || ''))
 const oauthErrorMessage = computed(() => oauthErrorText(typeof route.query.oauth_error === 'string' ? route.query.oauth_error : ''))
 
 async function submit() {

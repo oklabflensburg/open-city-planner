@@ -124,6 +124,40 @@ describe('auth store', () => {
     expect(store.user?.avatar_url).toBeNull()
   })
 
+  it('deactivates the current account and clears local authentication only after success', async () => {
+    const request = vi.fn().mockResolvedValue({ message: 'Dein Konto wurde deaktiviert.' })
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+    store.user = user
+
+    await store.deactivateAccount()
+
+    expect(request).toHaveBeenCalledWith('/users/me/deactivate', {
+      method: 'POST',
+      retryOnUnauthorized: false
+    })
+    expect(store.user).toBeNull()
+  })
+
+  it('sends only confirmation and optional password when deleting the current account', async () => {
+    const request = vi.fn().mockResolvedValue({ message: 'Dein Konto wurde dauerhaft gelöscht.' })
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+    store.user = user
+
+    await store.deleteAccount('LÖSCHEN', 'current password')
+
+    expect(request).toHaveBeenCalledWith('/users/me', {
+      method: 'DELETE',
+      body: JSON.stringify({
+        confirmation_text: 'LÖSCHEN',
+        current_password: 'current password'
+      }),
+      retryOnUnauthorized: false
+    })
+    expect(store.user).toBeNull()
+  })
+
   it('loads oauth accounts for authenticated user', async () => {
     const request = vi.fn().mockResolvedValue([{ id: 'oauth-1', provider: 'github', provider_username: 'kunstbube', provider_email: null, created_at: new Date().toISOString(), last_login_at: null }])
     vi.stubGlobal('useApi', () => ({ request }))

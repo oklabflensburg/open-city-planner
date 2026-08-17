@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
     refresh_token_reuse_grace_seconds: int = 5
+    account_deletion_recent_auth_seconds: int = 600
     refresh_rate_limit_attempts: int = 30
     refresh_rate_limit_window_seconds: int = 60
     email_verification_expire_hours: int = 24

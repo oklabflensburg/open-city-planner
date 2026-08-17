@@ -74,9 +74,16 @@ def test_normalize_provider() -> None:
 
 
 @pytest.mark.asyncio
-async def test_authenticate_existing_oauth_user_updates_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_authenticate_existing_oauth_user_updates_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     session = FakeSession()
-    user = User(id=uuid.uuid4(), email="new@example.org", is_active=True, avatar_url="/api/v1/media/avatars/local.webp")
+    user = User(
+        id=uuid.uuid4(),
+        email="new@example.org",
+        is_active=True,
+        avatar_url="/api/v1/media/avatars/local.webp",
+    )
     account = UserOAuthAccount(user_id=user.id, provider="github", provider_subject="subject-1")
     session.users[user.id] = user
     monkeypatch.setattr(service, "get_by_provider_subject", async_return(account))
@@ -93,7 +100,36 @@ async def test_authenticate_existing_oauth_user_updates_metadata(monkeypatch: py
 
 
 @pytest.mark.asyncio
-async def test_authenticate_does_not_verify_non_matching_provider_email(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("provider", ["github", "google", "mastodon"])
+async def test_authenticate_existing_inactive_oauth_user_is_denied_without_duplicate(
+    provider: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = FakeSession()
+    user = User(id=uuid.uuid4(), email="inactive@example.org", is_active=False)
+    account = UserOAuthAccount(
+        user_id=user.id,
+        provider=provider,
+        provider_subject="subject-1",
+        provider_instance="https://social.example" if provider == "mastodon" else None,
+    )
+    session.users[user.id] = user
+    monkeypatch.setattr(service, "get_by_provider_subject", async_return(account))
+    oauth_identity = identity(provider).model_copy(
+        update={"provider_instance": account.provider_instance}
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await authenticate_oauth_identity(session, oauth_identity)
+
+    assert exc_info.value.detail["error"]["code"] == "ACCOUNT_INACTIVE"
+    assert not any(isinstance(item, User) for item in session.added)
+    assert session.commits == 0
+
+
+@pytest.mark.asyncio
+async def test_authenticate_does_not_verify_non_matching_provider_email(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     session = FakeSession()
     user = User(id=uuid.uuid4(), email="other@example.org", is_active=True, is_verified=False)
     account = UserOAuthAccount(user_id=user.id, provider="github", provider_subject="subject-1")
@@ -110,7 +146,9 @@ async def test_authenticate_rejects_email_conflict(monkeypatch: pytest.MonkeyPat
     session = FakeSession()
     monkeypatch.setattr(service, "get_by_provider_subject", async_return(None))
     monkeypatch.setattr(service, "get_user_by_email", async_return(User(email="user@example.org")))
-    conflicted = OAuthIdentity(provider="github", subject="subject-1", email="user@example.org", email_verified=True)
+    conflicted = OAuthIdentity(
+        provider="github", subject="subject-1", email="user@example.org", email_verified=True
+    )
 
     with pytest.raises(HTTPException) as exc:
         await authenticate_oauth_identity(session, conflicted)
@@ -126,7 +164,13 @@ async def test_link_rejects_identity_linked_to_other_user(monkeypatch: pytest.Mo
     other = User(id=uuid.uuid4(), email="other@example.org", is_active=True)
     session.users[user.id] = user
     session.users[other.id] = other
-    monkeypatch.setattr(service, "get_by_provider_subject", async_return(UserOAuthAccount(user_id=other.id, provider="github", provider_subject="subject-1")))
+    monkeypatch.setattr(
+        service,
+        "get_by_provider_subject",
+        async_return(
+            UserOAuthAccount(user_id=other.id, provider="github", provider_subject="subject-1")
+        ),
+    )
 
     with pytest.raises(HTTPException) as exc:
         await link_oauth_account(session, user, identity())
@@ -148,7 +192,9 @@ async def test_link_verifies_matching_provider_email(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.asyncio
-async def test_link_does_not_trust_unverified_provider_email(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_link_does_not_trust_unverified_provider_email(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     session = FakeSession()
     user = User(id=uuid.uuid4(), email="new@example.org", is_active=True, is_verified=False)
     unverified = identity("google").model_copy(update={"email_verified": False})
@@ -165,7 +211,13 @@ async def test_unlink_blocks_last_auth_method(monkeypatch: pytest.MonkeyPatch) -
     session = FakeSession()
     user = User(id=uuid.uuid4(), email="new@example.org", is_active=True, password_hash=None)
     session.users[user.id] = user
-    monkeypatch.setattr(service, "get_for_user_provider", async_return(UserOAuthAccount(user_id=user.id, provider="github", provider_subject="subject-1")))
+    monkeypatch.setattr(
+        service,
+        "get_for_user_provider",
+        async_return(
+            UserOAuthAccount(user_id=user.id, provider="github", provider_subject="subject-1")
+        ),
+    )
 
     with pytest.raises(HTTPException) as exc:
         await unlink_oauth_account(session, user, "github")

@@ -204,6 +204,25 @@ export const useAuthStore = defineStore('auth', {
         this.refreshing = false
       }
     },
+    async deactivateAccount() {
+      const { request } = useApi()
+      await request('/users/me/deactivate', { method: 'POST', retryOnUnauthorized: false })
+      this.clearAuthSession(false)
+      this.oauthAccounts = []
+    },
+    async deleteAccount(confirmationText: string, currentPassword?: string) {
+      const { request } = useApi()
+      await request('/users/me', {
+        method: 'DELETE',
+        body: JSON.stringify({
+          confirmation_text: confirmationText,
+          current_password: currentPassword || null
+        }),
+        retryOnUnauthorized: false
+      })
+      this.clearAuthSession(false)
+      this.oauthAccounts = []
+    },
     async forgotPassword(email: string) {
       const { request } = useApi()
       await request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }), retryOnUnauthorized: false })

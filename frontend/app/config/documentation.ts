@@ -372,7 +372,7 @@ export const documentationPages: DocumentationPage[] = [
     slug: 'benutzerkonto',
     title: 'Benutzerkonto und Profil',
     navTitle: 'Benutzerkonto',
-    description: 'Registrierung, E-Mail-Bestätigung, Profil, Avatar und Kontosicherheit.',
+    description: 'Registrierung, E-Mail-Bestätigung, Profil, Avatar und Kontosicherheit einschließlich Deaktivierung und Löschung.',
     group: 'Konto und Zugriff',
     keywords: ['Registrierung', 'Login', 'Passwort', 'Avatar', 'Profil', 'E-Mail'],
     audience: 'login',
@@ -406,6 +406,16 @@ export const documentationPages: DocumentationPage[] = [
         blocks: [
           { type: 'paragraph', text: 'Im Sicherheitsbereich kann das Passwort mit dem aktuellen Passwort geändert werden. „Alle Sitzungen abmelden“ beendet bestehende Anmeldungen auf anderen Geräten ebenfalls.' },
           { type: 'callout', variant: 'tip', title: 'Geteiltes Gerät', text: 'Melden Sie sich nach der Nutzung vollständig ab und speichern Sie das Passwort nicht in einem fremden Browser.' }
+        ]
+      },
+      {
+        id: 'konto-deaktivieren-und-loeschen',
+        title: 'Konto deaktivieren oder löschen',
+        blocks: [
+          { type: 'paragraph', text: 'Im Gefahrenbereich am Ende des Profils stehen zwei getrennte Aktionen zur Verfügung. Beim Deaktivieren wird der Login sofort gesperrt und alle Sitzungen werden beendet; Kontodaten und bisherige Beiträge bleiben bestehen. Eine Reaktivierung ist über die Administration möglich.' },
+          { type: 'paragraph', text: 'Die dauerhafte Löschung entfernt persönliche Profildaten, Passwort, externe Kontoverknüpfungen, Sitzungen, Einmal-Tokens und den lokalen Avatar. Sie erfordert eine zweistufige Bestätigung sowie bei Passwortkonten das aktuelle Passwort. Bei ausschließlich externer Anmeldung muss die Sitzung ausreichend aktuell sein.' },
+          { type: 'callout', variant: 'important', title: 'Dauerhafte Aktion', text: 'Ein gelöschtes Konto kann nicht wiederhergestellt werden. Öffentliche fachliche Flächen bleiben als gemeinsame Datengrundlage ohne Verknüpfung zum gelöschten Konto erhalten. Auditdaten können im erforderlichen, minimierten Umfang für die Nachvollziehbarkeit bestehen bleiben.' },
+          { type: 'links', items: [{ label: 'Profil und Gefahrenbereich öffnen', to: '/profil' }, { label: 'Datenschutzerklärung', to: '/datenschutz' }] }
         ]
       },
       {

@@ -129,6 +129,7 @@ async def issue_session(session: AsyncSession, response: Response, user: User, r
         user,
         request,
         family_id=uuid.uuid4(),
+        authenticated_at=int(utcnow().timestamp()),
     )
     session.add(session_record)
     await session.commit()
@@ -142,15 +143,26 @@ def create_session_record(
     request: Request,
     *,
     family_id: uuid.UUID,
+    authenticated_at: int | None = None,
 ) -> tuple[str, str, UserSession]:
     settings = get_settings()
+    authentication_claim = {"auth_time": authenticated_at} if authenticated_at else {}
     access_token, _ = create_jwt(
         str(user.id),
         "access",
         timedelta(minutes=settings.access_token_expire_minutes),
-        {"email": user.email, "role": "superuser" if user.is_superuser else "user"},
+        {
+            "email": user.email,
+            "role": "superuser" if user.is_superuser else "user",
+            **authentication_claim,
+        },
     )
-    refresh_token, refresh_jti = create_jwt(str(user.id), "refresh", timedelta(days=settings.refresh_token_expire_days))
+    refresh_token, refresh_jti = create_jwt(
+        str(user.id),
+        "refresh",
+        timedelta(days=settings.refresh_token_expire_days),
+        authentication_claim,
+    )
     session_record = UserSession(
         user_id=user.id,
         token_hash=hash_token(refresh_token),
@@ -246,6 +258,9 @@ async def refresh_session(session: AsyncSession, response: Response, refresh_tok
         user,
         request,
         family_id=record.family_id,
+        authenticated_at=(
+            int(payload["auth_time"]) if isinstance(payload.get("auth_time"), int) else None
+        ),
     )
     record.revoked_at = now
     record.rotated_at = now

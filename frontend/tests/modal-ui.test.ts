@@ -63,6 +63,7 @@ describe('central modal architecture', () => {
     expect(appFile('components/auth/OAuthAccountList.vue')).toContain('<AppConfirmDialog')
     expect(appFile('components/user/AvatarUploader.vue')).toContain('<AppConfirmDialog')
     expect(appFile('pages/profil/sicherheit.vue')).toContain('<AppConfirmDialog')
+    expect(appFile('components/profile/AccountDangerZone.vue')).toContain('<AppConfirmDialog')
   })
 
   it('contains no native browser dialogs in productive frontend code', () => {

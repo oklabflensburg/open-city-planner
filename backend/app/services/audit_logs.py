@@ -55,6 +55,8 @@ def _summary(log: AdminAuditLog, target: User | None) -> str:
         "USER_ROLE_REMOVED": f"Rolle{role} wurde {label} entzogen.",
         "USER_ACTIVATED": f"Benutzerkonto {label} wurde aktiviert.",
         "USER_DEACTIVATED": f"Benutzerkonto {label} wurde deaktiviert.",
+        "ACCOUNT_DEACTIVATED": "Benutzerkonto wurde durch den Benutzer selbst deaktiviert.",
+        "ACCOUNT_DELETED": "Benutzerkonto wurde auf Wunsch des Benutzers dauerhaft gelöscht.",
         "USER_SUPERUSER_GRANTED_DIRECT": f"Superuser-Status wurde {label} direkt zugewiesen.",
         "REFRESH_TOKEN_REUSE_DETECTED": f"Wiederverwendung eines Refresh-Tokens für {label} wurde erkannt.",
         "FLENSBURG_STATISTICS_SYNC": "Kommunale Statistik wurde aus dem Flensburger Zahlenspiegel synchronisiert.",

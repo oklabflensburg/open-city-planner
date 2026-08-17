@@ -8,12 +8,17 @@ from fastapi import HTTPException, Response
 from starlette.requests import Request
 
 from app.api.auth import get_auth_session
-from app.auth.jwt import create_jwt
+from app.auth.jwt import create_jwt, decode_jwt
 from app.auth.tokens import hash_token
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.user import User
 from app.models.user_session import UserSession
-from app.services.auth_service import refresh_session, revoke_current_session, utcnow
+from app.services.auth_service import (
+    create_session_record,
+    refresh_session,
+    revoke_current_session,
+    utcnow,
+)
 
 
 def request() -> Request:
@@ -53,6 +58,16 @@ def refresh_record(account: User, *, expires_in: timedelta = timedelta(days=1)) 
         expires_at=utcnow() + expires_in,
     )
     return token, record
+
+
+def test_session_tokens_share_original_authentication_time() -> None:
+    authenticated_at = int((utcnow() - timedelta(minutes=3)).timestamp())
+    access_token, refresh_token, _record = create_session_record(
+        user(), request(), family_id=uuid.uuid4(), authenticated_at=authenticated_at
+    )
+
+    assert decode_jwt(access_token, "access")["auth_time"] == authenticated_at
+    assert decode_jwt(refresh_token, "refresh")["auth_time"] == authenticated_at
 
 
 def session_for(record: UserSession | None, account: User | None) -> AsyncMock:
