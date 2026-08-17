@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 const publicationId = '11111111-1111-4111-8111-111111111111'
+const approvalPublicationId = '44444444-4444-4444-8444-444444444444'
 
 test('public social preview exposes an explicit ready state without authentication', async ({ page }) => {
   await page.goto('/gebiete/flensburg-27020?social-preview=1&map=0')
@@ -46,6 +47,7 @@ test('GIS social deep link selects the polygon before declaring the map ready', 
 
 test('superuser can inspect social publishing and queue a failed event for retry', async ({ page }) => {
   let retryRequested = false
+  let approvalRequested = false
 
   await page.route('**/api/v1/auth/session', route => route.fulfill({
     status: 200,
@@ -84,7 +86,7 @@ test('superuser can inspect social publishing and queue a failed event for retry
       published: 7,
       last_publication_at: '2026-08-16T10:00:00Z',
       verification_error: null,
-      approval_mode: 'AUTOMATIC',
+      approval_mode: 'MANUAL',
       screenshots_required: true
     })
   }))
@@ -92,7 +94,7 @@ test('superuser can inspect social publishing and queue a failed event for retry
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({
-      enabled: true, approval_mode: 'AUTOMATIC', default_visibility: 'public', language: 'de',
+      enabled: true, approval_mode: 'MANUAL', default_visibility: 'public', language: 'de',
       debounce_seconds: 300, default_hashtags: ['Flensburg', 'OpenData', 'Stadtplaner'],
       enabled_events: ['AREA_CREATED', 'AREA_PUBLIC_DATA_UPDATED', 'AREA_BOUNDARY_UPDATED'],
       screenshot_viewport: 'LANDSCAPE_16_9', screenshot_show_map: true,
@@ -129,8 +131,32 @@ test('superuser can inspect social publishing and queue a failed event for retry
         screenshot_ready: false,
         screenshot_target_url: null,
         screenshot_alt_text: null
+      }, {
+        id: approvalPublicationId,
+        created_at: '2026-08-16T11:00:00Z',
+        event_type: 'AREA_CREATED',
+        resource_type: 'ANALYSIS_AREA',
+        resource_id: '55555555-5555-4555-8555-555555555555',
+        resource_name: 'Neues Gebiet',
+        resource_slug: 'neues-gebiet',
+        status: approvalRequested ? 'PENDING' : 'PENDING_APPROVAL',
+        attempt_count: 0,
+        next_attempt_at: '2026-08-16T11:00:00Z',
+        published_at: null,
+        last_error: null,
+        remote_url: null,
+        changed_fields: [],
+        dry_run: false,
+        screenshot_ready: false,
+        screenshot_status: 'PENDING',
+        screenshot_target_url: null,
+        screenshot_alt_text: null,
+        allowed_actions: approvalRequested
+          ? ['PREVIEW', 'DISCARD', 'OPEN_RESOURCE']
+          : ['PREVIEW', 'APPROVE_AND_PUBLISH', 'DISCARD', 'OPEN_RESOURCE'],
+        blocking_reasons: []
       }],
-      total: 1,
+      total: 2,
       page: 1,
       page_size: 25,
       pages: 1
@@ -139,6 +165,13 @@ test('superuser can inspect social publishing and queue a failed event for retry
   await page.route(`**/api/v1/admin/social/publications/${publicationId}/retry`, async (route) => {
     retryRequested = true
     expect(route.request().method()).toBe('POST')
+    expect(route.request().headers()['x-csrf-token']).toBe('playwright-csrf')
+    await route.fulfill({ status: 204 })
+  })
+  await page.route(`**/api/v1/admin/social/publications/${approvalPublicationId}/approve-and-publish`, async (route) => {
+    approvalRequested = true
+    expect(route.request().method()).toBe('POST')
+    expect(route.request().postDataJSON()).toEqual({})
     expect(route.request().headers()['x-csrf-token']).toBe('playwright-csrf')
     await route.fulfill({ status: 204 })
   })
@@ -152,11 +185,18 @@ test('superuser can inspect social publishing and queue a failed event for retry
   await expect(page.getByRole('heading', { name: 'Automatische Veröffentlichungen' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Screenshot-Einstellungen' })).toBeVisible()
   await expect(page.getByText('Flensburg Innenstadt')).toBeVisible()
+  await expect(page.getByText('Neues Gebiet')).toBeVisible()
+  const approvalCard = page.getByText('Neues Gebiet').locator('xpath=ancestor::*[self::article or self::div][.//button[contains(., "Freigeben")]][1]')
+  await expect(page.getByRole('button', { name: 'Freigeben & veröffentlichen' })).toBeEnabled()
+  await expect(page.getByText('Der Pflicht-Screenshot wird nach der Freigabe automatisch erstellt.')).toBeVisible()
+  await approvalCard.getByRole('button', { name: 'Freigeben & veröffentlichen' }).click()
+  await expect.poll(() => approvalRequested).toBe(true)
+  await expect(page.getByText('Screenshot wird automatisch erstellt …')).toBeVisible()
 
   await page.getByRole('button', { name: 'Erneut versuchen' }).click()
   await expect(page.getByRole('heading', { name: 'Veröffentlichung erneut versuchen?' })).toBeVisible()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Erneut versuchen' }).click()
 
   await expect.poll(() => retryRequested).toBe(true)
-  await expect(page.locator('span').filter({ hasText: /^Ausstehend$/ })).toBeVisible()
+  await expect(page.locator('span').filter({ hasText: /^Wird vorbereitet$/ })).toHaveCount(2)
 })

@@ -70,7 +70,9 @@ describe('Mastodon and Fediverse integration', () => {
     expect(composable).toContain('createSerialSaveQueue')
     expect(composable).toContain('saveSettingsPatch')
     expect(composable).not.toContain('await load()\n    } finally { savingSettings')
-    expect(composable).toContain("'approve' | 'cancel'")
+    expect(composable).toContain("'approve-and-publish' | 'cancel'")
+    expect(page).toContain('Freigeben & veröffentlichen')
+    expect(page).toContain("allows(item, 'APPROVE_AND_PUBLISH')")
     expect(appFile('components/layout/AppHeader.vue')).toContain("{ label: 'Social Publishing', to: '/admin/social' }")
   })
 

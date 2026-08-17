@@ -14,6 +14,8 @@ from app.models.user_polygon import UserPolygon
 from app.schemas.social import (
     MastodonAdminStatusRead,
     SocialEventDefinitionRead,
+    SocialPublicationAction,
+    SocialPublicationBlockingReasonRead,
     SocialPublicationItemRead,
     SocialPublicationListRead,
     SocialPublicationPreviewRead,
@@ -67,8 +69,64 @@ async def mastodon_admin_status(session: AsyncSession, *, settings: Settings | N
     )
 
 
-def _serialize(event: SocialPublicationOutbox, name: str | None, slug: str | None) -> SocialPublicationItemRead:
+def _publication_actions(
+    event: SocialPublicationOutbox,
+    *,
+    slug: str | None,
+    settings: Settings,
+    policy: SocialPublishingSettings,
+) -> tuple[list[SocialPublicationAction], list[SocialPublicationBlockingReasonRead]]:
+    actions: list[SocialPublicationAction] = []
+    reasons: list[SocialPublicationBlockingReasonRead] = []
+    if event.status != "CANCELLED" and not event.mastodon_status_url:
+        actions.append("PREVIEW")
+    if event.status in {"PENDING_APPROVAL", "PENDING", "FAILED"}:
+        actions.append("DISCARD")
+    if slug:
+        actions.append("OPEN_RESOURCE")
+    if event.mastodon_status_url:
+        actions.append("OPEN_REMOTE")
+    if event.status == "FAILED":
+        actions.append("RETRY")
+
+    if event.status == "PENDING_APPROVAL":
+        if not policy.enabled:
+            reasons.append(SocialPublicationBlockingReasonRead(
+                code="PUBLISHING_PAUSED",
+                message="Social Publishing ist pausiert.",
+            ))
+        elif not settings.mastodon_enabled:
+            reasons.append(SocialPublicationBlockingReasonRead(
+                code="PUBLISHING_DISABLED",
+                message="Social Publishing ist serverseitig deaktiviert.",
+            ))
+        elif settings.mastodon_dry_run or policy.approval_mode == "DRY_RUN":
+            reasons.append(SocialPublicationBlockingReasonRead(
+                code="DRY_RUN_ACTIVE",
+                message="Dry Run ist aktiv; echte Veröffentlichungen sind deaktiviert.",
+            ))
+        elif not settings.mastodon_access_token:
+            reasons.append(SocialPublicationBlockingReasonRead(
+                code="MASTODON_NOT_CONFIGURED",
+                message="Mastodon ist nicht für Veröffentlichungen konfiguriert.",
+            ))
+        else:
+            actions.append("APPROVE_AND_PUBLISH")
+    return actions, reasons
+
+
+def _serialize(
+    event: SocialPublicationOutbox,
+    name: str | None,
+    slug: str | None,
+    *,
+    settings: Settings,
+    policy: SocialPublishingSettings,
+) -> SocialPublicationItemRead:
     snapshot = event.payload.get("public_snapshot", {})
+    actions, reasons = _publication_actions(
+        event, slug=slug or snapshot.get("slug"), settings=settings, policy=policy
+    )
     return SocialPublicationItemRead(
         id=event.id, created_at=event.created_at, event_type=event.event_type,
         resource_type=event.resource_type, resource_id=event.resource_id,
@@ -80,10 +138,19 @@ def _serialize(event: SocialPublicationOutbox, name: str | None, slug: str | Non
         screenshot_ready=bool(event.screenshot_path or event.mastodon_media_id),
         screenshot_target_url=event.screenshot_target_url,
         screenshot_alt_text=event.screenshot_alt_text,
+        screenshot_status=(
+            "READY" if event.screenshot_path or event.mastodon_media_id
+            else "FAILED" if event.status == "FAILED" and (event.last_error or "").startswith("SCREENSHOT:")
+            else "PENDING"
+        ),
+        allowed_actions=actions,
+        blocking_reasons=reasons,
     )
 
 
 async def list_social_publications(session: AsyncSession, *, page: int, page_size: int, status: str | None = None) -> SocialPublicationListRead:
+    settings = get_settings()
+    policy = await get_social_settings(session, settings, create=False)
     filters = [SocialPublicationOutbox.status == status] if status else []
     total = int(await session.scalar(select(func.count(SocialPublicationOutbox.id)).where(*filters)) or 0)
     rows = (await session.execute(
@@ -105,12 +172,17 @@ async def list_social_publications(session: AsyncSession, *, page: int, page_siz
         .offset((page - 1) * page_size).limit(page_size)
     )).all()
     return SocialPublicationListRead(
-        items=[_serialize(event, name, slug) for event, name, slug in rows],
+        items=[
+            _serialize(event, name, slug, settings=settings, policy=policy)
+            for event, name, slug in rows
+        ],
         total=total, page=page, page_size=page_size, pages=page_count(total, page_size),
     )
 
 
 async def get_social_publication(session: AsyncSession, event_id: uuid.UUID) -> SocialPublicationItemRead | None:
+    settings = get_settings()
+    policy = await get_social_settings(session, settings, create=False)
     row = (await session.execute(
         select(
             SocialPublicationOutbox,
@@ -127,7 +199,7 @@ async def get_social_publication(session: AsyncSession, event_id: uuid.UUID) -> 
         ))
         .where(SocialPublicationOutbox.id == event_id)
     )).one_or_none()
-    return _serialize(*row) if row else None
+    return _serialize(*row, settings=settings, policy=policy) if row else None
 
 
 async def retry_social_publication(session: AsyncSession, event_id: uuid.UUID, actor: User) -> None:
@@ -250,18 +322,33 @@ async def approve_social_publication(
     event_id: uuid.UUID,
     actor: User,
     *,
-    alt_text: str,
+    alt_text: str | None,
 ) -> None:
     event = await session.get(SocialPublicationOutbox, event_id, with_for_update=True)
     if event is None:
         raise LookupError("Publication event not found")
+    if event.status in {"PENDING", "PROCESSING", "PUBLISHED"} and not event.payload.get(
+        "approval_required", False
+    ):
+        return
     if event.status != "PENDING_APPROVAL":
         raise ValueError("Only publications awaiting approval can be approved")
-    if not event.screenshot_path:
-        raise ValueError("Screenshot preview is not ready")
+    settings = get_settings()
+    policy = await get_social_settings(session, settings, create=False)
+    _, blocking_reasons = _publication_actions(
+        event, slug=None, settings=settings, policy=policy
+    )
+    if blocking_reasons:
+        raise ValueError(blocking_reasons[0].message)
     previous_alt_text = event.screenshot_alt_text
-    event.screenshot_alt_text = alt_text
-    event.payload = {**event.payload, "approval_required": False}
+    if alt_text:
+        event.screenshot_alt_text = alt_text
+    event.payload = {
+        **event.payload,
+        "approval_required": False,
+        "approved_by_user_id": str(actor.id),
+        "approved_at": datetime.now(UTC).isoformat(),
+    }
     event.status = "PENDING"
     event.next_attempt_at = datetime.now(UTC)
     session.add(AdminAuditLog(
@@ -272,7 +359,7 @@ async def approve_social_publication(
         event_metadata={
             "event_type": event.event_type,
             "publication_event_id": str(event.id),
-            "alt_text_changed": previous_alt_text != alt_text,
+            "alt_text_changed": bool(alt_text and previous_alt_text != alt_text),
         },
     ))
     await session.commit()

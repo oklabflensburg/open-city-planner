@@ -123,23 +123,26 @@
 
       <p v-if="error" class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800" role="alert">{{ error }}</p>
       <div v-if="items.length" class="mt-4 space-y-3">
-        <Card v-for="item in items" :key="item.id" class="p-5">
+        <Card v-for="item in items" :key="item.id" class="p-5" :aria-busy="actingId === item.id">
           <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2"><StatusBadge :tone="statusTone(item.status)">{{ statusLabel(item.status) }}</StatusBadge><span class="text-xs font-semibold text-slate-500">{{ formatDate(item.created_at) }}</span></div>
               <h3 class="mt-3 font-bold text-slate-950">{{ item.resource_name }}</h3>
-              <p class="mt-1 text-sm text-slate-600">{{ eventLabel(item.event_type) }} · {{ item.attempt_count }} {{ item.attempt_count === 1 ? 'Versuch' : 'Versuche' }}</p>
+              <p class="mt-1 text-sm text-slate-600">{{ eventLabel(item.event_type) }}<template v-if="item.attempt_count > 0"> · {{ item.attempt_count }} {{ item.attempt_count === 1 ? 'Versuch' : 'Versuche' }}</template></p>
               <p v-if="item.event_type === 'POLYGON_ADOPTED_FROM_OSM'" class="mt-1 text-sm font-semibold text-[#154d73]">OpenStreetMap → Stadtplaner</p>
               <p v-if="item.changed_fields.length" class="mt-1 text-sm text-slate-600">Öffentliche Felder: {{ item.changed_fields.join(', ') }}</p>
+              <p v-if="preparationHint(item)" class="mt-2 text-sm font-semibold text-[#154d73]" role="status">{{ preparationHint(item) }}</p>
+              <p v-for="reason in item.blocking_reasons || []" :key="reason.code" class="mt-2 text-sm font-semibold text-amber-800">{{ reason.message }}</p>
               <p v-if="item.last_error" class="mt-2 text-sm text-rose-800">{{ item.last_error }}</p>
+              <p v-if="actionErrors[item.id]" class="mt-2 text-sm font-semibold text-rose-800" role="alert">{{ actionErrors[item.id] }}</p>
             </div>
-            <div class="flex shrink-0 flex-wrap gap-2">
-              <Button v-if="!item.remote_url && item.status !== 'CANCELLED'" @click="openPreview(item)"><Eye class="size-4" /> Vorschau</Button>
-              <Button v-if="item.status === 'PENDING_APPROVAL'" :disabled="!item.screenshot_ready || actingId === item.id" @click="openApproval(item)"><Send class="size-4" /> Veröffentlichen</Button>
-              <Button v-if="['PENDING_APPROVAL', 'PENDING', 'FAILED'].includes(item.status)" @click="selectedCancel = item"><Ban class="size-4" /> Verwerfen</Button>
-              <a v-if="item.remote_url" :href="item.remote_url" target="_blank" rel="noopener noreferrer" class="page-button-secondary">Mastodon öffnen <ExternalLink class="size-4" /></a>
-              <NuxtLink v-if="item.resource_slug" class="page-button-secondary" :to="item.resource_type === 'USER_POLYGON' ? `/flaechen/${item.resource_slug}` : `/gebiete/${item.resource_slug}`">{{ item.resource_type === 'USER_POLYGON' ? 'Fläche' : 'Gebiet' }} öffnen</NuxtLink>
-              <Button v-if="item.status === 'FAILED'" @click="selectedRetry = item"><RotateCcw class="size-4" /> Erneut versuchen</Button>
+            <div class="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap" aria-label="Aktionen">
+              <Button v-if="allows(item, 'PREVIEW')" @click="openPreview(item)"><Eye class="size-4" /> Vorschau</Button>
+              <Button v-if="allows(item, 'APPROVE_AND_PUBLISH')" :disabled="actingId === item.id" @click="approveAndPublish(item)"><LoaderCircle v-if="actingId === item.id" class="size-4 animate-spin" /><Send v-else class="size-4" /> {{ actingId === item.id ? 'Wird veröffentlicht …' : 'Freigeben & veröffentlichen' }}</Button>
+              <Button v-if="allows(item, 'DISCARD')" :disabled="actingId === item.id" @click="selectedCancel = item"><Ban class="size-4" /> Verwerfen</Button>
+              <a v-if="allows(item, 'OPEN_REMOTE') && item.remote_url" :href="item.remote_url" target="_blank" rel="noopener noreferrer" class="page-button-secondary">Mastodon öffnen <ExternalLink class="size-4" /></a>
+              <NuxtLink v-if="allows(item, 'OPEN_RESOURCE') && item.resource_slug" class="page-button-secondary" :to="item.resource_type === 'USER_POLYGON' ? `/flaechen/${item.resource_slug}` : `/gebiete/${item.resource_slug}`">{{ item.resource_type === 'USER_POLYGON' ? 'Fläche' : 'Gebiet' }} öffnen</NuxtLink>
+              <Button v-if="allows(item, 'RETRY')" @click="selectedRetry = item"><RotateCcw class="size-4" /> Erneut versuchen</Button>
             </div>
           </div>
         </Card>
@@ -165,16 +168,11 @@
       @confirm="confirmRetry"
     />
     <AppConfirmDialog :open="Boolean(selectedCancel)" title="Veröffentlichung verwerfen?" body="Das Ereignis wird abgebrochen und nicht automatisch veröffentlicht. Die Historie bleibt erhalten." confirm-label="Verwerfen" variant="danger" :loading="Boolean(selectedCancel && actingId === selectedCancel.id)" @update:open="open => { if (!open) selectedCancel = null }" @cancel="selectedCancel = null" @confirm="confirmCancel" />
-    <AppModal :open="Boolean(selectedApprove)" title="Mastodon-Post freigeben?" description="Der vorbereitete Screenshot ist Pflicht. Seine Bildbeschreibung kann vor der Freigabe angepasst werden." @update:open="open => { if (!open) selectedApprove = null }">
-      <label class="block"><span class="field-label">Bildbeschreibung</span><textarea v-model="approvalAltText" class="field-input min-h-28" maxlength="1500" required /></label>
-      <p class="mt-2 text-xs text-slate-500">{{ approvalAltText.length }} / 1500 Zeichen</p>
-      <div class="mt-6 flex flex-wrap justify-end gap-3"><Button @click="selectedApprove = null">Abbrechen</Button><Button :disabled="!approvalAltText.trim() || Boolean(selectedApprove && actingId === selectedApprove.id)" @click="confirmApprove"><LoaderCircle v-if="selectedApprove && actingId === selectedApprove.id" class="size-4 animate-spin" /><Send v-else class="size-4" /> Veröffentlichen</Button></div>
-    </AppModal>
-    <AppModal :open="Boolean(previewData || previewLoading)" title="Mastodon Vorschau" description="Kontrollierter Text und Screenshot der öffentlichen Zielseite." size="lg" @update:open="open => { if (!open) previewData = null }">
+    <AppModal :open="Boolean(previewData || previewLoading)" title="Mastodon Vorschau" description="Kontrollierter Text und Screenshot der öffentlichen Zielseite." size="lg" @update:open="closePreview">
       <div v-if="previewLoading" class="grid h-64 place-items-center"><LoaderCircle class="size-8 animate-spin text-[#154d73]" /></div>
       <div v-else-if="previewData" class="grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
         <div><img v-if="previewData.screenshot_url" :src="previewImageUrl" crossorigin="use-credentials" :alt="previewData.alt_text" class="w-full rounded-xl border border-slate-200 bg-slate-100"><div v-else class="grid aspect-video place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600">Screenshot wird vom Publisher im Hintergrund vorbereitet.</div><p class="mt-3 text-sm"><strong>Bildbeschreibung:</strong> {{ previewData.alt_text }}</p></div>
-        <div><p class="whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800">{{ previewData.text }}</p><dl class="mt-4 space-y-2 text-sm"><div><dt class="font-bold">Eventtyp</dt><dd>{{ previewData.event_type }}</dd></div><div><dt class="font-bold">Ziel</dt><dd>{{ previewData.target_label }}</dd></div><div><dt class="font-bold">Ziel-URL</dt><dd class="break-all">{{ previewData.target_url }}</dd></div></dl></div>
+        <div><p class="whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800">{{ previewData.text }}</p><dl class="mt-4 space-y-2 text-sm"><div><dt class="font-bold">Eventtyp</dt><dd>{{ previewData.event_type }}</dd></div><div><dt class="font-bold">Ziel</dt><dd>{{ previewData.target_label }}</dd></div><div><dt class="font-bold">Ziel-URL</dt><dd class="break-all">{{ previewData.target_url }}</dd></div></dl><Button v-if="previewItem && allows(previewItem, 'APPROVE_AND_PUBLISH')" class="mt-6 w-full sm:w-auto" :disabled="actingId === previewItem.id" @click="approveFromPreview"><LoaderCircle v-if="actingId === previewItem.id" class="size-4 animate-spin" /><Send v-else class="size-4" /> Freigeben & veröffentlichen</Button></div>
       </div>
     </AppModal>
   </ContentPageShell>
@@ -182,7 +180,7 @@
 
 <script setup lang="ts">
 import { Ban, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, ExternalLink, Eye, LoaderCircle, RefreshCw, RotateCcw, Send } from 'lucide-vue-next'
-import type { SocialPublicationItem, SocialPublicationPreview, SocialPublicationStatus, SocialPublishingSettings, SocialPublishingSettingsPatch } from '~/types/admin'
+import type { SocialPublicationAction, SocialPublicationItem, SocialPublicationPreview, SocialPublicationStatus, SocialPublishingSettings, SocialPublishingSettingsPatch } from '~/types/admin'
 import { buildApiUrl } from '~/utils/apiUrl'
 
 definePageMeta({ middleware: 'superuser' })
@@ -194,21 +192,22 @@ const {
 } = useSocialPublishing()
 const selectedRetry = ref<SocialPublicationItem | null>(null)
 const selectedCancel = ref<SocialPublicationItem | null>(null)
-const selectedApprove = ref<SocialPublicationItem | null>(null)
-const approvalAltText = ref('')
 const retryError = ref('')
+const actionErrors = reactive<Record<string, string>>({})
 const settingsDraft = ref<SocialPublishingSettings | null>(null)
 const hashtagsInput = ref('')
 const hashtagError = ref('')
 const controlSavePending = ref(false)
 const hashtagSavePending = ref(false)
 const previewData = ref<SocialPublicationPreview | null>(null)
+const previewItem = ref<SocialPublicationItem | null>(null)
 const previewLoading = ref(false)
 const runtimeConfig = useRuntimeConfig()
 const CONTROL_SAVE_DELAY_MS = 100
 const TEXT_SAVE_DELAY_MS = 600
 let controlSaveTimer: ReturnType<typeof setTimeout> | undefined
 let hashtagSaveTimer: ReturnType<typeof setTimeout> | undefined
+let publicationRefreshTimer: ReturnType<typeof setInterval> | undefined
 let pendingControlPatch: SocialPublishingSettingsPatch = {}
 let settingsInitialized = false
 const statuses: SocialPublicationStatus[] = ['PENDING_APPROVAL', 'PENDING', 'PROCESSING', 'PUBLISHED', 'FAILED', 'CANCELLED', 'DRY_RUN']
@@ -249,10 +248,26 @@ const saveStatusLabel = computed(() => {
   return 'Gespeichert'
 })
 
-function statusLabel(value: SocialPublicationStatus) { return ({ PENDING_APPROVAL: 'Freigabe erforderlich', PENDING: 'Ausstehend', PROCESSING: 'Wird verarbeitet', PUBLISHED: 'Veröffentlicht', FAILED: 'Fehlgeschlagen', CANCELLED: 'Abgebrochen', DRY_RUN: 'Dry Run' })[value] }
+function statusLabel(value: SocialPublicationStatus) { return ({ PENDING_APPROVAL: 'Freigabe erforderlich', PENDING: 'Wird vorbereitet', PROCESSING: 'Wird veröffentlicht', PUBLISHED: 'Veröffentlicht', FAILED: 'Fehlgeschlagen', CANCELLED: 'Abgebrochen', DRY_RUN: 'Dry Run' })[value] }
 function statusTone(value: SocialPublicationStatus) { return ({ PENDING_APPROVAL: 'warning', PENDING: 'warning', PROCESSING: 'info', PUBLISHED: 'success', FAILED: 'danger', CANCELLED: 'neutral', DRY_RUN: 'info' } as const)[value] }
 function eventLabel(value: string) { return ({ AREA_CREATED: 'Gebiet erstellt', AREA_PUBLIC_DATA_UPDATED: 'Gebietsdaten aktualisiert', AREA_BOUNDARY_UPDATED: 'Gebietsgrenze aktualisiert', AREA_STATISTICS_UPDATED: 'Statistik aktualisiert', AREA_STATISTICS_BULK_UPDATED: 'Statistik-Sammelupdate', POLYGON_ADOPTED_FROM_OSM: 'Aus OSM übernommene Fläche' } as Record<string, string>)[value] || value }
 function formatDate(value: string) { return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
+function allows(item: SocialPublicationItem, actionName: SocialPublicationAction) {
+  if (item.allowed_actions) return item.allowed_actions.includes(actionName)
+  // Keep the admin usable during a rolling backend/frontend deployment.
+  return actionName === 'PREVIEW' ? !item.remote_url && item.status !== 'CANCELLED'
+    : actionName === 'APPROVE_AND_PUBLISH' ? item.status === 'PENDING_APPROVAL'
+      : actionName === 'DISCARD' ? ['PENDING_APPROVAL', 'PENDING', 'FAILED'].includes(item.status)
+        : actionName === 'OPEN_RESOURCE' ? Boolean(item.resource_slug)
+          : actionName === 'OPEN_REMOTE' ? Boolean(item.remote_url)
+            : actionName === 'RETRY' && item.status === 'FAILED'
+}
+function preparationHint(item: SocialPublicationItem) {
+  if (item.status === 'PROCESSING') return 'Screenshot und Veröffentlichung werden verarbeitet …'
+  if (item.status === 'PENDING') return item.screenshot_ready ? 'Zur Veröffentlichung eingeplant.' : 'Screenshot wird automatisch erstellt …'
+  if (item.status === 'PENDING_APPROVAL' && !item.screenshot_ready && allows(item, 'APPROVE_AND_PUBLISH')) return 'Der Pflicht-Screenshot wird nach der Freigabe automatisch erstellt.'
+  return ''
+}
 function filterChanged() { page.value = 1; void load() }
 function changePage(value: number) { page.value = value; void load() }
 async function confirmRetry() {
@@ -341,28 +356,44 @@ function retryAutosave() {
 }
 async function openPreview(item: SocialPublicationItem) {
   previewLoading.value = true
-  try { previewData.value = await preview(item) } finally { previewLoading.value = false }
-}
-async function openApproval(item: SocialPublicationItem) {
-  previewLoading.value = true
   try {
-    const publicationPreview = await preview(item)
-    approvalAltText.value = publicationPreview.alt_text
-    selectedApprove.value = item
+    previewItem.value = item
+    previewData.value = await preview(item)
   } finally { previewLoading.value = false }
+}
+function closePreview(open: boolean) {
+  if (open) return
+  previewData.value = null
+  previewItem.value = null
 }
 async function confirmCancel() {
   if (!selectedCancel.value) return
   await action(selectedCancel.value, 'cancel')
   selectedCancel.value = null
 }
-async function confirmApprove() {
-  if (!selectedApprove.value) return
-  await action(selectedApprove.value, 'approve', approvalAltText.value.trim())
-  selectedApprove.value = null
+async function approveAndPublish(item: SocialPublicationItem, altText?: string) {
+  delete actionErrors[item.id]
+  try {
+    await action(item, 'approve-and-publish', altText)
+    if (previewItem.value?.id === item.id) {
+      previewData.value = null
+      previewItem.value = null
+    }
+  } catch (caught) {
+    actionErrors[item.id] = caught instanceof Error ? caught.message : 'Veröffentlichung konnte nicht gestartet werden.'
+  }
+}
+async function approveFromPreview() {
+  if (!previewItem.value || !previewData.value) return
+  await approveAndPublish(previewItem.value, previewData.value.alt_text)
 }
 
-onMounted(load)
+onMounted(() => {
+  void load()
+  publicationRefreshTimer = setInterval(() => {
+    if (!loading.value && items.value.some(item => ['PENDING', 'PROCESSING'].includes(item.status))) void load()
+  }, 5000)
+})
 watch(settings, value => {
   if (!value || settingsInitialized) return
   settingsDraft.value = JSON.parse(JSON.stringify(value)) as SocialPublishingSettings
@@ -376,7 +407,10 @@ onBeforeRouteLeave(async () => {
   await flushSettingsSaves()
 })
 
-onBeforeUnmount(flushScheduledChanges)
+onBeforeUnmount(() => {
+  flushScheduledChanges()
+  if (publicationRefreshTimer) clearInterval(publicationRefreshTimer)
+})
 
 usePageSeo({ title: 'Social Publishing', description: 'Geschützte Mastodon-Verwaltung für Superuser.', path: '/admin/social', robots: 'noindex,nofollow', openGraph: false, twitter: false, structuredData: false })
 </script>

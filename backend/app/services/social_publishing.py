@@ -547,7 +547,10 @@ async def publish_due_events(
             event.content_hash = hashlib.sha256(text.encode()).hexdigest()
             target = screenshot_target(event, resource, settings, policy)
             event.screenshot_target_url = target.url
-            event.screenshot_alt_text = target.alt_text
+            # Preserve an alt text explicitly approved by a superuser. Direct
+            # approval before preparation leaves it empty and uses the safe,
+            # generated target description here.
+            event.screenshot_alt_text = event.screenshot_alt_text or target.alt_text
             if not event.screenshot_path:
                 event.screenshot_path = await screenshots.capture(
                     event.id,

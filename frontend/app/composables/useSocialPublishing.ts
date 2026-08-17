@@ -78,12 +78,12 @@ export function useSocialPublishing() {
     return await request<SocialPublicationPreview>(`/admin/social/publications/${item.id}/preview`)
   }
 
-  async function action(item: SocialPublicationItem, name: 'approve' | 'cancel', altText?: string) {
+  async function action(item: SocialPublicationItem, name: 'approve-and-publish' | 'cancel', altText?: string) {
     actingId.value = item.id
     try {
       await request(`/admin/social/publications/${item.id}/${name}`, {
         method: 'POST',
-        ...(name === 'approve' ? { body: JSON.stringify({ alt_text: altText }) } : {})
+        ...(name === 'approve-and-publish' ? { body: JSON.stringify({ alt_text: altText }) } : {})
       })
       await load()
     } finally { actingId.value = '' }

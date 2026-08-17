@@ -23,6 +23,26 @@ class MastodonAdminStatusRead(BaseModel):
     screenshots_required: bool = True
 
 
+SocialPublicationAction = Literal[
+    "PREVIEW",
+    "APPROVE_AND_PUBLISH",
+    "DISCARD",
+    "OPEN_RESOURCE",
+    "OPEN_REMOTE",
+    "RETRY",
+]
+
+
+class SocialPublicationBlockingReasonRead(BaseModel):
+    code: Literal[
+        "PUBLISHING_PAUSED",
+        "PUBLISHING_DISABLED",
+        "DRY_RUN_ACTIVE",
+        "MASTODON_NOT_CONFIGURED",
+    ]
+    message: str
+
+
 class SocialPublicationItemRead(BaseModel):
     id: UUID
     created_at: datetime
@@ -42,6 +62,9 @@ class SocialPublicationItemRead(BaseModel):
     screenshot_ready: bool = False
     screenshot_target_url: str | None = None
     screenshot_alt_text: str | None = None
+    screenshot_status: Literal["PENDING", "READY", "FAILED"] = "PENDING"
+    allowed_actions: list[SocialPublicationAction] = Field(default_factory=list)
+    blocking_reasons: list[SocialPublicationBlockingReasonRead] = Field(default_factory=list)
 
 
 class SocialPublicationListRead(BaseModel):
@@ -141,6 +164,18 @@ class SocialPublicationApprovalUpdate(BaseModel):
         if not cleaned:
             raise ValueError("Die Bildbeschreibung darf nicht leer sein")
         return cleaned
+
+
+class SocialPublicationApproveAndPublishUpdate(BaseModel):
+    alt_text: str | None = Field(default=None, max_length=1500)
+
+    @field_validator("alt_text")
+    @classmethod
+    def validate_alt_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = " ".join(value.split())
+        return cleaned or None
 
 
 class PublicAdoptedPolygonSnapshot(BaseModel):

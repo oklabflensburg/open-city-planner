@@ -86,6 +86,12 @@ export interface MastodonAdminStatus {
 }
 
 export type SocialPublicationStatus = 'PENDING_APPROVAL' | 'PENDING' | 'PROCESSING' | 'PUBLISHED' | 'FAILED' | 'CANCELLED' | 'DRY_RUN'
+export type SocialPublicationAction = 'PREVIEW' | 'APPROVE_AND_PUBLISH' | 'DISCARD' | 'OPEN_RESOURCE' | 'OPEN_REMOTE' | 'RETRY'
+
+export interface SocialPublicationBlockingReason {
+  code: 'PUBLISHING_PAUSED' | 'PUBLISHING_DISABLED' | 'DRY_RUN_ACTIVE' | 'MASTODON_NOT_CONFIGURED'
+  message: string
+}
 
 export interface SocialPublicationItem {
   id: string
@@ -106,6 +112,9 @@ export interface SocialPublicationItem {
   screenshot_ready: boolean
   screenshot_target_url: string | null
   screenshot_alt_text: string | null
+  screenshot_status: 'PENDING' | 'READY' | 'FAILED'
+  allowed_actions: SocialPublicationAction[]
+  blocking_reasons: SocialPublicationBlockingReason[]
 }
 
 export interface SocialPublicationPage {

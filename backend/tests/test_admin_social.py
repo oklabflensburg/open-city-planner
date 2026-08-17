@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -9,15 +10,22 @@ from pydantic import ValidationError
 import app.api.admin as admin_api
 import app.services.admin_social as admin_social_service
 from app.auth.jwt import create_jwt
+from app.core.config import Settings
 from app.db.session import get_session
 from app.main import app
+from app.models.social_publication import SocialPublicationOutbox
 from app.models.user import User
 from app.schemas.social import (
     MastodonAdminStatusRead,
     SocialPublishingSettingsRead,
     SocialPublishingSettingsUpdate,
 )
-from app.services.admin_social import update_social_settings
+from app.services.admin_social import (
+    _publication_actions,
+    approve_social_publication,
+    update_social_settings,
+)
+from app.services.social_policy import default_social_settings
 
 
 class AuthSession:
@@ -105,7 +113,113 @@ def test_openapi_documents_superuser_only_social_endpoints() -> None:
     assert paths["/api/v1/admin/social/settings"]["patch"]["security"]
     assert "/api/v1/admin/social/publications/{event_id}/preview" in paths
     assert "/api/v1/admin/social/publications/{event_id}/approve" in paths
+    assert "/api/v1/admin/social/publications/{event_id}/approve-and-publish" in paths
     assert "/api/v1/admin/social/publications/{event_id}/cancel" in paths
+
+
+def social_runtime_settings(**overrides: object) -> Settings:
+    values: dict[str, object] = {
+        "mastodon_enabled": True,
+        "mastodon_access_token": "test-token",
+    }
+    values.update(overrides)
+    return Settings(_env_file=None, **values)
+
+
+def pending_approval_event() -> SocialPublicationOutbox:
+    return SocialPublicationOutbox(
+        id=uuid.uuid4(),
+        event_type="AREA_CREATED",
+        resource_type="ANALYSIS_AREA",
+        resource_id=uuid.uuid4(),
+        payload={"approval_required": True},
+        status="PENDING_APPROVAL",
+        attempt_count=0,
+        next_attempt_at=datetime.now(UTC),
+        screenshot_path=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_approve_and_publish_does_not_require_a_prepared_screenshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    event = pending_approval_event()
+    actor = user(superuser=True)
+    env = social_runtime_settings()
+    policy = default_social_settings(env)
+    policy.approval_mode = "MANUAL"
+    session = MagicMock()
+    session.get = AsyncMock(return_value=event)
+    session.commit = AsyncMock()
+
+    async def fake_policy(*_args: object, **_kwargs: object) -> object:
+        return policy
+
+    monkeypatch.setattr(admin_social_service, "get_settings", lambda: env)
+    monkeypatch.setattr(admin_social_service, "get_social_settings", fake_policy)
+
+    await approve_social_publication(session, event.id, actor, alt_text=None)
+    await approve_social_publication(session, event.id, actor, alt_text=None)
+
+    assert event.status == "PENDING"
+    assert event.screenshot_path is None
+    assert event.payload["approval_required"] is False
+    assert event.payload["approved_by_user_id"] == str(actor.id)
+    approval_audits = [
+        added
+        for added in (call.args[0] for call in session.add.call_args_list)
+        if added.action == "MASTODON_PUBLICATION_APPROVED"
+    ]
+    assert len(approval_audits) == 1
+
+
+def test_backend_policy_allows_direct_approval_and_explains_paused_state() -> None:
+    event = pending_approval_event()
+    env = social_runtime_settings()
+    policy = default_social_settings(env)
+    policy.approval_mode = "MANUAL"
+
+    actions, reasons = _publication_actions(
+        event, slug="innenstadt", settings=env, policy=policy
+    )
+    assert "APPROVE_AND_PUBLISH" in actions
+    assert reasons == []
+
+    policy.enabled = False
+    actions, reasons = _publication_actions(
+        event, slug="innenstadt", settings=env, policy=policy
+    )
+    assert "APPROVE_AND_PUBLISH" not in actions
+    assert [(reason.code, reason.message) for reason in reasons] == [
+        ("PUBLISHING_PAUSED", "Social Publishing ist pausiert.")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_approve_and_publish_endpoint_rejects_normal_users() -> None:
+    actor = user()
+
+    async def override_session():
+        yield AuthSession(actor)
+
+    app.dependency_overrides[get_session] = override_session
+    try:
+        cookies = {**access_cookie(actor), "ocm_csrf_token": "csrf-token"}
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            cookies=cookies,
+            headers={"x-csrf-token": "csrf-token"},
+        ) as client:
+            response = await client.post(
+                f"/api/v1/admin/social/publications/{uuid.uuid4()}/approve-and-publish",
+                json={},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

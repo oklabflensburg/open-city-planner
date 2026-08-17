@@ -23,6 +23,7 @@ from app.schemas.admin import (
 from app.schemas.social import (
     MastodonAdminStatusRead,
     SocialPublicationApprovalUpdate,
+    SocialPublicationApproveAndPublishUpdate,
     SocialPublicationItemRead,
     SocialPublicationListRead,
     SocialPublicationPreviewRead,
@@ -181,6 +182,28 @@ async def approve_social_publication_admin(
     session: SessionDep,
     actor: Annotated[User, Depends(require_csrf_superuser)],
 ) -> SocialPublicationItemRead:
+    private_no_store(response)
+    try:
+        await approve_social_publication(session, event_id, actor, alt_text=payload.alt_text)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return await _publication_action_result(session, event_id)
+
+
+@router.post(
+    "/social/publications/{event_id}/approve-and-publish",
+    response_model=SocialPublicationItemRead,
+)
+async def approve_and_publish_social_publication_admin(
+    event_id: uuid.UUID,
+    payload: SocialPublicationApproveAndPublishUpdate,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> SocialPublicationItemRead:
+    """Approve one publication and enqueue screenshot generation and delivery."""
     private_no_store(response)
     try:
         await approve_social_publication(session, event_id, actor, alt_text=payload.alt_text)
