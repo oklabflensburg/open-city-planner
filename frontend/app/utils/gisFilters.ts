@@ -31,7 +31,7 @@ export const BUSINESS_STRUCTURE_OPTIONS: ReadonlyArray<{ value: BusinessStructur
 ]
 
 export const DATA_SOURCE_OPTIONS: ReadonlyArray<{ value: GisDataSource, label: string, description: string }> = [
-  { value: 'STADTPLANNER', label: 'Stadtplanner', description: 'Fachlich gepflegte Stadtplanner-Flächen' },
+  { value: 'STADTPLANNER', label: 'Stadtplaner', description: 'Fachlich gepflegte Stadtplaner-Flächen' },
   { value: 'OSM', label: 'OpenStreetMap', description: 'Passende lokale OpenStreetMap-Objekte' }
 ]
 

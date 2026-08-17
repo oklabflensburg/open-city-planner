@@ -87,6 +87,22 @@
         </Card>
 
         <Card class="p-5 sm:p-6">
+          <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0">
+              <h2 class="text-xl font-bold text-slate-950">Neue aus OSM übernommene Flächen</h2>
+              <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">Erzeugt genau beim erfolgreichen, bewussten OSM-Import einen einmaligen Post. Spätere Autosaves oder Bearbeitungen lösen keinen weiteren Post aus.</p>
+            </div>
+            <label class="inline-flex min-h-11 shrink-0 items-center gap-3">
+              <span class="sr-only">Aus OpenStreetMap übernommene Flächen veröffentlichen</span>
+              <input :checked="polygonAdoptionEnabled" type="checkbox" role="switch" :aria-checked="polygonAdoptionEnabled" aria-describedby="polygon-adoption-help" class="size-5 accent-[#154d73]" @change="togglePolygonAdoption">
+              <span class="font-bold">{{ polygonAdoptionEnabled ? 'AN' : 'AUS' }}</span>
+            </label>
+          </div>
+          <p id="polygon-adoption-help" class="sr-only">Veröffentlicht nur künftig bewusst in Stadtplaner übernommene OpenStreetMap-Flächen.</p>
+          <label class="mt-5 block max-w-xl min-w-0"><span class="field-label">Ziel des Beitrags</span><select v-model="settingsDraft.polygon_osm_adoption_link_target" class="field-input disabled:cursor-not-allowed disabled:bg-slate-100" :disabled="!polygonAdoptionEnabled" aria-describedby="polygon-link-help" @change="scheduleControlPatch({ polygon_osm_adoption_link_target: settingsDraft.polygon_osm_adoption_link_target })"><option value="DETAIL_PAGE">Öffentliche Flächendetailseite</option><option value="GIS">GIS-Karte mit ausgewählter Fläche</option></select><span id="polygon-link-help" class="mt-1 block text-xs leading-5 text-slate-500">Der Pflicht-Screenshot verwendet denselben öffentlichen Zielkontext.</span></label>
+        </Card>
+
+        <Card class="p-5 sm:p-6">
           <h2 class="text-xl font-bold text-slate-950">Screenshot-Einstellungen</h2>
           <div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <label class="min-w-0"><span class="field-label">Format</span><select v-model="settingsDraft.screenshot_viewport" class="field-input" @change="scheduleControlPatch({ screenshot_viewport: settingsDraft.screenshot_viewport })"><option value="LANDSCAPE_16_9">1200 × 675 (16:9)</option><option value="LANDSCAPE_OG">1200 × 630</option><option value="SQUARE">1080 × 1080</option></select></label>
@@ -113,6 +129,7 @@
               <div class="flex flex-wrap items-center gap-2"><StatusBadge :tone="statusTone(item.status)">{{ statusLabel(item.status) }}</StatusBadge><span class="text-xs font-semibold text-slate-500">{{ formatDate(item.created_at) }}</span></div>
               <h3 class="mt-3 font-bold text-slate-950">{{ item.resource_name }}</h3>
               <p class="mt-1 text-sm text-slate-600">{{ eventLabel(item.event_type) }} · {{ item.attempt_count }} {{ item.attempt_count === 1 ? 'Versuch' : 'Versuche' }}</p>
+              <p v-if="item.event_type === 'POLYGON_ADOPTED_FROM_OSM'" class="mt-1 text-sm font-semibold text-[#154d73]">OpenStreetMap → Stadtplaner</p>
               <p v-if="item.changed_fields.length" class="mt-1 text-sm text-slate-600">Öffentliche Felder: {{ item.changed_fields.join(', ') }}</p>
               <p v-if="item.last_error" class="mt-2 text-sm text-rose-800">{{ item.last_error }}</p>
             </div>
@@ -121,7 +138,7 @@
               <Button v-if="item.status === 'PENDING_APPROVAL'" :disabled="!item.screenshot_ready || actingId === item.id" @click="openApproval(item)"><Send class="size-4" /> Veröffentlichen</Button>
               <Button v-if="['PENDING_APPROVAL', 'PENDING', 'FAILED'].includes(item.status)" @click="selectedCancel = item"><Ban class="size-4" /> Verwerfen</Button>
               <a v-if="item.remote_url" :href="item.remote_url" target="_blank" rel="noopener noreferrer" class="page-button-secondary">Mastodon öffnen <ExternalLink class="size-4" /></a>
-              <NuxtLink v-if="item.resource_slug" class="page-button-secondary" :to="`/gebiete/${item.resource_slug}`">Gebiet öffnen</NuxtLink>
+              <NuxtLink v-if="item.resource_slug" class="page-button-secondary" :to="item.resource_type === 'USER_POLYGON' ? `/flaechen/${item.resource_slug}` : `/gebiete/${item.resource_slug}`">{{ item.resource_type === 'USER_POLYGON' ? 'Fläche' : 'Gebiet' }} öffnen</NuxtLink>
               <Button v-if="item.status === 'FAILED'" @click="selectedRetry = item"><RotateCcw class="size-4" /> Erneut versuchen</Button>
             </div>
           </div>
@@ -157,7 +174,7 @@
       <div v-if="previewLoading" class="grid h-64 place-items-center"><LoaderCircle class="size-8 animate-spin text-[#154d73]" /></div>
       <div v-else-if="previewData" class="grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
         <div><img v-if="previewData.screenshot_url" :src="previewImageUrl" crossorigin="use-credentials" :alt="previewData.alt_text" class="w-full rounded-xl border border-slate-200 bg-slate-100"><div v-else class="grid aspect-video place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600">Screenshot wird vom Publisher im Hintergrund vorbereitet.</div><p class="mt-3 text-sm"><strong>Bildbeschreibung:</strong> {{ previewData.alt_text }}</p></div>
-        <div><p class="whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800">{{ previewData.text }}</p><dl class="mt-4 space-y-2 text-sm"><div><dt class="font-bold">Eventtyp</dt><dd>{{ previewData.event_type }}</dd></div><div><dt class="font-bold">Ziel-URL</dt><dd class="break-all">{{ previewData.target_url }}</dd></div></dl></div>
+        <div><p class="whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-800">{{ previewData.text }}</p><dl class="mt-4 space-y-2 text-sm"><div><dt class="font-bold">Eventtyp</dt><dd>{{ previewData.event_type }}</dd></div><div><dt class="font-bold">Ziel</dt><dd>{{ previewData.target_label }}</dd></div><div><dt class="font-bold">Ziel-URL</dt><dd class="break-all">{{ previewData.target_url }}</dd></div></dl></div>
       </div>
     </AppModal>
   </ContentPageShell>
@@ -206,12 +223,14 @@ const screenshotOptions: Array<{ key: 'screenshot_show_map' | 'screenshot_show_f
 const topicGroups = computed(() => {
   const groups = new Map<string, { topic: string, label: string, events: SocialPublishingSettings['registry'] }>()
   for (const event of settingsDraft.value?.registry || []) {
+    if (event.event_type === 'POLYGON_ADOPTED_FROM_OSM') continue
     const group = groups.get(event.topic) || { topic: event.topic, label: event.topic_label, events: [] }
     group.events.push(event)
     groups.set(event.topic, group)
   }
   return [...groups.values()]
 })
+const polygonAdoptionEnabled = computed(() => settingsDraft.value?.enabled_events.includes('POLYGON_ADOPTED_FROM_OSM') || false)
 const previewImageUrl = computed(() => previewData.value?.screenshot_url ? buildApiUrl(runtimeConfig.public.apiBaseUrl, previewData.value.screenshot_url.replace(/^\/api\/v1/, '')) : '')
 const metrics = computed(() => [
   { label: 'Offene Posts', value: mastodonStatus.value?.pending || 0 },
@@ -232,7 +251,7 @@ const saveStatusLabel = computed(() => {
 
 function statusLabel(value: SocialPublicationStatus) { return ({ PENDING_APPROVAL: 'Freigabe erforderlich', PENDING: 'Ausstehend', PROCESSING: 'Wird verarbeitet', PUBLISHED: 'Veröffentlicht', FAILED: 'Fehlgeschlagen', CANCELLED: 'Abgebrochen', DRY_RUN: 'Dry Run' })[value] }
 function statusTone(value: SocialPublicationStatus) { return ({ PENDING_APPROVAL: 'warning', PENDING: 'warning', PROCESSING: 'info', PUBLISHED: 'success', FAILED: 'danger', CANCELLED: 'neutral', DRY_RUN: 'info' } as const)[value] }
-function eventLabel(value: string) { return ({ AREA_CREATED: 'Gebiet erstellt', AREA_PUBLIC_DATA_UPDATED: 'Gebietsdaten aktualisiert', AREA_BOUNDARY_UPDATED: 'Gebietsgrenze aktualisiert', AREA_STATISTICS_UPDATED: 'Statistik aktualisiert', AREA_STATISTICS_BULK_UPDATED: 'Statistik-Sammelupdate' } as Record<string, string>)[value] || value }
+function eventLabel(value: string) { return ({ AREA_CREATED: 'Gebiet erstellt', AREA_PUBLIC_DATA_UPDATED: 'Gebietsdaten aktualisiert', AREA_BOUNDARY_UPDATED: 'Gebietsgrenze aktualisiert', AREA_STATISTICS_UPDATED: 'Statistik aktualisiert', AREA_STATISTICS_BULK_UPDATED: 'Statistik-Sammelupdate', POLYGON_ADOPTED_FROM_OSM: 'Aus OSM übernommene Fläche' } as Record<string, string>)[value] || value }
 function formatDate(value: string) { return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
 function filterChanged() { page.value = 1; void load() }
 function changePage(value: number) { page.value = value; void load() }
@@ -248,6 +267,10 @@ function toggleEvent(eventType: string) {
   enabled.has(eventType) ? enabled.delete(eventType) : enabled.add(eventType)
   settingsDraft.value.enabled_events = [...enabled]
   scheduleControlPatch({ enabled_events: [...settingsDraft.value.enabled_events] })
+}
+
+function togglePolygonAdoption() {
+  toggleEvent('POLYGON_ADOPTED_FROM_OSM')
 }
 
 function saveMasterSwitch() {

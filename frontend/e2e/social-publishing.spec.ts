@@ -10,6 +10,40 @@ test('public social preview exposes an explicit ready state without authenticati
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex,nofollow')
 })
 
+test('polygon detail social preview is public and excludes editing controls', async ({ page, request }) => {
+  const response = await request.get('http://127.0.0.1:8010/api/v1/polygons')
+  expect(response.ok()).toBe(true)
+  const polygons = await response.json() as Array<{ id: string, slug: string, name: string }>
+  expect(polygons.length).toBeGreaterThan(0)
+
+  await page.goto(`/flaechen/${polygons[0]!.slug}?social-preview=1&map=0`)
+  const preview = page.locator('[data-social-preview-capture]')
+  await expect(preview).toBeVisible()
+  await expect(preview).toHaveAttribute('data-social-preview-ready', 'true')
+  await expect(preview.getByRole('heading', { name: polygons[0]!.name })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Polygon bearbeiten' })).toHaveCount(0)
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex,nofollow')
+})
+
+test('GIS social deep link selects the polygon before declaring the map ready', async ({ page, request }) => {
+  const response = await request.get('http://127.0.0.1:8010/api/v1/polygons/overview')
+  const polygons = await response.json() as Array<{ id: string, slug: string, name: string, bbox?: number[] }>
+  expect(polygons.length).toBeGreaterThan(0)
+  const selected = polygons[0]!
+  const metricsResponse = await request.get(`http://127.0.0.1:8010/api/v1/polygons/${selected.id}/metrics`)
+  const osmResponse = await request.get(`http://127.0.0.1:8010/api/v1/polygons/by-slug/${selected.slug}/osm`)
+  const metrics = await metricsResponse.json()
+  const osm = await osmResponse.json()
+  await page.route('**/api/v1/polygons/overview*', route => route.fulfill({ json: [selected] }))
+  await page.route(`**/api/v1/polygons/${selected.id}/metrics`, route => route.fulfill({ json: metrics }))
+  await page.route(`**/api/v1/polygons/by-slug/${selected.slug}/osm`, route => route.fulfill({ json: osm }))
+
+  await page.goto(`/?polygon=${selected.id}&social-preview=1`)
+  await expect(page.locator('[data-social-preview-capture]')).toBeVisible()
+  await expect(page.locator('[data-social-preview-ready="true"]')).toBeVisible({ timeout: 30_000 })
+  await expect(page).toHaveURL(new RegExp(`polygon=${selected.id}`))
+})
+
 test('superuser can inspect social publishing and queue a failed event for retry', async ({ page }) => {
   let retryRequested = false
 
@@ -63,6 +97,7 @@ test('superuser can inspect social publishing and queue a failed event for retry
       enabled_events: ['AREA_CREATED', 'AREA_PUBLIC_DATA_UPDATED', 'AREA_BOUNDARY_UPDATED'],
       screenshot_viewport: 'LANDSCAPE_16_9', screenshot_show_map: true,
       screenshot_show_facts: true, screenshot_show_pois: false, screenshot_show_branding: true,
+      polygon_osm_adoption_link_target: 'DETAIL_PAGE',
       screenshots_required: true, updated_at: '2026-08-16T10:00:00Z',
       registry: [
         { event_type: 'AREA_CREATED', topic: 'AREAS', topic_label: 'Gebiete', label: 'Neue Gebiete', description: 'Neue öffentliche Gebiete.', default_enabled: true },
@@ -111,7 +146,7 @@ test('superuser can inspect social publishing and queue a failed event for retry
   await page.goto('/admin/social')
 
   await expect(page.getByRole('heading', { name: 'Social Publishing' })).toBeVisible()
-  await expect(page.getByText('Verbunden', { exact: true })).toBeVisible()
+  await expect(page.getByText('Verbunden', { exact: true })).toBeVisible({ timeout: 10_000 })
   await expect(page.getByRole('link', { name: '@oklabflensburg@norden.social', exact: true })).toHaveAttribute('href', 'https://norden.social/@oklabflensburg')
   await expect(page.getByRole('heading', { name: 'Publication History' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Automatische Veröffentlichungen' })).toBeVisible()

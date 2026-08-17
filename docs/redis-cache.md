@@ -109,10 +109,10 @@ Redis darf nicht öffentlich auf `0.0.0.0:6379` angeboten oder über Nginx weite
 Da Redis nur Cache ist, darf ein Neustart alle Schlüssel verlieren. AOF/RDB ist fachlich nicht erforderlich. Relevante Diagnosebefehle sind `redis-cli INFO memory`, `redis-cli INFO stats` und `redis-cli DBSIZE`.
 # Mutationen und GIS-Invalidierung
 
-CREATE, UPDATE und DELETE einer Stadtplanner-Fläche erhöhen gemeinsam die
+CREATE, UPDATE und DELETE einer Stadtplaner-Fläche erhöhen gemeinsam die
 DB-gestützten Versionen `polygons`, `analytics` und `osm`. Dadurch werden alte
 Redis-Einträge für Polygonlisten, Kennzahlen und OSM-Deduplizierung nicht erneut
 gelesen. Die Versionserhöhung und die Polygonmutation werden in derselben
 Datenbanktransaktion committed. Beim Löschen bleiben die OSM-Rohdaten erhalten; nur
-die verknüpfende Stadtplanner-Entität fällt per Fremdschlüssel-Kaskade weg, sodass das
+die verknüpfende Stadtplaner-Entität fällt per Fremdschlüssel-Kaskade weg, sodass das
 öffentliche OSM-Objekt nach der nächsten Viewport-Abfrage wieder erscheinen kann.

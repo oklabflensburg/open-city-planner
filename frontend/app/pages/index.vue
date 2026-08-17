@@ -24,4 +24,5 @@ usePageSeo({
     description
   }
 })
+if (useRoute().query['social-preview'] === '1') useSeoMeta({ robots: 'noindex,nofollow' })
 </script>

@@ -399,7 +399,10 @@ async def delete_polygon(
     polygon: UserPolygon,
     deleted_by_user_id: uuid.UUID,
 ) -> None:
+    from app.services.social_publishing import cancel_pending_polygon_publications
+
     polygon_id = polygon.uuid
+    await cancel_pending_polygon_publications(session, polygon_id)
     session.add(AdminAuditLog(
         actor_user_id=deleted_by_user_id,
         action="POLYGON_DELETED",

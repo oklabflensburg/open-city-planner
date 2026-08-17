@@ -34,6 +34,6 @@ function combinedCount(category: IndustryKey) {
 }
 
 function countDescription(category: IndustryKey) {
-  return `${analytics.categoryCounts[category] || 0} Stadtplanner · ${osm.data?.meta.canonical_facets?.[category] || 0} OpenStreetMap im Ausschnitt`
+  return `${analytics.categoryCounts[category] || 0} Stadtplaner · ${osm.data?.meta.canonical_facets?.[category] || 0} OpenStreetMap im Ausschnitt`
 }
 </script>

@@ -10,6 +10,7 @@ from PIL import Image, ImageOps
 from app.core.config import Settings
 from app.models.analysis_area import AnalysisArea
 from app.models.social_publication import SocialPublicationOutbox, SocialPublishingSettings
+from app.models.user_polygon import UserPolygon
 from app.services.social_policy import VIEWPORTS
 
 
@@ -27,24 +28,41 @@ class ScreenshotTarget:
 
 def screenshot_target(
     event: SocialPublicationOutbox,
-    area: AnalysisArea | None,
+    resource: AnalysisArea | UserPolygon | None,
     env: Settings,
     policy: SocialPublishingSettings,
 ) -> ScreenshotTarget:
     base = env.app_base_url.rstrip("/")
     if event.resource_type == "ANALYSIS_AREA":
-        if area is None:
+        if not isinstance(resource, AnalysisArea):
             raise ScreenshotError("Die öffentliche Gebietsseite existiert nicht mehr.", retryable=False)
-        path = f"/gebiete/{area.slug}"
+        path = f"/gebiete/{resource.slug}"
         type_label = {
             "MUNICIPALITY": "Gemeinde",
             "DISTRICT": "Stadtteil",
             "QUARTER": "Quartier",
-        }.get(area.area_type, "Gebiet")
+        }.get(resource.area_type, "Gebiet")
         alt = (
-            f"Screenshot der öffentlichen Stadtplaner-Gebietsseite „{area.name}“ in "
+            f"Screenshot der öffentlichen Stadtplaner-Gebietsseite „{resource.name}“ in "
             f"Flensburg mit Karte des {type_label.lower()}s und öffentlichen Kennzahlen."
         )
+    elif event.resource_type == "USER_POLYGON":
+        if not isinstance(resource, UserPolygon):
+            raise ScreenshotError("Die öffentliche Flächenseite existiert nicht mehr.", retryable=False)
+        if policy.polygon_osm_adoption_link_target == "GIS":
+            path = "/"
+            polygon_query = str(resource.uuid)
+            alt = (
+                f"Kartenausschnitt des Stadtplaners mit der ausgewählten, aus OpenStreetMap "
+                f"übernommenen Fläche „{resource.name}“ in Flensburg."
+            )
+        else:
+            path = f"/flaechen/{resource.slug}"
+            polygon_query = None
+            alt = (
+                f"Screenshot der öffentlichen Stadtplaner-Flächenseite „{resource.name}“ "
+                f"in Flensburg mit Lage, Kategorie und öffentlichen Flächendaten."
+            )
     elif event.resource_type == "ANALYSIS_AREA_COLLECTION":
         path = "/gebiete"
         alt = (
@@ -53,13 +71,16 @@ def screenshot_target(
         )
     else:
         raise ScreenshotError("Für diesen Eventtyp ist kein Screenshot-Ziel freigegeben.", retryable=False)
-    query = urlencode({
+    query_values = {
         "social-preview": "1",
         "map": int(policy.screenshot_show_map),
         "facts": int(policy.screenshot_show_facts),
         "pois": int(policy.screenshot_show_pois),
         "branding": int(policy.screenshot_show_branding),
-    })
+    }
+    if event.resource_type == "USER_POLYGON" and polygon_query:
+        query_values["polygon"] = polygon_query
+    query = urlencode(query_values)
     return ScreenshotTarget(url=f"{base}{path}?{query}", alt_text=alt[:1500])
 
 
@@ -76,7 +97,11 @@ class ScreenshotService:
         if (
             candidate.scheme not in {"http", "https"}
             or (candidate.scheme, candidate.netloc) != (expected.scheme, expected.netloc)
-            or not (candidate.path == "/gebiete" or candidate.path.startswith("/gebiete/"))
+            or not (
+                candidate.path in {"/", "/gebiete"}
+                or candidate.path.startswith("/gebiete/")
+                or candidate.path.startswith("/flaechen/")
+            )
             or candidate.username
             or candidate.password
         ):

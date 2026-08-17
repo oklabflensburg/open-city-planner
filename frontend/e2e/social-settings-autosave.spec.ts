@@ -39,6 +39,7 @@ function initialSettings() {
     screenshot_show_facts: true,
     screenshot_show_pois: false,
     screenshot_show_branding: true,
+    polygon_osm_adoption_link_target: 'DETAIL_PAGE',
     screenshots_required: true,
     registry,
     updated_at: '2026-08-16T10:00:00Z'
@@ -148,6 +149,45 @@ test('master switch saves immediately without a global save button and survives 
   await page.reload()
   await expect(page.getByRole('switch', { name: 'Automatische Veröffentlichungen' })).not.toBeChecked()
   expect(controller.patchAttempts).toBe(1)
+})
+
+test('OSM adoption toggle and link target autosave and survive reload', async ({ page }) => {
+  const controller = await mockSocialSettings(page)
+  await page.goto('/admin/social')
+
+  const adoption = page.getByRole('switch', { name: 'Aus OpenStreetMap übernommene Flächen veröffentlichen' })
+  const target = page.getByLabel('Ziel des Beitrags')
+  await expect(adoption).not.toBeChecked()
+  await expect(target).toBeDisabled()
+
+  await adoption.click()
+  await expect(target).toBeEnabled()
+  await expect.poll(() => controller.state.enabled_events).toContain('POLYGON_ADOPTED_FROM_OSM')
+  await target.selectOption('GIS')
+  await expect.poll(() => controller.state.polygon_osm_adoption_link_target).toBe('GIS')
+  await expect(page.getByText('Gespeichert', { exact: true })).toBeVisible()
+
+  await page.reload()
+  await expect(adoption).toBeChecked()
+  await expect(target).toHaveValue('GIS')
+  expect(controller.patches).toContainEqual({ enabled_events: ['AREA_CREATED', 'AREA_PUBLIC_DATA_UPDATED', 'POLYGON_ADOPTED_FROM_OSM'] })
+  expect(controller.patches).toContainEqual({ polygon_osm_adoption_link_target: 'GIS' })
+})
+
+test('OSM adoption controls do not overflow supported admin widths', async ({ page }) => {
+  await mockSocialSettings(page)
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/admin/social')
+    const heading = page.getByRole('heading', { name: 'Neue aus OSM übernommene Flächen' })
+    await heading.scrollIntoViewIfNeeded()
+    const card = heading.locator('xpath=ancestor::div[contains(@class,"p-5")][1]')
+    expect(await card.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    const bounds = await card.boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(bounds!.x).toBeGreaterThanOrEqual(0)
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+  }
 })
 
 test('hashtags save once after 600ms and preserve focus, scroll and mobile width', async ({ page }) => {

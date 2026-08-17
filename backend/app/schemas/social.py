@@ -74,6 +74,7 @@ class SocialPublishingSettingsRead(BaseModel):
     screenshot_show_facts: bool
     screenshot_show_pois: bool
     screenshot_show_branding: bool
+    polygon_osm_adoption_link_target: Literal["DETAIL_PAGE", "GIS"] = "DETAIL_PAGE"
     screenshots_required: bool = True
     registry: list[SocialEventDefinitionRead]
     updated_at: datetime
@@ -92,6 +93,7 @@ class SocialPublishingSettingsUpdate(BaseModel):
     screenshot_show_facts: bool | None = None
     screenshot_show_pois: bool | None = None
     screenshot_show_branding: bool | None = None
+    polygon_osm_adoption_link_target: Literal["DETAIL_PAGE", "GIS"] | None = None
 
     @model_validator(mode="after")
     def validate_partial_update(self) -> "SocialPublishingSettingsUpdate":
@@ -120,6 +122,7 @@ class SocialPublicationPreviewRead(BaseModel):
     id: UUID
     text: str
     target_url: str
+    target_label: str = "Öffentliche Gebietsseite"
     event_type: str
     resource_name: str
     hashtags: list[str]
@@ -138,3 +141,20 @@ class SocialPublicationApprovalUpdate(BaseModel):
         if not cleaned:
             raise ValueError("Die Bildbeschreibung darf nicht leer sein")
         return cleaned
+
+
+class PublicAdoptedPolygonSnapshot(BaseModel):
+    """Strict allowlist for data that may enter a polygon-adoption publication."""
+
+    model_config = {"extra": "forbid"}
+
+    polygon_id: UUID
+    slug: str
+    title: str
+    category: str
+    floor: str | None
+    area_size: Literal["S", "M", "L", "XL"] | None
+    address: str | None
+    occupancy_status: Literal["OCCUPIED", "VACANT", "UNKNOWN"]
+    osm_type: Literal["node", "way", "relation"]
+    osm_id: int

@@ -1,23 +1,31 @@
 import uuid
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.integrations.mastodon import MastodonClient, MastodonError
 from app.models.analysis_area import AnalysisArea
 from app.models.social_publication import SocialPublicationOutbox, SocialPublishingSettings
+from app.models.user_polygon import UserPolygon
+from app.schemas.social import PublicAdoptedPolygonSnapshot
 from app.services.social_policy import default_social_settings
 from app.services.social_publishing import (
     PUBLISHABLE_AREA_FIELDS,
     _audit,
     enqueue_area_publication,
+    enqueue_polygon_adoption,
     enqueue_statistics_summary,
     fit_status,
     mastodon_idempotency_key,
+    publish_due_events,
     render_area_post,
+    render_event_preview,
+    render_polygon_adoption_post,
 )
 from app.services.social_screenshots import ScreenshotError, ScreenshotService, screenshot_target
 
@@ -49,6 +57,26 @@ def area(**overrides: object) -> AnalysisArea:
     }
     values.update(overrides)
     return AnalysisArea(**values)
+
+
+def polygon(**overrides: object) -> UserPolygon:
+    values = {
+        "id": 7,
+        "uuid": uuid.uuid4(),
+        "slug": "neue-flaeche-7",
+        "name": "Bücher & Meer",
+        "floor": "EG",
+        "category": "other",
+        "properties": {"size": "M", "internal_note": "niemals veröffentlichen"},
+        "address_display_name": "Holm 1, 24937 Flensburg",
+        "occupancy_status": "OCCUPIED",
+        "geometry": "POLYGON EMPTY",
+        "created_at": datetime.now(UTC),
+        "updated_at": datetime.now(UTC),
+        "owner_name": "Privat GmbH",
+    }
+    values.update(overrides)
+    return UserPolygon(**values)
 
 
 @pytest.mark.asyncio
@@ -133,6 +161,146 @@ def test_area_template_uses_only_controlled_public_teaser_and_canonical_url() ->
         assert secret not in text
     assert "internal_note" not in PUBLISHABLE_AREA_FIELDS
     assert len(fit_status(text * 10, 500)) <= 500
+
+
+def test_polygon_adoption_template_uses_strict_public_snapshot_and_selected_link() -> None:
+    model = polygon(name="Bücher @someone #intern <script>")
+    snapshot = PublicAdoptedPolygonSnapshot(
+        polygon_id=model.uuid, slug=model.slug, title=model.name, category=model.category,
+        floor=model.floor, area_size="M", address=model.address_display_name,
+        occupancy_status="OCCUPIED", osm_type="way", osm_id=42,
+    )
+    text = render_polygon_adoption_post(snapshot, model, settings(), "GIS", ["Flensburg"])
+    assert f"/?polygon={model.uuid}" in text
+    assert "Etage: EG" in text and "Größe: M" in text
+    assert "@someone" not in text and "#intern" not in text and "<script>" not in text
+    assert "Privat GmbH" not in text and "internal_note" not in text
+    with pytest.raises(ValidationError):
+        PublicAdoptedPolygonSnapshot(**snapshot.model_dump(), owner_name="nicht erlaubt")
+
+
+@pytest.mark.asyncio
+async def test_polygon_adoption_is_disabled_by_default_and_enqueued_once_in_manual_mode() -> None:
+    model = polygon()
+    env = settings()
+    disabled_policy = default_social_settings(env)
+    session = MagicMock()
+    session.scalar = AsyncMock(return_value=disabled_policy)
+    assert await enqueue_polygon_adoption(
+        session, model, osm_type="way", osm_id=42, settings=env,
+    ) is None
+
+    enabled_policy = default_social_settings(env)
+    enabled_policy.enabled_events = [*enabled_policy.enabled_events, "POLYGON_ADOPTED_FROM_OSM"]
+    enabled_policy.approval_mode = "MANUAL"
+    session.scalar.side_effect = [enabled_policy, None]
+    event = await enqueue_polygon_adoption(
+        session, model, osm_type="way", osm_id=42, settings=env,
+    )
+    assert event is not None
+    assert event.event_type == "POLYGON_ADOPTED_FROM_OSM"
+    assert event.resource_type == "USER_POLYGON"
+    assert event.status == "PENDING_APPROVAL"
+    assert event.payload["approval_required"] is True
+    assert event.payload["public_snapshot"]["title"] == model.name
+    assert "owner_name" not in str(event.payload)
+
+    session.scalar.side_effect = [enabled_policy, event]
+    assert await enqueue_polygon_adoption(
+        session, model, osm_type="way", osm_id=42, settings=env,
+    ) is event
+
+
+@pytest.mark.asyncio
+async def test_polygon_preview_uses_current_public_state_not_stale_snapshot() -> None:
+    model = polygon(name="Aktueller Titel")
+    env = settings()
+    policy = default_social_settings(env)
+    policy.enabled_events = [*policy.enabled_events, "POLYGON_ADOPTED_FROM_OSM"]
+    event = SocialPublicationOutbox(
+        id=uuid.uuid4(), event_type="POLYGON_ADOPTED_FROM_OSM",
+        resource_type="USER_POLYGON", resource_id=model.uuid,
+        payload={
+            "source_osm_type": "way", "source_osm_id": 42,
+            "public_snapshot": {"title": "Alter Titel"},
+        },
+        status="PENDING", next_attempt_at=datetime.now(UTC),
+    )
+    session = MagicMock()
+    session.scalar = AsyncMock(side_effect=[model, policy])
+    text, resource = await render_event_preview(session, event, env, ["Flensburg"])
+    assert resource is model
+    assert "Aktueller Titel" in text and "Alter Titel" not in text
+    assert event.payload["public_snapshot"]["title"] == "Aktueller Titel"
+
+
+@pytest.mark.asyncio
+async def test_automatic_polygon_adoption_uploads_media_and_publishes_once() -> None:
+    model = polygon()
+    env = settings()
+    policy = default_social_settings(env)
+    policy.enabled_events = [*policy.enabled_events, "POLYGON_ADOPTED_FROM_OSM"]
+    event = SocialPublicationOutbox(
+        id=uuid.uuid4(), event_type="POLYGON_ADOPTED_FROM_OSM",
+        resource_type="USER_POLYGON", resource_id=model.uuid,
+        payload={"source_osm_type": "way", "source_osm_id": 42, "approval_required": False},
+        status="PENDING", attempt_count=0, next_attempt_at=datetime.now(UTC),
+    )
+    session = MagicMock()
+    session.scalar = AsyncMock(side_effect=[policy, event, model, policy, None, None])
+    session.scalars = AsyncMock(return_value=SimpleNamespace(all=list))
+    session.commit = AsyncMock()
+    session.add = MagicMock()
+    client = MagicMock()
+    client.max_characters = AsyncMock(return_value=500)
+    client.max_media_description_characters = AsyncMock(return_value=1500)
+    client.upload_media = AsyncMock(return_value=SimpleNamespace(id="media-1"))
+    client.create_status = AsyncMock(
+        return_value=SimpleNamespace(id="status-1", url="https://example.test/@ok/1")
+    )
+    screenshots = MagicMock()
+    screenshots.capture = AsyncMock(return_value="/safe/social.jpg")
+    screenshots.read.return_value = b"jpeg"
+
+    result = await publish_due_events(
+        session, client=client, screenshot_service=screenshots, settings=env,
+    )
+
+    assert result["published"] == 1
+    client.upload_media.assert_awaited_once()
+    client.create_status.assert_awaited_once()
+    assert client.create_status.await_args.kwargs["media_ids"] == ["media-1"]
+    assert event.status == "PUBLISHED"
+
+
+@pytest.mark.asyncio
+async def test_deleted_polygon_is_cancelled_before_mastodon_is_called() -> None:
+    env = settings()
+    policy = default_social_settings(env)
+    policy.enabled_events = [*policy.enabled_events, "POLYGON_ADOPTED_FROM_OSM"]
+    event = SocialPublicationOutbox(
+        id=uuid.uuid4(), event_type="POLYGON_ADOPTED_FROM_OSM",
+        resource_type="USER_POLYGON", resource_id=uuid.uuid4(),
+        payload={"source_osm_type": "way", "source_osm_id": 42, "approval_required": False},
+        status="PENDING", attempt_count=0, next_attempt_at=datetime.now(UTC),
+    )
+    session = MagicMock()
+    session.scalar = AsyncMock(side_effect=[policy, event, None, None])
+    session.scalars = AsyncMock(return_value=SimpleNamespace(all=list))
+    session.commit = AsyncMock()
+    session.add = MagicMock()
+    client = MagicMock()
+    client.max_characters = AsyncMock(return_value=500)
+    client.create_status = AsyncMock()
+    screenshots = MagicMock()
+
+    result = await publish_due_events(
+        session, client=client, screenshot_service=screenshots, settings=env,
+    )
+
+    assert result["cancelled"] == 1
+    assert event.status == "CANCELLED"
+    client.create_status.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -245,3 +413,21 @@ def test_screenshot_target_is_public_deterministic_and_ssrf_protected(tmp_path) 
         service.validate_url("https://attacker.example/admin/users")
     with pytest.raises(ScreenshotError):
         service.validate_url("https://stadtplaner.oklabflensburg.de/admin/social")
+
+
+def test_polygon_screenshot_target_matches_configured_public_destination(tmp_path) -> None:
+    env = settings(mastodon_screenshot_directory=str(tmp_path))
+    policy = default_social_settings(env)
+    model = polygon()
+    event = SocialPublicationOutbox(
+        id=uuid.uuid4(), event_type="POLYGON_ADOPTED_FROM_OSM", resource_type="USER_POLYGON",
+        resource_id=model.uuid, payload={}, status="PENDING", next_attempt_at=datetime.now(UTC),
+    )
+    detail = screenshot_target(event, model, env, policy)
+    assert detail.url.startswith(f"https://stadtplaner.oklabflensburg.de/flaechen/{model.slug}?")
+    policy.polygon_osm_adoption_link_target = "GIS"
+    gis = screenshot_target(event, model, env, policy)
+    assert f"polygon={model.uuid}" in gis.url
+    service = ScreenshotService(env)
+    service.validate_url(detail.url)
+    service.validate_url(gis.url)

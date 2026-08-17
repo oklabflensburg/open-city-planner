@@ -138,6 +138,7 @@ export interface SocialPublishingSettings {
   screenshot_show_facts: boolean
   screenshot_show_pois: boolean
   screenshot_show_branding: boolean
+  polygon_osm_adoption_link_target: 'DETAIL_PAGE' | 'GIS'
   screenshots_required: boolean
   registry: SocialEventDefinition[]
   updated_at: string
@@ -156,12 +157,14 @@ export type SocialPublishingSettingsPatch = Partial<Pick<SocialPublishingSetting
   | 'screenshot_show_facts'
   | 'screenshot_show_pois'
   | 'screenshot_show_branding'
+  | 'polygon_osm_adoption_link_target'
 >>
 
 export interface SocialPublicationPreview {
   id: string
   text: string
   target_url: string
+  target_label: string
   event_type: string
   resource_name: string
   hashtags: string[]

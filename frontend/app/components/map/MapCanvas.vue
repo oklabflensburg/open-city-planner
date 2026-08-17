@@ -1,5 +1,6 @@
 <template>
   <div class="relative h-full min-h-0 min-w-0 overflow-hidden rounded-[var(--radius-panel)] border border-white bg-[var(--c-surface-muted)] shadow-[var(--shadow-card)] lg:min-h-[420px]">
+    <span v-if="socialPreview" class="sr-only" :data-social-preview-ready="gisPreviewReady ? 'true' : 'false'">Kartenvorschau bereit</span>
     <div ref="mapEl" class="absolute inset-0 h-full w-full" role="region" aria-label="Interaktive Stadtkarte von Flensburg" />
     <div v-if="!mapStore.mapLoaded && !mapError" class="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-slate-100/90" role="status" aria-live="polite">
       <div class="flex items-center gap-3 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
@@ -47,6 +48,8 @@ const osmStore = useOsmViewportStore()
 const analysisAreasStore = useAnalysisAreasStore()
 const mapSelection = useMapSelection()
 const route = useRoute()
+const socialPreview = computed(() => route.query['social-preview'] === '1')
+const gisPreviewReady = ref(false)
 const mapEl = ref<HTMLDivElement | null>(null)
 const map = shallowRef<Map | null>(null)
 const mapError = ref('')
@@ -115,6 +118,10 @@ onMounted(async () => {
       }
       await osmRefresh
       mapStore.markGisDataFresh()
+      if (socialPreview.value && requested && polygonStore.selectedPolygonId === requested) {
+        await waitForGisPreviewReady(instance)
+        gisPreviewReady.value = true
+      }
     })
     instance.on('style.load', () => {
       if (!mapStore.mapLoaded || disposed) return
@@ -515,6 +522,17 @@ function geometryBounds(coordinates: unknown): [number, number, number, number] 
   }
   visit(coordinates)
   return Number.isFinite(bounds[0]) ? bounds : null
+}
+
+async function waitForGisPreviewReady(instance: Map) {
+  await nextTick()
+  await new Promise<void>((resolve) => {
+    if (!instance.isMoving()) {
+      requestAnimationFrame(() => resolve())
+      return
+    }
+    instance.once('moveend', () => requestAnimationFrame(() => resolve()))
+  })
 }
 
 function applyFeatureStyles() {

@@ -3,7 +3,7 @@ from typing import Any
 
 from app.services.osm_occupancy import detect_osm_occupancy_status
 
-# This taxonomy is shared with Stadtplanner polygons. The values are based on the
+# This taxonomy is shared with Stadtplaner polygons. The values are based on the
 # locally imported Flensburg tag inventory; unknown shop values deliberately fall
 # back to "other" instead of disappearing.
 SHOP_CATEGORIES: dict[str, frozenset[str]] = {
@@ -51,7 +51,7 @@ def _value(tags: Mapping[str, Any], key: str) -> str | None:
 
 
 def osm_business_category(tags: Mapping[str, Any]) -> str | None:
-    """Return a Stadtplanner category for retail-related OSM features only."""
+    """Return a Stadtplaner category for retail-related OSM features only."""
     shop = _value(tags, "shop")
     if shop == "vacant":
         shop = None

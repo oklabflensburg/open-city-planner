@@ -1,5 +1,8 @@
 <template>
-  <section class="overview-shell relative min-h-0 min-w-0 overflow-hidden bg-[var(--c-surface)] text-[var(--c-text)] xl:grid xl:gap-4 xl:p-4">
+  <section
+    class="overview-shell relative min-h-0 min-w-0 overflow-hidden bg-[var(--c-surface)] text-[var(--c-text)] xl:grid xl:gap-4 xl:p-4"
+    :data-social-preview-capture="socialPreview ? '' : undefined"
+  >
     <Transition name="notice">
       <div
         v-if="mapStore.notice"
@@ -61,13 +64,13 @@
       @update:open="handleSheetOpen"
     >
       <template v-if="mapStore.activeMobilePanel === 'filter'">
-        <LazyLeftSidebar />
+        <LazyLeftSidebar embedded />
         <div class="mt-3 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           <button class="min-h-11 rounded-xl border border-slate-300 px-3 text-sm font-bold text-[#154d73] hover:bg-slate-50" type="button" @click="resetFilters">Zurücksetzen</button>
           <button class="min-h-11 rounded-xl bg-[#154d73] px-3 text-sm font-bold text-white hover:bg-[#0f3f61]" type="button" @click="closeMobilePanel">{{ mobileResultLabel }}</button>
         </div>
       </template>
-      <LazyRightSidebar v-else-if="mapStore.activeMobilePanel === 'analytics'" />
+      <LazyRightSidebar v-else-if="mapStore.activeMobilePanel === 'analytics'" embedded />
       <div v-else-if="mapStore.activeMobilePanel === 'selection'" class="-m-3 min-h-full bg-white p-4">
         <MapSelectionContent embedded />
       </div>
@@ -79,6 +82,8 @@
 import { BarChart3, CircleCheck, ListFilter, Plus, X } from 'lucide-vue-next'
 
 const mapStore = useMapStore()
+const route = useRoute()
+const socialPreview = computed(() => route.query['social-preview'] === '1')
 const filterStore = useFilterStore()
 const analyticsStore = useAnalyticsStore()
 const osmStore = useOsmViewportStore()

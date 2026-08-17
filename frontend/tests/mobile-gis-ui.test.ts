@@ -33,6 +33,20 @@ describe('mobile GIS interface', () => {
     expect(map).toContain("mapStore.openMobilePanel('selection')")
   })
 
+  it('keeps embedded filter and analysis summaries in the single sheet scroll flow', () => {
+    const shell = appFile('components/layout/AppShell.vue')
+    const filter = appFile('components/layout/LeftSidebar.vue')
+    const analysis = appFile('components/layout/RightSidebar.vue')
+    expect(shell).toContain('<LazyLeftSidebar embedded')
+    expect(shell).toContain("mapStore.activeMobilePanel === 'analytics'\" embedded")
+    expect(filter).toContain('data-filter-summary')
+    expect(filter).toContain("? 'border-b border-slate-200 px-4 pb-3'")
+    expect(filter).toContain('<div v-if="!embedded"')
+    expect(analysis).toContain('data-analysis-summary')
+    expect(analysis).toContain("? 'border-b border-slate-200 px-1 pb-3'")
+    expect(analysis).toContain('<div v-if="!embedded"')
+  })
+
   it('uses one mutually exclusive mobile panel state', () => {
     const store = appFile('stores/map.ts')
     const shell = appFile('components/layout/AppShell.vue')

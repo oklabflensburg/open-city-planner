@@ -121,7 +121,7 @@ test('desktop combines filters, persists URL history and resets globally', async
   await expect(page).toHaveURL(/categories=fashion(?:%2C|,)gastronomy/)
   await expect(page).toHaveURL(/occupancy_statuses=VACANT/)
   await expect(page.getByText('4 aktiv', { exact: true })).toBeVisible()
-  await expect(page.getByText('Keine gepflegten Stadtplanner-Flächen entsprechen deiner Auswahl.')).toBeVisible()
+  await expect(page.getByText('Keine gepflegten Stadtplaner-Flächen entsprechen deiner Auswahl.')).toBeVisible()
 
   await page.getByRole('button', { name: 'Zurücksetzen', exact: true }).first().click()
   await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3010\/$/)
@@ -161,7 +161,7 @@ test('all-select remains visually selected while API semantics stay unrestricted
   await expect(structure.getByRole('button', { name: 'Auswahl aufheben' })).toBeVisible()
   await expect(industries.locator('[role="checkbox"][aria-checked="true"]')).toHaveCount(10)
   const sources = group(page, 'Datenquellen')
-  await expect(sources.getByRole('button', { name: /Datenquellen Stadtplanner:/ })).toHaveAttribute('aria-pressed', 'true')
+  await expect(sources.getByRole('button', { name: /Datenquellen Stadtplaner:/ })).toHaveAttribute('aria-pressed', 'true')
   await expect(sources.getByRole('button', { name: /Datenquellen OpenStreetMap:/ })).toHaveAttribute('aria-pressed', 'true')
   await expect(page).toHaveURL(/area_sizes=S(?:%2C|,)M(?:%2C|,)L(?:%2C|,)XL/)
   await expect(page.getByRole('heading', { name: 'Analyse', exact: true })).toBeVisible()
@@ -212,10 +212,52 @@ test('mobile multi-select, zero-result recovery and analysis share one responsiv
 
   await expect(page.getByRole('button', { name: 'Filter öffnen' })).toContainText('2')
   await page.getByRole('button', { name: 'Analyse öffnen' }).click()
-  await expect(page.getByText('Keine gepflegten Stadtplanner-Flächen entsprechen deiner Auswahl.')).toBeVisible()
+  await expect(page.getByText('Keine gepflegten Stadtplaner-Flächen entsprechen deiner Auswahl.')).toBeVisible()
   await page.getByRole('button', { name: 'Filter zurücksetzen' }).click()
-  await expect(page.getByText('Keine gepflegten Stadtplanner-Flächen entsprechen deiner Auswahl.')).toHaveCount(0)
+  await expect(page.getByText('Keine gepflegten Stadtplaner-Flächen entsprechen deiner Auswahl.')).toHaveCount(0)
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+})
+
+test('mobile filter and analysis summaries scroll below the single sheet header', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockGis(page)
+  await openGis(page)
+
+  for (const panel of [
+    { open: 'Filter öffnen', title: 'Filter', close: 'Filter schließen', summary: '[data-filter-summary]' },
+    { open: 'Analyse öffnen', title: 'Analyse', close: 'Analyse schließen', summary: '[data-analysis-summary]' }
+  ]) {
+    await page.getByRole('button', { name: panel.open }).click()
+    const dialog = page.getByRole('dialog')
+    const sheetHeader = dialog.locator(':scope > header')
+    const scroller = dialog.locator('[data-sheet-scroll]')
+    const summary = dialog.locator(panel.summary)
+    await expect(dialog.getByRole('heading', { name: panel.title, exact: true })).toHaveCount(1)
+    await expect(summary).toBeVisible()
+
+    const headerBefore = await sheetHeader.boundingBox()
+    const summaryBefore = await summary.boundingBox()
+    await scroller.evaluate(element => { element.scrollTop = 500 })
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(100)
+    const headerAfter = await sheetHeader.boundingBox()
+    const summaryAfter = await summary.boundingBox()
+
+    expect(headerBefore).not.toBeNull()
+    expect(headerAfter).not.toBeNull()
+    expect(summaryBefore).not.toBeNull()
+    expect(summaryAfter).not.toBeNull()
+    expect(Math.abs((headerAfter?.y || 0) - (headerBefore?.y || 0))).toBeLessThan(2)
+    expect(summaryAfter!.y).toBeLessThan(summaryBefore!.y - 100)
+    await expect.poll(() => dialog.evaluate((element) => {
+      return [...element.querySelectorAll<HTMLElement>('*')].filter((child) => {
+        const overflow = getComputedStyle(child).overflowY
+        return (overflow === 'auto' || overflow === 'scroll') && child.scrollHeight > child.clientHeight
+      }).length
+    })).toBe(1)
+
+    await page.getByRole('button', { name: panel.close }).click()
+    await expect(dialog).toHaveCount(0)
+  }
 })
 
 test('GIS shell has no body overflow from small mobile through wide desktop', async ({ page }) => {
@@ -225,7 +267,8 @@ test('GIS shell has no body overflow from small mobile through wide desktop', as
 
   const viewports = [
     { width: 320, height: 568 }, { width: 360, height: 800 },
-    { width: 390, height: 844 }, { width: 430, height: 932 },
+    { width: 390, height: 844 }, { width: 393, height: 852 },
+    { width: 412, height: 915 }, { width: 430, height: 932 },
     { width: 768, height: 1024 }, { width: 1024, height: 768 },
     { width: 1280, height: 800 }, { width: 1440, height: 900 },
     { width: 1920, height: 1080 }

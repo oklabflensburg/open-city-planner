@@ -6,7 +6,12 @@ import pytest
 import app.services.polygons as polygon_service
 from app.models.user_polygon import UserPolygon
 from app.schemas.geojson import PolygonUpdate
-from app.services.polygons import delete_polygon, generate_unique_polygon_slug, slugify_polygon_name, update_polygon
+from app.services.polygons import (
+    delete_polygon,
+    generate_unique_polygon_slug,
+    slugify_polygon_name,
+    update_polygon,
+)
 
 
 @pytest.mark.parametrize(
@@ -80,11 +85,17 @@ async def test_delete_invalidates_polygon_analytics_and_osm_namespaces(monkeypat
     polygon = UserPolygon(name="Delete me", slug="delete-me", category="custom")
     polygon.uuid = uuid.uuid4()
     bump = AsyncMock(return_value=None)
+    cancel_publications = AsyncMock(return_value=0)
     monkeypatch.setattr(polygon_service, "bump_cache_versions", bump)
+    monkeypatch.setattr(
+        "app.services.social_publishing.cancel_pending_polygon_publications",
+        cancel_publications,
+    )
 
     await delete_polygon(session, polygon, uuid.uuid4())  # type: ignore[arg-type]
 
     bump.assert_awaited_once_with(session, ("polygons", "analytics", "osm"))
+    cancel_publications.assert_awaited_once_with(session, polygon.uuid)
     assert session.deleted is polygon
     assert session.committed is True
     assert session.added[0].action == "POLYGON_DELETED"

@@ -131,7 +131,7 @@ async def test_peninsula_cannot_be_imported_as_stadtplaner_polygon() -> None:
 
 
 @pytest.mark.asyncio
-async def test_polygon_import_uses_authoritative_geometry_and_osm_vacancy() -> None:
+async def test_polygon_import_uses_authoritative_geometry_and_osm_vacancy(monkeypatch) -> None:
     session = AsyncMock()
     session.add = MagicMock()
     session.execute.side_effect = [
@@ -139,6 +139,8 @@ async def test_polygon_import_uses_authoritative_geometry_and_osm_vacancy() -> N
         MappingRows(None),
     ]
     session.add.side_effect = lambda model: setattr(model, "id", 7) if isinstance(model, UserPolygon) else None
+    enqueue = AsyncMock(return_value=None)
+    monkeypatch.setattr("app.services.osm_import.enqueue_polygon_adoption", enqueue)
 
     result = await create_polygon_from_osm(
         session,
@@ -156,6 +158,7 @@ async def test_polygon_import_uses_authoritative_geometry_and_osm_vacancy() -> N
     assert polygon.owner_name is None
     assert relation.osm_type == "way" and relation.osm_id == 42
     assert relation.osm_snapshot["shop"] == "vacant"
+    enqueue.assert_awaited_once_with(session, polygon, osm_type="way", osm_id=42)
     assert session.commit.await_count == 2
 
 

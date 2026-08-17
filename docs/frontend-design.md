@@ -1,6 +1,6 @@
 # Frontend-Design und Analyse
 
-Stadtplanner verwendet ein helles Civic-GIS-System. Die zentralen CSS-Variablen in
+Stadtplaner verwendet ein helles Civic-GIS-System. Die zentralen CSS-Variablen in
 `frontend/app/assets/css/main.css` definieren Petrol/Türkis, Datenfarben, Oberflächen,
 Rahmen, Radien und Schatten. Wiederverwendbare Oberflächen und Aktionen werden über
 die Komponenten `Card`, `Button`, `IconButton`, `AppModal` und `AppBottomSheet`
@@ -23,7 +23,7 @@ Es werden keine Zeitreihen oder fehlenden Werte geschätzt.
 
 ## Filter- und Datenumfang
 
-Alle Stadtplanner-Aggregate verwenden denselben zentralen GIS-Filterzustand wie die
+Alle Stadtplaner-Aggregate verwenden denselben zentralen GIS-Filterzustand wie die
 Karte. Die Branchenübersicht ergänzt die deduplizierten OSM-Geschäftsobjekte des
 aktuellen Kartenausschnitts. Datenquellen werden in der Oberfläche benannt; Größen-,
-Etagen-, Status- und Qualitätsdaten sind ausdrücklich Stadtplanner-Fachdaten.
+Etagen-, Status- und Qualitätsdaten sind ausdrücklich Stadtplaner-Fachdaten.

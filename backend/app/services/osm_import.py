@@ -25,6 +25,7 @@ from app.services.polygons import (
     generate_unique_polygon_slug,
     polygon_slug_source,
 )
+from app.services.social_publishing import enqueue_polygon_adoption
 
 logger = logging.getLogger(__name__)
 _area_adapter = TypeAdapter(AreaGeometry)
@@ -222,6 +223,12 @@ async def create_polygon_from_osm(
             source_geometry=from_shape(shape(geometry_source_row["geometry"]), srid=4326),
             source_updated_at=geometry_source_row["imported_at"],
         ))
+    await enqueue_polygon_adoption(
+        session,
+        polygon,
+        osm_type=payload.osm_type,
+        osm_id=payload.osm_id,
+    )
     await session.commit()
     await session.refresh(polygon)
     if display_address is None and await enrich_polygon_address(session, polygon):

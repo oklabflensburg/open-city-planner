@@ -23,6 +23,10 @@ SOCIAL_EVENT_REGISTRY = (
     SocialEventDefinition("AREA_BOUNDARY_UPDATED", "AREAS", "Gebiete", "Gebietsgrenzen", "Grenzänderungen oberhalb des fachlichen Schwellenwerts.", True),
     SocialEventDefinition("AREA_STATISTICS_UPDATED", "STATISTICS", "Statistik", "Gebietskennzahlen", "Bewusst klassifizierte Änderungen öffentlicher Kennzahlen.", True),
     SocialEventDefinition("AREA_STATISTICS_BULK_UPDATED", "STATISTICS", "Statistik", "Kommunale Statistikdaten", "Ein Sammelhinweis pro Statistikimport.", True),
+    SocialEventDefinition(
+        "POLYGON_ADOPTED_FROM_OSM", "POLYGONS", "Flächen", "Neue OSM-Flächen",
+        "Ein einmaliger Hinweis, wenn eine OSM-Fläche bewusst in Stadtplaner übernommen wurde.", False,
+    ),
 )
 KNOWN_SOCIAL_EVENTS = frozenset(item.event_type for item in SOCIAL_EVENT_REGISTRY)
 DEFAULT_ENABLED_EVENTS = [item.event_type for item in SOCIAL_EVENT_REGISTRY if item.default_enabled]
@@ -48,6 +52,7 @@ def default_social_settings(env: Settings) -> SocialPublishingSettings:
         screenshot_show_facts=True,
         screenshot_show_pois=False,
         screenshot_show_branding=True,
+        polygon_osm_adoption_link_target="DETAIL_PAGE",
     )
 
 
@@ -71,3 +76,7 @@ async def get_social_settings(
 
 def event_is_enabled(policy: SocialPublishingSettings, event_type: str) -> bool:
     return event_type in KNOWN_SOCIAL_EVENTS and event_type in set(policy.enabled_events or [])
+
+
+def enabled_event_types(policy: SocialPublishingSettings) -> set[str]:
+    return set(policy.enabled_events or []) & KNOWN_SOCIAL_EVENTS

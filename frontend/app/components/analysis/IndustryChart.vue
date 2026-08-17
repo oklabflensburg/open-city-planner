@@ -1,7 +1,7 @@
 <template>
   <Card class="p-4">
     <div class="mb-3 flex items-start justify-between gap-3">
-      <div><p class="civic-kicker">Branchenmix</p><h2 class="mt-1 text-sm font-extrabold text-[var(--c-text)]">Standorte nach Branche</h2><p class="mt-1 text-[11px] leading-4 text-[var(--c-text-muted)]">Gefilterte Stadtplanner- und deduplizierte OSM-Daten</p></div>
+      <div><p class="civic-kicker">Branchenmix</p><h2 class="mt-1 text-sm font-extrabold text-[var(--c-text)]">Standorte nach Branche</h2><p class="mt-1 text-[11px] leading-4 text-[var(--c-text-muted)]">Gefilterte Stadtplaner- und deduplizierte OSM-Daten</p></div>
       <Info class="mt-0.5 size-4 shrink-0 text-[var(--c-primary-600)]" aria-hidden="true" />
     </div>
     <div v-if="analytics.loading && !analytics.data" class="h-52 animate-pulse rounded-xl bg-[var(--c-surface-muted)]" />

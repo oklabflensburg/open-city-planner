@@ -11,6 +11,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -58,6 +59,12 @@ class SocialPublicationOutbox(Base):
             unique=True,
             postgresql_where=(status.in_(("PENDING", "PENDING_APPROVAL"))),
         ),
+        Index(
+            "uq_social_outbox_polygon_adopted",
+            "event_type", "resource_id",
+            unique=True,
+            postgresql_where=text("event_type = 'POLYGON_ADOPTED_FROM_OSM'"),
+        ),
     )
 
 
@@ -101,6 +108,9 @@ class SocialPublishingSettings(Base):
     screenshot_show_facts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     screenshot_show_pois: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     screenshot_show_branding: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    polygon_osm_adoption_link_target: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="DETAIL_PAGE"
+    )
     updated_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -112,5 +122,9 @@ class SocialPublishingSettings(Base):
         CheckConstraint(
             "screenshot_viewport IN ('LANDSCAPE_16_9','LANDSCAPE_OG','SQUARE')",
             name="ck_social_settings_viewport",
+        ),
+        CheckConstraint(
+            "polygon_osm_adoption_link_target IN ('DETAIL_PAGE','GIS')",
+            name="ck_social_settings_polygon_link_target",
         ),
     )

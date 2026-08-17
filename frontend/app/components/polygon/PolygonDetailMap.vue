@@ -40,7 +40,7 @@ const props = defineProps<{
   editable: boolean
   color: string
 }>()
-const emit = defineEmits<{ geometryComplete: [geometry: AreaGeometry] }>()
+const emit = defineEmits<{ geometryComplete: [geometry: AreaGeometry], ready: [] }>()
 
 const config = useRuntimeConfig()
 const mapElement = ref<HTMLDivElement | null>(null)
@@ -92,6 +92,7 @@ onMounted(async () => {
       requestAnimationFrame(() => {
         instance.resize()
         fitPolygon()
+        emit('ready')
       })
 
       const terra = new terraDraw.TerraDraw({

@@ -22,11 +22,11 @@ Ein bestehender osm2pgsql-/Imposm-Prozess kann seine relevanten POIs und Gebäud
 
 ## Quellenübergreifendes Filtermodell
 
-Die fachlichen Filter `area_sizes`, `floors`, `categories`, `occupancy_statuses`, `business_structures` und `sources` werden sowohl an die Stadtplanner- als auch an die OSM-Abfrage übergeben. Innerhalb einer Dimension gilt OR, zwischen Dimensionen AND. `osm_categories` steuert davon getrennt die Umfeldlayer wie ÖPNV, Parken oder Kultur.
+Die fachlichen Filter `area_sizes`, `floors`, `categories`, `occupancy_statuses`, `business_structures` und `sources` werden sowohl an die Stadtplaner- als auch an die OSM-Abfrage übergeben. Innerhalb einer Dimension gilt OR, zwischen Dimensionen AND. `osm_categories` steuert davon getrennt die Umfeldlayer wie ÖPNV, Parken oder Kultur.
 
-OSM-Tags werden in `app/services/osm_canonical.py` serverseitig auf die bestehenden Stadtplanner-Kategorien normalisiert. Das Mapping basiert auf dem lokal importierten Flensburger Tagbestand. Beispiele:
+OSM-Tags werden in `app/services/osm_canonical.py` serverseitig auf die bestehenden Stadtplaner-Kategorien normalisiert. Das Mapping basiert auf dem lokal importierten Flensburger Tagbestand. Beispiele:
 
-| Stadtplanner-Kategorie | OSM-Tags, auszugsweise |
+| Stadtplaner-Kategorie | OSM-Tags, auszugsweise |
 | --- | --- |
 | `fashion` | `shop=clothes`, `shoes`, `fashion`, `jewelry` |
 | `food` | `shop=supermarket`, `bakery`, `butcher`, `chemist`, `cosmetics` |
@@ -46,7 +46,7 @@ OSM-Geometrien erhalten im Viewport eine als `mapped_area_m2` bezeichnete projiz
 
 Die Normalisierung wird bewusst in der BBOX-beschränkten SQL-Abfrage berechnet. Damit spiegeln Upserts in `osm_features` sofort neue oder geänderte Tags wider und es gibt keine veralteten materialisierten Felder. GiST auf `geometry`, GIN auf `tags` sowie die BTree-Verknüpfungsindizes bleiben die gemessene Indexbasis; zusätzliche Indizes wurden ohne belastbaren Nutzen nicht angelegt.
 
-`polygon_osm_sources` bildet die Deduplication ab. Sind Stadtplanner und OSM gleichzeitig aktiv, gewinnt die gepflegte Stadtplanner-Fläche und verknüpfte OSM-Objekte werden aus Karte, OSM-Counts und Facetten entfernt. Wird ausdrücklich nur OSM gewählt, bleibt das OSM-Original sichtbar. Raw Tags werden ausschließlich im Detail-Endpunkt freigegeben; der Kartenrequest enthält nur normalisierte Summary-Felder.
+`polygon_osm_sources` bildet die Deduplication ab. Sind Stadtplaner und OSM gleichzeitig aktiv, gewinnt die gepflegte Stadtplaner-Fläche und verknüpfte OSM-Objekte werden aus Karte, OSM-Counts und Facetten entfernt. Wird ausdrücklich nur OSM gewählt, bleibt das OSM-Original sichtbar. Raw Tags werden ausschließlich im Detail-Endpunkt freigegeben; der Kartenrequest enthält nur normalisierte Summary-Felder.
 
 ## Dynamischer Kartenausschnitt
 

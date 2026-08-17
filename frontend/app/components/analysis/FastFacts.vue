@@ -15,7 +15,7 @@
       <button class="mt-2 font-bold underline" type="button" @click="analytics.load()">Erneut versuchen</button>
     </div>
     <div v-else-if="fastFacts?.polygon_count === 0 && selectionRestricted" class="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-      <p class="font-bold">Keine gepflegten Stadtplanner-Flächen entsprechen deiner Auswahl.</p>
+      <p class="font-bold">Keine gepflegten Stadtplaner-Flächen entsprechen deiner Auswahl.</p>
       <button class="mt-1 min-h-8 font-bold text-[#154d73] underline" type="button" @click="filter.reset()">Filter zurücksetzen</button>
     </div>
     <div v-else class="facts-grid grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2">
@@ -50,8 +50,8 @@ const dataStand = computed(() => {
   return source ? `Stadtplaner-Daten${source}` : 'Aktuelle Stadtplaner-Auswahl'
 })
 const facts = computed(() => [
-  { label: 'Gefilterte Standorte', value: fastFacts.value?.polygon_count == null ? '—' : (fastFacts.value.polygon_count + (osm.data?.meta.business_count || 0)).toLocaleString('de-DE'), available: fastFacts.value?.polygon_count != null, icon: Store, scope: 'Stadtplanner + OSM', description: 'Deduplizierte Summe aus gepflegten Flächen und passenden OSM-Geschäftsobjekten im Kartenausschnitt.' },
-  { label: 'Gepflegte Flächen', value: fastFacts.value?.polygon_count?.toLocaleString('de-DE') ?? '—', available: fastFacts.value?.polygon_count != null, icon: Store, scope: 'Stadtplanner', description: 'Anzahl der aktuell gefilterten Stadtplanner-Flächen.' },
+  { label: 'Gefilterte Standorte', value: fastFacts.value?.polygon_count == null ? '—' : (fastFacts.value.polygon_count + (osm.data?.meta.business_count || 0)).toLocaleString('de-DE'), available: fastFacts.value?.polygon_count != null, icon: Store, scope: 'Stadtplaner + OSM', description: 'Deduplizierte Summe aus gepflegten Flächen und passenden OSM-Geschäftsobjekten im Kartenausschnitt.' },
+  { label: 'Gepflegte Flächen', value: fastFacts.value?.polygon_count?.toLocaleString('de-DE') ?? '—', available: fastFacts.value?.polygon_count != null, icon: Store, scope: 'Stadtplaner', description: 'Anzahl der aktuell gefilterten Stadtplaner-Flächen.' },
   { label: 'Gesamtfläche', value: fastFacts.value?.total_area_m2 == null ? '—' : `${Math.round(fastFacts.value.total_area_m2).toLocaleString('de-DE')} m²`, available: fastFacts.value?.total_area_m2 != null, icon: Maximize2, scope: 'Auswahl', description: 'Aus den Geometrien der aktuell gefilterten Flächen berechnet.' },
   { label: 'Ø Fläche', value: fastFacts.value?.average_area_m2 == null ? '—' : `${Math.round(fastFacts.value.average_area_m2).toLocaleString('de-DE')} m²`, available: fastFacts.value?.average_area_m2 != null, icon: Maximize2, scope: 'Auswahl', description: 'Aus den Geometrien der aktuell gefilterten Flächen berechnet.' },
   { label: 'Median Fläche', value: fastFacts.value?.median_area_m2 == null ? '—' : `${Math.round(fastFacts.value.median_area_m2).toLocaleString('de-DE')} m²`, available: fastFacts.value?.median_area_m2 != null, icon: Ruler, scope: 'Auswahl', description: 'Robuster mittlerer Flächenwert der aktuellen Auswahl.' },

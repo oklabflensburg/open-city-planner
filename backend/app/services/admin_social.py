@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -10,6 +10,7 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.analysis_area import AnalysisArea
 from app.models.social_publication import SocialPublicationOutbox, SocialPublishingSettings
 from app.models.user import User
+from app.models.user_polygon import UserPolygon
 from app.schemas.social import (
     MastodonAdminStatusRead,
     SocialEventDefinitionRead,
@@ -67,10 +68,11 @@ async def mastodon_admin_status(session: AsyncSession, *, settings: Settings | N
 
 
 def _serialize(event: SocialPublicationOutbox, name: str | None, slug: str | None) -> SocialPublicationItemRead:
+    snapshot = event.payload.get("public_snapshot", {})
     return SocialPublicationItemRead(
         id=event.id, created_at=event.created_at, event_type=event.event_type,
         resource_type=event.resource_type, resource_id=event.resource_id,
-        resource_name=name or "Alle Gebiete", resource_slug=slug,
+        resource_name=name or snapshot.get("title") or "Alle Gebiete", resource_slug=slug or snapshot.get("slug"),
         status=event.status, attempt_count=event.attempt_count,
         next_attempt_at=event.next_attempt_at, published_at=event.published_at,
         last_error=event.last_error, remote_url=event.mastodon_status_url,
@@ -85,8 +87,19 @@ async def list_social_publications(session: AsyncSession, *, page: int, page_siz
     filters = [SocialPublicationOutbox.status == status] if status else []
     total = int(await session.scalar(select(func.count(SocialPublicationOutbox.id)).where(*filters)) or 0)
     rows = (await session.execute(
-        select(SocialPublicationOutbox, AnalysisArea.name, AnalysisArea.slug)
-        .outerjoin(AnalysisArea, AnalysisArea.uuid == SocialPublicationOutbox.resource_id)
+        select(
+            SocialPublicationOutbox,
+            func.coalesce(AnalysisArea.name, UserPolygon.name),
+            func.coalesce(AnalysisArea.slug, UserPolygon.slug),
+        )
+        .outerjoin(AnalysisArea, and_(
+            SocialPublicationOutbox.resource_type == "ANALYSIS_AREA",
+            AnalysisArea.uuid == SocialPublicationOutbox.resource_id,
+        ))
+        .outerjoin(UserPolygon, and_(
+            SocialPublicationOutbox.resource_type == "USER_POLYGON",
+            UserPolygon.uuid == SocialPublicationOutbox.resource_id,
+        ))
         .where(*filters)
         .order_by(SocialPublicationOutbox.created_at.desc())
         .offset((page - 1) * page_size).limit(page_size)
@@ -99,8 +112,19 @@ async def list_social_publications(session: AsyncSession, *, page: int, page_siz
 
 async def get_social_publication(session: AsyncSession, event_id: uuid.UUID) -> SocialPublicationItemRead | None:
     row = (await session.execute(
-        select(SocialPublicationOutbox, AnalysisArea.name, AnalysisArea.slug)
-        .outerjoin(AnalysisArea, AnalysisArea.uuid == SocialPublicationOutbox.resource_id)
+        select(
+            SocialPublicationOutbox,
+            func.coalesce(AnalysisArea.name, UserPolygon.name),
+            func.coalesce(AnalysisArea.slug, UserPolygon.slug),
+        )
+        .outerjoin(AnalysisArea, and_(
+            SocialPublicationOutbox.resource_type == "ANALYSIS_AREA",
+            AnalysisArea.uuid == SocialPublicationOutbox.resource_id,
+        ))
+        .outerjoin(UserPolygon, and_(
+            SocialPublicationOutbox.resource_type == "USER_POLYGON",
+            UserPolygon.uuid == SocialPublicationOutbox.resource_id,
+        ))
         .where(SocialPublicationOutbox.id == event_id)
     )).one_or_none()
     return _serialize(*row) if row else None
@@ -139,6 +163,9 @@ def _settings_dto(model: SocialPublishingSettings) -> SocialPublishingSettingsRe
         screenshot_show_facts=model.screenshot_show_facts,
         screenshot_show_pois=model.screenshot_show_pois,
         screenshot_show_branding=model.screenshot_show_branding,
+        polygon_osm_adoption_link_target=getattr(
+            model, "polygon_osm_adoption_link_target", "DETAIL_PAGE"
+        ),
         registry=[SocialEventDefinitionRead(**definition.__dict__) for definition in SOCIAL_EVENT_REGISTRY],
         updated_at=model.updated_at or datetime.now(UTC),
     )
@@ -190,19 +217,27 @@ async def social_publication_preview(
         raise LookupError("Publication event not found")
     env = get_settings()
     policy = await get_social_settings(session, env, create=False)
-    text, area = await render_event_preview(
+    text, resource = await render_event_preview(
         session,
         event,
         env,
         list(policy.default_hashtags or []),
     )
-    target = screenshot_target(event, area, env, policy)
+    target = screenshot_target(event, resource, env, policy)
     return SocialPublicationPreviewRead(
         id=event.id,
         text=fit_status(text, 500),
         target_url=target.url,
+        target_label=(
+            "GIS-Anwendung"
+            if event.resource_type == "USER_POLYGON"
+            and policy.polygon_osm_adoption_link_target == "GIS"
+            else "Flächendetailseite"
+            if event.resource_type == "USER_POLYGON"
+            else "Öffentliche Gebietsseite"
+        ),
         event_type=event.event_type,
-        resource_name=area.name if area else "Alle Gebiete",
+        resource_name=resource.name if resource else "Alle Gebiete",
         hashtags=list(policy.default_hashtags or []),
         screenshot_ready=bool(event.screenshot_path),
         screenshot_url=f"/api/v1/admin/social/publications/{event.id}/screenshot" if event.screenshot_path else None,
