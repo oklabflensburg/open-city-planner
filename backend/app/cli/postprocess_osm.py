@@ -2,6 +2,7 @@ import argparse
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from time import monotonic
 
 from sqlalchemy import text
 
@@ -82,22 +83,55 @@ def parse_timestamp(value: str) -> datetime:
     return parsed
 
 
-async def run(sequence: int | None, osm_timestamp: datetime, municipality: str) -> None:
+def progress(enabled: bool, started_at: float, phase: str, **values: object) -> None:
+    if not enabled:
+        return
+    details = " ".join(f"{key}={value}" for key, value in values.items())
+    suffix = f" {details}" if details else ""
+    print(
+        f"OSM_POSTPROCESS_PROGRESS phase={phase} elapsed_seconds={monotonic() - started_at:.1f}{suffix}",
+        flush=True,
+    )
+
+
+async def run(
+    sequence: int | None,
+    osm_timestamp: datetime,
+    municipality: str,
+    *,
+    verbose: bool = False,
+) -> None:
+    started_at = monotonic()
+    progress(verbose, started_at, "start", sequence=sequence, timestamp=osm_timestamp.isoformat())
     async with AsyncSessionLocal() as session:
+        progress(verbose, started_at, "validate_region")
         if await session.scalar(text(f"SELECT EXISTS ({REGION_SQL})")) is not True:
             raise SystemExit("DE-SH boundary relation is missing from osm_import.osm_features_stage")
 
+        progress(verbose, started_at, "upsert_features")
         upserted = (await session.execute(UPSERT_SQL)).mappings().one()
+        progress(
+            verbose,
+            started_at,
+            "upsert_features_done",
+            inserted=int(upserted["inserted"] or 0),
+            updated=int(upserted["updated"] or 0),
+        )
+        progress(verbose, started_at, "delete_missing_features")
         deleted = (await session.execute(DELETE_SQL)).rowcount or 0
         counts = ReconciliationCounts(
             inserted=int(upserted["inserted"] or 0),
             updated=int(upserted["updated"] or 0),
             deleted=int(deleted),
         )
+        progress(verbose, started_at, "delete_missing_features_done", deleted=counts.deleted)
 
+        progress(verbose, started_at, "sync_analysis_areas", municipality=municipality)
         report = await sync_osm_analysis_areas(
             session, municipality, publish_relevant_updates=False, commit=False
         )
+        progress(verbose, started_at, "sync_analysis_areas_done", areas=sum(report.counts.values()))
+        progress(verbose, started_at, "update_cache_and_state")
         await bump_cache_versions(session, ("osm", "analytics"))
         await session.execute(
             STATE_SQL,
@@ -109,7 +143,9 @@ async def run(sequence: int | None, osm_timestamp: datetime, municipality: str) 
                 "deleted": counts.deleted,
             },
         )
+        progress(verbose, started_at, "commit")
         await session.commit()
+        progress(verbose, started_at, "commit_done")
 
     print(
         f"OSM_POSTPROCESS sequence={sequence if sequence is not None else 'initial'} "
@@ -126,5 +162,6 @@ if __name__ == "__main__":
     parser.add_argument("--sequence", type=int)
     parser.add_argument("--timestamp", required=True, type=parse_timestamp)
     parser.add_argument("--municipality", default="Flensburg")
+    parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
-    asyncio.run(run(args.sequence, args.timestamp, args.municipality))
+    asyncio.run(run(args.sequence, args.timestamp, args.municipality, verbose=args.verbose))

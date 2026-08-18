@@ -358,6 +358,11 @@ erneuter Lauf ist idempotent.
 6. Sequenz, OSM-Datenzeit und Change-Counts in `osm_sync_state` speichern;
 7. alles gemeinsam committen.
 
+Mit `--verbose` meldet die CLI Beginn und Abschluss jeder Phase inklusive
+verstrichener Zeit und Change-Counts. Die versionierten Import-/Update-Skripte
+aktivieren diesen Modus standardmäßig; Secrets oder vollständige SQL-Texte werden
+nicht ausgegeben.
+
 `polygon_osm_sources` und `user_polygons` werden bei OSM-Deletes nicht gelöscht.
 Dadurch bleibt eine bewusst übernommene lokale Fläche erhalten; ihr OSM-Link hat
 danach lediglich keine aktuelle Zeile in `osm_features`. Create, Tag-/Namens- und
