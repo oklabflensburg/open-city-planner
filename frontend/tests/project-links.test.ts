@@ -20,7 +20,7 @@ describe('official project links', () => {
     expect(component).toContain('target="_blank"')
     expect(component).toContain('rel="noopener noreferrer"')
     expect(component).toContain('öffnet in einem neuen Tab')
-    expect(component).toContain('<Github')
+    expect(component).toContain('<ProviderIcon provider="github"')
     expect(component).toContain('<ExternalLink')
   })
 

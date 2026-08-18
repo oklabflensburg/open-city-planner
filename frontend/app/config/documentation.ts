@@ -49,7 +49,7 @@ export const documentationPages: DocumentationPage[] = [
         title: 'Quellcode und Entwicklung',
         blocks: [
           { type: 'paragraph', text: 'Stadtplaner wird als Open-Source-Projekt entwickelt. Das offizielle GitHub-Repository enthält den Quellcode für Frontend und Backend sowie die technische Dokumentation für Entwicklung und Betrieb.' },
-          { type: 'links', items: [{ label: 'Offizielles GitHub-Repository', to: projectConfig.github.url, description: 'Quellcode und technische Projektdokumentation öffnen.' }, { label: 'Zum Projekt beitragen', to: projectConfig.github.contributingUrl, description: 'Lokales Setup, Qualitätsanforderungen und Pull-Request-Ablauf.' }] }
+          { type: 'links', items: [{ label: 'Offizielles GitHub-Repository', to: projectConfig.github.url, description: 'Quellcode und technische Projektdokumentation öffnen.', provider: 'github' }, { label: 'Zum Projekt beitragen', to: projectConfig.github.contributingUrl, description: 'Lokales Setup, Qualitätsanforderungen und Pull-Request-Ablauf.', provider: 'github' }] }
         ]
       },
       {
@@ -58,7 +58,7 @@ export const documentationPages: DocumentationPage[] = [
         blocks: [
           { type: 'paragraph', text: 'Öffentliche Änderungen an Stadtplaner-Gebieten können automatisiert und gebündelt über den Mastodon-Account des OK Lab Flensburg veröffentlicht werden. Der bestehende Mastodon-Account ist bereits ein ActivityPub-Actor; Mastodon übernimmt die Föderation. Stadtplaner betreibt deshalb keinen eigenen WebFinger-, Inbox- oder Outbox-Actor.' },
           { type: 'list', items: ['Veröffentlicht werden nur bewusst klassifizierte Änderungen an öffentlichen Gemeinde-, Stadtteil- und Quartiersdaten.', 'Mehrere Änderungen desselben Gebiets werden standardmäßig fünf Minuten gesammelt und als ein verständlicher Hinweis veröffentlicht.', 'Jeder automatische Post enthält einen Screenshot einer öffentlichen Stadtplaner-Seite und eine strukturierte Bildbeschreibung. Adminseiten werden dafür niemals geöffnet.', 'Superuser können automatische Veröffentlichung, Freigabemodus, Themen, Hashtags, Sichtbarkeit und Screenshotdarstellung steuern.', 'Der reguläre OSM-Sync erzeugt keine Posts. Ein bewusst gestarteter Lauf kann neue Gebiete oder ausreichend große Grenzänderungen einreihen.', 'Künftig bewusst aus OpenStreetMap übernommene Flächen können separat aktiviert werden. Pro Übernahme entsteht höchstens ein Beitrag; spätere Autosaves und das Aktivieren der Option lösen weder Wiederholung noch historischen Backfill aus.', 'Für übernommene Flächen ist die öffentliche Detailseite oder die GIS-Karte mit ausgewählter Fläche als Link- und Screenshotziel wählbar.', 'Ein Statistikimport erzeugt höchstens einen zusammenfassenden Hinweis statt eines Posts pro Beobachtung.', 'Eigentümer-, Miet-, Benutzer- und andere interne Daten sind nicht Teil der Feld-Allowlist und können nicht in kontrollierten Texten oder Screenshots erscheinen.'] },
-          { type: 'links', items: [{ label: projectConfig.social.mastodon.handle, to: projectConfig.social.mastodon.url, description: 'Öffentliche Aktualisierungen des OK Lab Flensburg auf Mastodon.' }, { label: 'Open-Source-Implementierung', to: projectConfig.github.url, description: 'Outbox, Publishing-Service und technische Dokumentation auf GitHub.' }] }
+          { type: 'links', items: [{ label: projectConfig.social.mastodon.handle, to: projectConfig.social.mastodon.url, description: 'Öffentliche Aktualisierungen des OK Lab Flensburg auf Mastodon.', provider: 'mastodon' }, { label: 'Open-Source-Implementierung', to: projectConfig.github.url, description: 'Outbox, Publishing-Service und technische Dokumentation auf GitHub.', provider: 'github' }] }
         ]
       }
     ]
@@ -764,7 +764,7 @@ export const documentationPages: DocumentationPage[] = [
         title: 'API-Quellcode und lokale Entwicklung',
         blocks: [
           { type: 'paragraph', text: 'Implementierung, Datenmodelle, Migrationen und lokale Einrichtungsanleitungen liegen im offiziellen Projekt-Repository. Das veröffentlichte OpenAPI-Schema bleibt die maßgebliche Referenz für die jeweils laufende Instanz.' },
-          { type: 'links', items: [{ label: 'API-Quellcode auf GitHub', to: projectConfig.github.url, description: 'Repository in einem neuen Tab öffnen.' }] }
+          { type: 'links', items: [{ label: 'API-Quellcode auf GitHub', to: projectConfig.github.url, description: 'Repository in einem neuen Tab öffnen.', provider: 'github' }] }
         ]
       }
     ]

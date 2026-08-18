@@ -15,7 +15,7 @@
     </dl>
     <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold text-[#154d73]">
       <a v-if="website" :href="website" target="_blank" rel="noopener noreferrer" class="underline">Website</a>
-      <a :href="osmObjectUrl(object)" target="_blank" rel="noopener noreferrer" class="underline">Auf OpenStreetMap ansehen</a>
+      <a :href="osmObjectUrl(object)" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 underline" aria-label="OpenStreetMap-Objekt öffnen"><ProviderIcon provider="openstreetmap" class="size-4" /> Auf OpenStreetMap ansehen</a>
     </div>
   </article>
 </template>

@@ -147,7 +147,7 @@
       <ul class="mt-4 space-y-2 text-sm">
         <li v-for="source in polygonData.osm_sources" :key="`${source.osm_type}-${source.osm_id}`" class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-4 py-3">
           <span>OSM {{ source.osm_type }} {{ source.osm_id }} · übernommen am {{ formatDate(source.imported_at) }}</span>
-          <a class="font-bold text-[#154d73] underline" :href="getOsmObjectUrl(source.osm_type, source.osm_id) || undefined" target="_blank" rel="noopener noreferrer">Auf OpenStreetMap ansehen</a>
+          <a class="inline-flex items-center gap-2 font-bold text-[#154d73] underline" :href="getOsmObjectUrl(source.osm_type, source.osm_id) || undefined" target="_blank" rel="noopener noreferrer" aria-label="OpenStreetMap-Objekt öffnen"><ProviderIcon provider="openstreetmap" class="size-5" /> Auf OpenStreetMap ansehen</a>
         </li>
       </ul>
     </section>

@@ -35,7 +35,7 @@
             :rel="isExternalLink(item.to) ? 'noopener noreferrer' : undefined"
             class="rounded-xl border border-slate-200 p-4 transition hover:border-[#4f86a8] hover:bg-[#f4f8fa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
           >
-            <span class="flex items-center justify-between gap-3 font-bold text-[#154d73]">{{ item.label }}<component :is="isExternalLink(item.to) ? ExternalLink : ArrowRight" class="size-4 shrink-0" aria-hidden="true" /></span>
+            <span class="flex items-center justify-between gap-3 font-bold text-[#154d73]"><span class="flex min-w-0 items-center gap-2"><ProviderIcon v-if="item.provider" :provider="item.provider" class="size-5" />{{ item.label }}</span><component :is="isExternalLink(item.to) ? ExternalLink : ArrowRight" class="size-4 shrink-0" aria-hidden="true" /></span>
             <span v-if="item.description" class="mt-1 block text-sm leading-6 text-slate-600">{{ item.description }}</span>
           </NuxtLink>
         </div>

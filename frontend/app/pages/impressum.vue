@@ -1,5 +1,5 @@
 <template>
-  <LegalPageLayout title="Impressum" intro="Angaben zum Anbieter der Open City Map.">
+  <LegalPageLayout title="Impressum" intro="Angaben zum Anbieter von Stadtplaner.">
     <section>
       <h2 class="text-base font-bold text-[#202427]">Angaben nach DDG</h2>
       <address class="mt-3 not-italic text-sm leading-7 text-[#4f575c]">
@@ -82,7 +82,7 @@ const {
 
 usePageSeo({
   title: 'Impressum',
-  description: 'Impressum und Anbieterangaben der Open City Map des OK Lab Flensburg.',
+  description: 'Impressum und Anbieterangaben von Stadtplaner des OK Lab Flensburg.',
   path: '/impressum',
   robots: 'noindex,follow',
   openGraph: false,

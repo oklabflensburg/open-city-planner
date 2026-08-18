@@ -1,7 +1,7 @@
 <template>
   <AppModal
     :open="open"
-    :title="mode === 'link' ? 'Mastodon verbinden' : 'Mit Mastodon anmelden'"
+    :title="mode === 'link' ? 'Mastodon verbinden' : 'Mit Mastodon fortfahren'"
     description="Auf welcher Mastodon-Instanz liegt Ihr Konto?"
     described-by="mastodon-instance-help mastodon-instance-error"
     :busy="loading"
@@ -9,6 +9,10 @@
     @update:open="emit('update:open', $event)"
   >
     <form class="grid gap-4" @submit.prevent="submit">
+      <div class="flex items-center gap-3 rounded-xl bg-violet-50 p-3 text-sm font-semibold text-violet-950">
+        <ProviderIcon provider="mastodon" class="size-6" />
+        <span>Mastodon</span>
+      </div>
       <label for="mastodon-instance" class="block">
         <span class="field-label">Mastodon-Instanz</span>
         <input

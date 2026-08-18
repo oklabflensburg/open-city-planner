@@ -60,7 +60,7 @@ async function submit() {
 
 usePageSeo({
   title: 'Registrieren',
-  description: 'Konto für die Open City Map erstellen.',
+  description: 'Konto für Stadtplaner erstellen.',
   path: '/registrieren',
   robots: 'noindex,nofollow',
   openGraph: false,

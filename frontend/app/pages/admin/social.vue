@@ -23,7 +23,7 @@
         <Card class="p-5 sm:p-6">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Mastodon</p>
+              <p class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500"><ProviderIcon provider="mastodon" class="size-5" /> Mastodon</p>
               <a :href="mastodonStatus.account_url" target="_blank" rel="noopener noreferrer" class="mt-2 inline-flex items-center gap-2 font-bold text-[#154d73] underline underline-offset-4">
                 {{ mastodonStatus.account }} <ExternalLink class="size-4" aria-hidden="true" />
               </a>
@@ -66,7 +66,7 @@
           </Card>
 
           <Card class="p-5 sm:p-6">
-            <h2 class="text-xl font-bold text-slate-950">Mastodon-Einstellungen</h2>
+            <h2 class="flex items-center gap-2 text-xl font-bold text-slate-950"><ProviderIcon provider="mastodon" class="size-6" /> Mastodon-Einstellungen</h2>
             <div class="mt-5 grid gap-4 sm:grid-cols-2">
               <label class="min-w-0"><span class="field-label">Sichtbarkeit</span><select v-model="settingsDraft.default_visibility" class="field-input" @change="scheduleControlPatch({ default_visibility: settingsDraft.default_visibility })"><option value="public">Öffentlich</option><option value="unlisted">Öffentlich, nicht gelistet</option><option value="private">Nur Follower</option></select></label>
               <label><span class="field-label">Sprache</span><input value="Deutsch (de)" disabled class="field-input bg-slate-100"></label>
@@ -140,7 +140,7 @@
               <Button v-if="allows(item, 'PREVIEW')" @click="openPreview(item)"><Eye class="size-4" /> Vorschau</Button>
               <Button v-if="allows(item, 'APPROVE_AND_PUBLISH')" :disabled="actingId === item.id" @click="approveAndPublish(item)"><LoaderCircle v-if="actingId === item.id" class="size-4 animate-spin" /><Send v-else class="size-4" /> {{ actingId === item.id ? 'Wird veröffentlicht …' : 'Freigeben & veröffentlichen' }}</Button>
               <Button v-if="allows(item, 'DISCARD')" :disabled="actingId === item.id" @click="selectedCancel = item"><Ban class="size-4" /> Verwerfen</Button>
-              <a v-if="allows(item, 'OPEN_REMOTE') && item.remote_url" :href="item.remote_url" target="_blank" rel="noopener noreferrer" class="page-button-secondary">Mastodon öffnen <ExternalLink class="size-4" /></a>
+              <a v-if="allows(item, 'OPEN_REMOTE') && item.remote_url" :href="item.remote_url" target="_blank" rel="noopener noreferrer" class="page-button-secondary"><ProviderIcon provider="mastodon" class="size-4" /> Mastodon öffnen <ExternalLink class="size-4" aria-hidden="true" /></a>
               <NuxtLink v-if="allows(item, 'OPEN_RESOURCE') && item.resource_slug" class="page-button-secondary" :to="item.resource_type === 'USER_POLYGON' ? `/flaechen/${item.resource_slug}` : `/gebiete/${item.resource_slug}`">{{ item.resource_type === 'USER_POLYGON' ? 'Fläche' : 'Gebiet' }} öffnen</NuxtLink>
               <Button v-if="allows(item, 'RETRY')" @click="selectedRetry = item"><RotateCcw class="size-4" /> Erneut versuchen</Button>
             </div>

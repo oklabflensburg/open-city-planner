@@ -36,7 +36,7 @@
 
     <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold">
       <a v-if="safeWebsite" class="inline-flex min-h-11 items-center text-[#154d73] underline" :href="safeWebsite" target="_blank" rel="noopener noreferrer">Website</a>
-      <a class="inline-flex min-h-11 items-center text-[#154d73] underline" :href="osmUrl" target="_blank" rel="noopener noreferrer">Auf OpenStreetMap ansehen</a>
+      <a class="inline-flex min-h-11 items-center gap-1.5 text-[#154d73] underline" :href="osmUrl" target="_blank" rel="noopener noreferrer" aria-label="OpenStreetMap-Objekt öffnen"><ProviderIcon provider="openstreetmap" class="size-4" /> Auf OpenStreetMap ansehen</a>
     </div>
 
     <div v-if="feature.properties.stadtplaner?.length" class="mt-3 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-950">

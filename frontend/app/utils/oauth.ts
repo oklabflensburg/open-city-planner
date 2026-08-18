@@ -7,7 +7,6 @@ export function hasOAuthProviders(providers: OAuthProvider[]): boolean {
 }
 
 export function oauthButtonLabel(providerLabel: string, mode: OAuthMode): string {
-  return mode === 'signup'
-    ? `Mit ${providerLabel} registrieren`
-    : `Mit ${providerLabel} anmelden`
+  void mode
+  return `Mit ${providerLabel} fortfahren`
 }

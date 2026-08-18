@@ -7,6 +7,7 @@
     <ExternalSourceLink
       v-if="links.wikipedia"
       label="Wikipedia"
+      provider="wikipedia"
       :title="links.wikipedia.title"
       :url="links.wikipedia.url"
       description="Enzyklopädischer Artikel"
@@ -16,6 +17,7 @@
     <ExternalSourceLink
       v-if="links.wikidata"
       label="Wikidata"
+      provider="wikidata"
       :title="links.wikidata.id"
       :url="links.wikidata.url"
       description="Strukturierte offene Wissensdaten"

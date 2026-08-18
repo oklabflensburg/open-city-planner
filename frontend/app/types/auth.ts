@@ -1,3 +1,5 @@
+import type { OAuthProviderId } from '~/types/externalProvider'
+
 export type AuthUser = {
   id: string
   email: string
@@ -38,7 +40,7 @@ export type OAuthAccount = {
 }
 
 export type OAuthProvider = {
-  id: string
+  id: OAuthProviderId
   label: string
   requires_instance?: boolean
   default_instance?: string | null

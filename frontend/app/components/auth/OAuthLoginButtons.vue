@@ -1,19 +1,19 @@
 <template>
   <div v-if="hasOAuthProviders(authStore.oauthProviders)" class="grid gap-3">
-    <AuthDivider :label="mode === 'signup' ? 'oder registrieren mit' : 'oder anmelden mit'" />
+    <AuthDivider label="oder fortfahren mit" />
     <div class="grid gap-2" aria-live="polite">
       <button
         v-for="provider in authStore.oauthProviders"
         :key="provider.id"
-        class="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] disabled:cursor-wait disabled:opacity-70"
+        class="grid min-h-11 w-full grid-cols-[1.5rem_minmax(0,1fr)_1.5rem] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] disabled:cursor-wait disabled:opacity-70"
         type="button"
         :aria-label="`${buttonLabel(provider.label)}`"
         :disabled="loadingProvider !== ''"
         @click="start(provider.id)"
       >
-        <Github v-if="provider.id === 'github'" class="mr-2 size-4" aria-hidden="true" />
-        <MessageCircle v-else-if="provider.id === 'mastodon'" class="mr-2 size-4" aria-hidden="true" />
-        {{ loadingProvider === provider.id ? `Zu ${provider.label} weiterleiten ...` : buttonLabel(provider.label) }}
+        <ProviderIcon :provider="provider.id" class="size-5 justify-self-center text-slate-950" />
+        <span class="min-w-0 text-center [overflow-wrap:anywhere]">{{ loadingProvider === provider.id ? `Verbindung zu ${provider.label} wird hergestellt …` : buttonLabel(provider.label) }}</span>
+        <span aria-hidden="true" />
       </button>
     </div>
     <MastodonInstanceDialog
@@ -29,7 +29,6 @@
 </template>
 
 <script setup lang="ts">
-import { Github, MessageCircle } from 'lucide-vue-next'
 import type { OAuthMode } from '~/utils/oauth'
 import { hasOAuthProviders, oauthButtonLabel } from '~/utils/oauth'
 

@@ -19,7 +19,7 @@
               OK Lab kennenlernen <ExternalLink class="size-4" aria-hidden="true" />
             </a>
             <a href="https://github.com/oklabflensburg" target="_blank" rel="noopener noreferrer" class="page-button-secondary">
-              <Github class="size-4" aria-hidden="true" /> OK Lab auf GitHub
+              <ProviderIcon provider="github" class="size-4" /> OK Lab auf GitHub
             </a>
           </div>
         </div>
@@ -106,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { Database, ExternalLink, Github, Handshake, SearchX, Shapes } from 'lucide-vue-next'
+import { Database, ExternalLink, Handshake, SearchX, Shapes } from 'lucide-vue-next'
 import {
   filterOKLabProjects,
   OK_LAB_PROJECT_LICENSE_URL,

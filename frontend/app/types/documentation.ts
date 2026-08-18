@@ -1,3 +1,5 @@
+import type { ExternalProvider } from '~/types/externalProvider'
+
 export type DocumentationAudience = 'public' | 'login' | 'verwaltung' | 'superuser'
 
 export type DocumentationBlock =
@@ -7,7 +9,7 @@ export type DocumentationBlock =
   | { type: 'callout', variant: 'info' | 'tip' | 'warning' | 'important', title: string, text: string }
   | { type: 'code', code: string, language?: string }
   | { type: 'image', src: string, alt: string, caption?: string }
-  | { type: 'links', items: Array<{ label: string, to: string, description?: string }> }
+  | { type: 'links', items: Array<{ label: string, to: string, description?: string, provider?: ExternalProvider }> }
   | { type: 'table', headers: string[], rows: string[][] }
 
 export interface DocumentationSection {

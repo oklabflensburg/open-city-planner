@@ -50,7 +50,7 @@
         </li>
         <li v-if="project.githubUrl">
           <a :href="project.githubUrl" target="_blank" rel="noopener noreferrer" :aria-label="`Quellcode von ${project.title} in neuem Fenster öffnen`" class="inline-flex min-h-11 items-center gap-1.5 hover:text-[#154d73]">
-            <Github class="size-4" aria-hidden="true" /> GitHub
+            <ProviderIcon provider="github" class="size-4" /> GitHub
           </a>
         </li>
         <li v-if="project.dataSourceUrl">
@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { Database, ExternalLink, Github, Globe2, Info, Map } from 'lucide-vue-next'
+import { Database, ExternalLink, Globe2, Info, Map } from 'lucide-vue-next'
 import { okLabProjectStatus, type OKLabProject } from '~/config/okLabProjects'
 
 const props = defineProps<{ project: OKLabProject }>()

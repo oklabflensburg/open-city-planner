@@ -1,5 +1,5 @@
 <template>
-  <LegalPageLayout title="Datenschutzerklärung" intro="Technische Datenschutzhinweise zur Open City Map.">
+  <LegalPageLayout title="Datenschutzerklärung" intro="Technische Datenschutzhinweise zu Stadtplaner.">
     <section>
       <h2 class="text-base font-bold text-[#202427]">Verantwortliche Stelle</h2>
       <p class="mt-3 text-sm leading-6 text-[#4f575c]">
@@ -170,7 +170,7 @@ const {
 
 usePageSeo({
   title: 'Datenschutzerklärung',
-  description: 'Datenschutzerklärung zur Open City Map mit MapLibre, VersaTiles, FastAPI und PostGIS.',
+  description: 'Datenschutzerklärung zu Stadtplaner mit MapLibre, VersaTiles, FastAPI und PostGIS.',
   path: '/datenschutz',
   robots: 'noindex,follow',
   openGraph: false,

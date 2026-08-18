@@ -6,14 +6,14 @@
     :class="variantClasses[variant]"
     :aria-label="`${label} (öffnet in einem neuen Tab)`"
   >
-    <Github class="size-4 shrink-0" aria-hidden="true" />
+    <ProviderIcon provider="github" class="size-4" />
     <span>{{ label }}</span>
     <ExternalLink class="size-4 shrink-0" aria-hidden="true" />
   </a>
 </template>
 
 <script setup lang="ts">
-import { ExternalLink, Github } from 'lucide-vue-next'
+import { ExternalLink } from 'lucide-vue-next'
 import { projectConfig } from '~/config/project'
 
 const props = withDefaults(defineProps<{

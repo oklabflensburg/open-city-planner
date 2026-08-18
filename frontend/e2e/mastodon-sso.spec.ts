@@ -21,8 +21,8 @@ for (const viewport of [
     })
 
     await page.goto('/login')
-    await page.getByRole('button', { name: 'Mit Mastodon anmelden' }).click()
-    const dialog = page.getByRole('dialog', { name: 'Mit Mastodon anmelden' })
+    await page.getByRole('button', { name: 'Mit Mastodon fortfahren' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Mit Mastodon fortfahren' })
     await expect(dialog).toBeVisible()
     const instance = dialog.getByLabel('Mastodon-Instanz')
     await expect(instance).toBeFocused()
@@ -62,7 +62,7 @@ test('authenticated profile starts Mastodon linking without visiting login', asy
   })
 
   await page.goto('/profil')
-  await page.getByRole('button', { name: 'Mastodon verbinden' }).click()
+  await page.getByRole('button', { name: 'Mastodon-Konto verknüpfen' }).click()
   const dialog = page.getByRole('dialog', { name: 'Mastodon verbinden' })
   await dialog.getByLabel('Mastodon-Instanz').fill('social.example')
   await dialog.getByRole('button', { name: 'Weiter' }).click()

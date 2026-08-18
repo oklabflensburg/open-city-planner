@@ -8,7 +8,8 @@
     rel="noopener noreferrer"
     :aria-label="accessibleName"
   >
-    <span v-if="variant === 'card'" class="min-w-0">
+    <ProviderIcon :provider="provider" :class="variant === 'card' ? 'mt-0.5 size-6' : 'size-4'" />
+    <span v-if="variant === 'card'" class="min-w-0 flex-1">
       <span class="block text-xs font-bold uppercase tracking-wide text-slate-500">{{ label }}</span>
       <span class="mt-1 block break-words font-semibold text-slate-900">{{ title }}</span>
       <span class="mt-1 block text-sm leading-5 text-slate-600">{{ description }}</span>
@@ -20,9 +21,11 @@
 
 <script setup lang="ts">
 import { ExternalLink } from 'lucide-vue-next'
+import type { ExternalProvider } from '~/types/externalProvider'
 
 withDefaults(defineProps<{
   label: string
+  provider: ExternalProvider
   title: string
   url: string
   description: string

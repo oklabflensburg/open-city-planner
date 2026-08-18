@@ -95,7 +95,7 @@ async function submit() {
 
 usePageSeo({
   title: 'Anmelden',
-  description: 'Bei der Open City Map anmelden.',
+  description: 'Bei Stadtplaner anmelden.',
   path: '/login',
   robots: 'noindex,nofollow',
   openGraph: false,

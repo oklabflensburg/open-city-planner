@@ -9,8 +9,8 @@
 
     <div v-if="authStore.oauthProviders.length" class="mt-5 grid gap-3">
       <div v-for="provider in authStore.oauthProviders" :key="provider.id" class="flex flex-col gap-3 rounded-lg border border-[#edf0f1] p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p class="font-bold text-[#202427]">{{ provider.label }}</p>
+        <div class="min-w-0">
+          <p class="flex items-center gap-2 font-bold text-[#202427]"><ProviderIcon :provider="provider.id" class="size-5 text-slate-950" /> {{ provider.label }}</p>
           <p class="mt-1 text-sm text-[#687176]">
             {{ accountFor(provider.id)?.provider_username || accountFor(provider.id)?.provider_email || 'Nicht verbunden' }}
           </p>
@@ -26,7 +26,8 @@
           :disabled="loadingProvider === provider.id"
           @click="requestUnlink(provider.id, provider.label)"
         >
-          {{ loadingProvider === provider.id ? 'Löst ...' : 'Verknüpfung lösen' }}
+          <ProviderIcon :provider="provider.id" class="size-4 text-slate-950" />
+          {{ loadingProvider === provider.id ? 'Wird getrennt …' : 'Verknüpfung lösen' }}
         </button>
         <button
           v-else
@@ -35,7 +36,8 @@
           :disabled="loadingProvider === provider.id"
           @click="link(provider.id)"
         >
-          {{ loadingProvider === provider.id ? `Weiterleitung zu ${provider.label} …` : `${provider.label} verbinden` }}
+          <ProviderIcon :provider="provider.id" class="size-4 text-slate-950" />
+          {{ loadingProvider === provider.id ? `Verbindung zu ${provider.label} wird hergestellt …` : `${provider.label}-Konto verknüpfen` }}
         </button>
       </div>
     </div>
