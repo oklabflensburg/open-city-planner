@@ -21,7 +21,6 @@ local features = osm2pgsql.define_table({
         type = 'any',
         id_column = 'osm_id',
         type_column = 'osm_type',
-        create_index = 'primary_key',
     },
     columns = {
         { column = 'tags', type = 'jsonb', not_null = true },

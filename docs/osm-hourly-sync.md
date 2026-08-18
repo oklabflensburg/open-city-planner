@@ -41,7 +41,7 @@ Die Inventur auf dem Entwicklungs-/Betriebshost ergab:
 | Anwendungsrolle | `postgres` laut `backend/.env` |
 | PostgreSQL | 18.4 |
 | PostGIS | 3.6.4; außerdem `hstore` 1.8 vorhanden |
-| osm2pgsql | 2.1.1 |
+| osm2pgsql | 2.1.1 auf dem Entwicklungshost; 1.11.0 auf dem Produktionshost |
 | Osmium | 1.18.0 |
 | PyOsmium | Ubuntu-Paket 4.0.2 |
 | Psycopg | `python3-psycopg2` 2.9.10 |
@@ -291,6 +291,10 @@ Der Flex-Style erzeugt `osm_import.osm_features_stage`. osm2pgsql erzeugt zudem
 Slim-/Middle-Tabellen in `osm_middle`. Die alten `public.osm_stage_*`-Tabellen
 sind für die neue Pipeline bedeutungslos und werden erst nach erfolgreichem
 Produktions-Cutover und separatem Backup bewusst entfernt.
+
+Der Style bleibt mit osm2pgsql 1.11 kompatibel und verlässt sich im Slim-Modus
+auf dessen automatisch erzeugten ID-Index. `create_index='primary_key'` darf hier
+nicht verwendet werden; diese Option wird erst ab osm2pgsql 2.1 unterstützt.
 
 ## 8. Replikation initialisieren und manuell testen
 
