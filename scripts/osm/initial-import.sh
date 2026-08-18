@@ -25,6 +25,10 @@ for command in curl flock md5sum osmium osm2pgsql osm2pgsql-replication psql pg_
 done
 
 pg_isready -q || { echo "PostgreSQL is not ready" >&2; exit 69; }
+psql -X --no-password -v ON_ERROR_STOP=1 -Atc "SELECT 1" >/dev/null || {
+  echo "PostgreSQL authentication failed; check the service user's .pgpass" >&2
+  exit 77
+}
 [[ -r "$OSM_STYLE" ]] || { echo "Flex style is not readable: $OSM_STYLE" >&2; exit 66; }
 
 echo "OSM_INITIAL_DOWNLOAD url=$OSM_PBF_URL"
@@ -40,11 +44,21 @@ pbf_timestamp="$(osmium fileinfo -g header.option.osmosis_replication_timestamp 
 [[ -n "$pbf_timestamp" ]] || { echo "PBF has no replication timestamp" >&2; exit 65; }
 echo "OSM_INITIAL_SOURCE timestamp=$pbf_timestamp"
 
-psql -v ON_ERROR_STOP=1 <<SQL
-CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE SCHEMA IF NOT EXISTS "$OSM_OUTPUT_SCHEMA" AUTHORIZATION "$PGUSER";
-CREATE SCHEMA IF NOT EXISTS "$OSM_MIDDLE_SCHEMA" AUTHORIZATION "$PGUSER";
-SQL
+postgis_ready="$(psql -X --no-password -v ON_ERROR_STOP=1 -Atc \
+  "SELECT count(*) FROM pg_extension WHERE extname='postgis'")"
+[[ "$postgis_ready" == "1" ]] || {
+  echo "PostGIS is missing; install it once as a PostgreSQL administrator" >&2
+  exit 77
+}
+
+owned_schemas="$(psql -X --no-password -v ON_ERROR_STOP=1 -Atc \
+  "SELECT count(*) FROM pg_namespace n JOIN pg_roles r ON r.oid=n.nspowner
+   WHERE n.nspname IN ('$OSM_OUTPUT_SCHEMA','$OSM_MIDDLE_SCHEMA')
+     AND r.rolname=current_user")"
+[[ "$owned_schemas" == "2" ]] || {
+  echo "Import schemas are missing or not owned by $PGUSER; run the documented admin setup" >&2
+  exit 77
+}
 
 started_at="$(date +%s)"
 osm2pgsql \

@@ -17,4 +17,4 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/var/lib/stadtplaner/osm
+ReadWritePaths=/data/stadtplaner

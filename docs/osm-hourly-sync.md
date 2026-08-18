@@ -169,8 +169,8 @@ werden nicht aus einer fremden Versionsdokumentation übernommen.
 Vor Import und regelmäßig im Betrieb:
 
 ```bash
-df -h /var/lib/stadtplaner/osm
-df -i /var/lib/stadtplaner/osm
+df -h /data/stadtplaner
+df -i /data/stadtplaner
 sudo -u postgres psql open_city_map -c \
   "SELECT pg_size_pretty(pg_database_size(current_database()));"
 ```
@@ -202,15 +202,19 @@ ALTER ROLE osm NOSUPERUSER NOCREATEDB NOCREATEROLE;
 SQL
 
 sudo install -d -o oklab -g www-data -m 0750 \
-  /var/lib/stadtplaner/osm \
-  /var/lib/stadtplaner/osm/extracts \
-  /var/lib/stadtplaner/osm/replication \
-  /var/lib/stadtplaner/osm/tmp \
-  /var/lib/stadtplaner/osm/logs
+  /data/stadtplaner \
+  /data/stadtplaner/extracts \
+  /data/stadtplaner/replication \
+  /data/stadtplaner/tmp \
+  /data/stadtplaner/logs
 sudo install -d -o root -g www-data -m 0750 /etc/stadtplaner
 sudo install -o root -g www-data -m 0640 \
   deploy/osm-sync.env.example /etc/stadtplaner/osm-sync.env
 ```
+
+Der Importjob selbst führt kein `CREATE SCHEMA` aus und benötigt kein
+datenbankweites `CREATE`-Recht. Er prüft vor dem Import, dass PostGIS vorhanden
+ist und beide Import-Schemas der Rolle `osm` gehören.
 
 Die DB-Verbindung für osm2pgsql kommt aus libpq-Variablen im Environment. Das
 Passwort gehört in `/home/oklab/.pgpass`, nicht in `ExecStart` oder Git:
@@ -223,6 +227,10 @@ Passwort gehört in `/home/oklab/.pgpass`, nicht in `ExecStart` oder Git:
 sudo chown oklab:oklab /home/oklab/.pgpass
 sudo chmod 0600 /home/oklab/.pgpass
 ```
+
+Vor dem Download prüft das Initialskript die Anmeldung ohne interaktiven Prompt.
+`password authentication failed` bedeutet, dass Eintrag, Rolle oder Passwort
+nicht übereinstimmen; `pg_isready` allein prüft keine erfolgreiche Anmeldung.
 
 Die Backend-Verbindung für das fachliche Postprocessing bleibt zentral in
 `backend/.env`; sie wird nicht in `osm-sync.env` dupliziert. Keine neuen
@@ -275,11 +283,11 @@ osm2pgsql --create --slim \
   --schema osm_import --middle-schema osm_middle \
   --output flex --style scripts/osm/osm.lua \
   --cache 1024 \
-  /var/lib/stadtplaner/osm/extracts/schleswig-holstein-latest.osm.pbf
+  /data/stadtplaner/extracts/schleswig-holstein-latest.osm.pbf
 ```
 
 Der Flex-Style erzeugt `osm_import.osm_features_stage`. osm2pgsql erzeugt zudem
-`osm_import.osm2pgsql_properties` sowie unter dem Prefix `stadtplaner_osm` die
+`osm_middle.osm2pgsql_properties` sowie unter dem Prefix `stadtplaner_osm` die
 Slim-/Middle-Tabellen in `osm_middle`. Die alten `public.osm_stage_*`-Tabellen
 sind für die neue Pipeline bedeutungslos und werden erst nach erfolgreichem
 Produktions-Cutover und separatem Backup bewusst entfernt.
@@ -290,7 +298,7 @@ Das Initialskript liest diesen Wert direkt aus dem PBF:
 
 ```bash
 osmium fileinfo -g header.option.osmosis_replication_timestamp \
-  /var/lib/stadtplaner/osm/extracts/schleswig-holstein-latest.osm.pbf
+  /data/stadtplaner/extracts/schleswig-holstein-latest.osm.pbf
 ```
 
 Der daraus gebildete Init-Befehl lautet:
@@ -311,7 +319,7 @@ Status und Properties prüfen:
 ```bash
 sudo -u oklab env OSM_ENV_FILE=/etc/stadtplaner/osm-sync.env scripts/osm/status.sh
 psql open_city_map -c \
-  "TABLE osm_import.osm2pgsql_properties;"
+  "TABLE osm_middle.osm2pgsql_properties;"
 psql open_city_map -c \
   "SELECT count(*) FROM osm_import.osm_features_stage; SELECT count(*) FROM osm_features;"
 ```
@@ -361,7 +369,7 @@ einer Downtime einen Lauf nach. Der kleine zufällige Delay verteilt externe
 Abrufe. Der Service ist `oneshot` und braucht keinen Restart-Loop. Der nächste
 Timerlauf übernimmt temporäre Netzwerk- oder DB-Fehler.
 
-Der Wrapper sperrt `/var/lib/stadtplaner/osm/update.lock`. Ein zweiter Start meldet
+Der Wrapper sperrt `/data/stadtplaner/update.lock`. Ein zweiter Start meldet
 `OSM_UPDATE_SKIPPED reason=already_running` und importiert nicht parallel.
 
 ## 11. Logs, Status und Monitoring
@@ -476,8 +484,8 @@ Postprocessing, Locks, RAM und I/O getrennt messen; nicht Parallelität zulassen
 ### Keine Replikationsinformation
 
 ```bash
-osmium fileinfo /var/lib/stadtplaner/osm/extracts/schleswig-holstein-latest.osm.pbf
-psql open_city_map -c "TABLE osm_import.osm2pgsql_properties;"
+osmium fileinfo /data/stadtplaner/extracts/schleswig-holstein-latest.osm.pbf
+psql open_city_map -c "TABLE osm_middle.osm2pgsql_properties;"
 osm2pgsql-replication status -d open_city_map -U osm -p stadtplaner_osm \
   --schema osm_import --middle-schema osm_middle --json
 ```

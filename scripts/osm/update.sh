@@ -13,6 +13,10 @@ if ! flock -n 9; then
 fi
 
 pg_isready -q || { echo "OSM_UPDATE_FAILED reason=database_unavailable" >&2; exit 69; }
+psql -X --no-password -v ON_ERROR_STOP=1 -Atc "SELECT 1" >/dev/null || {
+  echo "OSM_UPDATE_FAILED reason=database_authentication" >&2
+  exit 77
+}
 started_at="$(date +%s)"
 echo "OSM_UPDATE_START started_at=$(date --iso-8601=seconds)"
 echo "OSM_UPDATE_STATUS_BEFORE"

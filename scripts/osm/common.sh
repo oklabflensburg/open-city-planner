@@ -14,7 +14,7 @@ fi
 : "${PGPORT:=5432}"
 : "${PGDATABASE:=open_city_map}"
 : "${PGUSER:=osm}"
-: "${OSM_DATA_DIR:=/var/lib/stadtplaner/osm}"
+: "${OSM_DATA_DIR:=/data/stadtplaner}"
 : "${OSM_REPOSITORY:=/opt/git/open-city-planner}"
 : "${OSM_BACKEND_DIR:=${OSM_REPOSITORY}/backend}"
 : "${OSM_OUTPUT_SCHEMA:=osm_import}"
