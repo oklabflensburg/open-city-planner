@@ -76,6 +76,30 @@ osm2pgsql \
   --cache "$OSM_CACHE_MB" \
   "$pbf"
 
+application_db_role="${OSM_APPLICATION_DB_ROLE:-$(
+  cd "$OSM_BACKEND_DIR"
+  "$OSM_BACKEND_DIR/.venv/bin/python" - <<'PY'
+from sqlalchemy.engine import make_url
+
+from app.core.config import get_settings
+
+print(make_url(get_settings().database_url).username or "")
+PY
+)}"
+if [[ ! "$application_db_role" =~ ^[a-z_][a-z0-9_]*$ ]]; then
+  echo "Invalid or missing application database role: $application_db_role" >&2
+  exit 64
+fi
+psql -X --no-password -v ON_ERROR_STOP=1 \
+  --set=app_role="$application_db_role" \
+  --set=import_role="$PGUSER" \
+  --set=output_schema="$OSM_OUTPUT_SCHEMA" <<'SQL'
+GRANT USAGE ON SCHEMA :"output_schema" TO :"app_role";
+GRANT SELECT ON ALL TABLES IN SCHEMA :"output_schema" TO :"app_role";
+ALTER DEFAULT PRIVILEGES FOR ROLE :"import_role" IN SCHEMA :"output_schema"
+  GRANT SELECT ON TABLES TO :"app_role";
+SQL
+
 # Geofabrik's PBF is a coherent regional snapshot. Its own compatible diffs are
 # daily only; use its exact timestamp to start the official minutely stream
 # without losing the interval between snapshot creation and initialization.

@@ -214,7 +214,12 @@ sudo install -o root -g www-data -m 0640 \
 
 Der Importjob selbst führt kein `CREATE SCHEMA` aus und benötigt kein
 datenbankweites `CREATE`-Recht. Er prüft vor dem Import, dass PostGIS vorhanden
-ist und beide Import-Schemas der Rolle `osm` gehören.
+ist und beide Import-Schemas der Rolle `osm` gehören. Nach dem Flex-Import liest
+er die Anwendungsrolle ohne Passwortausgabe aus `backend/.env` und gewährt ihr
+nur `USAGE` sowie `SELECT` auf `osm_import`. Default Privileges erhalten diesen
+Zugriff auch dann, wenn osm2pgsql die Stage-Tabelle bei einem Reimport neu anlegt.
+Bei abweichender Konfiguration kann `OSM_APPLICATION_DB_ROLE` explizit gesetzt
+werden. Die Anwendung erhält keinen Zugriff auf `osm_middle`.
 
 Die DB-Verbindung für osm2pgsql kommt aus libpq-Variablen im Environment. Das
 Passwort gehört in `/home/oklab/.pgpass`, nicht in `ExecStart` oder Git:
