@@ -42,17 +42,22 @@ FROM changed
 """)
 
 DELETE_SQL = text(f"""
-WITH region AS ({REGION_SQL}), selected AS (
-  SELECT CASE stage.osm_type WHEN 'N' THEN 'node' WHEN 'W' THEN 'way' ELSE 'relation' END AS osm_type,
-         stage.osm_id
-  FROM osm_import.osm_features_stage stage CROSS JOIN region
-  WHERE ST_Dimension(stage.geometry) IN (0, 2)
-    AND ST_Intersects(stage.geometry, region.geometry)
-)
+WITH region AS ({REGION_SQL})
 DELETE FROM osm_features feature
+USING region
 WHERE NOT EXISTS (
-  SELECT 1 FROM selected
-  WHERE selected.osm_type=feature.osm_type AND selected.osm_id=feature.osm_id
+  SELECT 1
+  FROM osm_import.osm_features_stage stage
+  WHERE stage.osm_type = CASE feature.osm_type
+    WHEN 'node' THEN 'N'
+    WHEN 'way' THEN 'W'
+    WHEN 'relation' THEN 'R'
+  END
+    AND stage.osm_id = feature.osm_id
+    AND ST_Dimension(stage.geometry) IN (0, 2)
+    AND stage.geometry && region.geometry
+    AND ST_Intersects(stage.geometry, region.geometry)
+  OFFSET 0
 )
 """)
 

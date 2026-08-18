@@ -18,6 +18,15 @@ def test_osm_sync_uses_exact_schleswig_holstein_boundary_and_deletes() -> None:
     assert "NOT EXISTS" in str(DELETE_SQL)
 
 
+def test_osm_delete_uses_correlated_stage_key_lookup() -> None:
+    query = str(DELETE_SQL)
+    assert "stage.osm_type = CASE feature.osm_type" in query
+    assert "stage.osm_id = feature.osm_id" in query
+    assert "stage.geometry && region.geometry" in query
+    assert "OFFSET 0" in query
+    assert "), selected AS (" not in query
+
+
 def test_osm_sync_timestamp_is_timezone_aware() -> None:
     assert parse_timestamp("2026-08-18T12:34:56Z") == datetime(
         2026, 8, 18, 12, 34, 56, tzinfo=UTC

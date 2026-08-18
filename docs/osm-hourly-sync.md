@@ -381,6 +381,13 @@ Dadurch bleibt eine bewusst übernommene lokale Fläche erhalten; ihr OSM-Link h
 danach lediglich keine aktuelle Zeile in `osm_features`. Create, Tag-/Namens- und
 Geometrieänderungen werden durch den nächsten Diff-Lauf übernommen.
 
+Die Löschreconciliation sucht für jede veröffentlichte Zeile korreliert über
+`(osm_type, osm_id)` in `osm_features_stage`. `OFFSET 0` hält diese Suche bewusst
+als indexgestützten Subplan fest. Dadurch materialisiert PostgreSQL nicht mehr den
+gesamten räumlich gefilterten Landesbestand als Anti-Join und vermeidet die zuvor
+beobachteten mehrstündigen `BufFileRead`-Läufe. Voraussetzung ist der vom
+Flex-Import angelegte B-Tree-Index auf `(osm_type, osm_id)`.
+
 ## 10. systemd installieren
 
 ```bash
