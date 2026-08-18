@@ -94,6 +94,8 @@ SNAPSHOT_TAGS = (
     "disused:shop",
     "abandoned",
     "abandoned:shop",
+    "wikidata",
+    "wikipedia",
 )
 
 

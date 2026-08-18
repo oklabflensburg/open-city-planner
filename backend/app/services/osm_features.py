@@ -17,6 +17,7 @@ from app.schemas.osm import (
 )
 from app.schemas.polygon_filters import PolygonFilterParams
 from app.services.cache_versions import cache_version
+from app.services.external_links import external_links_from_osm_tags
 from app.services.osm_canonical import (
     osm_business_category,
     osm_business_category_sql,
@@ -29,7 +30,7 @@ from app.services.osm_lookup import normalize_osm_tags
 from app.services.osm_occupancy import detect_osm_occupancy_status
 from app.services.poi_categories import OSM_FEATURE_CATEGORIES, OSM_FEATURE_CATEGORY_SQL
 
-OSM_VIEWPORT_CACHE_RESOURCE = "osm:viewport:v3"
+OSM_VIEWPORT_CACHE_RESOURCE = "osm:viewport:v4"
 
 CANONICAL_CATEGORY_SQL = osm_business_category_sql()
 CANONICAL_FLOOR_SQL = osm_floor_group_sql()
@@ -341,6 +342,7 @@ async def viewport_features_json(
                         occupancy_status=occupancy.status,
                         occupancy_source="OSM" if occupancy.status == "VACANT" else None,
                         stadtplaner=row.get("linked_polygons") or [],
+                        external_links=external_links_from_osm_tags(row["tags"] or {}),
                     ),
                 )
             )

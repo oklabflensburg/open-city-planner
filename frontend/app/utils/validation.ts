@@ -44,6 +44,11 @@ export const polygonOverviewSchema = z.object({
   updated_at: z.string()
 })
 
+const externalLinksSchema = z.object({
+  wikidata: z.object({ id: z.string(), url: z.string().url() }).nullable(),
+  wikipedia: z.object({ title: z.string(), url: z.string().url() }).nullable()
+}).default({ wikidata: null, wikipedia: null })
+
 export const publicPolygonDetailSchema = z.object({
   id: z.string(),
   slug: z.string(),
@@ -67,8 +72,10 @@ export const publicPolygonDetailSchema = z.object({
     osm_type: z.enum(['node', 'way', 'relation']),
     osm_id: z.number(),
     is_primary: z.boolean(),
-    imported_at: z.string()
+    imported_at: z.string(),
+    external_links: externalLinksSchema
   })).default([]),
+  external_links: externalLinksSchema,
   created_at: z.string(),
   updated_at: z.string(),
   area_m2: z.number(),

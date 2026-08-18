@@ -1,7 +1,13 @@
 from datetime import UTC, datetime
 from inspect import signature
 
-from app.cli.postprocess_osm import DELETE_SQL, REGION_SQL, UPSERT_SQL, parse_timestamp
+from app.cli.postprocess_osm import (
+    DELETE_SQL,
+    REFRESH_POLYGON_OSM_SOURCES_SQL,
+    REGION_SQL,
+    UPSERT_SQL,
+    parse_timestamp,
+)
 from app.services.analysis_areas import sync_osm_analysis_areas
 
 
@@ -22,3 +28,9 @@ def test_osm_sync_timestamp_is_timezone_aware() -> None:
 def test_analysis_area_sync_can_join_a_larger_transaction() -> None:
     parameter = signature(sync_osm_analysis_areas).parameters["commit"]
     assert parameter.default is True
+
+
+def test_hourly_sync_refreshes_adopted_polygon_osm_tags() -> None:
+    query = str(REFRESH_POLYGON_OSM_SOURCES_SQL)
+    assert "osm_snapshot=feature.tags" in query
+    assert "source.osm_type=feature.osm_type" in query

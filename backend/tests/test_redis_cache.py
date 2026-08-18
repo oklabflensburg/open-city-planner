@@ -119,7 +119,7 @@ def test_tile_bucket_reuses_near_viewports_and_keys_include_filters() -> None:
     old_viewport = build_cache_key("osm:viewport", {"zoom": 17}, version=1)
     new_viewport = build_cache_key(OSM_VIEWPORT_CACHE_RESOURCE, {"zoom": 17}, version=1)
     assert ":osm:viewport:v1:" in old_viewport
-    assert ":osm:viewport:v3:v1:" in new_viewport
+    assert ":osm:viewport:v4:v1:" in new_viewport
     assert old_viewport != new_viewport
 
 
@@ -189,7 +189,7 @@ async def test_osm_v2_ignores_old_viewport_cache_with_peninsula(monkeypatch) -> 
     assert [feature.id for feature in result.features] == ["node/2"]
     assert session.execute.await_count == 1
     assert old_key in redis.values
-    assert any(":osm:viewport:v3:" in key for key in redis.values)
+    assert any(":osm:viewport:v4:" in key for key in redis.values)
 
 
 @pytest.mark.asyncio

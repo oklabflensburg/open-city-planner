@@ -23,7 +23,8 @@ async def run(name: str, publish_relevant_updates: bool, enrich_wikidata: bool) 
             "Wikidata: "
             f"geprüft={wikidata_report.checked}, OSM-ID={wikidata_report.osm_wikidata}, "
             f"OSM-Wikipedia={wikidata_report.osm_wikipedia}, Suche={wikidata_report.search}, "
-            f"nicht gefunden={wikidata_report.not_found}, uneindeutig={wikidata_report.ambiguous}"
+            f"nicht gefunden={wikidata_report.not_found}, ungültig={wikidata_report.invalid}, "
+            f"uneindeutig={wikidata_report.ambiguous}, Konflikte={wikidata_report.conflicts}"
         )
         for error in wikidata_report.errors:
             print(f"WIKIDATA-FEHLER: {error}")

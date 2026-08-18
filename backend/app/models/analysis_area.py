@@ -41,7 +41,7 @@ class AnalysisArea(Base):
     source_osm_id: Mapped[int | None] = mapped_column(BigInteger)
     source_admin_level: Mapped[int | None] = mapped_column(Integer)
     source_place: Mapped[str | None] = mapped_column(String(40))
-    source_osm_wikidata: Mapped[str | None] = mapped_column(String(32))
+    source_osm_wikidata: Mapped[str | None] = mapped_column(String(255))
     source_osm_wikipedia: Mapped[str | None] = mapped_column(String(255))
     source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     wikidata_id: Mapped[str | None] = mapped_column(String(32))
@@ -70,12 +70,13 @@ class AnalysisArea(Base):
         ),
         CheckConstraint(
             "wikidata_match_status IS NULL OR wikidata_match_status IN "
-            "('VERIFIED','AUTO_MATCHED','AMBIGUOUS','NOT_FOUND','CONFLICT')",
+            "('VERIFIED','AUTO_MATCHED','AMBIGUOUS','NOT_FOUND','INVALID','CONFLICT')",
             name="ck_analysis_areas_wikidata_status",
         ),
         UniqueConstraint("source", "source_osm_type", "source_osm_id", name="uq_analysis_areas_source_osm"),
         Index("idx_analysis_areas_parent", "parent_id"),
         Index("idx_analysis_areas_type", "area_type"),
+        Index("idx_analysis_areas_wikidata_id", "wikidata_id"),
         Index("idx_analysis_areas_geometry", "geometry", postgresql_using="gist"),
     )
 

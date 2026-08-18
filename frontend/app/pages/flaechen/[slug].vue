@@ -152,6 +152,15 @@
       </ul>
     </section>
 
+    <section
+      v-if="polygonData.external_links.wikipedia || polygonData.external_links.wikidata"
+      class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+      aria-labelledby="polygon-external-sources"
+    >
+      <h2 id="polygon-external-sources" class="text-lg font-bold text-slate-950">Externe Quellen</h2>
+      <AreaExternalLinks class="mt-4" :area-name="polygonData.name" :links="polygonData.external_links" variant="card" />
+    </section>
+
     <LocationAnalysis class="mt-8" :slug="slug" />
     <ComparableList class="mt-8" :slug="slug" />
 

@@ -86,6 +86,7 @@ export type PublicPolygonDetail = {
   business_structure: BusinessStructure
   geometry: AreaGeometry
   osm_sources: PolygonOsmSource[]
+  external_links: import('~/types/osm').ExternalLinks
   created_at: string
   updated_at: string
 } & PolygonMetrics
@@ -117,6 +118,7 @@ export type PolygonOsmSource = {
   osm_id: number
   is_primary: boolean
   imported_at: string
+  external_links: import('~/types/osm').ExternalLinks
 }
 
 export type PolygonSitemapEntry = {

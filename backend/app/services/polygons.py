@@ -32,6 +32,7 @@ from app.schemas.geojson import (
 from app.schemas.polygon_filters import PolygonFilterParams
 from app.services.analysis_areas import refresh_polygon_area_assignments
 from app.services.cache_versions import cache_version
+from app.services.external_links import external_links_from_osm_tags
 from app.services.geometry import from_wkb_element, to_wkb_element
 from app.services.gis_mutations import invalidate_gis_after_mutation
 from app.services.nominatim import NominatimService
@@ -259,6 +260,7 @@ async def polygon_osm_sources(session: AsyncSession, polygon_id: int) -> list[Po
             osm_id=row.osm_id,
             is_primary=row.is_primary,
             imported_at=row.imported_at,
+            external_links=external_links_from_osm_tags(row.osm_snapshot or {}),
         )
         for row in rows
     ]
@@ -267,6 +269,8 @@ async def polygon_osm_sources(session: AsyncSession, polygon_id: int) -> list[Po
 async def _public_detail(
     session: AsyncSession, polygon: UserPolygon, metrics: PolygonMetrics
 ) -> PublicPolygonDetail:
+    osm_sources = await polygon_osm_sources(session, polygon.id)
+    primary_source = next((source for source in osm_sources if source.is_primary), None)
     return PublicPolygonDetail(
         id=str(polygon.uuid),
         slug=polygon.slug,
@@ -296,7 +300,10 @@ async def _public_detail(
         bbox=metrics.bbox,
         created_at=polygon.created_at,
         updated_at=polygon.updated_at,
-        osm_sources=await polygon_osm_sources(session, polygon.id),
+        osm_sources=osm_sources,
+        external_links=(
+            primary_source.external_links if primary_source else external_links_from_osm_tags({})
+        ),
     )
 
 

@@ -11,7 +11,8 @@ async def run(force: bool) -> None:
     print(
         f"Geprüft={report.checked}, OSM-Wikidata={report.osm_wikidata}, "
         f"OSM-Wikipedia={report.osm_wikipedia}, Suche={report.search}, "
-        f"nicht gefunden={report.not_found}, uneindeutig={report.ambiguous}"
+        f"nicht gefunden={report.not_found}, ungültig={report.invalid}, "
+        f"uneindeutig={report.ambiguous}, Konflikte={report.conflicts}"
     )
     for error in report.errors:
         print(f"FEHLER: {error}")

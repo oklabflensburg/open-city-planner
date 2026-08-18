@@ -365,9 +365,11 @@ weitergereicht. Fehlt es, versucht osm2pgsql während des Append-Laufs im Schema
 3. nicht mehr vorhandene oder aus Schleswig-Holstein verschobene OSM-Quellen
    aus `osm_features` entfernen;
 4. Flensburger Analysegebiete und Polygon-Gebietszuordnungen idempotent erneuern;
-5. `osm`, `analytics` und über den Gebietssync `analysis-areas` invalidieren;
-6. Sequenz, OSM-Datenzeit und Change-Counts in `osm_sync_state` speichern;
-7. alles gemeinsam committen.
+5. OSM-Snapshots bereits übernommener Stadtplaner-Flächen aktualisieren;
+6. `osm`, `analytics`, `polygons` und über den Gebietssync `analysis-areas` invalidieren;
+7. Sequenz, OSM-Datenzeit und Change-Counts in `osm_sync_state` speichern;
+8. alles gemeinsam committen und anschließend geänderte Gebietstags persistent
+   über den `WikidataEnrichmentService` prüfen.
 
 Mit `--verbose` meldet die CLI Beginn und Abschluss jeder Phase inklusive
 verstrichener Zeit und Change-Counts. Die versionierten Import-/Update-Skripte

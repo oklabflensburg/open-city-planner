@@ -3,22 +3,10 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.schemas.analytics import BenchmarkMetrics, IndustryCount
+from app.schemas.external_links import ExternalLinks
 from app.schemas.geojson import AreaGeometry
 
-
-class WikidataExternalLink(BaseModel):
-    id: str
-    url: str
-
-
-class WikipediaExternalLink(BaseModel):
-    title: str
-    url: str
-
-
-class AnalysisAreaExternalLinks(BaseModel):
-    wikidata: WikidataExternalLink | None = None
-    wikipedia: WikipediaExternalLink | None = None
+AnalysisAreaExternalLinks = ExternalLinks
 
 
 class AnalysisAreaRead(BaseModel):

@@ -9,6 +9,7 @@ from sqlalchemy import text
 from app.db.session import AsyncSessionLocal
 from app.services.analysis_areas import sync_osm_analysis_areas
 from app.services.cache_versions import bump_cache_versions
+from app.services.wikidata_enrichment import WikidataEnrichmentService
 
 REGION_SQL = """
 SELECT geometry
@@ -66,6 +67,17 @@ ON CONFLICT (singleton) DO UPDATE SET
   inserted_count=excluded.inserted_count,
   updated_count=excluded.updated_count,
   deleted_count=excluded.deleted_count
+""")
+
+REFRESH_POLYGON_OSM_SOURCES_SQL = text("""
+UPDATE polygon_osm_sources source SET
+  osm_snapshot=feature.tags,
+  source_geometry=feature.geometry,
+  source_updated_at=feature.imported_at
+FROM osm_features feature
+WHERE source.osm_type=feature.osm_type AND source.osm_id=feature.osm_id
+  AND (source.osm_snapshot IS DISTINCT FROM feature.tags
+    OR source.source_geometry IS DISTINCT FROM feature.geometry)
 """)
 
 
@@ -131,8 +143,11 @@ async def run(
             session, municipality, publish_relevant_updates=False, commit=False
         )
         progress(verbose, started_at, "sync_analysis_areas_done", areas=sum(report.counts.values()))
+        progress(verbose, started_at, "refresh_polygon_osm_sources")
+        refreshed_sources = (await session.execute(REFRESH_POLYGON_OSM_SOURCES_SQL)).rowcount or 0
+        progress(verbose, started_at, "refresh_polygon_osm_sources_done", sources=refreshed_sources)
         progress(verbose, started_at, "update_cache_and_state")
-        await bump_cache_versions(session, ("osm", "analytics"))
+        await bump_cache_versions(session, ("osm", "analytics", "polygons"))
         await session.execute(
             STATE_SQL,
             {
@@ -146,6 +161,20 @@ async def run(
         progress(verbose, started_at, "commit")
         await session.commit()
         progress(verbose, started_at, "commit_done")
+
+        progress(verbose, started_at, "sync_wikidata")
+        wikidata_report = await WikidataEnrichmentService().sync(session)
+        progress(
+            verbose,
+            started_at,
+            "sync_wikidata_done",
+            checked=wikidata_report.checked,
+            osm_wikidata=wikidata_report.osm_wikidata,
+            osm_wikipedia=wikidata_report.osm_wikipedia,
+            invalid=wikidata_report.invalid,
+            conflicts=wikidata_report.conflicts,
+            errors=len(wikidata_report.errors),
+        )
 
     print(
         f"OSM_POSTPROCESS sequence={sequence if sequence is not None else 'initial'} "

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.models.user_polygon import UserPolygon
 from app.schemas.osm import OsmAddress, OsmCentroid, OsmObjectInfo, PolygonOsmInfo
+from app.services.external_links import external_links_from_osm_tags
 from app.services.geometry import from_wkb_element
 from app.services.osm_occupancy import detect_osm_occupancy_status
 
@@ -47,6 +48,8 @@ RELEVANT_TAGS = (
     "disused:shop",
     "abandoned",
     "abandoned:shop",
+    "wikidata",
+    "wikipedia",
 )
 CATEGORY_TAGS = ("shop", "amenity", "office", "craft", "tourism", "leisure", "building")
 
@@ -185,6 +188,7 @@ def normalize_osm_tags(
         occupancy_source="OSM" if occupancy.status == "VACANT" else None,
         occupancy_source_tag=occupancy.source_tag,
         previous_osm_shop_type=occupancy.previous_shop_type,
+        external_links=external_links_from_osm_tags(tags),
     )
 
 

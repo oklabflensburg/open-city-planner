@@ -1,10 +1,8 @@
 import asyncio
 import math
-import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from urllib.parse import unquote
 
 import httpx
 from sqlalchemy import text
@@ -14,8 +12,8 @@ from app.cache.keys import build_cache_key
 from app.cache.service import cache_service
 from app.core.config import Settings, get_settings
 from app.services.cache_versions import bump_cache_versions
+from app.services.external_links import QID_RE, wikipedia_title
 
-QID_RE = re.compile(r"^Q[1-9][0-9]*$")
 PUBLIC_STATUSES = {"VERIFIED", "AUTO_MATCHED"}
 GEOGRAPHIC_DESCRIPTION_TERMS = (
     "stadt", "gemeinde", "stadtteil", "quartier", "ort", "gebiet", "district",
@@ -56,6 +54,7 @@ class WikidataEnrichmentReport:
     manual: int = 0
     not_found: int = 0
     ambiguous: int = 0
+    invalid: int = 0
     conflicts: int = 0
     errors: list[str] = field(default_factory=list)
 
@@ -165,15 +164,7 @@ def _claim_value(raw: dict[str, Any], prop: str) -> Any | None:
 
 
 def _wikipedia_title(value: str | None) -> str | None:
-    if not value:
-        return None
-    value = value.strip()
-    if value.startswith("de:"):
-        return value[3:].strip().replace("_", " ") or None
-    prefix = "https://de.wikipedia.org/wiki/"
-    if value.startswith(prefix):
-        return unquote(value[len(prefix):]).replace("_", " ") or None
-    return None
+    return wikipedia_title(value)
 
 
 def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -191,11 +182,18 @@ class WikidataEnrichmentService:
         self, area: dict[str, Any], session: AsyncSession | None = None
     ) -> Match:
         osm_qid = (area.get("source_osm_wikidata") or "").strip()
-        if QID_RE.fullmatch(osm_qid):
-            entity = await self.client.entity(osm_qid)
-            if entity:
-                return Match("AUTO_MATCHED", "OSM_WIKIDATA", 1.0, entity)
         title = _wikipedia_title(area.get("source_osm_wikipedia"))
+        if osm_qid:
+            if not QID_RE.fullmatch(osm_qid):
+                return Match("INVALID", "OSM_WIKIDATA")
+            entity = await self.client.entity(osm_qid)
+            if entity is None:
+                return Match("NOT_FOUND", "OSM_WIKIDATA")
+            if title:
+                wikipedia_entity = await self.client.entity_from_dewiki(title)
+                if wikipedia_entity and wikipedia_entity.id != entity.id:
+                    return Match("CONFLICT", "OSM_WIKIDATA", 1.0, entity)
+            return Match("AUTO_MATCHED", "OSM_WIKIDATA", 1.0, entity)
         if title:
             entity = await self.client.entity_from_dewiki(title)
             if entity:
@@ -291,10 +289,14 @@ class WikidataEnrichmentService:
             try:
                 match = await self.resolve_area(dict(row), session)
                 await self.persist_match(session, row["id"], match)
-                if match.source == "OSM_WIKIDATA": report.osm_wikidata += 1
+                if match.status == "INVALID": report.invalid += 1
+                elif match.status == "CONFLICT": report.conflicts += 1
+                elif match.status in {"NOT_FOUND", "AMBIGUOUS"}:
+                    if match.status == "AMBIGUOUS": report.ambiguous += 1
+                    else: report.not_found += 1
+                elif match.source == "OSM_WIKIDATA": report.osm_wikidata += 1
                 elif match.source == "OSM_WIKIPEDIA": report.osm_wikipedia += 1
                 elif match.source == "WIKIDATA_SEARCH": report.search += 1
-                elif match.status == "AMBIGUOUS": report.ambiguous += 1
                 else: report.not_found += 1
             except Exception as exc:  # noqa: BLE001 - one unavailable entity must not abort bulk
                 report.errors.append(f"{row['name']}: {type(exc).__name__}")

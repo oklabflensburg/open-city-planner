@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.external_links import ExternalLinks
 from app.schemas.geojson import AreaGeometry
 
 
@@ -51,6 +52,7 @@ class OsmObjectInfo(BaseModel):
     occupancy_source: Literal["OSM"] | None = None
     occupancy_source_tag: str | None = None
     previous_osm_shop_type: str | None = None
+    external_links: ExternalLinks = Field(default_factory=ExternalLinks)
 
 
 class PolygonOsmInfo(BaseModel):
@@ -100,6 +102,7 @@ class OsmViewportProperties(BaseModel):
     occupancy_status: Literal["VACANT", "UNKNOWN"] = "UNKNOWN"
     occupancy_source: Literal["OSM"] | None = None
     stadtplaner: list["OsmLinkedPolygon"] = Field(default_factory=list)
+    external_links: ExternalLinks = Field(default_factory=ExternalLinks)
 
 
 class OsmLinkedPolygon(BaseModel):

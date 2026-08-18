@@ -20,10 +20,9 @@ from app.schemas.analysis_area import (
     AnalysisAreaReference,
     AnalysisAreaSitemapEntry,
     MetricDifference,
-    WikidataExternalLink,
-    WikipediaExternalLink,
 )
 from app.schemas.analytics import IndustryCount
+from app.schemas.external_links import WikidataExternalLink, WikipediaExternalLink
 from app.services.analytics import _base_filters, _benchmark_metrics, _counts
 from app.services.cache_versions import cache_version
 

@@ -9,6 +9,11 @@ export type OsmGeometry =
   | { type: 'Polygon', coordinates: number[][][] }
   | { type: 'MultiPolygon', coordinates: number[][][][] }
 
+export type ExternalLinks = {
+  wikidata: { id: string, url: string } | null
+  wikipedia: { title: string, url: string } | null
+}
+
 export type OsmViewportFeature = {
   type: 'Feature'
   id: string
@@ -29,6 +34,7 @@ export type OsmViewportFeature = {
     occupancy_status: 'VACANT' | 'UNKNOWN'
     occupancy_source: 'OSM' | null
     stadtplaner: Array<{ id: string, slug: string, name: string, floor?: string | null }>
+    external_links: ExternalLinks
   }
 }
 
@@ -87,6 +93,7 @@ export type OsmObjectInfo = {
   occupancy_source?: 'OSM' | null
   occupancy_source_tag?: string | null
   previous_osm_shop_type?: string | null
+  external_links: ExternalLinks
 }
 
 export type OsmImportResult = {

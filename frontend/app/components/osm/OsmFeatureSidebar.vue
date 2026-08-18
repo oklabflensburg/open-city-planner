@@ -34,6 +34,13 @@
       <div v-if="detail.building_levels" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Geschosse</dt><dd>{{ detail.building_levels }}</dd></div>
     </dl>
 
+    <AreaExternalLinks
+      v-if="detail && (detail.external_links.wikipedia || detail.external_links.wikidata)"
+      class="mt-4"
+      :area-name="detail.name || feature.properties.name || typeLabel"
+      :links="detail.external_links"
+    />
+
     <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold">
       <a v-if="safeWebsite" class="inline-flex min-h-11 items-center text-[#154d73] underline" :href="safeWebsite" target="_blank" rel="noopener noreferrer">Website</a>
       <a class="inline-flex min-h-11 items-center gap-1.5 text-[#154d73] underline" :href="osmUrl" target="_blank" rel="noopener noreferrer" aria-label="OpenStreetMap-Objekt öffnen"><ProviderIcon provider="openstreetmap" class="size-4" /> Auf OpenStreetMap ansehen</a>

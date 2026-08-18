@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.schemas.external_links import ExternalLinks
+
 Position = tuple[float, float]
 
 
@@ -132,6 +134,7 @@ class PolygonOsmSourceRead(BaseModel):
     osm_id: int
     is_primary: bool
     imported_at: datetime
+    external_links: ExternalLinks = Field(default_factory=ExternalLinks)
 
 
 class PublicPolygonDetail(BaseModel):
@@ -160,6 +163,7 @@ class PublicPolygonDetail(BaseModel):
     created_at: datetime
     updated_at: datetime
     osm_sources: list[PolygonOsmSourceRead] = Field(default_factory=list)
+    external_links: ExternalLinks = Field(default_factory=ExternalLinks)
 
 
 class PolygonEditorRead(PublicPolygonDetail):

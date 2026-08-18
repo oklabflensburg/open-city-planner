@@ -61,6 +61,29 @@ def test_normalizes_known_tags_and_keeps_missing_values_null() -> None:
     assert "private_note" not in result.tags
 
 
+def test_lutherpark_osm_tags_produce_allowlisted_external_links() -> None:
+    result = normalize_osm_tags(
+        osm_type="way", osm_id=37376249,
+        tags={
+            "name": "Lutherpark", "leisure": "park", "wikidata": "Q19965387",
+            "wikipedia": "de:Lutherpark (Flensburg)",
+        },
+    )
+    assert result.external_links.wikidata
+    assert result.external_links.wikidata.id == "Q19965387"
+    assert result.external_links.wikipedia
+    assert result.external_links.wikipedia.title == "Lutherpark (Flensburg)"
+    assert result.tags["wikidata"] == "Q19965387"
+
+
+def test_invalid_or_multiple_wikidata_values_never_become_links() -> None:
+    for value in ("Q0", "123", "Q1;Q2", "https://www.wikidata.org/wiki/Q1"):
+        result = normalize_osm_tags(
+            osm_type="node", osm_id=1, tags={"amenity": "bench", "wikidata": value}
+        )
+        assert result.external_links.wikidata is None
+
+
 def test_ranking_prefers_complete_and_specific_match() -> None:
     building = OsmObjectInfo(
         osm_id=1, osm_type="way", category="building", building="yes", overlap_ratio=0.8

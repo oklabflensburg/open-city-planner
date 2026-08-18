@@ -8,7 +8,9 @@ function feature(natural?: string): OsmViewportFeature {
     properties: {
       feature_id: 'way/1', osm_type: 'way', osm_id: 1, category: 'landuse',
       name: null, primary_type: natural || null, natural, feature_type: 'polygon',
-      occupancy_status: 'UNKNOWN', occupancy_source: null, stadtplaner: []
+      source: 'OSM', canonical_category: null, canonical_floor: null, mapped_area_m2: null,
+      occupancy_status: 'UNKNOWN', occupancy_source: null, stadtplaner: [],
+      external_links: { wikidata: null, wikipedia: null }
     }
   }
 }
