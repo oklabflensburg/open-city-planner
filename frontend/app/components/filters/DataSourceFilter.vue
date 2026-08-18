@@ -3,7 +3,7 @@
     v-model="filter.selectedSources"
     title="Datenquellen"
     :options="DATA_SOURCE_OPTIONS"
-    :columns="2"
+    variant="switches"
   />
 </template>
 

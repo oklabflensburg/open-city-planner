@@ -157,14 +157,14 @@ export const useApi = () => {
     try {
       const body = await response.json()
       const error = body?.detail?.error || body?.error
-      return new ApiError(error?.message || body?.detail || `API request failed with ${response.status}`, {
+      return new ApiError(error?.message || body?.detail || `Die API-Anfrage ist mit Status ${response.status} fehlgeschlagen.`, {
         statusCode: response.status,
         code: error?.code,
         details: body?.detail
       })
     } catch (cause) {
       if (cause instanceof ApiError) return cause
-      return new ApiError(`API request failed with ${response.status}`, { statusCode: response.status })
+      return new ApiError(`Die API-Anfrage ist mit Status ${response.status} fehlgeschlagen.`, { statusCode: response.status })
     }
   }
 

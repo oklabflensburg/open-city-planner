@@ -66,7 +66,7 @@ async def patch_notification_read(
     user: Annotated[User, Depends(get_csrf_protected_active_user)],
 ) -> Response:
     if not await mark_read(session, user.id, notification_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Die Benachrichtigung wurde nicht gefunden.")
     return Response(status_code=204)
 
 

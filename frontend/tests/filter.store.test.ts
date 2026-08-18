@@ -10,28 +10,26 @@ describe('filter store', () => {
 
   it('toggles all industry categories', () => {
     const store = useFilterStore()
-    expect(store.activeCategories).toEqual([])
-    store.toggleAll()
     expect(store.activeCategories).toHaveLength(industries.length)
     store.toggleAll()
     expect(store.activeCategories).toEqual([])
+    store.toggleAll()
+    expect(store.activeCategories).toHaveLength(industries.length)
   })
 
   it('toggles a single category', () => {
     const store = useFilterStore()
     store.toggleCategory('fashion')
-    expect(store.activeCategories).toContain('fashion')
-    store.toggleCategory('fashion')
     expect(store.activeCategories).not.toContain('fashion')
+    store.toggleCategory('fashion')
+    expect(store.activeCategories).toContain('fashion')
   })
 
   it('supports multi-select, canonical all-state and global reset', () => {
     const store = useFilterStore()
-    store.toggleSize('S')
-    store.toggleSize('M')
-    store.toggleFloor('EG')
-    store.toggleFloor('OG')
-    store.toggleOccupancy('VACANT')
+    store.selectedSizes = ['S', 'M']
+    store.selectedFloors = ['EG', 'OG']
+    store.occupancyStatuses = ['VACANT']
 
     expect(store.selectedSizes).toEqual(['S', 'M'])
     expect(store.selectedFloors).toEqual(['EG', 'OG'])

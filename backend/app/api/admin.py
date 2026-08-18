@@ -97,7 +97,7 @@ async def retry_failed_social_publication(
         raise HTTPException(409, str(exc)) from exc
     item = await get_social_publication(session, event_id)
     if item is None:
-        raise HTTPException(404, "Publication event not found")
+        raise HTTPException(404, "Das Veröffentlichungsereignis wurde nicht gefunden.")
     return item
 
 
@@ -152,11 +152,11 @@ async def get_social_publication_screenshot(
 ) -> Response:
     event = await session.get(SocialPublicationOutbox, event_id)
     if event is None or not event.screenshot_path:
-        raise HTTPException(404, "Screenshot preview is not ready")
+        raise HTTPException(404, "Die Screenshot-Vorschau ist noch nicht bereit.")
     try:
         content = ScreenshotService(get_settings()).read(event.screenshot_path)
     except FileNotFoundError as exc:
-        raise HTTPException(404, "Screenshot preview is not available") from exc
+        raise HTTPException(404, "Die Screenshot-Vorschau ist nicht verfügbar.") from exc
     return Response(
         content=content,
         media_type="image/jpeg",
@@ -170,7 +170,7 @@ async def _publication_action_result(
 ) -> SocialPublicationItemRead:
     item = await get_social_publication(session, event_id)
     if item is None:
-        raise HTTPException(404, "Publication event not found")
+        raise HTTPException(404, "Das Veröffentlichungsereignis wurde nicht gefunden.")
     return item
 
 
@@ -253,7 +253,7 @@ async def invalidate_cache(
     if invalid:
         from fastapi import HTTPException
 
-        raise HTTPException(status_code=422, detail="Invalid cache namespace")
+        raise HTTPException(status_code=422, detail="Ungültiger Cache-Namensraum.")
     await bump_cache_versions(session, selected)
     await session.commit()
     return {"invalidated": list(selected)}

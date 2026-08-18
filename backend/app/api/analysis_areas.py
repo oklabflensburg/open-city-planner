@@ -37,7 +37,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 @router.get("", response_model=list[AnalysisAreaRead], summary="Analysegebiete auflisten")
 async def get_areas(session: SessionDep, area_type: Annotated[str | None, Query()] = None, parent_id: uuid.UUID | None = None) -> list[AnalysisAreaRead]:
     if area_type and area_type not in {"MUNICIPALITY", "DISTRICT", "QUARTER"}:
-        raise HTTPException(422, "Invalid area_type")
+        raise HTTPException(422, "Ungültiger Gebietstyp.")
     return await list_areas(session, area_type, parent_id)
 
 
@@ -59,7 +59,7 @@ async def get_area_sitemap(session: SessionDep) -> list[AnalysisAreaSitemapEntry
 async def get_area_by_slug(slug: str, session: SessionDep) -> AnalysisAreaDetail:
     result = await area_detail_by_slug(session, slug)
     if result is None:
-        raise HTTPException(404, "Analysis area not found")
+        raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
     return result
 
 
@@ -69,7 +69,7 @@ async def get_area_polygons_by_slug(
 ) -> list[AnalysisAreaPolygon]:
     result = await area_polygons_by_slug(session, slug, limit)
     if result is None:
-        raise HTTPException(404, "Analysis area not found")
+        raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
     return result
 
 
@@ -83,7 +83,7 @@ async def get_area_polygons_by_slug(
 async def get_area_statistics(slug: str, session: SessionDep) -> AreaStatisticsRead:
     result = await area_statistics(session, slug)
     if result is None:
-        raise HTTPException(404, "Analysis area not found")
+        raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
     return result
 
 
@@ -98,7 +98,7 @@ async def get_area_statistic_series(
 ) -> AreaStatisticSeriesRead:
     result = await area_statistic_series(session, slug, metric_key)
     if result is None:
-        raise HTTPException(404, "Area statistic not found")
+        raise HTTPException(404, "Die Gebietsstatistik wurde nicht gefunden.")
     return result
 
 
@@ -106,7 +106,7 @@ async def get_area_statistic_series(
 async def get_area(area_id: uuid.UUID, session: SessionDep) -> AnalysisAreaRead:
     result = await area_detail(session, area_id)
     if result is None:
-        raise HTTPException(404, "Analysis area not found")
+        raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
     return result
 
 
@@ -125,10 +125,10 @@ def filters(params: PolygonFilterParams) -> dict:
 async def get_area_analytics_by_slug(slug: str, session: SessionDep) -> AnalysisAreaAnalytics:
     area_id = await area_uuid_by_slug(session, slug)
     if area_id is None:
-        raise HTTPException(404, "Analysis area not found")
+        raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
     result = await area_analytics(session, area_id, **filters(PolygonFilterParams()))
     if result is None:
-        raise HTTPException(404, "Analysis area not found")
+        raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
     return result
 
 
@@ -136,10 +136,10 @@ async def get_area_analytics_by_slug(slug: str, session: SessionDep) -> Analysis
 async def get_area_comparison_by_slug(slug: str, session: SessionDep) -> AnalysisAreaComparison:
     area_id = await area_uuid_by_slug(session, slug)
     if area_id is None:
-        raise HTTPException(404, "Analysis area not found")
+        raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
     result = await area_comparison(session, area_id, **filters(PolygonFilterParams()))
     if result is None:
-        raise HTTPException(404, "Analysis area or municipality not found")
+        raise HTTPException(404, "Das Gebiet oder die zugehörige Gemeinde wurde nicht gefunden.")
     return result
 
 
@@ -151,7 +151,7 @@ async def get_area_analytics(
 ) -> AnalysisAreaAnalytics:
     result = await area_analytics(session, area_id, **filters(filter_params))
     if result is None:
-        raise HTTPException(404, "Analysis area not found")
+        raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
     return result
 
 
@@ -163,5 +163,5 @@ async def get_area_comparison(
 ) -> AnalysisAreaComparison:
     result = await area_comparison(session, area_id, **filters(filter_params))
     if result is None:
-        raise HTTPException(404, "Analysis area or municipality not found")
+        raise HTTPException(404, "Das Gebiet oder die zugehörige Gemeinde wurde nicht gefunden.")
     return result

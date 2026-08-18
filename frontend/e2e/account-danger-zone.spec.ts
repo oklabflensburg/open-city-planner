@@ -39,17 +39,17 @@ test('deactivation confirms once, logs out and reports success', async ({ page }
   let requestCount = 0
   await page.route('**/api/v1/users/me/deactivate', async (route) => {
     requestCount += 1
-    await route.fulfill({ json: { message: 'Dein Konto wurde deaktiviert.' } })
+    await route.fulfill({ json: { message: 'Das Konto wurde deaktiviert.' } })
   })
   await openProfile(page)
 
   await page.getByRole('button', { name: 'Konto deaktivieren', exact: true }).click()
   const dialog = page.getByRole('alertdialog', { name: 'Konto deaktivieren?' })
-  await expect(dialog).toContainText('Deine Daten und bisherigen Beiträge bleiben erhalten.')
+  await expect(dialog).toContainText('Ihre Daten und bisherigen Beiträge bleiben erhalten.')
   await dialog.getByRole('button', { name: 'Konto deaktivieren', exact: true }).click()
 
   await expect(page).toHaveURL(/\/login\?account=deactivated$/)
-  await expect(page.getByText('Dein Konto wurde deaktiviert.', { exact: false })).toBeVisible()
+  await expect(page.getByText('Das Konto wurde deaktiviert.', { exact: false })).toBeVisible()
   expect(requestCount).toBe(1)
 })
 
@@ -59,7 +59,7 @@ test('permanent deletion requires the second explicit confirmation', async ({ pa
   await page.route('**/api/v1/users/me', async (route) => {
     if (route.request().method() !== 'DELETE') return route.continue()
     requestBody = route.request().postDataJSON()
-    await route.fulfill({ json: { message: 'Dein Konto wurde dauerhaft gelöscht.' } })
+    await route.fulfill({ json: { message: 'Das Konto wurde dauerhaft gelöscht.' } })
   })
   await openProfile(page)
 
@@ -99,7 +99,7 @@ test('danger zone and dialogs remain viewport-safe on mobile', async ({ page }) 
 async function mockAnonymousSession(page: Page) {
   await page.route('**/api/v1/auth/session', route => route.fulfill({
     status: 401,
-    json: { detail: { error: { code: 'AUTH_REQUIRED', message: 'Bitte melde dich an.' } } }
+    json: { detail: { error: { code: 'AUTH_REQUIRED', message: 'Bitte melden Sie sich an.' } } }
   }))
   await page.route('**/api/v1/auth/oauth/providers', route => route.fulfill({ json: [] }))
 }
@@ -126,8 +126,8 @@ test('password login shows the self-deactivation explanation without creating a 
   await page.getByLabel('Passwort').fill('correct password')
   await page.getByRole('button', { name: 'Anmelden', exact: true }).click()
 
-  const status = page.getByRole('status').filter({ hasText: 'Dein Konto ist deaktiviert' })
-  await expect(status).toContainText('Du hast dieses Konto zuvor selbst deaktiviert.')
+  const status = page.getByRole('status').filter({ hasText: 'Ihr Konto ist deaktiviert' })
+  await expect(status).toContainText('Dieses Konto wurde zuvor selbst deaktiviert.')
   await expect(status.getByRole('link', { name: 'Kontakt aufnehmen' })).toBeVisible()
   await expect(page.getByText('ACCOUNT_SELF_DEACTIVATED')).toHaveCount(0)
   expect(loginAttempts).toBe(1)
@@ -146,9 +146,9 @@ test('Mastodon callback redirects to a readable and query-safe status on mobile'
   })
   await page.goto('/api/v1/auth/oauth/mastodon/callback?code=mock-code&state=mock-state')
 
-  const status = page.getByRole('status').filter({ hasText: 'Dein Konto ist deaktiviert' })
+  const status = page.getByRole('status').filter({ hasText: 'Ihr Konto ist deaktiviert' })
   await expect(status).toBeVisible()
-  await expect(status).toContainText('wende dich bitte an den Support')
+  await expect(status).toContainText('wenden Sie sich bitte an den Support')
   await expect(page.getByText('ACCOUNT_SELF_DEACTIVATED')).toHaveCount(0)
   await expect(page).toHaveURL(/\/login$/)
   await expect.poll(() => page.evaluate(() =>

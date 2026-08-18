@@ -57,7 +57,7 @@ Die Tabelle `cache_versions` persistiert die Namespaces `osm`, `analytics`, `ana
 | Ressource | Standard-TTL |
 | --- | ---: |
 | OSM-Viewport | 1.800 s |
-| Analytics und Fast Facts | 600 s |
+| Analytics und Kennzahlen | 600 s |
 | Analysegebiete/GeoJSON | 3.600 s |
 | Polygon-GeoJSON | 60 s |
 | Standortanalyse/Comparables | 600 s |

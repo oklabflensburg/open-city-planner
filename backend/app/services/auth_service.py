@@ -242,14 +242,14 @@ async def refresh_session(session: AsyncSession, response: Response, refresh_tok
         payload = decode_jwt(refresh_token, "refresh")
     except jwt.ExpiredSignatureError as exc:
         logger.info("AUTH_REFRESH_FAILED reason=REFRESH_TOKEN_EXPIRED")
-        raise auth_error("REFRESH_TOKEN_EXPIRED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED) from exc
+        raise auth_error("REFRESH_TOKEN_EXPIRED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED) from exc
     except jwt.PyJWTError as exc:
         logger.info("AUTH_REFRESH_FAILED reason=REFRESH_TOKEN_INVALID")
-        raise auth_error("REFRESH_TOKEN_INVALID", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED) from exc
+        raise auth_error("REFRESH_TOKEN_INVALID", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED) from exc
     subject = payload.get("sub")
     jti = payload.get("jti")
     if not subject or not jti:
-        raise auth_error("REFRESH_TOKEN_INVALID", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error("REFRESH_TOKEN_INVALID", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
 
     record = await session.scalar(
         select(UserSession).where(UserSession.jti == jti).with_for_update()
@@ -257,14 +257,14 @@ async def refresh_session(session: AsyncSession, response: Response, refresh_tok
     now = utcnow()
     if not record or record.token_hash != hash_token(refresh_token) or str(record.user_id) != subject:
         logger.warning("AUTH_REFRESH_FAILED reason=REFRESH_TOKEN_INVALID")
-        raise auth_error("REFRESH_TOKEN_INVALID", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error("REFRESH_TOKEN_INVALID", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
     if record.rotated_at:
         grace = timedelta(seconds=get_settings().refresh_token_reuse_grace_seconds)
         if now - record.rotated_at <= grace:
             logger.info("AUTH_REFRESH_CONCURRENT family_id=%s", record.family_id)
             raise auth_error(
                 "REFRESH_ALREADY_ROTATED",
-                "Die Sitzung wurde bereits aktualisiert. Bitte wiederhole die Anfrage.",
+                "Die Sitzung wurde bereits aktualisiert. Bitte wiederholen Sie die Anfrage.",
                 status.HTTP_409_CONFLICT,
             )
         await revoke_token_family(session, record.family_id, now, "refresh_token_reuse")
@@ -277,22 +277,22 @@ async def refresh_session(session: AsyncSession, response: Response, refresh_tok
         )
         await session.commit()
         logger.error("REFRESH_TOKEN_REUSE_DETECTED family_id=%s", record.family_id)
-        raise auth_error("REFRESH_TOKEN_REUSE_DETECTED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error("REFRESH_TOKEN_REUSE_DETECTED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
     if record.revoked_at:
         logger.info("AUTH_REFRESH_FAILED reason=SESSION_REVOKED family_id=%s", record.family_id)
-        raise auth_error("SESSION_REVOKED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error("SESSION_REVOKED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
     if record.expires_at <= now:
         record.revoked_at = now
         record.revocation_reason = "expired"
         await session.commit()
-        raise auth_error("REFRESH_TOKEN_EXPIRED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error("REFRESH_TOKEN_EXPIRED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
 
     user = await get_user_by_id(session, record.user_id)
     if not user:
         await revoke_token_family(session, record.family_id, now, "user_inactive")
         await session.commit()
         logger.info("AUTH_REFRESH_FAILED reason=USER_INACTIVE family_id=%s", record.family_id)
-        raise auth_error("USER_INACTIVE", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error("USER_INACTIVE", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
     try:
         await ensure_user_can_authenticate(
             session, user, provider="refresh", audit_interactive_attempt=False
@@ -420,14 +420,14 @@ async def resend_verification(session: AsyncSession, user: User) -> bool:
         .execution_options(populate_existing=True)
     )
     if not locked_user:
-        raise auth_error("AUTH_REQUIRED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error("AUTH_REQUIRED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
     if locked_user.is_verified:
         await session.commit()
         return False
     if locked_user.email_pending:
         raise auth_error(
             "OAUTH_EMAIL_REQUIRED",
-            "Bitte hinterlege zuerst eine E-Mail-Adresse in deinem Profil.",
+            "Bitte hinterlegen Sie zuerst eine E-Mail-Adresse in Ihrem Profil.",
             status.HTTP_409_CONFLICT,
         )
     token = await create_verification_token(session, locked_user)

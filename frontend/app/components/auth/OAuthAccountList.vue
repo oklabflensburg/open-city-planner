@@ -3,7 +3,7 @@
     <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h2 class="text-lg font-bold text-[#202427]">Verknüpfte Konten</h2>
-        <p class="mt-1 text-sm leading-6 text-[#687176]">Verbinde externe Anmeldungen mit deinem lokalen Konto.</p>
+        <p class="mt-1 text-sm leading-6 text-[#687176]">Externe Anmeldungen mit dem lokalen Konto verbinden.</p>
       </div>
     </div>
 
@@ -47,7 +47,7 @@
     <AppConfirmDialog
       :open="Boolean(pendingUnlink)"
       title="Verknüpfung lösen?"
-      :body="`${pendingUnlink?.label || 'Das externe Konto'} wird von deinem Stadtplaner-Konto getrennt. Prüfe vorher, ob du dich weiterhin anmelden kannst.`"
+      :body="`${pendingUnlink?.label || 'Das externe Konto'} wird von Ihrem Stadtplaner-Konto getrennt. Prüfen Sie vorher, ob weiterhin eine Anmeldung möglich ist.`"
       confirm-label="Verknüpfung lösen"
       loading-label="Wird getrennt …"
       variant="warning"
@@ -162,9 +162,9 @@ function applyCallbackFeedback() {
   const errorCode = typeof route.query.oauth_link_error === 'string' ? route.query.oauth_link_error : ''
 
   if (success === 'success' && label) {
-    message.value = `${label} wurde erfolgreich mit deinem Konto verknüpft.`
+    message.value = `${label} wurde erfolgreich mit Ihrem Konto verknüpft.`
   } else if (success === 'already_connected' && label) {
-    message.value = `${label} ist bereits mit deinem Konto verknüpft.`
+    message.value = `${label} ist bereits mit Ihrem Konto verknüpft.`
   } else if (errorCode) {
     error.value = oauthLinkErrorText(errorCode, label)
   } else {
@@ -183,8 +183,8 @@ function oauthLinkErrorText(code: string, provider: string) {
   return {
     OAUTH_ACCOUNT_ALREADY_LINKED: `Dieses ${provider || 'externe'}-Konto ist bereits mit einem anderen Benutzerkonto verbunden.`,
     OAUTH_ACCESS_DENIED: 'Die Verknüpfung wurde abgebrochen.',
-    INVALID_OAUTH_STATE: 'Die Verknüpfung ist abgelaufen. Bitte versuche es erneut.',
-    AUTH_REQUIRED: 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.',
+    INVALID_OAUTH_STATE: 'Die Verknüpfung ist abgelaufen. Bitte versuchen Sie es erneut.',
+    AUTH_REQUIRED: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.',
     OAUTH_PROVIDER_DISABLED: 'Dieser Anbieter ist aktuell nicht aktiviert.',
     MASTODON_INSTANCE_UNREACHABLE: 'Die Mastodon-Instanz ist derzeit nicht erreichbar.',
     MASTODON_INSTANCE_UNSUPPORTED: 'Diese Instanz unterstützt die benötigte Mastodon-Anmeldung nicht.',

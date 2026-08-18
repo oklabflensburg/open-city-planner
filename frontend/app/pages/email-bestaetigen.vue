@@ -19,7 +19,7 @@
 const route = useRoute()
 const authStore = useAuthStore()
 const title = ref('E-Mail-Adresse bestätigen')
-const message = ref('Lade...')
+const message = ref('E-Mail-Adresse wird bestätigt …')
 const failed = ref(false)
 
 onMounted(async () => {
@@ -36,7 +36,7 @@ onMounted(async () => {
 
 usePageSeo({
   title: 'E-Mail bestätigen',
-  description: 'Bestätige die E-Mail-Adresse deines Kontos.',
+  description: 'E-Mail-Adresse des Kontos bestätigen.',
   path: '/email-bestaetigen',
   robots: 'noindex,nofollow',
   openGraph: false,

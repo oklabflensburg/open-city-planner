@@ -81,7 +81,7 @@ function formatDate(value: string) {
 
 usePageSeo({
   title: 'Meine Flächen',
-  description: 'Verwalte die von dir angelegten Flächen.',
+  description: 'Eigene angelegte Flächen verwalten.',
   path: '/meine-flaechen',
   robots: 'noindex,nofollow',
   openGraph: false,

@@ -28,10 +28,12 @@
           <BarChart3 class="size-4" aria-hidden="true" />
           <span>Analyse</span>
         </button>
-        <NuxtLink v-if="authStore.authenticated" class="map-action map-action-primary" to="/flaechen/neu" aria-label="Neue Fläche anlegen">
-          <Plus class="size-4" aria-hidden="true" />
-          <span>Neue Fläche</span>
-        </NuxtLink>
+        <ClientOnly>
+          <NuxtLink v-if="authStore.authenticated" class="map-action map-action-primary" to="/flaechen/neu" aria-label="Neue Fläche anlegen">
+            <Plus class="size-4" aria-hidden="true" />
+            <span>Neue Fläche</span>
+          </NuxtLink>
+        </ClientOnly>
       </nav>
     </section>
 

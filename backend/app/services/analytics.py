@@ -3,6 +3,7 @@ from collections.abc import Sequence
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.cache.keys import build_cache_key
 from app.cache.service import cache_service
@@ -12,6 +13,11 @@ from app.models.user_polygon import UserPolygon
 from app.schemas.analytics import (
     AnalyticsFastFacts,
     AnalyticsOverview,
+    AreaCompareFilters,
+    AreaCompareItem,
+    AreaCompareMetrics,
+    AreaCompareRequest,
+    AreaCompareResult,
     BenchmarkMetrics,
     CompletenessMetric,
     DimensionCount,
@@ -371,3 +377,152 @@ async def market_benchmarks(
         compute=compute,
     )
     return MarketBenchmarkResult.model_validate(data)
+
+
+def _compare_filter_params(filters: AreaCompareFilters) -> PolygonFilterParams:
+    return PolygonFilterParams(
+        categories=tuple(filters.categories),
+        floors=tuple(filters.floors),
+        area_sizes=tuple(filters.area_sizes),
+        occupancy_statuses=tuple(filters.occupancy_statuses),
+        business_structures=tuple(filters.business_structures),
+        sources=tuple(filters.sources),
+    )
+
+
+async def _compare_metrics_by_area(
+    session: AsyncSession,
+    area_ids: Sequence[int],
+    filters: AreaCompareFilters,
+) -> dict[int, AreaCompareMetrics]:
+    if not area_ids:
+        return {}
+    area = func.ST_Area(func.ST_Transform(UserPolygon.geometry, 25832))
+    clauses = polygon_filter_clauses(_compare_filter_params(filters))
+    statement = (
+        select(
+            PolygonAnalysisArea.analysis_area_id.label("analysis_area_id"),
+            func.count(UserPolygon.id).label("polygon_count"),
+            func.sum(area).label("total_area_m2"),
+            func.avg(area).label("average_area_m2"),
+            func.percentile_cont(0.5).within_group(area).label("median_area_m2"),
+            func.count(UserPolygon.id).filter(UserPolygon.occupancy_status == "OCCUPIED").label("occupied_count"),
+            func.count(UserPolygon.id).filter(UserPolygon.occupancy_status == "VACANT").label("vacant_count"),
+            func.count(UserPolygon.id).filter(UserPolygon.occupancy_status != "UNKNOWN").label("known_occupancy_count"),
+            func.count(UserPolygon.id).filter(UserPolygon.business_structure == "CHAIN").label("chain_count"),
+            func.count(UserPolygon.id).filter(UserPolygon.business_structure == "INDEPENDENT").label("independent_count"),
+            func.count(UserPolygon.id).filter(UserPolygon.business_structure != "UNKNOWN").label("known_business_count"),
+            func.max(UserPolygon.updated_at).label("data_updated_at"),
+        )
+        .select_from(PolygonAnalysisArea)
+        .join(UserPolygon, UserPolygon.id == PolygonAnalysisArea.polygon_id)
+        .where(PolygonAnalysisArea.analysis_area_id.in_(area_ids), *clauses)
+        .group_by(PolygonAnalysisArea.analysis_area_id)
+    )
+    rows = (await session.execute(statement)).mappings().all()
+    result: dict[int, AreaCompareMetrics] = {}
+    for row in rows:
+        known_occupancy = int(row["known_occupancy_count"] or 0)
+        known_business = int(row["known_business_count"] or 0)
+        vacant = int(row["vacant_count"] or 0)
+        chains = int(row["chain_count"] or 0)
+        result[int(row["analysis_area_id"])] = AreaCompareMetrics(
+            polygon_count=int(row["polygon_count"] or 0),
+            occupied_count=int(row["occupied_count"] or 0),
+            vacant_count=vacant,
+            chain_count=chains,
+            independent_count=int(row["independent_count"] or 0),
+            total_area_m2=float(row["total_area_m2"]) if row["total_area_m2"] is not None else None,
+            average_area_m2=float(row["average_area_m2"]) if row["average_area_m2"] is not None else None,
+            median_area_m2=float(row["median_area_m2"]) if row["median_area_m2"] is not None else None,
+            vacancy_rate=round(vacant / known_occupancy * 100, 2) if known_occupancy else None,
+            chain_store_rate=round(chains / known_business * 100, 2) if known_business else None,
+            known_occupancy_count=known_occupancy,
+            known_business_structure_count=known_business,
+            data_updated_at=row["data_updated_at"],
+        )
+    return result
+
+
+def _compare_item(
+    area: AnalysisArea,
+    parent_name: str | None,
+    metrics: AreaCompareMetrics | None,
+) -> AreaCompareItem:
+    values = metrics or AreaCompareMetrics()
+    area_km2 = area.area_m2 / 1_000_000 if area.area_m2 else 0
+    if area_km2:
+        values = values.model_copy(update={
+            "locations_per_km2": round(values.polygon_count / area_km2, 2),
+            "retail_area_m2_per_km2": (
+                round(values.total_area_m2 / area_km2, 2)
+                if values.total_area_m2 is not None else None
+            ),
+        })
+    return AreaCompareItem(
+        id=str(area.uuid), slug=area.slug, name=area.name, area_type=area.area_type,
+        parent_name=parent_name, area_m2=area.area_m2, metrics=values,
+    )
+
+
+async def _compare_areas_uncached(
+    session: AsyncSession,
+    request: AreaCompareRequest,
+) -> AreaCompareResult:
+    parent = aliased(AnalysisArea)
+    rows = (await session.execute(
+        select(AnalysisArea, parent.name)
+        .outerjoin(parent, parent.id == AnalysisArea.parent_id)
+        .where(AnalysisArea.slug.in_(request.area_slugs))
+    )).all()
+    found = {area.slug: (area, parent_name) for area, parent_name in rows}
+    selected = [found[slug] for slug in request.area_slugs if slug in found]
+    ignored = [slug for slug in request.area_slugs if slug not in found]
+
+    municipality: AnalysisArea | None = None
+    municipality_parent_name: str | None = None
+    if request.include_municipality_benchmark and selected:
+        municipality_pair = next((pair for pair in selected if pair[0].area_type == "MUNICIPALITY"), None)
+        if municipality_pair:
+            municipality, municipality_parent_name = municipality_pair
+        else:
+            municipality = await session.scalar(
+                select(AnalysisArea).where(
+                    AnalysisArea.area_type == "MUNICIPALITY",
+                    func.ST_Covers(AnalysisArea.geometry, selected[0][0].centroid),
+                ).limit(1)
+            )
+
+    metric_areas = [area for area, _parent_name in selected]
+    if municipality and all(area.id != municipality.id for area in metric_areas):
+        metric_areas.append(municipality)
+    metrics = await _compare_metrics_by_area(
+        session, [area.id for area in metric_areas], request.filters
+    )
+    items = [_compare_item(area, parent_name, metrics.get(area.id)) for area, parent_name in selected]
+    benchmark = None
+    if municipality and all(area.id != municipality.id for area, _parent_name in selected):
+        benchmark = _compare_item(municipality, municipality_parent_name, metrics.get(municipality.id))
+    return AreaCompareResult(areas=items, benchmark=benchmark, ignored_slugs=ignored)
+
+
+async def compare_areas(session: AsyncSession, request: AreaCompareRequest) -> AreaCompareResult:
+    analytics_version = await cache_version(session, "analytics")
+    area_version = await cache_version(session, "analysis-areas")
+    key = build_cache_key(
+        "analytics:compare",
+        request.model_dump(mode="json"),
+        version=f"{analytics_version}:{area_version}",
+    )
+
+    async def compute() -> dict:
+        result = await _compare_areas_uncached(session, request)
+        return result.model_dump(mode="json")
+
+    data, _status = await cache_service.get_or_compute(
+        key,
+        ttl=get_settings().analytics_cache_ttl,
+        resource="analytics-compare",
+        compute=compute,
+    )
+    return AreaCompareResult.model_validate(data)

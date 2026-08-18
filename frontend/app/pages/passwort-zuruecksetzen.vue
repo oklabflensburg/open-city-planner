@@ -45,7 +45,7 @@ async function submit() {
 
 usePageSeo({
   title: 'Passwort zurücksetzen',
-  description: 'Lege ein neues Passwort für dein Konto fest.',
+  description: 'Neues Passwort für das Konto festlegen.',
   path: '/passwort-zuruecksetzen',
   robots: 'noindex,nofollow',
   openGraph: false,

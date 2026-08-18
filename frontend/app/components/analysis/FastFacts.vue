@@ -15,7 +15,7 @@
       <button class="mt-2 font-bold underline" type="button" @click="analytics.load()">Erneut versuchen</button>
     </div>
     <div v-else-if="fastFacts?.polygon_count === 0 && selectionRestricted" class="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-      <p class="font-bold">Keine gepflegten Stadtplaner-Flächen entsprechen deiner Auswahl.</p>
+      <p class="font-bold">Keine gepflegten Stadtplaner-Flächen entsprechen der aktuellen Auswahl.</p>
       <button class="mt-1 min-h-8 font-bold text-[#154d73] underline" type="button" @click="filter.reset()">Filter zurücksetzen</button>
     </div>
     <div v-else class="facts-grid grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2">

@@ -43,6 +43,15 @@ def test_none_source_cannot_be_combined_with_a_real_source() -> None:
     assert exc_info.value.detail["error"]["code"] == "INVALID_POLYGON_FILTER"
 
 
+def test_none_dimension_is_explicitly_empty_and_cannot_be_combined() -> None:
+    filters = polygon_filter_query(categories=["NONE"])
+    assert filters.categories == ("NONE",)
+    assert sql(polygon_filter_clauses(filters)[0]) == "false"
+
+    with pytest.raises(HTTPException):
+        polygon_filter_query(floors=["NONE,EG"])
+
+
 def test_empty_dimensions_add_no_sql_clauses() -> None:
     assert polygon_filter_clauses(PolygonFilterParams()) == []
 

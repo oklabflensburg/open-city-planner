@@ -18,7 +18,7 @@ describe('GIS filter serialization', () => {
     })
     const restored = gisFiltersFromQuery(Object.fromEntries(query))
 
-    expect(query.toString()).toBe('area_sizes=S%2CM&floors=EG%2COG&categories=fashion%2Cgastronomy&occupancy_statuses=VACANT')
+    expect(query.toString()).toBe('area_sizes=S%2CM&floors=EG%2COG&categories=fashion%2Cgastronomy&occupancy_statuses=VACANT&business_structures=NONE')
     expect(restored).toEqual({
       sizes: ['S', 'M'], floors: ['EG', 'OG'], categories: ['fashion', 'gastronomy'],
       statuses: ['VACANT'], businessStructures: [], sources: ['STADTPLANNER', 'OSM']
@@ -26,20 +26,22 @@ describe('GIS filter serialization', () => {
     expect(gisFilterStateKey(restored)).toBe(query.toString())
   })
 
-  it('treats no values and all values as an unrestricted API filter', () => {
+  it('treats all values as unrestricted and no values as explicitly empty', () => {
     const allSizes = { sizes: ['S', 'M', 'L', 'XL'] as Array<'S' | 'M' | 'L' | 'XL'>, floors: [], categories: [], statuses: [], businessStructures: [], sources: ['STADTPLANNER', 'OSM'] as Array<'STADTPLANNER' | 'OSM'> }
-    expect(gisFilterQuery(allSizes).toString()).toBe('')
+    expect(gisFilterQuery(allSizes).get('area_sizes')).toBeNull()
+    expect(gisFilterQuery(allSizes).get('floors')).toBe('NONE')
     expect(effectiveGisFilters(allSizes).sizes).toEqual([])
   })
 
   it('ignores invalid URL values instead of leaking them into API requests', () => {
     expect(gisFiltersFromQuery({ area_sizes: 'S,XXL', floors: 'basement' })).toEqual({
-      sizes: ['S'], floors: [], categories: [], statuses: [], businessStructures: [], sources: ['STADTPLANNER', 'OSM']
+      sizes: ['S'], floors: [], categories: expect.any(Array), statuses: expect.any(Array), businessStructures: expect.any(Array), sources: ['STADTPLANNER', 'OSM']
     })
   })
 
   it('represents an explicitly empty data-source selection without confusing it with the default', () => {
     const filters = { sizes: [], floors: [], categories: [], statuses: [], businessStructures: [], sources: [] }
+    expect(gisFilterQuery(filters).get('categories')).toBe('NONE')
     expect(gisFilterQuery(filters).get('sources')).toBe('NONE')
     expect(gisFiltersFromQuery({ sources: 'NONE' }).sources).toEqual([])
     expect(gisFiltersFromQuery({}).sources).toEqual(['STADTPLANNER', 'OSM'])

@@ -12,7 +12,7 @@ const appFile = (path: string) => readFileSync(
 describe('deactivated account authentication UX', () => {
   it('distinguishes self-deactivation from a neutral administrative disablement', () => {
     expect(getAuthErrorPresentation('ACCOUNT_SELF_DEACTIVATED')).toMatchObject({
-      title: 'Dein Konto ist deaktiviert',
+      title: 'Ihr Konto ist deaktiviert',
       accountStatus: true,
       showSupportLink: true
     })

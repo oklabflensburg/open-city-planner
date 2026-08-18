@@ -165,11 +165,11 @@ Es existieren keine Listener für `move`, `drag`, `zoom`, `render` oder `idle`, 
 | `analysis-areas` | einmalig statisches GeoJSON | erster Kartenaufbau | Gemeinde 7–10,5; Stadtteil 9,5–13,5; Quartier ab 11,5 |
 | `overview-polygons` | einmalig, danach nur Filteränderung | fachlicher Filter oder CRUD-Reload | aktuell 42 Features |
 
-OSM- und Analyseauswahl sowie Stadtplaner-Hover/Selection verwenden stabile IDs und MapLibre `feature-state`. POI-Klicks verwenden statt einer zweiten unsichtbaren Circle-Schicht eine auf 10 Pixel begrenzte Abfrage des sichtbaren POI-Layers.
+Alle interaktiven Polygone verwenden eine universelle GeoJSON-Auswahlquelle mit höchstens einem Polygon oder MultiPolygon. Ein Auswahlwechsel aktualisiert nur diese kleine Source; die großen fachlichen Sources bleiben unverändert und es gibt weder `setStyle` noch Viewport-Refresh. Drei einmalig angelegte Layer zeichnen moderate Fachfarbe, weißen Außenhalo und petrolfarbene Kontur. Ausgewählte OSM-Punkte verwenden weiterhin `feature-state`; POI- und Label-Layer bleiben über dem Polygon-Overlay. Nur ein Deep-Link rahmt die Auswahl ohne Animation ein, ein direkter Klick verändert die Kamera nicht.
 
 ## Map-Lifecycle und Speicher
 
-Die MapLibre-Instanz liegt in `shallowRef` und wird zusätzlich mit `markRaw` gespeichert. OSM-, Analysegebiets- und Stadtplaner-Geometrien werden bei der Zuweisung ebenfalls `markRaw` behandelt. Die Karte wird beim Unmount mit `map.remove()` zerstört, Timer und AbortController werden beendet und Window-Listener entfernt.
+Die MapLibre-Instanz liegt in `shallowRef` und wird zusätzlich mit `markRaw` gespeichert. OSM-, Analysegebiets- und Stadtplaner-Geometrien werden bei der Zuweisung ebenfalls `markRaw` behandelt. Vor dem Unmount werden aktive Feature-States entfernt; anschließend wird die Karte mit `map.remove()` zerstört, Timer und AbortController werden beendet und Window-Listener entfernt.
 
 Nach zehn SPA-Wechseln von der Karte zur Projektseite und zurück blieben genau eine Map und ein MapLibre-Canvas bestehen. Nach erzwungener Garbage Collection blieben Dokumente konstant bei 3, DOM-Nodes sanken von 1.348 auf 1.344. Event-Listener stiegen einmalig von 194 auf 205, aber identisch sowohl nach fünf als auch nach zehn Zyklen; es gab daher kein lineares Listenerwachstum.
 

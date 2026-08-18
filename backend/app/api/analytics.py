@@ -11,13 +11,15 @@ from app.db.session import get_session
 from app.models.user import User
 from app.schemas.analytics import (
     AnalyticsOverview,
+    AreaCompareRequest,
+    AreaCompareResult,
     CityMetricsPublicRead,
     CityMetricsUpdate,
     CityMetricsVerwaltungRead,
     MarketBenchmarkResult,
 )
 from app.schemas.polygon_filters import PolygonFilterParams, polygon_filter_query
-from app.services.analytics import analytics_overview, market_benchmarks
+from app.services.analytics import analytics_overview, compare_areas, market_benchmarks
 from app.services.city_metrics import (
     get_public_city_metrics,
     get_verwaltung_city_metrics,
@@ -93,6 +95,26 @@ async def get_market_benchmarks(
         sources=filters.sources,
         area_id=area_id,
     )
+    if get_settings().cache_debug_headers and (status := last_cache_status()):
+        response.headers["X-Cache"] = status
+    return result
+
+
+@router.post(
+    "/compare",
+    response_model=AreaCompareResult,
+    summary="Gemeinden, Stadtteile und Quartiere gemeinsam vergleichen",
+    description=(
+        "Berechnet alle gewählten Gebiete und optional die zugehörige Gemeinde als Benchmark "
+        "in einem Request mit derselben Filtergrundlage."
+    ),
+)
+async def post_area_comparison(
+    payload: AreaCompareRequest,
+    session: SessionDep,
+    response: Response,
+) -> AreaCompareResult:
+    result = await compare_areas(session, payload)
     if get_settings().cache_debug_headers and (status := last_cache_status()):
         response.headers["X-Cache"] = status
     return result

@@ -1,12 +1,12 @@
 <template>
   <section class="rounded-2xl border border-rose-200 bg-rose-50/40 p-5 sm:p-7" aria-labelledby="account-danger-heading">
     <h2 id="account-danger-heading" class="text-lg font-bold text-rose-950">Gefahrenbereich</h2>
-    <p class="mt-2 text-sm leading-6 text-rose-900">Hier kannst du dein Konto stilllegen oder dauerhaft entfernen. Prüfe sorgfältig, welche Aktion du auswählst.</p>
+    <p class="mt-2 text-sm leading-6 text-rose-900">Hier kann das Konto stillgelegt oder dauerhaft entfernt werden. Prüfen Sie sorgfältig, welche Aktion Sie auswählen.</p>
 
     <div class="mt-6 grid gap-6">
       <div class="rounded-xl border border-amber-200 bg-white p-4 sm:p-5">
         <h3 class="font-bold text-slate-950">Konto deaktivieren</h3>
-        <p class="mt-2 text-sm leading-6 text-slate-700">Der Login wird sofort gesperrt. Deine Daten und bisherigen Beiträge bleiben erhalten. Eine Reaktivierung ist über die Administration möglich.</p>
+        <p class="mt-2 text-sm leading-6 text-slate-700">Der Login wird sofort gesperrt. Ihre Daten und bisherigen Beiträge bleiben erhalten. Eine Reaktivierung ist über die Administration möglich.</p>
         <Button class="mt-4 w-full border-amber-300 text-amber-900 hover:bg-amber-50 sm:w-auto" @click="deactivateOpen = true">
           <UserRoundX class="size-4" aria-hidden="true" /> Konto deaktivieren
         </Button>
@@ -14,7 +14,7 @@
 
       <div class="rounded-xl border border-rose-300 bg-white p-4 sm:p-5">
         <h3 class="font-bold text-rose-950">Konto dauerhaft löschen</h3>
-        <p class="mt-2 text-sm leading-6 text-slate-700">Deine persönlichen Kontodaten werden dauerhaft gelöscht. Öffentliche fachliche Beiträge können ohne Kontozuordnung erhalten bleiben. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+        <p class="mt-2 text-sm leading-6 text-slate-700">Ihre persönlichen Kontodaten werden dauerhaft gelöscht. Öffentliche fachliche Beiträge können ohne Kontozuordnung erhalten bleiben. Diese Aktion kann nicht rückgängig gemacht werden.</p>
         <Button class="mt-4 w-full sm:w-auto" variant="danger" @click="deleteWarningOpen = true">
           <Trash2 class="size-4" aria-hidden="true" /> Konto dauerhaft löschen
         </Button>
@@ -24,8 +24,8 @@
     <AppConfirmDialog
       v-model:open="deactivateOpen"
       title="Konto deaktivieren?"
-      description="Du wirst sofort auf allen Geräten abgemeldet."
-      body="Deine Daten und bisherigen Beiträge bleiben erhalten. Eine Reaktivierung ist über die Administration möglich."
+      description="Sie werden sofort auf allen Geräten abgemeldet."
+      body="Ihre Daten und bisherigen Beiträge bleiben erhalten. Eine Reaktivierung ist über die Administration möglich."
       confirm-label="Konto deaktivieren"
       loading-label="Konto wird deaktiviert …"
       variant="warning"
@@ -38,7 +38,7 @@
       v-model:open="deleteWarningOpen"
       title="Konto dauerhaft löschen?"
       description="Diese Aktion ist endgültig."
-      body="Deine persönlichen Kontodaten werden gelöscht, du wirst auf allen Geräten abgemeldet und kannst dieses Konto nicht wiederherstellen. Öffentliche fachliche Beiträge können anonymisiert erhalten bleiben."
+      body="Ihre persönlichen Kontodaten werden gelöscht. Sie werden auf allen Geräten abgemeldet und können dieses Konto nicht wiederherstellen. Öffentliche fachliche Beiträge können anonymisiert erhalten bleiben."
       confirm-label="Weiter"
       variant="danger"
       @confirm="continueDeletion"
@@ -47,7 +47,7 @@
     <AppModal
       v-model:open="deleteConfirmOpen"
       title="Löschung bestätigen"
-      description="Bitte gib zur Bestätigung LÖSCHEN ein. Groß- und Kleinschreibung werden nicht unterschieden."
+      description="Bitte geben Sie zur Bestätigung LÖSCHEN ein. Groß- und Kleinschreibung werden nicht unterschieden."
       described-by="account-delete-confirmation-help"
       size="sm"
       role="alertdialog"
@@ -113,7 +113,7 @@ async function deactivateAccount() {
     deactivateOpen.value = false
     await router.push('/login?account=deactivated')
   } catch (error) {
-    deactivateError.value = accountErrorMessage(error, 'Das Konto konnte nicht deaktiviert werden. Bitte versuche es erneut.')
+    deactivateError.value = accountErrorMessage(error, 'Das Konto konnte nicht deaktiviert werden. Bitte versuchen Sie es erneut.')
   } finally {
     deactivateLoading.value = false
   }
@@ -144,7 +144,7 @@ async function deleteAccount() {
     deleteConfirmOpen.value = false
     await router.push('/login?account=deleted')
   } catch (error) {
-    deleteError.value = accountErrorMessage(error, 'Das Konto konnte nicht gelöscht werden. Bitte versuche es erneut.')
+    deleteError.value = accountErrorMessage(error, 'Das Konto konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.')
   } finally {
     deleteLoading.value = false
   }

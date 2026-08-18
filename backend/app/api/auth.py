@@ -135,7 +135,7 @@ async def start_mastodon_oauth_link(
     if not provider_is_configured("mastodon"):
         raise HTTPException(status_code=404, detail={"error": {"code": "OAUTH_PROVIDER_DISABLED", "message": "Mastodon-Anmeldung ist nicht aktiviert."}})
     if await get_for_user_provider(session, user.id, "mastodon"):
-        raise HTTPException(status_code=409, detail={"error": {"code": "OAUTH_ACCOUNT_ALREADY_LINKED", "message": "Dein Konto ist bereits mit Mastodon verbunden."}})
+        raise HTTPException(status_code=409, detail={"error": {"code": "OAUTH_ACCOUNT_ALREADY_LINKED", "message": "Ihr Konto ist bereits mit Mastodon verbunden."}})
     state, url = await create_mastodon_oauth_flow(
         session,
         payload.instance,
@@ -163,7 +163,7 @@ async def post_complete_oauth_email(
     return VerificationResponse(
         status="verification_sent",
         code="VERIFICATION_EMAIL_SENT",
-        message="Bitte bestätige deine E-Mail-Adresse über den zugesandten Link.",
+        message="Bitte bestätigen Sie Ihre E-Mail-Adresse über den zugesandten Link.",
     )
 
 
@@ -179,11 +179,11 @@ async def post_signup(payload: SignupRequest, session: SessionDep, response: Res
     "/login",
     response_model=AuthResponse,
     responses={
-        401: {"description": "Invalid email address or password"},
+        401: {"description": "Ungültige E-Mail-Adresse oder ungültiges Passwort"},
         403: {
             "description": (
-                "Account cannot authenticate. Error codes include "
-                "ACCOUNT_SELF_DEACTIVATED and ACCOUNT_DISABLED."
+                "Das Konto kann nicht angemeldet werden. Mögliche Fehlercodes sind "
+                "ACCOUNT_SELF_DEACTIVATED und ACCOUNT_DISABLED."
             )
         },
     },
@@ -202,7 +202,7 @@ async def post_refresh(session: SessionDep, response: Response, request: Request
     refresh_token = request.cookies.get(settings.auth_refresh_cookie_name)
     if not refresh_token:
         clear_auth_cookies(response)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error": {"code": "REFRESH_TOKEN_MISSING", "message": "Bitte melde dich erneut an."}})
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error": {"code": "REFRESH_TOKEN_MISSING", "message": "Bitte melden Sie sich erneut an."}})
     check_rate_limit(
         f"refresh:{request.client.host if request.client else 'unknown'}:{hash_token(refresh_token)[:16]}",
         attempts=settings.refresh_rate_limit_attempts,

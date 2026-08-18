@@ -17,10 +17,20 @@ describe('read-only overview UI', () => {
   })
 
   it('allows category labels to wrap without truncation', () => {
-    const toggle = appFile('components/filters/IndustryToggle.vue')
+    const toggle = appFile('components/filters/GisFilterToggleRow.vue')
     expect(toggle).toContain('whitespace-normal')
-    expect(toggle).toContain('[overflow-wrap:anywhere]')
+    expect(toggle).toContain('[overflow-wrap:break-word]')
+    expect(toggle).toContain('[word-break:normal]')
+    expect(toggle).toContain('min-w-0 flex-1')
     expect(toggle).not.toContain('truncate')
+    expect(toggle).not.toContain('[overflow-wrap:anywhere]')
+    const industryToggle = appFile('components/filters/IndustryToggle.vue')
+    expect(industryToggle).toContain(':active-color="color"')
+    expect(industryToggle).not.toContain(':color="color"')
+    const statusToggle = appFile('components/filters/MarketStatusFilter.vue')
+    expect(statusToggle).toContain("OCCUPIED: '#10b981'")
+    expect(statusToggle).toContain("VACANT: '#f43f5e'")
+    expect(statusToggle).toContain("UNKNOWN: '#94a3b8'")
   })
 
   it('does not initialize drawing or editing tools on the overview map', () => {

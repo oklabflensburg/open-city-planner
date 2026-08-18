@@ -1,9 +1,9 @@
 <template>
   <div>
-    <div class="mb-2 flex min-h-8 items-center justify-between gap-3">
-      <h3 class="text-xs font-bold uppercase tracking-wide text-slate-600">Branchen</h3>
-      <button class="min-h-8 rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="filter.toggleAll()">
-        {{ filter.allCategoriesActive ? 'Auswahl aufheben' : 'Alle auswählen' }}
+    <div class="mb-2 flex min-h-8 min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1">
+      <h3 class="min-w-0 flex-1 pt-2 text-xs font-bold uppercase tracking-wide text-slate-600">Branchen</h3>
+      <button class="min-h-8 shrink-0 rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="filter.toggleAll()">
+        {{ filter.allCategoriesActive ? 'Alle abwählen' : 'Alle auswählen' }}
       </button>
     </div>
     <div class="space-y-1">

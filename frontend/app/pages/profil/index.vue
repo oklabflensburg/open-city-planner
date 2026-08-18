@@ -3,7 +3,7 @@
     <div class="space-y-6 sm:space-y-8">
     <Card v-if="needsOAuthEmail" class="border-amber-200 bg-amber-50 p-5 sm:p-7">
       <h2 class="text-lg font-bold text-slate-950">Fast geschafft</h2>
-      <p class="mt-2 text-sm leading-6 text-slate-700">Bitte hinterlege eine E-Mail-Adresse für dein Stadtplaner-Konto. Wir senden dir anschließend einen Bestätigungslink.</p>
+      <p class="mt-2 text-sm leading-6 text-slate-700">Bitte hinterlegen Sie eine E-Mail-Adresse für Ihr Stadtplaner-Konto. Anschließend wird ein Bestätigungslink versendet.</p>
       <form class="mt-5 grid gap-4" @submit.prevent="completeEmail">
         <FormField id="oauth-email" v-model="oauthEmail" label="E-Mail-Adresse" type="email" autocomplete="email" required :disabled="emailLoading" />
         <p v-if="emailError" class="rounded-md bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800" role="alert">{{ emailError }}</p>
@@ -71,7 +71,7 @@ function formatDate(value?: string | null) {
 
 usePageSeo({
   title: 'Profil',
-  description: 'Verwalte dein persönliches Profil.',
+  description: 'Persönliches Profil verwalten.',
   path: '/profil',
   robots: 'noindex,nofollow',
   openGraph: false,

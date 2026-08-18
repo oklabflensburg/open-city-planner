@@ -1,5 +1,5 @@
 <template>
-  <ContentPageShell title="Kennzahlen verwalten" description="Hier werden die stadtweiten Kennzahlen gepflegt, die öffentlich in den Fast Facts auf der Karte erscheinen." :breadcrumbs="[{ label: 'Startseite', to: '/' }, { label: 'Verwaltung' }, { label: 'Kennzahlen' }]" max-width="reading">
+  <ContentPageShell title="Kennzahlen verwalten" description="Hier werden die stadtweiten Kennzahlen gepflegt, die öffentlich auf der Karte erscheinen." :breadcrumbs="[{ label: 'Startseite', to: '/' }, { label: 'Verwaltung' }, { label: 'Kennzahlen' }]" max-width="reading">
     <template #badge><DocsRoleBadge audience="verwaltung" /></template>
     <template #actions>
       <NuxtLink class="page-button-secondary" to="/">

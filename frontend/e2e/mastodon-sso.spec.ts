@@ -26,7 +26,7 @@ for (const viewport of [
     await expect(dialog).toBeVisible()
     const instance = dialog.getByLabel('Mastodon-Instanz')
     await expect(instance).toBeFocused()
-    await expect(dialog).toContainText('Deine Zugangsdaten gibst du ausschließlich auf deiner Mastodon-Instanz ein.')
+    await expect(dialog).toContainText('Ihre Zugangsdaten geben Sie ausschließlich auf Ihrer Mastodon-Instanz ein.')
     await instance.fill('@stadtfreund@social.example')
     await dialog.getByRole('button', { name: 'Weiter' }).click()
 

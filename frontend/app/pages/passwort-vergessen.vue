@@ -36,7 +36,7 @@ async function submit() {
 
 usePageSeo({
   title: 'Passwort vergessen',
-  description: 'Fordere einen Link zum Zurücksetzen deines Passworts an.',
+  description: 'Link zum Zurücksetzen des Passworts anfordern.',
   path: '/passwort-vergessen',
   robots: 'noindex,nofollow',
   openGraph: false,

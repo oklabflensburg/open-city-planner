@@ -32,11 +32,11 @@ describe('analytics store', () => {
       activeCategories: ['fashion'],
       selectedFloors: ['EG'],
       selectedSizes: ['M'],
-      occupancyStatuses: [],
-      businessStructures: [],
+      occupancyStatuses: ['OCCUPIED', 'VACANT', 'UNKNOWN'],
+      businessStructures: ['CHAIN', 'INDEPENDENT', 'UNKNOWN'],
       selectedSources: ['STADTPLANNER', 'OSM'],
       filterState: {
-        sizes: ['M'], floors: ['EG'], categories: ['fashion'], statuses: [], businessStructures: [], sources: ['STADTPLANNER', 'OSM']
+        sizes: ['M'], floors: ['EG'], categories: ['fashion'], statuses: ['OCCUPIED', 'VACANT', 'UNKNOWN'], businessStructures: ['CHAIN', 'INDEPENDENT', 'UNKNOWN'], sources: ['STADTPLANNER', 'OSM']
       }
     }))
   })

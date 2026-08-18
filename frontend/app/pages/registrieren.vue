@@ -49,7 +49,7 @@ async function submit() {
   loading.value = true
   try {
     await authStore.signup({ email: email.value, password: password.value, first_name: firstName.value, last_name: lastName.value })
-    success.value = 'Registrierung erfolgreich. Bitte bestätige deine E-Mail-Adresse, bevor du Flächen bearbeitest.'
+    success.value = 'Registrierung erfolgreich. Bitte bestätigen Sie Ihre E-Mail-Adresse, bevor Sie Flächen bearbeiten.'
     window.setTimeout(() => void router.push('/'), 1200)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Registrierung fehlgeschlagen.'
@@ -60,7 +60,7 @@ async function submit() {
 
 usePageSeo({
   title: 'Registrieren',
-  description: 'Erstelle ein Konto für die Open City Map.',
+  description: 'Konto für die Open City Map erstellen.',
   path: '/registrieren',
   robots: 'noindex,nofollow',
   openGraph: false,

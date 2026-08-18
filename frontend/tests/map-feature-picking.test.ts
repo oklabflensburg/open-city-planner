@@ -2,10 +2,15 @@ import type { Map, MapGeoJSONFeature } from 'maplibre-gl'
 import { describe, expect, it, vi } from 'vitest'
 import { MAP_INTERACTIVE_LAYERS, pickMapEntityAtPoint } from '~/utils/mapFeaturePicking'
 
-function renderedFeature(layerId: string, properties: Record<string, unknown>, coordinates: [number, number] = [20, 20]) {
+function renderedFeature(layerId: string, properties: Record<string, unknown>, coordinates: [number, number] = [20, 20], multi = false) {
+  const isPolygon = layerId.endsWith('-fill')
   return {
     type: 'Feature',
-    geometry: { type: 'Point', coordinates },
+    geometry: isPolygon
+      ? multi
+        ? { type: 'MultiPolygon', coordinates: [[[[9, 54], [10, 54], [10, 55], [9, 54]]]] }
+        : { type: 'Polygon', coordinates: [[[9, 54], [10, 54], [10, 55], [9, 54]]] }
+      : { type: 'Point', coordinates },
     properties,
     layer: { id: layerId },
     source: 'test',
@@ -49,26 +54,39 @@ describe('central map feature picking', () => {
     expect(pickMapEntityAtPoint(map, { x: 20, y: 20 })?.kind).toBe('cluster')
   })
 
-  it('falls back through OSM polygon, Stadtplaner polygon and analysis area', () => {
-    expect(pickMapEntityAtPoint(pickingMap({
+  it('uses the explicit polygon priority instead of rendered-feature order', () => {
+    const cityplanner = pickMapEntityAtPoint(pickingMap({
       'osm-polygons-fill': [renderedFeature('osm-polygons-fill', { feature_id: 'area', category: 'retail' })],
       'overview-polygons-fill': [renderedFeature('overview-polygons-fill', { id: 'polygon' })]
-    }).map, { x: 20, y: 20 })?.kind).toBe('osm-poi-polygon')
+    }).map, { x: 20, y: 20 })
+    expect(cityplanner?.kind).toBe('interactive-polygon')
+    expect(cityplanner?.kind === 'interactive-polygon' && cityplanner.polygon.target).toEqual({ type: 'polygon', id: 'polygon' })
 
-    expect(pickMapEntityAtPoint(pickingMap({
-      'overview-polygons-fill': [renderedFeature('overview-polygons-fill', { id: 'polygon' })],
+    const quarterOverContext = pickMapEntityAtPoint(pickingMap({
       'osm-polygons-fill': [renderedFeature('osm-polygons-fill', { feature_id: 'landuse', category: 'landuse' })],
-      'analysis-areas-quarter-fill': [renderedFeature('analysis-areas-quarter-fill', { id: 'quarter' })]
-    }).map, { x: 20, y: 20 })?.kind).toBe('cityplanner-polygon')
+      'analysis-areas-quarter-fill': [renderedFeature('analysis-areas-quarter-fill', { id: 'quarter', area_type: 'QUARTER' })]
+    }).map, { x: 20, y: 20 })
+    expect(quarterOverContext?.kind === 'interactive-polygon' && quarterOverContext.polygon.featureType).toBe('QUARTER')
 
-    expect(pickMapEntityAtPoint(pickingMap({
-      'osm-polygons-fill': [renderedFeature('osm-polygons-fill', { feature_id: 'landuse', category: 'landuse' })],
-      'analysis-areas-quarter-fill': [renderedFeature('analysis-areas-quarter-fill', { id: 'quarter' })]
-    }).map, { x: 20, y: 20 })?.kind).toBe('osm-context-polygon')
+    const osm = pickMapEntityAtPoint(pickingMap({
+      'osm-polygons-fill': [renderedFeature('osm-polygons-fill', { feature_id: 'area', category: 'retail' })]
+    }).map, { x: 20, y: 20 })
+    expect(osm?.kind === 'interactive-polygon' && osm.polygon.selectionKey).toBe('osm-polygons:OSM_POLYGON:area')
+  })
 
-    expect(pickMapEntityAtPoint(pickingMap({
-      'analysis-areas-quarter-fill': [renderedFeature('analysis-areas-quarter-fill', { id: 'quarter' })]
-    }).map, { x: 20, y: 20 })?.kind).toBe('analysis-area')
+  it('normalizes municipality, district, quarter and MultiPolygon geometry', () => {
+    for (const [layer, type] of [
+      ['analysis-areas-municipality-fill', 'MUNICIPALITY'],
+      ['analysis-areas-district-fill', 'DISTRICT'],
+      ['analysis-areas-quarter-fill', 'QUARTER']
+    ] as const) {
+      const result = pickMapEntityAtPoint(pickingMap({
+        [layer]: [renderedFeature(layer, { id: type.toLowerCase(), area_type: type }, [20, 20], type === 'QUARTER')]
+      }).map, { x: 20, y: 20 })
+      expect(result?.kind).toBe('interactive-polygon')
+      expect(result?.kind === 'interactive-polygon' && result.polygon.featureType).toBe(type)
+      if (type === 'QUARTER') expect(result?.kind === 'interactive-polygon' && result.polygon.geometryType).toBe('MultiPolygon')
+    }
   })
 
   it('queries only explicit custom interactive layers', () => {

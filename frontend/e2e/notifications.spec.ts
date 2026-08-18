@@ -25,7 +25,7 @@ const items = Array.from({ length: 36 }, (_, index) => ({
   category: index ? 'DATA' : 'ACCOUNT',
   priority: index ? 'INFO' : 'ACTION_REQUIRED',
   title: index ? `Statistik aktualisiert ${index}` : 'Rolle geändert',
-  message: index ? 'Für dein gefolgtes Gebiet sind neue Daten verfügbar.' : 'Deine Berechtigungen wurden aktualisiert.',
+  message: index ? 'Für Ihr gefolgtes Gebiet sind neue Daten verfügbar.' : 'Ihre Berechtigungen wurden aktualisiert.',
   resource_type: index ? 'AREA' : null,
   resource_id: index ? 'area-1' : null,
   resource_slug: index ? 'innenstadt' : null,

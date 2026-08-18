@@ -342,9 +342,9 @@ export const documentationPages: DocumentationPage[] = [
     slug: 'fast-facts',
     title: 'Kennzahlen und Auswertungen',
     navTitle: 'Kennzahlen',
-    description: 'Bedeutung, Herkunft und Filterverhalten der Fast Facts.',
+    description: 'Bedeutung, Herkunft und Filterverhalten der Kennzahlen.',
     group: 'Auswertung',
-    keywords: ['Leerstand', 'Filialisierung', 'Zentralität', 'Kaufkraft', 'Shops', 'Fast Facts'],
+    keywords: ['Leerstand', 'Filialisierung', 'Zentralität', 'Kaufkraft', 'Standorte', 'Kennzahlen'],
     audience: 'public',
     sections: [
       {
@@ -352,7 +352,16 @@ export const documentationPages: DocumentationPage[] = [
         title: 'Aus Flächen berechnete Werte',
         blocks: [
           { type: 'paragraph', text: 'Anzahl der Verkaufsflächen, Gesamt- und Durchschnittsfläche, Branchenverteilung sowie – bei bekannten Objektattributen – Leerstands- und Filialisierungsquote werden aus den erfassten Flächen berechnet. Aktive Kartenfilter wirken auf diese Auswertung; unbekannte Statuswerte werden aus dem jeweiligen Quotienten ausgeschlossen.' },
-          { type: 'links', items: [{ label: 'Standorte vergleichen', to: '/vergleich', description: 'Aktuelle Filterauswahl mit der Gesamtstadt vergleichen.' }] }
+          { type: 'links', items: [{ label: 'Gebiete vergleichen', to: '/vergleich', description: 'Bis zu vier Gemeinden, Stadtteile oder Quartiere mit optionaler Gesamtstadt-Referenz vergleichen.' }] }
+        ]
+      },
+      {
+        id: 'gebietsvergleich',
+        title: 'Gebiete vergleichen',
+        blocks: [
+          { type: 'paragraph', text: 'Im Gebietsvergleich wählen Sie bis zu vier Gemeinden, Stadtteile oder Quartiere. Die Gesamtstadt kann zusätzlich als Referenz eingeblendet werden. Alle Kennzahlen werden über die konkrete Gebietszuordnung der Stadtplaner-Flächen berechnet.' },
+          { type: 'steps', items: [{ title: 'Gebiete wählen', text: 'Suchen Sie nach dem Namen eines Gebiets und fügen Sie mindestens zwei Vergleichspartner hinzu.' }, { title: 'Referenz festlegen', text: 'Blenden Sie Flensburg als Gesamtstadt-Referenz ein, wenn ein einzelnes Gebiet mit dem kommunalen Wert verglichen werden soll.' }, { title: 'Optional filtern', text: 'Öffnen Sie „Vergleich einschränken“. Die gewählten Filter gelten identisch für alle Gebiete.' }] },
+          { type: 'callout', variant: 'info', title: 'Teilbarer Vergleich', text: 'Ausgewählte Gebiete, Referenz und Filter stehen in der URL. Kopieren Sie die Adresse, um denselben Vergleich zu teilen.' }
         ]
       },
       {

@@ -217,7 +217,7 @@ const approvalModes = [
   { value: 'DRY_RUN', label: 'Nur Vorschau / Dry Run', description: 'Vollständig vorbereiten, aber nichts an Mastodon senden.' }
 ] as const
 const screenshotOptions: Array<{ key: 'screenshot_show_map' | 'screenshot_show_facts' | 'screenshot_show_pois' | 'screenshot_show_branding', label: string }> = [
-  { key: 'screenshot_show_map', label: 'Gebietskarte' }, { key: 'screenshot_show_facts', label: 'Fast Facts' }, { key: 'screenshot_show_pois', label: 'POIs' }, { key: 'screenshot_show_branding', label: 'Branding' }
+  { key: 'screenshot_show_map', label: 'Gebietskarte' }, { key: 'screenshot_show_facts', label: 'Kennzahlen' }, { key: 'screenshot_show_pois', label: 'POIs' }, { key: 'screenshot_show_branding', label: 'Branding' }
 ]
 const topicGroups = computed(() => {
   const groups = new Map<string, { topic: string, label: string, events: SocialPublishingSettings['registry'] }>()
@@ -248,7 +248,7 @@ const saveStatusLabel = computed(() => {
   return 'Gespeichert'
 })
 
-function statusLabel(value: SocialPublicationStatus) { return ({ PENDING_APPROVAL: 'Freigabe erforderlich', PENDING: 'Wird vorbereitet', PROCESSING: 'Wird veröffentlicht', PUBLISHED: 'Veröffentlicht', FAILED: 'Fehlgeschlagen', CANCELLED: 'Abgebrochen', DRY_RUN: 'Dry Run' })[value] }
+function statusLabel(value: SocialPublicationStatus) { return ({ PENDING_APPROVAL: 'Freigabe erforderlich', PENDING: 'Wird vorbereitet', PROCESSING: 'Wird veröffentlicht', PUBLISHED: 'Veröffentlicht', FAILED: 'Fehlgeschlagen', CANCELLED: 'Abgebrochen', DRY_RUN: 'Nur Vorschau (Dry Run)' })[value] }
 function statusTone(value: SocialPublicationStatus) { return ({ PENDING_APPROVAL: 'warning', PENDING: 'warning', PROCESSING: 'info', PUBLISHED: 'success', FAILED: 'danger', CANCELLED: 'neutral', DRY_RUN: 'info' } as const)[value] }
 function eventLabel(value: string) { return ({ AREA_CREATED: 'Gebiet erstellt', AREA_PUBLIC_DATA_UPDATED: 'Gebietsdaten aktualisiert', AREA_BOUNDARY_UPDATED: 'Gebietsgrenze aktualisiert', AREA_STATISTICS_UPDATED: 'Statistik aktualisiert', AREA_STATISTICS_BULK_UPDATED: 'Statistik-Sammelupdate', POLYGON_ADOPTED_FROM_OSM: 'Aus OSM übernommene Fläche' } as Record<string, string>)[value] || value }
 function formatDate(value: string) { return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }

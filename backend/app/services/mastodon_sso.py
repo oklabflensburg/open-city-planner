@@ -62,7 +62,7 @@ def normalize_mastodon_instance(value: str) -> str:
     except (UnicodeError, ValueError) as exc:
         raise mastodon_sso_error(
             "MASTODON_INSTANCE_INVALID",
-            "Bitte gib eine gültige Mastodon-Instanz an.",
+            "Bitte geben Sie eine gültige Mastodon-Instanz an.",
             status.HTTP_422_UNPROCESSABLE_CONTENT,
         ) from exc
     if (
@@ -81,7 +81,7 @@ def normalize_mastodon_instance(value: str) -> str:
     ):
         raise mastodon_sso_error(
             "MASTODON_INSTANCE_INVALID",
-            "Bitte gib eine öffentliche Mastodon-Instanz mit HTTPS an.",
+            "Bitte geben Sie eine öffentliche Mastodon-Instanz mit HTTPS an.",
             status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
     try:
@@ -122,7 +122,7 @@ async def resolve_public_host(
     except socket.gaierror as exc:
         raise mastodon_sso_error(
             "MASTODON_INSTANCE_UNREACHABLE",
-            "Die Mastodon-Instanz ist derzeit nicht erreichbar. Bitte versuche es später erneut.",
+            "Die Mastodon-Instanz ist derzeit nicht erreichbar. Bitte versuchen Sie es später erneut.",
             status.HTTP_503_SERVICE_UNAVAILABLE,
         ) from exc
     addresses = {ipaddress.ip_address(record[4][0]) for record in records}
@@ -289,7 +289,7 @@ class MastodonSSOClient:
         except (httpx.TimeoutException, httpx.NetworkError) as exc:
             raise mastodon_sso_error(
                 "MASTODON_INSTANCE_UNREACHABLE",
-                "Die Mastodon-Instanz ist derzeit nicht erreichbar. Bitte versuche es später erneut.",
+                "Die Mastodon-Instanz ist derzeit nicht erreichbar. Bitte versuchen Sie es später erneut.",
                 status.HTTP_503_SERVICE_UNAVAILABLE,
             ) from exc
         self._validate_peer_address(response)
@@ -327,13 +327,13 @@ class MastodonSSOClient:
         if response.status_code == 429:
             raise mastodon_sso_error(
                 "MASTODON_RATE_LIMITED",
-                "Die Mastodon-Instanz ist ausgelastet. Bitte versuche es später erneut.",
+                "Die Mastodon-Instanz ist ausgelastet. Bitte versuchen Sie es später erneut.",
                 status.HTTP_429_TOO_MANY_REQUESTS,
             )
         if response.status_code >= 500:
             raise mastodon_sso_error(
                 "MASTODON_INSTANCE_UNREACHABLE",
-                "Die Mastodon-Instanz ist derzeit nicht erreichbar. Bitte versuche es später erneut.",
+                "Die Mastodon-Instanz ist derzeit nicht erreichbar. Bitte versuchen Sie es später erneut.",
                 status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         if not response.is_success:
@@ -449,7 +449,7 @@ async def get_or_register_mastodon_app(
     if record and record.registration_retry_after and record.registration_retry_after > now:
         raise mastodon_sso_error(
             "MASTODON_APP_REGISTRATION_BACKOFF",
-            "Die Anmeldung für diese Instanz kann gerade nicht vorbereitet werden. Bitte versuche es später erneut.",
+            "Die Anmeldung für diese Instanz kann gerade nicht vorbereitet werden. Bitte versuchen Sie es später erneut.",
             status.HTTP_429_TOO_MANY_REQUESTS,
         )
     if record is None:

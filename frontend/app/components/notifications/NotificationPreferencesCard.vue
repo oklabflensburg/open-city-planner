@@ -1,7 +1,7 @@
 <template>
   <Card class="p-5 sm:p-7">
     <div class="flex flex-wrap items-start justify-between gap-3">
-      <div><p class="civic-kicker">Benachrichtigungen</p><h2 class="mt-1 text-lg font-black text-slate-950">Was ist für dich relevant?</h2><p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">In-App-Hinweise informieren nur über fachliche Änderungen. Kartenbewegungen, Filter und andere technische Interaktionen erzeugen keine Meldungen.</p></div>
+      <div><p class="civic-kicker">Benachrichtigungen</p><h2 class="mt-1 text-lg font-black text-slate-950">Relevante Benachrichtigungen</h2><p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">In-App-Hinweise informieren nur über fachliche Änderungen. Kartenbewegungen, Filter und andere technische Interaktionen erzeugen keine Meldungen.</p></div>
       <p class="text-xs font-bold" :class="state === 'error' ? 'text-rose-700' : 'text-slate-500'" role="status" aria-live="polite">{{ statusLabel }}</p>
     </div>
     <div v-if="store.preferencesLoading || !store.preferences" class="mt-5 h-48 animate-pulse rounded-xl bg-slate-100" />

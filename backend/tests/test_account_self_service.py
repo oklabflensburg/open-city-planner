@@ -281,9 +281,9 @@ async def test_self_service_endpoints_only_pass_current_user_id(
 def test_openapi_documents_self_service_account_operations() -> None:
     schema = app.openapi()["paths"]
     assert schema["/api/v1/users/me/deactivate"]["post"]["summary"] == (
-        "Deactivate current user account"
+        "Eigenes Benutzerkonto deaktivieren"
     )
-    assert schema["/api/v1/users/me"]["delete"]["summary"] == "Delete current user account"
+    assert schema["/api/v1/users/me"]["delete"]["summary"] == "Eigenes Benutzerkonto dauerhaft löschen"
     assert {"401", "409"}.issubset(schema["/api/v1/users/me/deactivate"]["post"]["responses"])
     assert {"401", "403", "409"}.issubset(schema["/api/v1/users/me"]["delete"]["responses"])
     login_responses = schema["/api/v1/auth/login"]["post"]["responses"]

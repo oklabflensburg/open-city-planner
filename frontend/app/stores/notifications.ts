@@ -26,6 +26,8 @@ export const useNotificationsStore = defineStore('notifications', {
     preferences: null as NotificationPreferences | null,
     preferencesLoading: false,
     subscriptions: [] as NotificationSubscription[],
+    subscriptionsLoading: false,
+    subscriptionsLoaded: false,
     toasts: [] as AppToast[]
   }),
   actions: {
@@ -128,7 +130,13 @@ export const useNotificationsStore = defineStore('notifications', {
       return this.preferences
     },
     async loadSubscriptions() {
-      this.subscriptions = await useApi().request<NotificationSubscription[]>('/notifications/subscriptions')
+      this.subscriptionsLoading = true
+      try {
+        this.subscriptions = await useApi().request<NotificationSubscription[]>('/notifications/subscriptions')
+      } finally {
+        this.subscriptionsLoading = false
+        this.subscriptionsLoaded = true
+      }
     },
     isFollowing(resourceType: 'POLYGON' | 'AREA', resourceId: string) {
       return this.subscriptions.some(item => item.resource_type === resourceType && item.resource_id === resourceId)
@@ -160,6 +168,8 @@ export const useNotificationsStore = defineStore('notifications', {
       this.total = 0
       this.preferences = null
       this.subscriptions = []
+      this.subscriptionsLoading = false
+      this.subscriptionsLoaded = false
     }
   }
 })

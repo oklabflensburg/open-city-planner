@@ -44,4 +44,18 @@ describe('GIS performance safeguards', () => {
     expect(store).toContain('this.data = markRaw')
     expect(map).toContain('if (!options.force && osmStore.covers(viewport, zoom)) return')
   })
+
+  it('renders every polygon through one bounded selection overlay without click auto-zoom', () => {
+    const map = appFile('components/map/MapCanvas.vue')
+    expect(map).toContain("instance.addSource('selected-polygon-source'")
+    expect(map).toContain("id: 'selected-polygon-fill'")
+    expect(map).toContain("id: 'selected-polygon-halo'")
+    expect(map).toContain("id: 'selected-polygon-outline'")
+    expect(map).toContain("id: 'osm-selected-point-halo'")
+    expect(map).toContain("source.setData({ type: 'FeatureCollection', features }")
+    expect(map).toContain('function selectInteractivePolygon')
+    expect(map).toContain('async function selectPolygon(id: string, fitSelection = false)')
+    expect(map).toContain('if (fitSelection && bbox && map.value)')
+    expect(map).not.toContain('setStyle(')
+  })
 })

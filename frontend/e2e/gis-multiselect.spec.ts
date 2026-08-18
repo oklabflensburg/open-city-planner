@@ -67,7 +67,8 @@ async function mockGis(page: Page) {
   await page.route('**/api/v1/osm/features?**', (route) => {
     const params = new URL(route.request().url()).searchParams
     const filteredByUnsupportedSize = params.has('area_sizes')
-    const features = filteredByUnsupportedSize ? [] : [osmFeature]
+    const requestedCategories = params.get('osm_categories')?.split(',') || []
+    const features = filteredByUnsupportedSize || !requestedCategories.includes('retail') ? [] : [osmFeature]
     return route.fulfill({ json: {
       type: 'FeatureCollection', features,
       meta: {
@@ -79,6 +80,8 @@ async function mockGis(page: Page) {
       }
     } })
   })
+  await page.route('**/api/v1/analysis-areas', route => route.fulfill({ json: [] }))
+  await page.route('**/api/v1/analysis-areas/geojson', route => route.fulfill({ json: { type: 'FeatureCollection', features: [] } }))
 }
 
 function group(page: Page, title: string) {
@@ -98,6 +101,7 @@ test('desktop combines filters, persists URL history and resets globally', async
 
   const size = group(page, 'Verkaufsfläche')
   const floor = group(page, 'Etagen')
+  await size.getByRole('button', { name: 'Alle abwählen' }).click()
   await size.getByRole('button', { name: /Verkaufsfläche S:/ }).click()
   await expect(page).toHaveURL(/area_sizes=S/)
   await size.getByRole('button', { name: /Verkaufsfläche M:/ }).click()
@@ -108,11 +112,15 @@ test('desktop combines filters, persists URL history and resets globally', async
   await expect(size.getByRole('button', { name: /Verkaufsfläche M:/ })).toHaveAttribute('aria-pressed', 'false')
 
   await size.getByRole('button', { name: /Verkaufsfläche M:/ }).click()
+  await floor.getByRole('button', { name: 'Alle abwählen' }).click()
   await floor.getByRole('button', { name: /Etagen EG:/ }).click()
   await floor.getByRole('button', { name: /Etagen OG:/ }).click()
-  await page.getByRole('checkbox', { name: 'Mode / Bekleidung' }).click()
-  await page.getByRole('checkbox', { name: 'Gastronomie' }).click()
-  await group(page, 'Status').getByRole('button', { name: /Status Leerstehend:/ }).click()
+  await page.getByRole('heading', { name: 'Branchen' }).locator('..').getByRole('button', { name: 'Alle abwählen' }).click()
+  await page.getByRole('switch', { name: 'Mode / Bekleidung' }).click()
+  await page.getByRole('switch', { name: 'Gastronomie' }).click()
+  const status = group(page, 'Status')
+  await status.getByRole('button', { name: 'Alle abwählen' }).click()
+  await status.getByRole('switch', { name: /Status Leerstehend:/ }).click()
 
   await expect(size.getByRole('button', { name: /Verkaufsfläche S:/ })).toHaveAttribute('aria-pressed', 'true')
   await expect(size.getByRole('button', { name: /Verkaufsfläche M:/ })).toHaveAttribute('aria-pressed', 'true')
@@ -121,7 +129,7 @@ test('desktop combines filters, persists URL history and resets globally', async
   await expect(page).toHaveURL(/categories=fashion(?:%2C|,)gastronomy/)
   await expect(page).toHaveURL(/occupancy_statuses=VACANT/)
   await expect(page.getByText('4 aktiv', { exact: true })).toBeVisible()
-  await expect(page.getByText('Keine gepflegten Stadtplaner-Flächen entsprechen deiner Auswahl.')).toBeVisible()
+  await expect(page.getByText('Keine gepflegten Stadtplaner-Flächen entsprechen der aktuellen Auswahl.')).toBeVisible()
 
   await page.getByRole('button', { name: 'Zurücksetzen', exact: true }).first().click()
   await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3010\/$/)
@@ -129,11 +137,16 @@ test('desktop combines filters, persists URL history and resets globally', async
   await expect(page.getByText(/1 passende OSM-Objekte im Ausschnitt/)).toBeVisible()
 
   const sources = group(page, 'Datenquellen')
-  await sources.getByRole('button', { name: /Datenquellen OpenStreetMap:/ }).click()
+  await sources.getByRole('switch', { name: /Datenquellen OpenStreetMap:/ }).click()
   await expect(page).toHaveURL(/sources=STADTPLANNER/)
-  await expect(sources.getByRole('button', { name: /Datenquellen OpenStreetMap:/ })).toHaveAttribute('aria-pressed', 'false')
+  await expect(sources.getByRole('switch', { name: /Datenquellen OpenStreetMap:/ })).toHaveAttribute('aria-checked', 'false')
   await expect(page.getByText(/0 passende OSM-Objekte im Ausschnitt/)).toBeVisible()
-  await sources.getByRole('button', { name: /Datenquellen OpenStreetMap:/ }).click()
+  await sources.getByRole('switch', { name: /Datenquellen Stadtplaner:/ }).click()
+  await expect(page).toHaveURL(/sources=NONE/)
+  await expect(page.getByText('Keine Datenquelle ausgewählt.')).toBeVisible()
+  await expect(sources.getByRole('button', { name: 'Alle auswählen' })).toBeVisible()
+  await sources.getByRole('switch', { name: /Datenquellen Stadtplaner:/ }).click()
+  await sources.getByRole('switch', { name: /Datenquellen OpenStreetMap:/ }).click()
   await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3010\/$/)
 })
 
@@ -148,30 +161,106 @@ test('all-select remains visually selected while API semantics stay unrestricted
   const structure = group(page, 'Betriebsform')
   const industryHeader = page.getByRole('heading', { name: 'Branchen' }).locator('..')
   const industries = industryHeader.locator('..')
-  await size.getByRole('button', { name: 'Alle auswählen' }).click()
-  await floor.getByRole('button', { name: 'Alle auswählen' }).click()
-  await industryHeader.getByRole('button', { name: 'Alle auswählen' }).click()
-  await status.getByRole('button', { name: 'Alle auswählen' }).click()
-  await structure.getByRole('button', { name: 'Alle auswählen' }).click()
   for (const value of ['S', 'M', 'L', 'XL']) {
     await expect(size.getByRole('button', { name: new RegExp(`Verkaufsfläche ${value}:`) })).toHaveAttribute('aria-pressed', 'true')
   }
-  await expect(floor.getByRole('button', { name: 'Auswahl aufheben' })).toBeVisible()
-  await expect(status.getByRole('button', { name: 'Auswahl aufheben' })).toBeVisible()
-  await expect(structure.getByRole('button', { name: 'Auswahl aufheben' })).toBeVisible()
-  await expect(industries.locator('[role="checkbox"][aria-checked="true"]')).toHaveCount(10)
+  await expect(size.getByRole('button', { name: 'Alle abwählen' })).toBeVisible()
+  await expect(floor.getByRole('button', { name: 'Alle abwählen' })).toBeVisible()
+  await expect(status.getByRole('button', { name: 'Alle abwählen' })).toBeVisible()
+  await expect(structure.getByRole('button', { name: 'Alle abwählen' })).toBeVisible()
+  await expect(status.getByRole('switch', { checked: true })).toHaveCount(3)
+  await expect(structure.getByRole('switch', { checked: true })).toHaveCount(3)
+  await expect(industryHeader.getByRole('button', { name: 'Alle abwählen' })).toBeVisible()
+  await expect(industries.locator('[role="switch"][aria-checked="true"]')).toHaveCount(10)
   const sources = group(page, 'Datenquellen')
-  await expect(sources.getByRole('button', { name: /Datenquellen Stadtplaner:/ })).toHaveAttribute('aria-pressed', 'true')
-  await expect(sources.getByRole('button', { name: /Datenquellen OpenStreetMap:/ })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page).toHaveURL(/area_sizes=S(?:%2C|,)M(?:%2C|,)L(?:%2C|,)XL/)
+  await expect(sources.getByRole('switch', { name: /Datenquellen Stadtplaner:/ })).toHaveAttribute('aria-checked', 'true')
+  await expect(sources.getByRole('switch', { name: /Datenquellen OpenStreetMap:/ })).toHaveAttribute('aria-checked', 'true')
+  await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3010\/$/)
+  await expect(page.getByText('Alle passenden Objekte werden angezeigt.')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Analyse', exact: true })).toBeVisible()
+})
+
+test('binary layer switches stay independent and the OSM master preserves its child selection', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await mockGis(page)
+  await openGis(page)
+  await expect(page.getByRole('heading', { name: 'Layer', exact: true })).toBeVisible()
+
+  const layerVisibility = (layerId: string) => page.evaluate((id) => {
+    const map = (window as typeof window & { __stadtplanerMapPerformance?: { map: import('maplibre-gl').Map } }).__stadtplanerMapPerformance?.map
+    return map?.getLayer(id) ? map.getLayoutProperty(id, 'visibility') || 'visible' : 'missing'
+  }, layerId)
+
+  await expect.poll(() => layerVisibility('overview-polygons-fill'), { timeout: 20_000 }).toBe('visible')
+  await expect.poll(() => layerVisibility('analysis-areas-municipality'), { timeout: 20_000 }).toBe('visible')
+
+  const salesAreas = page.getByRole('switch', { name: /Verkaufsflächen anzeigen:/ })
+  await salesAreas.click()
+  await expect(salesAreas).toHaveAttribute('aria-checked', 'false')
+  await expect.poll(() => layerVisibility('overview-polygons-fill')).toBe('none')
+  await expect.poll(() => layerVisibility('analysis-areas-district')).toBe('visible')
+
+  const municipality = page.getByRole('switch', { name: /Gemeinde anzeigen:/ })
+  await municipality.click()
+  await expect(municipality).toHaveAttribute('aria-checked', 'false')
+  await expect.poll(() => layerVisibility('analysis-areas-municipality')).toBe('none')
+  await expect.poll(() => layerVisibility('analysis-areas-district')).toBe('visible')
+
+  const district = page.getByRole('switch', { name: /Stadtteile anzeigen:/ })
+  const quarter = page.getByRole('switch', { name: /Quartiere anzeigen:/ })
+  await district.click()
+  await expect.poll(() => layerVisibility('analysis-areas-district')).toBe('none')
+  await expect.poll(() => layerVisibility('analysis-areas-quarter')).toBe('visible')
+  await quarter.click()
+  await expect.poll(() => layerVisibility('analysis-areas-quarter')).toBe('none')
+
+  const sources = group(page, 'Datenquellen')
+  const osmMaster = sources.getByRole('switch', { name: /Datenquellen OpenStreetMap:/ })
+  const pois = page.getByRole('switch', { name: /OpenStreetMap-POIs anzeigen:/ })
+  const areas = page.getByRole('switch', { name: /OpenStreetMap-Flächenobjekte anzeigen:/ })
+
+  await areas.click()
+  await expect(areas).toHaveAttribute('aria-checked', 'false')
+  await expect(pois).toHaveAttribute('aria-checked', 'true')
+  await expect.poll(() => page.evaluate(() => (window as typeof window & {
+    __stadtplanerMapPerformance?: { snapshot: () => Record<string, number> }
+  }).__stadtplanerMapPerformance?.snapshot().osmFeatures)).toBe(1)
+  await pois.click()
+  await expect(areas).toHaveAttribute('aria-checked', 'false')
+  await expect.poll(() => page.evaluate(() => (window as typeof window & {
+    __stadtplanerMapPerformance?: { snapshot: () => Record<string, number> }
+  }).__stadtplanerMapPerformance?.snapshot().osmFeatures)).toBe(0)
+  await pois.click()
+  await expect.poll(() => page.evaluate(() => (window as typeof window & {
+    __stadtplanerMapPerformance?: { snapshot: () => Record<string, number> }
+  }).__stadtplanerMapPerformance?.snapshot().osmFeatures)).toBe(1)
+  await osmMaster.click()
+  await expect(pois).toBeDisabled()
+  await expect(areas).toBeDisabled()
+  await expect(pois).toHaveAttribute('aria-checked', 'true')
+  await expect(areas).toHaveAttribute('aria-checked', 'false')
+  await expect.poll(() => page.evaluate(() => (window as typeof window & {
+    __stadtplanerMapPerformance?: { snapshot: () => Record<string, number> }
+  }).__stadtplanerMapPerformance?.snapshot().osmFeatures)).toBe(0)
+
+  await osmMaster.click()
+  await expect(pois).toBeEnabled()
+  await expect(areas).toBeEnabled()
+  await expect(pois).toHaveAttribute('aria-checked', 'true')
+  await expect(areas).toHaveAttribute('aria-checked', 'false')
+  await expect.poll(() => page.evaluate(() => (window as typeof window & {
+    __stadtplanerMapPerformance?: { snapshot: () => Record<string, number> }
+  }).__stadtplanerMapPerformance?.snapshot().osmFeatures)).toBe(1)
 })
 
 test('a settled filter change performs one request and one swap per overlay', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await mockGis(page)
   await openGis(page)
-  await expect(page.getByText(/1 passende OSM-Objekte im Ausschnitt/)).toBeVisible()
+  await expect(page.getByText(/1 passende OSM-Objekte im Ausschnitt/)).toBeVisible({ timeout: 20_000 })
+  const industryHeader = page.getByRole('heading', { name: 'Branchen' }).locator('..')
+  await industryHeader.getByRole('button', { name: 'Alle abwählen' }).click()
+  await expect(page).toHaveURL(/categories=NONE/)
   await page.waitForTimeout(300)
 
   const requests = { polygons: 0, osm: 0, analytics: 0 }
@@ -185,7 +274,7 @@ test('a settled filter change performs one request and one swap per overlay', as
     __stadtplanerMapPerformance?: { reset: () => void }
   }).__stadtplanerMapPerformance?.reset())
 
-  await page.getByRole('checkbox', { name: 'Mode / Bekleidung' }).click()
+  await page.getByRole('switch', { name: 'Mode / Bekleidung' }).click()
   await expect(page).toHaveURL(/categories=fashion/)
   await expect.poll(() => page.evaluate(() => (window as typeof window & {
     __stadtplanerMapPerformance?: { snapshot: () => Record<string, number> }
@@ -205,16 +294,19 @@ test('mobile multi-select, zero-result recovery and analysis share one responsiv
   await page.getByRole('button', { name: 'Filter öffnen' }).click()
 
   const size = group(page, 'Verkaufsfläche')
+  await size.getByRole('button', { name: 'Alle abwählen' }).click()
   await size.getByRole('button', { name: /Verkaufsfläche S:/ }).click()
   await size.getByRole('button', { name: /Verkaufsfläche M:/ }).click()
-  await group(page, 'Status').getByRole('button', { name: /Status Leerstehend:/ }).click()
+  const status = group(page, 'Status')
+  await status.getByRole('button', { name: 'Alle abwählen' }).click()
+  await status.getByRole('switch', { name: /Status Leerstehend:/ }).click()
   await page.getByRole('button', { name: /Ergebnisse anzeigen|Keine Ergebnisse/ }).click()
 
   await expect(page.getByRole('button', { name: 'Filter öffnen' })).toContainText('2')
   await page.getByRole('button', { name: 'Analyse öffnen' }).click()
-  await expect(page.getByText('Keine gepflegten Stadtplaner-Flächen entsprechen deiner Auswahl.')).toBeVisible()
-  await page.getByRole('button', { name: 'Filter zurücksetzen' }).click()
-  await expect(page.getByText('Keine gepflegten Stadtplaner-Flächen entsprechen deiner Auswahl.')).toHaveCount(0)
+  await expect(page.getByText('Keine gepflegten Stadtplaner-Flächen entsprechen der aktuellen Auswahl.')).toBeVisible()
+  await page.getByRole('button', { name: 'Filter zurücksetzen', exact: true }).click()
+  await expect(page.getByText('Keine gepflegten Stadtplaner-Flächen entsprechen der aktuellen Auswahl.')).toHaveCount(0)
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
 })
 
@@ -278,7 +370,7 @@ test('GIS shell has no body overflow from small mobile through wide desktop', as
     { width: 390, height: 844 }, { width: 393, height: 852 },
     { width: 412, height: 915 }, { width: 430, height: 932 },
     { width: 768, height: 1024 }, { width: 1024, height: 768 },
-    { width: 1280, height: 800 }, { width: 1440, height: 900 },
+    { width: 1280, height: 800 }, { width: 1366, height: 768 }, { width: 1440, height: 900 },
     { width: 1920, height: 1080 }
   ]
   for (const { width, height } of viewports) {
@@ -292,4 +384,36 @@ test('GIS shell has no body overflow from small mobile through wide desktop', as
       await expect(page.getByRole('button', { name: 'Analyse öffnen' })).toBeVisible()
     }
   }
+})
+
+test('long German switch labels and counts remain readable at narrow width and 200 percent text size', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 })
+  await mockGis(page)
+  await openGis(page)
+  await page.getByRole('button', { name: 'Filter öffnen' }).click()
+
+  const dialog = page.getByRole('dialog')
+  const labels = [
+    'Inhabergeführt',
+    'Einzelhandelsnahe Dienstleister',
+    'Nahrungsmittel / Drogerie',
+    'Sonstige Flächen'
+  ]
+  for (const label of labels) await expect(dialog.getByRole('switch', { name: label })).toBeVisible()
+  await expect(dialog.getByRole('switch', { name: /^Datenquellen OpenStreetMap:/ })).toBeVisible()
+
+  const serviceSwitch = dialog.getByRole('switch', { name: 'Einzelhandelsnahe Dienstleister' })
+  await serviceSwitch.locator('span[aria-hidden="true"]').last().evaluate(element => { element.textContent = '1.234' })
+  await serviceSwitch.locator('span').filter({ hasText: 'Einzelhandelsnahe Dienstleister' }).evaluate((element) => {
+    element.textContent = 'Einzelhandelsnahe Dienstleistungen und sonstige Angebote'
+  })
+  await page.addStyleTag({ content: 'html { font-size: 200% !important; }' })
+
+  await expect.poll(() => dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+  const overflowingSwitches = await dialog.locator('[role="switch"]').evaluateAll(elements => elements.map((element) => {
+    const row = element as HTMLElement
+    return { name: row.getAttribute('aria-label'), clientWidth: row.clientWidth, scrollWidth: row.scrollWidth }
+  }).filter(row => row.scrollWidth > row.clientWidth))
+  expect(overflowingSwitches).toEqual([])
+  await expect(serviceSwitch.getByText('1.234', { exact: true })).toBeVisible()
 })

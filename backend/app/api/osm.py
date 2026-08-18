@@ -58,5 +58,5 @@ async def get_osm_feature_detail(
 ) -> OsmObjectInfo:
     result = await osm_feature_detail(session, osm_type=osm_type, osm_id=osm_id)
     if result is None:
-        raise HTTPException(status_code=404, detail="OSM feature not found")
+        raise HTTPException(status_code=404, detail="Das OSM-Objekt wurde nicht gefunden.")
     return result

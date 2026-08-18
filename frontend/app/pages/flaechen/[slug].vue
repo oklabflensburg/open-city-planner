@@ -31,23 +31,46 @@
       </button>
     </div>
     <p v-if="autosaveStatus === 'conflict'" class="mt-3 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">
-      Die Fläche wurde zwischenzeitlich von jemand anderem geändert. Bitte lade die Seite neu, bevor du erneut speicherst.
+      Die Fläche wurde zwischenzeitlich von einer anderen Person geändert. Bitte laden Sie die Seite neu, bevor Sie erneut speichern.
     </p>
 
     <header class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div class="h-1.5" :style="{ backgroundColor: categoryColor }" />
       <div class="p-5 sm:p-8">
-        <PolygonCategoryBadge :category="polygonData.category" />
-        <NotificationFollowButton v-if="authStore.authenticated" class="ml-2 align-middle" resource-type="POLYGON" :resource-id="polygonData.id" follow-label="Dieser Fläche folgen" followed-label="Du folgst dieser Fläche" />
-        <h1 v-if="canEditPublicFields" class="sr-only">{{ polygonData.name }}</h1>
-        <label v-if="canEditPublicFields" class="mt-5 block max-w-3xl">
-          <span class="field-label">Titel</span>
-          <input v-model="polygonData.name" class="field-input text-2xl font-black sm:text-3xl" maxlength="160" @input="autosave.schedulePublic({ name: polygonData.name })">
-        </label>
-        <h1 v-else class="mt-5 break-words text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{{ polygonData.name }}</h1>
-        <p class="mt-3 flex items-start gap-2 text-base text-slate-600"><MapPin class="mt-0.5 size-5 shrink-0" aria-hidden="true" />{{ publicAddress }}</p>
+        <div class="grid min-w-0 gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+          <div data-polygon-detail-main class="min-w-0">
+            <PolygonCategoryBadge data-polygon-category class="max-w-full whitespace-normal" :category="polygonData.category" />
+            <h1 v-if="canEditPublicFields" class="sr-only">{{ polygonData.name }}</h1>
+            <label v-if="canEditPublicFields" class="mt-5 block max-w-3xl">
+              <span class="field-label">Titel</span>
+              <input v-model="polygonData.name" data-polygon-title class="field-input text-2xl font-black sm:text-3xl" maxlength="160" @input="autosave.schedulePublic({ name: polygonData.name })">
+            </label>
+            <h1 v-else data-polygon-title class="mt-5 break-words text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{{ polygonData.name }}</h1>
+            <p data-polygon-address class="mt-3 flex min-w-0 items-start gap-2 text-base text-slate-600"><MapPin class="mt-0.5 size-5 shrink-0" aria-hidden="true" /><span class="min-w-0 break-words">{{ publicAddress }}</span></p>
+          </div>
 
-        <dl class="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div data-polygon-follow-action class="min-h-11 w-full min-w-0 sm:w-auto sm:min-w-52 sm:justify-self-end">
+            <ClientOnly>
+              <NotificationFollowButton
+                v-if="authStore.authenticated"
+                resource-type="POLYGON"
+                :resource-id="polygonData.id"
+                follow-label="Dieser Fläche folgen"
+                followed-label="Sie folgen dieser Fläche"
+              />
+              <NuxtLink
+                v-else
+                class="inline-flex min-h-11 w-full max-w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-center text-sm font-bold text-[#154d73] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] sm:w-auto sm:min-w-52"
+                :to="{ path: '/login', query: { redirect: route.fullPath } }"
+              >Zum Folgen anmelden</NuxtLink>
+              <template #fallback>
+                <span class="block min-h-11 w-full animate-pulse rounded-xl bg-slate-100 sm:min-w-52" aria-hidden="true" />
+              </template>
+            </ClientOnly>
+          </div>
+        </div>
+
+        <dl data-polygon-metrics class="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <PolygonMetricCard label="Fläche" :value="`${formatMetric(polygonData.area_m2)} m²`" :icon="Ruler" />
           <PolygonMetricCard label="Etage" :value="polygonData.floor || 'Nicht angegeben'" :icon="Layers3" />
           <PolygonMetricCard label="Kategorie" :value="categoryLabel" :icon="Tags" />

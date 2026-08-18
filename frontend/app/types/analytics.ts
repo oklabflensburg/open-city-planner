@@ -43,6 +43,42 @@ export type MarketBenchmarkResult = {
   items: Array<{ key: string, label: string, metrics: BenchmarkMetrics }>
 }
 
+export type AreaCompareMetrics = {
+  polygon_count: number
+  occupied_count: number
+  vacant_count: number
+  chain_count: number
+  independent_count: number
+  total_area_m2: number | null
+  average_area_m2: number | null
+  median_area_m2: number | null
+  vacancy_rate: number | null
+  chain_store_rate: number | null
+  known_occupancy_count: number
+  known_business_structure_count: number
+  data_updated_at: string | null
+  locations_per_km2: number | null
+  retail_area_m2_per_km2: number | null
+}
+
+export type AreaCompareItem = {
+  id: string
+  slug: string
+  name: string
+  area_type: 'MUNICIPALITY' | 'DISTRICT' | 'QUARTER'
+  parent_name: string | null
+  area_m2: number
+  metrics: AreaCompareMetrics
+}
+
+export type AreaCompareResult = {
+  areas: AreaCompareItem[]
+  benchmark: AreaCompareItem | null
+  ignored_slugs: string[]
+  calculation: 'CALCULATED'
+  source: string
+}
+
 export type PoiSummary = { category: string, label: string, count: number }
 export type LocationAnalysis = {
   polygon_slug: string

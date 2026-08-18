@@ -13,10 +13,7 @@
       <Layers class="size-5" aria-hidden="true" />
     </button>
     <div v-if="open" id="map-layer-menu" class="absolute bottom-0 right-[calc(100%+0.5rem)] w-52 rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-lg">
-      <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-1">
-        <input v-model="mapStore.polygonsVisible" class="size-4 accent-[#154d73]" type="checkbox" />
-        Verkaufsflächen
-      </label>
+      <GisFilterToggleRow v-model="mapStore.polygonsVisible" label="Verkaufsflächen" aria-label="Verkaufsflächen anzeigen" />
       <fieldset class="mt-2 border-t border-slate-200 pt-2">
         <legend class="px-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Kartendarstellung</legend>
         <label v-for="theme in mapThemes" :key="theme.key" class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-1 hover:bg-slate-50">

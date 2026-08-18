@@ -15,7 +15,7 @@
     <AppConfirmDialog
       v-model:open="logoutDialogOpen"
       title="Alle Sitzungen beenden?"
-      body="Du wirst auf diesem und allen anderen Geräten abgemeldet und musst dich anschließend erneut anmelden."
+      body="Sie werden auf diesem und allen anderen Geräten abgemeldet und müssen sich anschließend erneut anmelden."
       confirm-label="Alle Sitzungen beenden"
       loading-label="Sitzungen werden beendet …"
       variant="warning"
@@ -69,7 +69,7 @@ async function logoutAll() {
 
 usePageSeo({
   title: 'Sicherheit',
-  description: 'Verwalte Passwort und aktive Sitzungen deines Kontos.',
+  description: 'Passwort und aktive Sitzungen des Kontos verwalten.',
   path: '/profil/sicherheit',
   robots: 'noindex,nofollow',
   openGraph: false,

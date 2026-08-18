@@ -134,10 +134,10 @@ async def get_my_polygons(
 @router.post(
     "/me/deactivate",
     response_model=MessageResponse,
-    summary="Deactivate current user account",
+    summary="Eigenes Benutzerkonto deaktivieren",
     responses={
-        401: {"description": "Authentication required"},
-        409: {"description": "The final active superuser cannot be deactivated"},
+        401: {"description": "Anmeldung erforderlich"},
+        409: {"description": "Das letzte aktive Superuser-Konto kann nicht deaktiviert werden"},
     },
 )
 async def post_deactivate_user_me(
@@ -149,17 +149,17 @@ async def post_deactivate_user_me(
     validate_csrf(request)
     await deactivate_own_account(session, user.id)
     clear_auth_cookies(response)
-    return MessageResponse(message="Dein Konto wurde deaktiviert.")
+    return MessageResponse(message="Das Konto wurde deaktiviert.")
 
 
 @router.delete(
     "/me",
     response_model=MessageResponse,
-    summary="Delete current user account",
+    summary="Eigenes Benutzerkonto dauerhaft löschen",
     responses={
-        401: {"description": "Authentication required"},
-        403: {"description": "Password or recent authentication required"},
-        409: {"description": "The final active superuser cannot be deleted"},
+        401: {"description": "Anmeldung erforderlich"},
+        403: {"description": "Passwort oder kürzlich erfolgte Anmeldung erforderlich"},
+        409: {"description": "Das letzte aktive Superuser-Konto kann nicht gelöscht werden"},
     },
 )
 async def delete_user_me(
@@ -181,4 +181,4 @@ async def delete_user_me(
     )
     delete_avatar_file(avatar_url)
     clear_auth_cookies(response)
-    return MessageResponse(message="Dein Konto wurde dauerhaft gelöscht.")
+    return MessageResponse(message="Das Konto wurde dauerhaft gelöscht.")

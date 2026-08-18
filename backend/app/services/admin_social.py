@@ -103,7 +103,7 @@ def _publication_actions(
         elif settings.mastodon_dry_run or policy.approval_mode == "DRY_RUN":
             reasons.append(SocialPublicationBlockingReasonRead(
                 code="DRY_RUN_ACTIVE",
-                message="Dry Run ist aktiv; echte Veröffentlichungen sind deaktiviert.",
+                message="Nur Vorschau (Dry Run) ist aktiv; echte Veröffentlichungen sind deaktiviert.",
             ))
         elif not settings.mastodon_access_token:
             reasons.append(SocialPublicationBlockingReasonRead(

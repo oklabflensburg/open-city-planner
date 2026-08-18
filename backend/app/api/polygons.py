@@ -78,7 +78,7 @@ async def post_polygon(
     if not can_create_polygon(current_user):
         raise HTTPException(
             status_code=403,
-            detail={"error": {"code": "PERMISSION_DENIED", "message": "Du darfst keine Fläche anlegen."}},
+            detail={"error": {"code": "PERMISSION_DENIED", "message": "Für das Anlegen einer Fläche fehlen die erforderlichen Berechtigungen."}},
         )
     try:
         return await create_polygon(session, payload, current_user.id)
@@ -97,7 +97,7 @@ async def post_polygon_from_osm(
     if not can_create_polygon(current_user):
         raise HTTPException(
             status_code=403,
-            detail={"error": {"code": "PERMISSION_DENIED", "message": "Du darfst keine Fläche anlegen."}},
+            detail={"error": {"code": "PERMISSION_DENIED", "message": "Für das Anlegen einer Fläche fehlen die erforderlichen Berechtigungen."}},
         )
     try:
         return await create_polygon_from_osm(session, payload, current_user.id)
@@ -160,7 +160,7 @@ async def get_polygon_sitemap(session: SessionDep) -> list[PolygonSitemapEntry]:
 async def get_polygon_by_slug(slug: str, session: SessionDep) -> PublicPolygonDetail:
     polygon = await public_polygon_by_slug(session, slug)
     if polygon is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     return polygon
 
 
@@ -173,9 +173,9 @@ async def get_polygon_osm_by_slug(slug: str, session: SessionDep) -> PolygonOsmI
     try:
         result = await OsmLookupService().find_osm_objects_for_polygon(session, slug=slug)
     except OsmLookupError as exc:
-        raise HTTPException(status_code=503, detail="OpenStreetMap lookup failed") from exc
+        raise HTTPException(status_code=503, detail="Die OpenStreetMap-Abfrage ist fehlgeschlagen.") from exc
     if result is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     return result
 
 
@@ -187,7 +187,7 @@ async def get_polygon_location_analysis(
 ) -> LocationAnalysis:
     result = await polygon_location_analysis(session, slug=slug, radius_m=radius_m)
     if result is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     return result
 
 
@@ -199,7 +199,7 @@ async def get_polygon_comparables(
 ) -> ComparableResult:
     result = await comparable_polygons(session, slug=slug, limit=limit)
     if result is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     return result
 
 
@@ -216,9 +216,9 @@ async def get_polygon_osm_by_id(
             session, polygon_id=str(polygon_id)
         )
     except OsmLookupError as exc:
-        raise HTTPException(status_code=503, detail="OpenStreetMap lookup failed") from exc
+        raise HTTPException(status_code=503, detail="Die OpenStreetMap-Abfrage ist fehlgeschlagen.") from exc
     if result is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     return result
 
 
@@ -226,7 +226,7 @@ async def get_polygon_osm_by_id(
 async def get_polygon_by_id(polygon_id: uuid.UUID, session: SessionDep) -> PolygonRead:
     polygon = await read_polygon(session, polygon_id)
     if polygon is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     return polygon
 
 
@@ -239,16 +239,16 @@ async def put_polygon(
 ) -> PolygonRead:
     polygon = await get_polygon(session, polygon_id, for_update=True)
     if polygon is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     if not can_edit_polygon(current_user, polygon.created_by_user_id):
-        raise HTTPException(status_code=403, detail={"error": {"code": "PERMISSION_DENIED", "message": "Du kannst nur eigene Flächen bearbeiten."}})
+        raise HTTPException(status_code=403, detail={"error": {"code": "PERMISSION_DENIED", "message": "Es können nur eigene Flächen bearbeitet werden."}})
     try:
         return await update_polygon(session, polygon, PolygonUpdate(**payload.model_dump()), current_user.id)
     except GeometryValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except StaleDataError as exc:
         await session.rollback()
-        raise HTTPException(status_code=404, detail="Polygon not found") from exc
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.") from exc
 
 
 @router.patch("/{polygon_id}", response_model=PolygonRead)
@@ -265,9 +265,9 @@ async def patch_polygon(
         )
     polygon = await get_polygon(session, polygon_id, for_update=True)
     if polygon is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     if not can_edit_polygon(current_user, polygon.created_by_user_id):
-        raise HTTPException(status_code=403, detail={"error": {"code": "PERMISSION_DENIED", "message": "Du kannst nur eigene Flächen bearbeiten."}})
+        raise HTTPException(status_code=403, detail={"error": {"code": "PERMISSION_DENIED", "message": "Es können nur eigene Flächen bearbeitet werden."}})
     try:
         return await update_polygon(session, polygon, payload, current_user.id)
     except GeometryValidationError as exc:
@@ -282,7 +282,7 @@ async def patch_polygon(
         raise
     except StaleDataError as exc:
         await session.rollback()
-        raise HTTPException(status_code=404, detail="Polygon not found") from exc
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.") from exc
 
 
 @router.get("/{polygon_id}/editor", response_model=PolygonEditorRead)
@@ -293,7 +293,7 @@ async def get_polygon_editor(
 ) -> PolygonEditorRead:
     polygon = await get_polygon(session, polygon_id)
     if polygon is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     if not can_edit_polygon(current_user, polygon.created_by_user_id):
         raise HTTPException(status_code=403, detail={"error": {"code": "PERMISSION_DENIED", "message": "Keine Bearbeitungsberechtigung."}})
     return await polygon_editor_detail(
@@ -313,7 +313,7 @@ async def get_polygon_verwaltung(
     response.headers["Cache-Control"] = "private, no-store"
     polygon = await get_polygon(session, polygon_id)
     if polygon is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     return await polygon_verwaltung_detail(session, polygon)
 
 
@@ -328,7 +328,7 @@ async def patch_polygon_verwaltung(
     response.headers["Cache-Control"] = "private, no-store"
     polygon = await get_polygon(session, polygon_id, for_update=True)
     if polygon is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     try:
         return await update_polygon_verwaltung(session, polygon, payload, current_user.id)
     except RuntimeError as exc:
@@ -349,9 +349,9 @@ async def remove_polygon(
 ) -> None:
     polygon = await get_polygon(session, polygon_id, for_update=True)
     if polygon is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     if not can_delete_polygon(current_user, polygon.created_by_user_id):
-        raise HTTPException(status_code=403, detail={"error": {"code": "PERMISSION_DENIED", "message": "Du kannst nur eigene Flächen löschen."}})
+        raise HTTPException(status_code=403, detail={"error": {"code": "PERMISSION_DENIED", "message": "Es können nur eigene Flächen gelöscht werden."}})
     await delete_polygon(session, polygon, current_user.id)
 
 
@@ -359,5 +359,5 @@ async def remove_polygon(
 async def get_metrics(polygon_id: uuid.UUID, session: SessionDep) -> PolygonMetrics:
     metrics = await polygon_metrics(session, polygon_id)
     if metrics is None:
-        raise HTTPException(status_code=404, detail="Polygon not found")
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     return metrics

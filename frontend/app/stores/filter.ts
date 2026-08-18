@@ -1,16 +1,16 @@
 import { defineStore } from 'pinia'
 import { industries, type IndustryKey } from '~/utils/industries'
 import type { BusinessStructure, OccupancyStatus } from '~/types/geo'
-import { BUSINESS_STRUCTURE_OPTIONS, DATA_SOURCE_OPTIONS, FLOOR_OPTIONS, gisFilterKey, gisFilterStateKey, OCCUPANCY_OPTIONS, SALES_AREA_SIZE_OPTIONS, type FloorGroup, type GisDataSource, type GisFilterState, type SalesAreaSize } from '~/utils/gisFilters'
+import { BUSINESS_STRUCTURE_OPTIONS, DATA_SOURCE_OPTIONS, defaultGisFilters, FLOOR_OPTIONS, gisFilterKey, gisFilterStateKey, OCCUPANCY_OPTIONS, SALES_AREA_SIZE_OPTIONS, type FloorGroup, type GisDataSource, type GisFilterState, type SalesAreaSize } from '~/utils/gisFilters'
 
 export const useFilterStore = defineStore('filter', {
   state: () => ({
     favoriteOnly: false,
-    selectedSizes: [] as SalesAreaSize[],
-    selectedFloors: [] as FloorGroup[],
-    activeCategories: [] as IndustryKey[],
-    occupancyStatuses: [] as OccupancyStatus[],
-    businessStructures: [] as BusinessStructure[],
+    selectedSizes: defaultGisFilters().sizes as SalesAreaSize[],
+    selectedFloors: defaultGisFilters().floors as FloorGroup[],
+    activeCategories: defaultGisFilters().categories as IndustryKey[],
+    occupancyStatuses: defaultGisFilters().statuses as OccupancyStatus[],
+    businessStructures: defaultGisFilters().businessStructures as BusinessStructure[],
     selectedSources: DATA_SOURCE_OPTIONS.map(item => item.value) as GisDataSource[]
   }),
   getters: {
@@ -30,22 +30,22 @@ export const useFilterStore = defineStore('filter', {
       return gisFilterStateKey(this.filterState)
     },
     activeFilterCount(): number {
-      if (!this.filterKey) return 0
       const groups = [
         [this.selectedSizes.length, SALES_AREA_SIZE_OPTIONS.length],
         [this.selectedFloors.length, FLOOR_OPTIONS.length],
         [this.activeCategories.length, industries.length],
         [this.occupancyStatuses.length, OCCUPANCY_OPTIONS.length],
-        [this.businessStructures.length, BUSINESS_STRUCTURE_OPTIONS.length]
+        [this.businessStructures.length, BUSINESS_STRUCTURE_OPTIONS.length],
+        [this.selectedSources.length, DATA_SOURCE_OPTIONS.length]
       ]
       return groups.reduce((count, group) => {
         const selected = group[0] ?? 0
         const total = group[1] ?? 0
-        return count + (selected > 0 && selected < total ? 1 : 0)
+        return count + (selected < total ? 1 : 0)
       }, 0)
     },
     canReset(): boolean {
-      return this.activeFilterCount > 0 || this.selectedSources.length !== DATA_SOURCE_OPTIONS.length
+      return this.activeFilterCount > 0
     }
   },
   actions: {
@@ -78,12 +78,7 @@ export const useFilterStore = defineStore('filter', {
     },
     reset() {
       this.favoriteOnly = false
-      this.selectedSizes = []
-      this.selectedFloors = []
-      this.activeCategories = []
-      this.occupancyStatuses = []
-      this.businessStructures = []
-      this.selectedSources = DATA_SOURCE_OPTIONS.map(item => item.value)
+      this.applyFilters(defaultGisFilters())
     },
     applyFilters(filters: GisFilterState) {
       this.selectedSizes = [...filters.sizes]

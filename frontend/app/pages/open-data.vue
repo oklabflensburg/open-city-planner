@@ -52,7 +52,7 @@
       id="projekte"
       class="mt-12"
       title="Projekte des OK Lab Flensburg"
-      description="Die Übersicht basiert auf den aktuellen Projektseiten bei Code for Germany. Suche frei oder grenze die Auswahl nach Kategorie ein."
+      description="Die Übersicht basiert auf den aktuellen Projektseiten bei Code for Germany. Durchsuchen Sie die Projekte frei oder grenzen Sie die Auswahl nach Kategorie ein."
     >
       <OpenDataProjectFilters
         v-model:search="search"
@@ -71,7 +71,7 @@
       <Card v-else class="mt-4 p-8 text-center sm:p-12">
         <SearchX class="mx-auto size-9 text-slate-400" aria-hidden="true" />
         <h3 class="mt-4 text-lg font-bold text-slate-950">Keine passenden Projekte</h3>
-        <p class="mt-2 text-sm text-slate-600">Ändere den Suchbegriff oder setze die Filter zurück.</p>
+        <p class="mt-2 text-sm text-slate-600">Ändern Sie den Suchbegriff oder setzen Sie die Filter zurück.</p>
         <Button class="mt-5" @click="resetFilters">Filter zurücksetzen</Button>
       </Card>
     </ContentSection>
@@ -123,7 +123,7 @@ const category = ref('')
 const sourceUrl = OK_LAB_PROJECT_SOURCE_URL
 const licenseUrl = OK_LAB_PROJECT_LICENSE_URL
 const sourceDateGerman = new Intl.DateTimeFormat('de-DE', { dateStyle: 'long' }).format(new Date(`${OK_LAB_PROJECT_SOURCE_DATE}T12:00:00Z`))
-const description = 'Entdecke 18 offene Civic-Tech-Projekte des OK Lab Flensburg – mit Karten, Datenquellen, Websites und frei zugänglichem Quellcode.'
+const description = 'Entdecken Sie 18 offene Civic-Tech-Projekte des OK Lab Flensburg – mit Karten, Datenquellen, Websites und frei zugänglichem Quellcode.'
 const filteredProjects = computed(() => filterOKLabProjects(okLabProjects, search.value, category.value))
 const principles = [
   { title: 'Daten zugänglich machen', text: 'Öffentliche Datensätze werden auffindbar, nachvollziehbar und für neue Anwendungen nutzbar.', icon: Database },

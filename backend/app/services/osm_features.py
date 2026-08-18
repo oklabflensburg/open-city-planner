@@ -196,7 +196,14 @@ async def viewport_features_json(
 ) -> bytes:
     filters = filters or PolygonFilterParams()
     categories = selected_categories(query.osm_categories)
-    if filters.sources and "OSM" not in filters.sources:
+    explicitly_empty = any(
+        value == ("NONE",)
+        for value in (
+            filters.categories, filters.floors, filters.area_sizes,
+            filters.occupancy_statuses, filters.business_structures,
+        )
+    )
+    if explicitly_empty or (filters.sources and "OSM" not in filters.sources):
         return OsmViewportFeatureCollection(
             features=[], meta=OsmViewportMeta(count=0, truncated=False, zoom=query.zoom, summary={})
         ).model_dump_json().encode()

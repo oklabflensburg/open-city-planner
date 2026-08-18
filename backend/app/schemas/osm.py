@@ -74,9 +74,9 @@ class OsmViewportQuery(BaseModel):
     @model_validator(mode="after")
     def validate_bbox(self) -> "OsmViewportQuery":
         if self.west >= self.east:
-            raise ValueError("west must be smaller than east; antimeridian bounds are unsupported")
+            raise ValueError("West muss kleiner als Ost sein; Grenzen über den Antimeridian werden nicht unterstützt")
         if self.south >= self.north:
-            raise ValueError("south must be smaller than north")
+            raise ValueError("Süd muss kleiner als Nord sein")
         if self.zoom >= 11:
             max_span = 2_880 / (2 ** int(self.zoom))
             if self.east - self.west > max_span or self.north - self.south > max_span:

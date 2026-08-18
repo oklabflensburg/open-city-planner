@@ -154,7 +154,7 @@ describe('auth store', () => {
   })
 
   it('deactivates the current account and clears local authentication only after success', async () => {
-    const request = vi.fn().mockResolvedValue({ message: 'Dein Konto wurde deaktiviert.' })
+    const request = vi.fn().mockResolvedValue({ message: 'Das Konto wurde deaktiviert.' })
     vi.stubGlobal('useApi', () => ({ request }))
     const store = useAuthStore()
     store.user = user
@@ -169,7 +169,7 @@ describe('auth store', () => {
   })
 
   it('sends only confirmation and optional password when deleting the current account', async () => {
-    const request = vi.fn().mockResolvedValue({ message: 'Dein Konto wurde dauerhaft gelöscht.' })
+    const request = vi.fn().mockResolvedValue({ message: 'Das Konto wurde dauerhaft gelöscht.' })
     vi.stubGlobal('useApi', () => ({ request }))
     const store = useAuthStore()
     store.user = user

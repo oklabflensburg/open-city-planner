@@ -48,6 +48,17 @@ export const GIS_FILTER_QUERY_KEYS = [
   'area_sizes', 'floors', 'categories', 'occupancy_statuses', 'business_structures', 'sources'
 ] as const
 
+export function defaultGisFilters(): GisFilterState {
+  return {
+    sizes: SALES_AREA_SIZE_OPTIONS.map(item => item.value),
+    floors: FLOOR_OPTIONS.map(item => item.value),
+    categories: industries.map(item => item.key),
+    statuses: OCCUPANCY_OPTIONS.map(item => item.value),
+    businessStructures: BUSINESS_STRUCTURE_OPTIONS.map(item => item.value),
+    sources: DATA_SOURCE_OPTIONS.map(item => item.value)
+  }
+}
+
 function ordered<T extends string>(selected: T[], options: readonly T[]): T[] {
   const valid = new Set(selected)
   return options.filter(value => valid.has(value))
@@ -72,13 +83,12 @@ export function effectiveGisFilters(filters: GisFilterState): GisFilterState {
 export function gisFilterQuery(filters: GisFilterState): URLSearchParams {
   const effective = effectiveGisFilters(filters)
   const query = new URLSearchParams()
-  if (effective.sizes.length) query.set('area_sizes', effective.sizes.join(','))
-  if (effective.floors.length) query.set('floors', effective.floors.join(','))
-  if (effective.categories.length) query.set('categories', effective.categories.join(','))
-  if (effective.statuses.length) query.set('occupancy_statuses', effective.statuses.join(','))
-  if (effective.businessStructures.length) query.set('business_structures', effective.businessStructures.join(','))
-  if (!filters.sources.length) query.set('sources', 'NONE')
-  else if (effective.sources.length) query.set('sources', effective.sources.join(','))
+  setDimension(query, 'area_sizes', filters.sizes, effective.sizes)
+  setDimension(query, 'floors', filters.floors, effective.floors)
+  setDimension(query, 'categories', filters.categories, effective.categories)
+  setDimension(query, 'occupancy_statuses', filters.statuses, effective.statuses)
+  setDimension(query, 'business_structures', filters.businessStructures, effective.businessStructures)
+  setDimension(query, 'sources', filters.sources, effective.sources)
   return query
 }
 
@@ -87,17 +97,7 @@ export function gisFilterKey(filters: GisFilterState): string {
 }
 
 export function gisFilterUrlQuery(filters: GisFilterState): URLSearchParams {
-  const query = new URLSearchParams()
-  if (filters.sizes.length) query.set('area_sizes', ordered(filters.sizes, SALES_AREA_SIZE_OPTIONS.map(item => item.value)).join(','))
-  if (filters.floors.length) query.set('floors', ordered(filters.floors, FLOOR_OPTIONS.map(item => item.value)).join(','))
-  if (filters.categories.length) query.set('categories', ordered(filters.categories, industries.map(item => item.key)).join(','))
-  if (filters.statuses.length) query.set('occupancy_statuses', ordered(filters.statuses, OCCUPANCY_OPTIONS.map(item => item.value)).join(','))
-  if (filters.businessStructures.length) query.set('business_structures', ordered(filters.businessStructures, BUSINESS_STRUCTURE_OPTIONS.map(item => item.value)).join(','))
-  if (!filters.sources.length) query.set('sources', 'NONE')
-  else if (filters.sources.length < DATA_SOURCE_OPTIONS.length) {
-    query.set('sources', ordered(filters.sources, DATA_SOURCE_OPTIONS.map(item => item.value)).join(','))
-  }
-  return query
+  return gisFilterQuery(filters)
 }
 
 export function gisFilterStateKey(filters: GisFilterState): string {
@@ -110,15 +110,25 @@ function queryValues<T extends string>(value: unknown, allowed: readonly T[]): T
   return allowed.filter(item => values.has(item))
 }
 
+function setDimension<T extends string>(query: URLSearchParams, key: string, selected: T[], effective: T[]) {
+  if (!selected.length) query.set(key, 'NONE')
+  else if (effective.length) query.set(key, effective.join(','))
+}
+
+function queryDimension<T extends string>(query: Record<string, unknown>, key: string, allowed: readonly T[]): T[] {
+  const raw = query[key]
+  if (raw === undefined || raw === null || raw === '') return [...allowed]
+  if ((Array.isArray(raw) ? raw : [raw]).flatMap(item => String(item).split(',')).includes('NONE')) return []
+  return queryValues(raw, allowed)
+}
+
 export function gisFiltersFromQuery(query: Record<string, unknown>): GisFilterState {
-  const sources = queryValues(query.sources, DATA_SOURCE_OPTIONS.map(item => item.value))
-  const sourcesExplicitlyEmpty = String(query.sources || '').split(',').includes('NONE')
   return {
-    sizes: queryValues(query.area_sizes, SALES_AREA_SIZE_OPTIONS.map(item => item.value)),
-    floors: queryValues(query.floors, FLOOR_OPTIONS.map(item => item.value)),
-    categories: queryValues(query.categories, industries.map(item => item.key)),
-    statuses: queryValues(query.occupancy_statuses, OCCUPANCY_OPTIONS.map(item => item.value)),
-    businessStructures: queryValues(query.business_structures, BUSINESS_STRUCTURE_OPTIONS.map(item => item.value)),
-    sources: sourcesExplicitlyEmpty ? [] : sources.length ? sources : DATA_SOURCE_OPTIONS.map(item => item.value)
+    sizes: queryDimension(query, 'area_sizes', SALES_AREA_SIZE_OPTIONS.map(item => item.value)),
+    floors: queryDimension(query, 'floors', FLOOR_OPTIONS.map(item => item.value)),
+    categories: queryDimension(query, 'categories', industries.map(item => item.key)),
+    statuses: queryDimension(query, 'occupancy_statuses', OCCUPANCY_OPTIONS.map(item => item.value)),
+    businessStructures: queryDimension(query, 'business_structures', BUSINESS_STRUCTURE_OPTIONS.map(item => item.value)),
+    sources: queryDimension(query, 'sources', DATA_SOURCE_OPTIONS.map(item => item.value))
   }
 }

@@ -20,7 +20,7 @@ class PolygonGeometry(BaseModel):
             if len(ring) < 4:
                 raise ValueError("Linear rings need at least four positions")
             if ring[0] != ring[-1]:
-                raise ValueError("Linear rings must be closed")
+                raise ValueError("Lineare Ringe müssen geschlossen sein")
             for lng, lat in ring:
                 if not -180 <= lng <= 180 or not -90 <= lat <= 90:
                     raise ValueError("Coordinates must use EPSG:4326 longitude/latitude ranges")
@@ -90,7 +90,7 @@ class PolygonUpdate(BaseModel):
     def require_any_field(self) -> "PolygonUpdate":
         editable = {"name", "description", "category", "geometry", "properties", "floor", "area_size"}
         if not self.model_fields_set.intersection(editable) and not self.model_extra:
-            raise ValueError("At least one field must be provided")
+            raise ValueError("Mindestens ein Feld muss angegeben werden")
         return self
 
 
@@ -212,7 +212,7 @@ class PolygonVerwaltungUpdate(BaseModel):
     @model_validator(mode="after")
     def require_management_field(self) -> "PolygonVerwaltungUpdate":
         if not (self.model_fields_set - {"expected_updated_at"}):
-            raise ValueError("At least one management field must be provided")
+            raise ValueError("Mindestens ein Verwaltungsfeld muss angegeben werden")
         return self
 
 

@@ -19,13 +19,22 @@ describe('market and location analytics UI', () => {
     expect(polygons).toContain('gisFilterQuery(filter.filterState)')
   })
 
-  it('renders data-driven benchmarks and unavailable values as a dash', () => {
-    const comparison = appFile('components/analysis/MarketBenchmarks.vue')
+  it('renders concrete area comparisons and unavailable values as a dash', () => {
+    const comparison = appFile('components/compare/AreaComparisonTable.vue')
+    const selector = appFile('components/compare/AreaComparisonSelector.vue')
+    const store = appFile('stores/comparison.ts')
     const page = appFile('pages/vergleich.vue')
-    expect(comparison).toContain('analytics.benchmarks.items')
-    expect(comparison).toContain("value == null ? '—'")
-    expect(comparison).toContain('Unbekannte Statuswerte')
-    expect(page).toContain('<MarketBenchmarks')
+    expect(comparison).toContain('Kein Wert verfügbar')
+    expect(comparison).toContain('Prozentpunkte ggü. Gesamtstadt')
+    expect(selector).toContain('Maximal {{ max }} Gebiete')
+    expect(selector).toContain('parent_name')
+    expect(store).toContain("'/analytics/compare'")
+    expect(store).toContain('comparisonController?.abort()')
+    expect(page).toContain('<AreaComparisonTable')
+    expect(page).toContain('<AreaComparisonCharts')
+    expect(page).toContain('gebiete')
+    expect(page).not.toContain('Aktuelle Auswahl')
+    expect(page).not.toContain('Aktualisieren')
     expect(page).not.toMatch(/const\s+(vacancy|purchasingPower|centrality)\s*=\s*\d/)
   })
 

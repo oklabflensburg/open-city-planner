@@ -41,7 +41,7 @@
     <AppConfirmDialog
       v-model:open="removeDialogOpen"
       title="Profilbild entfernen?"
-      body="Das aktuelle Profilbild wird dauerhaft entfernt. Anschließend werden wieder deine Initialen angezeigt."
+      body="Das aktuelle Profilbild wird dauerhaft entfernt. Anschließend werden wieder Ihre Initialen angezeigt."
       confirm-label="Profilbild entfernen"
       loading-label="Wird entfernt …"
       variant="danger"
@@ -83,7 +83,7 @@ function selectFile(event: Event) {
   statusText.value = ''
   if (!selected) return
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(selected.type)) {
-    error.value = 'Bitte wähle ein JPG-, PNG- oder WebP-Bild aus.'
+    error.value = 'Bitte wählen Sie ein JPG-, PNG- oder WebP-Bild aus.'
     return
   }
   if (selected.size > Number(config.public.avatarMaxUploadBytes)) {

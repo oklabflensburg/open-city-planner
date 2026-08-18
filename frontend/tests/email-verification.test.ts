@@ -27,7 +27,7 @@ describe('email verification UI state', () => {
   it('presents already_verified as a friendly information state', () => {
     expect(verificationPageCopy('already_verified')).toEqual({
       title: 'E-Mail bereits bestätigt',
-      message: 'Deine E-Mail-Adresse wurde bereits bestätigt. Du kannst dich anmelden oder zur Karte zurückkehren.'
+      message: 'Ihre E-Mail-Adresse wurde bereits bestätigt. Sie können sich anmelden oder zur Karte zurückkehren.'
     })
   })
 })

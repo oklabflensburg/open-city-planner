@@ -8,7 +8,6 @@ export const MAP_LAYER_GROUPS = {
     'analysis-areas-municipality',
     'analysis-areas-district',
     'analysis-areas-quarter',
-    'analysis-area-selected',
     'analysis-areas-municipality-label',
     'analysis-areas-district-label',
     'analysis-areas-quarter-label'
@@ -22,7 +21,9 @@ export const MAP_LAYER_GROUPS = {
     'overview-polygons-line'
   ],
   polygonHighlights: [
-    'osm-selected-polygon'
+    'selected-polygon-fill',
+    'selected-polygon-halo',
+    'selected-polygon-outline'
   ],
   poiClusters: [
     'osm-clusters',
@@ -30,6 +31,7 @@ export const MAP_LAYER_GROUPS = {
   ],
   pois: [
     'osm-poi-circle',
+    'osm-selected-point-halo',
     'osm-selected-point'
   ],
   poiLabels: [

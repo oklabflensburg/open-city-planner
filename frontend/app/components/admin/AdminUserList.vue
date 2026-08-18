@@ -7,7 +7,7 @@
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
               <p class="font-bold text-slate-950">{{ displayName(user) }}</p>
-              <StatusBadge v-if="user.id === currentUserId" tone="info">Du</StatusBadge>
+              <StatusBadge v-if="user.id === currentUserId" tone="info">Eigenes Konto</StatusBadge>
               <StatusBadge v-if="user.is_superuser" tone="warning">SUPERUSER</StatusBadge>
             </div>
             <p class="mt-1 break-all text-sm text-slate-600">{{ user.email }}</p>
@@ -33,7 +33,7 @@
               <td class="px-5 py-4">
                 <div class="flex items-center gap-3">
                   <UserAvatar :user="user" size="sm" />
-                  <div><p class="font-bold text-slate-950">{{ displayName(user) }}</p><div class="mt-1 flex gap-1"><StatusBadge v-if="user.id === currentUserId" tone="info">Du</StatusBadge><StatusBadge v-if="user.is_superuser" tone="warning">SUPERUSER</StatusBadge></div></div>
+                  <div><p class="font-bold text-slate-950">{{ displayName(user) }}</p><div class="mt-1 flex gap-1"><StatusBadge v-if="user.id === currentUserId" tone="info">Eigenes Konto</StatusBadge><StatusBadge v-if="user.is_superuser" tone="warning">SUPERUSER</StatusBadge></div></div>
                 </div>
               </td>
               <td class="max-w-64 break-all px-5 py-4 text-slate-600" :title="user.email">{{ user.email }}</td>

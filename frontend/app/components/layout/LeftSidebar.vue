@@ -1,6 +1,6 @@
 <template>
   <aside
-    class="min-w-0"
+    class="max-w-full min-w-0"
     :class="embedded ? 'bg-transparent' : 'civic-card lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain'"
   >
     <section>
@@ -16,10 +16,11 @@
           <span v-if="filter.activeFilterCount" class="rounded-full bg-[#e2edf4] px-2 py-0.5 text-[11px] font-black text-[#154d73]">{{ filter.activeFilterCount }} aktiv</span>
           <button v-if="filter.canReset" class="ml-auto min-h-8 rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="filter.reset()">Zurücksetzen</button>
         </div>
-        <p :class="embedded ? '' : 'mt-2'" class="text-[11px] leading-4 text-slate-500">Gilt für Stadtplaner-Flächen und passende lokale OpenStreetMap-Objekte. Fehlende OSM-Angaben werden nicht geschätzt.</p>
+        <p :class="embedded ? '' : 'mt-2'" class="text-[11px] font-semibold leading-4 text-slate-600">{{ filterStatus }}</p>
+        <p class="mt-1 text-[11px] leading-4 text-slate-500">Gilt für Stadtplaner-Flächen und passende lokale OpenStreetMap-Objekte. Fehlende Angaben sind in der vollständigen Auswahl enthalten und werden bei Teilfiltern nicht geschätzt.</p>
         <p class="mt-1 text-[11px] font-semibold text-slate-600">{{ resultSummary }}</p>
       </header>
-      <div class="divide-y divide-slate-200 px-4">
+      <div class="min-w-0 divide-y divide-slate-200 px-4">
         <div class="space-y-6 py-5">
           <AreaFilter />
           <FloorFilter />
@@ -38,16 +39,22 @@
         </section>
         <section class="py-5" aria-labelledby="map-layers-title">
           <h3 id="map-layers-title" class="text-xs font-bold uppercase tracking-wide text-slate-500">Layer</h3>
-          <label class="mt-3 flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-3 text-sm text-slate-700">
-            <input v-model="mapStore.polygonsVisible" class="size-4 accent-[#154d73]" type="checkbox"> Verkaufsflächen anzeigen
-          </label>
-          <div class="mt-3 rounded-xl border border-slate-200 p-2" aria-label="Administrative Gebietsgrenzen">
-            <p class="px-1 pb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Gebietsgrenzen</p>
-            <label v-for="item in areaLayers" :key="item.type" class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-1 text-sm text-slate-700 hover:bg-slate-50">
-              <input v-model="analysisAreasStore.visibility[item.type]" class="size-4 accent-[#154d73]" type="checkbox">
-              <span class="size-3 rounded-sm border" :style="{ backgroundColor: item.color, borderColor: item.border }" aria-hidden="true" />
-              {{ item.label }}
-            </label>
+          <GisFilterToggleRow
+            v-model="mapStore.polygonsVisible"
+            class="mt-3"
+            label="Verkaufsflächen anzeigen"
+            aria-label="Verkaufsflächen anzeigen"
+          />
+          <div class="mt-4 grid gap-1" aria-label="Administrative Gebietsgrenzen">
+            <p class="pb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Gebietsgrenzen</p>
+            <GisFilterToggleRow
+              v-for="item in areaLayers"
+              :key="item.type"
+              v-model="analysisAreasStore.visibility[item.type]"
+              :label="item.label"
+              :aria-label="`${item.label} anzeigen`"
+              :active-color="item.activeColor"
+            />
           </div>
           <OsmFeatureFilter class="mt-5" />
         </section>
@@ -75,14 +82,22 @@ const filter = useFilterStore()
 const analysisAreasStore = useAnalysisAreasStore()
 const polygonStore = usePolygonStore()
 const osmStore = useOsmViewportStore()
+const filterStatus = computed(() => {
+  if (!filter.selectedSources.length) return 'Keine Datenquelle ausgewählt.'
+  if (!filter.occupancyStatuses.length) return 'Kein Status ausgewählt.'
+  if (!filter.activeCategories.length) return 'Keine Branche ausgewählt.'
+  return filter.activeFilterCount
+    ? `Die Karte ist durch ${filter.activeFilterCount} Filtergruppe${filter.activeFilterCount === 1 ? '' : 'n'} eingeschränkt.`
+    : 'Alle passenden Objekte werden angezeigt.'
+})
 const resultSummary = computed(() => {
   const polygonCount = polygonStore.polygons.length
   const osmCount = osmStore.data?.meta.business_count || 0
   return `${polygonCount} Stadtplaner · ${osmCount} OSM im Ausschnitt`
 })
 const areaLayers = [
-  { type: 'MUNICIPALITY' as const, label: 'Gemeinde', color: '#dbeafe', border: '#1d4ed8' },
-  { type: 'DISTRICT' as const, label: 'Stadtteile', color: '#dcfce7', border: '#15803d' },
-  { type: 'QUARTER' as const, label: 'Quartiere', color: '#fef3c7', border: '#b45309' }
+  { type: 'MUNICIPALITY' as const, label: 'Gemeinde', activeColor: '#1d4ed8' },
+  { type: 'DISTRICT' as const, label: 'Stadtteile', activeColor: '#15803d' },
+  { type: 'QUARTER' as const, label: 'Quartiere', activeColor: '#b45309' }
 ]
 </script>

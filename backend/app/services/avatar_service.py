@@ -36,7 +36,7 @@ async def save_avatar(upload: UploadFile, user_id: object, settings: Settings | 
     content_type = (upload.content_type or "").lower()
     if content_type and content_type not in ALLOWED_CONTENT_TYPES:
         logger.info("Avatar upload rejected for user %s: invalid content type", user_id)
-        raise avatar_error(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "INVALID_AVATAR_TYPE", "Bitte lade ein JPG-, PNG- oder WebP-Bild hoch.")
+        raise avatar_error(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "INVALID_AVATAR_TYPE", "Bitte laden Sie ein JPG-, PNG- oder WebP-Bild hoch.")
 
     raw = await _read_limited(upload, active_settings.avatar_max_file_size, user_id)
     image = _decode_image(raw, user_id)
@@ -93,7 +93,7 @@ def _decode_image(raw: bytes, user_id: object) -> Image.Image:
             image.load()
             if image.format not in ALLOWED_FORMATS:
                 logger.info("Avatar upload rejected for user %s: invalid image format", user_id)
-                raise avatar_error(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "INVALID_AVATAR_TYPE", "Bitte lade ein JPG-, PNG- oder WebP-Bild hoch.")
+                raise avatar_error(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "INVALID_AVATAR_TYPE", "Bitte laden Sie ein JPG-, PNG- oder WebP-Bild hoch.")
             width, height = image.size
             if width < MIN_AVATAR_DIMENSION or height < MIN_AVATAR_DIMENSION:
                 raise avatar_error(status.HTTP_422_UNPROCESSABLE_CONTENT, "INVALID_AVATAR_IMAGE", "Das Bild muss mindestens 128 x 128 Pixel groß sein.")

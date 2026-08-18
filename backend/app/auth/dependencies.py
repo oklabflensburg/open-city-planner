@@ -23,7 +23,7 @@ access_cookie_scheme = APIKeyCookie(
 )
 
 
-def auth_exception(code: str = "AUTH_REQUIRED", message: str = "Bitte melde dich an.") -> HTTPException:
+def auth_exception(code: str = "AUTH_REQUIRED", message: str = "Bitte melden Sie sich an.") -> HTTPException:
     return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error": {"code": code, "message": message}})
 
 
@@ -50,7 +50,7 @@ async def get_current_user(
     settings = get_settings()
     token = request.cookies.get(settings.auth_access_cookie_name)
     if not token:
-        raise auth_exception("AUTH_REQUIRED", "Bitte melde dich an.")
+        raise auth_exception("AUTH_REQUIRED", "Bitte melden Sie sich an.")
     try:
         payload = decode_jwt(token, "access")
     except jwt.ExpiredSignatureError as exc:
@@ -58,10 +58,10 @@ async def get_current_user(
             "ACCESS_TOKEN_EXPIRED", "Die Zugriffssitzung muss erneuert werden."
         ) from exc
     except jwt.PyJWTError as exc:
-        raise auth_exception("ACCESS_TOKEN_INVALID", "Bitte melde dich erneut an.") from exc
+        raise auth_exception("ACCESS_TOKEN_INVALID", "Bitte melden Sie sich erneut an.") from exc
     user = await get_user_by_id(session, payload.get("sub", ""))
     if not user:
-        raise auth_exception("AUTH_REQUIRED", "Bitte melde dich erneut an.")
+        raise auth_exception("AUTH_REQUIRED", "Bitte melden Sie sich erneut an.")
     if not user.is_active:
         raise inactive_account_error(user)
     return user
@@ -85,7 +85,7 @@ async def get_csrf_protected_active_user(
 async def get_verified_user(request: Request, user: Annotated[User, Depends(get_current_active_user)]) -> User:
     validate_csrf(request)
     if not user.is_verified:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": {"code": "EMAIL_NOT_VERIFIED", "message": "Bitte bestätige zuerst deine E-Mail-Adresse."}})
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": {"code": "EMAIL_NOT_VERIFIED", "message": "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse."}})
     return user
 
 

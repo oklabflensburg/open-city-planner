@@ -1,27 +1,56 @@
+import type { GeoJsonProperties, Geometry } from 'geojson'
 import type { Map, MapGeoJSONFeature, PointLike } from 'maplibre-gl'
+
+export type InteractivePolygonTarget =
+  | { type: 'polygon', id: string }
+  | { type: 'osm', id: string }
+  | { type: 'analysis-area', id: string }
+
+export type InteractivePolygonFeature = {
+  id: string
+  source: string
+  sourceLayer?: string
+  layerId: string
+  featureType: string
+  geometryType: 'Polygon' | 'MultiPolygon'
+  selectionKey: string
+  geometry: Geometry
+  properties: GeoJsonProperties
+  target: InteractivePolygonTarget
+}
+
+type InteractivePolygonRegistration = {
+  layerId: string
+  source: string
+  featureType: string
+  idProperty: string
+  priority: number
+  targetType: InteractivePolygonTarget['type']
+}
+
+/** Single source of truth for selectable polygon layers and deterministic overlap priority. */
+export const INTERACTIVE_POLYGON_LAYERS: readonly InteractivePolygonRegistration[] = [
+  { layerId: 'overview-polygons-fill', source: 'overview-polygons', featureType: 'STADTPLANNER', idProperty: 'id', priority: 500, targetType: 'polygon' },
+  { layerId: 'osm-polygons-fill', source: 'osm-polygons', featureType: 'OSM_POLYGON', idProperty: 'feature_id', priority: 400, targetType: 'osm' },
+  { layerId: 'analysis-areas-quarter-fill', source: 'analysis-areas', featureType: 'QUARTER', idProperty: 'id', priority: 300, targetType: 'analysis-area' },
+  { layerId: 'analysis-areas-district-fill', source: 'analysis-areas', featureType: 'DISTRICT', idProperty: 'id', priority: 200, targetType: 'analysis-area' },
+  { layerId: 'analysis-areas-municipality-fill', source: 'analysis-areas', featureType: 'MUNICIPALITY', idProperty: 'id', priority: 100, targetType: 'analysis-area' }
+] as const
 
 export const MAP_INTERACTIVE_LAYERS = {
   pointPois: ['osm-poi-circle'],
   clusters: ['osm-clusters'],
-  osmPolygons: ['osm-polygons-fill'],
-  cityplannerPolygons: ['overview-polygons-fill'],
-  analysisAreas: [
-    'analysis-areas-quarter-fill',
-    'analysis-areas-district-fill',
-    'analysis-areas-municipality-fill'
-  ]
+  polygons: INTERACTIVE_POLYGON_LAYERS.map(item => item.layerId)
 } as const
 
-export type MapPickResult = {
-  kind: 'point-poi' | 'cluster' | 'osm-poi-polygon' | 'cityplanner-polygon' | 'osm-context-polygon' | 'analysis-area'
-  feature: MapGeoJSONFeature
-}
+export type MapPickResult =
+  | { kind: 'point-poi' | 'cluster', feature: MapGeoJSONFeature }
+  | { kind: 'interactive-polygon', feature: MapGeoJSONFeature, polygon: InteractivePolygonFeature }
 
 type FeaturePickingMap = Pick<Map, 'getLayer' | 'project' | 'queryRenderedFeatures'>
 type ScreenPoint = { x: number, y: number }
 
 export function pickMapEntityAtPoint(map: FeaturePickingMap, point: ScreenPoint, tolerance = 8): MapPickResult | null {
-  const exactPoint: [number, number] = [point.x, point.y]
   const box: [[number, number], [number, number]] = [
     [point.x - tolerance, point.y - tolerance],
     [point.x + tolerance, point.y + tolerance]
@@ -32,21 +61,45 @@ export function pickMapEntityAtPoint(map: FeaturePickingMap, point: ScreenPoint,
   const cluster = closestPointFeature(map, point, queryExistingLayers(map, box, MAP_INTERACTIVE_LAYERS.clusters))
   if (cluster) return { kind: 'cluster', feature: cluster }
 
-  const osmPolygonHits = queryExistingLayers(map, exactPoint, MAP_INTERACTIVE_LAYERS.osmPolygons)
-  const osmPoiPolygon = osmPolygonHits.find(feature => !isContextPolygon(feature))
-  if (osmPoiPolygon) return { kind: 'osm-poi-polygon', feature: osmPoiPolygon }
+  const registrations = new globalThis.Map(INTERACTIVE_POLYGON_LAYERS.map(item => [item.layerId, item] as const))
+  const candidates = queryExistingLayers(map, [point.x, point.y], MAP_INTERACTIVE_LAYERS.polygons)
+    .map((feature) => {
+      const registration = registrations.get(feature.layer.id)
+      const polygon = registration ? normalizeInteractivePolygon(feature, registration) : null
+      const contextPenalty = registration?.source === 'osm-polygons' && isContextPolygon(feature) ? 150 : 0
+      return polygon && registration ? { feature, polygon, priority: registration.priority - contextPenalty } : null
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .sort((left, right) => right.priority - left.priority)
 
-  const cityplannerPolygon = queryExistingLayers(map, exactPoint, MAP_INTERACTIVE_LAYERS.cityplannerPolygons)[0]
-  if (cityplannerPolygon) return { kind: 'cityplanner-polygon', feature: cityplannerPolygon }
+  const selected = candidates[0]
+  return selected ? { kind: 'interactive-polygon', feature: selected.feature, polygon: selected.polygon } : null
+}
 
-  const osmContextPolygon = osmPolygonHits.find(isContextPolygon)
-  if (osmContextPolygon) return { kind: 'osm-context-polygon', feature: osmContextPolygon }
-
-  const analysisHits = queryExistingLayers(map, exactPoint, MAP_INTERACTIVE_LAYERS.analysisAreas)
-  const analysisArea = MAP_INTERACTIVE_LAYERS.analysisAreas
-    .map(layerId => analysisHits.find(feature => feature.layer.id === layerId))
-    .find((feature): feature is MapGeoJSONFeature => Boolean(feature))
-  return analysisArea ? { kind: 'analysis-area', feature: analysisArea } : null
+function normalizeInteractivePolygon(
+  feature: MapGeoJSONFeature,
+  registration: InteractivePolygonRegistration
+): InteractivePolygonFeature | null {
+  if (feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon') return null
+  const id = String(feature.properties?.[registration.idProperty] ?? feature.id ?? '')
+  if (!id) return null
+  const featureType = registration.source === 'analysis-areas'
+    ? String(feature.properties?.area_type || registration.featureType)
+    : registration.source === 'osm-polygons' && isContextPolygon(feature)
+      ? 'OSM_CONTEXT_POLYGON'
+      : registration.featureType
+  return {
+    id,
+    source: registration.source,
+    sourceLayer: feature.sourceLayer,
+    layerId: registration.layerId,
+    featureType,
+    geometryType: feature.geometry.type,
+    selectionKey: `${registration.source}:${featureType}:${id}`,
+    geometry: feature.geometry,
+    properties: feature.properties,
+    target: { type: registration.targetType, id } as InteractivePolygonTarget
+  }
 }
 
 function isContextPolygon(feature: MapGeoJSONFeature) {

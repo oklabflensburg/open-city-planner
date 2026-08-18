@@ -2,7 +2,7 @@
   <AppModal
     :open="open"
     :title="mode === 'link' ? 'Mastodon verbinden' : 'Mit Mastodon anmelden'"
-    description="Auf welcher Mastodon-Instanz liegt dein Konto?"
+    description="Auf welcher Mastodon-Instanz liegt Ihr Konto?"
     described-by="mastodon-instance-help mastodon-instance-error"
     :busy="loading"
     size="sm"
@@ -29,7 +29,7 @@
         >
       </label>
       <p id="mastodon-instance-help" class="text-sm leading-6 text-slate-600">
-        Beispiel: norden.social, mastodon.social oder @name@norden.social. Deine Zugangsdaten gibst du ausschließlich auf deiner Mastodon-Instanz ein.
+        Beispiel: norden.social, mastodon.social oder @name@norden.social. Ihre Zugangsdaten geben Sie ausschließlich auf Ihrer Mastodon-Instanz ein.
       </p>
       <p v-if="error" id="mastodon-instance-error" class="rounded-lg bg-rose-50 p-3 text-sm font-semibold text-rose-800" role="alert">{{ error }}</p>
       <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

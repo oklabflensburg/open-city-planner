@@ -1,12 +1,25 @@
 <template>
-  <fieldset>
-    <div class="mb-3 flex min-h-8 items-center justify-between gap-3">
-      <legend class="text-xs font-bold uppercase tracking-wide text-slate-600">{{ title }}</legend>
-      <button class="min-h-8 rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="toggleAll">
-        {{ allSelected ? 'Auswahl aufheben' : 'Alle auswählen' }}
+  <fieldset class="min-w-0">
+    <div class="mb-3 flex min-h-8 min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1">
+      <legend class="min-w-0 flex-1 pt-2 text-xs font-bold uppercase tracking-wide text-slate-600">{{ title }}</legend>
+      <button class="min-h-8 shrink-0 rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="toggleAll">
+        {{ allSelected ? 'Alle abwählen' : 'Alle auswählen' }}
       </button>
     </div>
-    <div class="grid gap-2" :class="columnsClass">
+    <div v-if="variant === 'switches'" class="space-y-1">
+      <GisFilterToggleRow
+        v-for="option in options"
+        :key="option.value"
+        :model-value="modelValue.includes(option.value)"
+        :label="option.label"
+        :color-class="option.activeColor ? undefined : option.color"
+        :active-color="option.activeColor"
+        :description="option.description"
+        :context="title"
+        @update:model-value="toggle(option.value)"
+      />
+    </div>
+    <div v-else class="grid gap-2" :class="columnsClass">
       <button
         v-for="option in options"
         :key="option.value"
@@ -28,10 +41,11 @@
 <script setup lang="ts" generic="T extends string">
 const props = withDefaults(defineProps<{
   title: string
-  options: ReadonlyArray<{ value: T, label: string, description?: string, color?: string }>
+  options: ReadonlyArray<{ value: T, label: string, description?: string, color?: string, activeColor?: string }>
   modelValue: T[]
   columns?: number
-}>(), { columns: 2 })
+  variant?: 'chips' | 'switches'
+}>(), { columns: 2, variant: 'chips' })
 const emit = defineEmits<{ 'update:modelValue': [value: T[]] }>()
 const allSelected = computed(() => props.modelValue.length === props.options.length)
 const columnsClass = computed(() => ({

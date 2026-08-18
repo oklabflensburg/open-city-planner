@@ -5,14 +5,17 @@ import { resolve } from 'node:path'
 const appFile = (path: string) => readFileSync(resolve(process.cwd(), 'app', path), 'utf8')
 
 describe('hierarchical analysis areas', () => {
-  it('renders three zoom-dependent administrative layers below city polygons and OSM click priority', () => {
+  it('renders three zoom-dependent administrative layers with central click priority', () => {
     const map = appFile('components/map/MapCanvas.vue')
     const picking = appFile('utils/mapFeaturePicking.ts')
     expect(map).toContain("type: 'MUNICIPALITY', minzoom: 7")
     expect(map).toContain("type: 'DISTRICT', minzoom: 9.5")
     expect(map).toContain("type: 'QUARTER', minzoom: 11.5")
-    expect(picking.indexOf('MAP_INTERACTIVE_LAYERS.osmPolygons')).toBeLessThan(picking.indexOf('MAP_INTERACTIVE_LAYERS.analysisAreas'))
-    expect(picking.indexOf('MAP_INTERACTIVE_LAYERS.cityplannerPolygons')).toBeLessThan(picking.indexOf('MAP_INTERACTIVE_LAYERS.analysisAreas'))
+    expect(picking).toContain('INTERACTIVE_POLYGON_LAYERS')
+    expect(picking).toContain("featureType: 'STADTPLANNER'")
+    expect(picking).toContain("featureType: 'OSM_POLYGON'")
+    expect(picking.indexOf("featureType: 'QUARTER'")).toBeLessThan(picking.indexOf("featureType: 'DISTRICT'"))
+    expect(picking.indexOf("featureType: 'DISTRICT'")).toBeLessThan(picking.indexOf("featureType: 'MUNICIPALITY'"))
   })
 
   it('uses one shared selection abstraction and responsive sidebars', () => {

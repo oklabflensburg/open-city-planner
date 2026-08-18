@@ -25,6 +25,11 @@
     <div v-else-if="polygonStore.error" class="absolute bottom-24 left-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg bg-white px-3 py-2 text-xs text-red-700 shadow lg:bottom-16 lg:max-w-[320px]">
       {{ polygonStore.error }}
     </div>
+    <div v-else-if="showEmptyState" class="absolute left-1/2 top-1/2 z-20 w-[min(22rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white/95 p-4 text-center shadow-xl" role="status">
+      <p class="text-sm font-bold text-slate-800">Keine Objekte für diese Filter</p>
+      <p class="mt-1 text-xs leading-5 text-slate-600">Die Kartenbasis bleibt sichtbar. Setzen Sie die Filter zurück, um wieder alle passenden Objekte anzuzeigen.</p>
+      <button class="mt-3 min-h-11 rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white" type="button" @click="filterStore.reset()">Alle Filter zurücksetzen</button>
+    </div>
   </div>
 </template>
 
@@ -33,10 +38,10 @@ import type { FeatureCollection } from 'geojson'
 import type { FillLayerSpecification, GeoJSONSource, Map, MapMouseEvent } from 'maplibre-gl'
 import { LoaderCircle, RefreshCw } from 'lucide-vue-next'
 import type { OsmViewportResult } from '~/types/osm'
-import { industryColorExpression } from '~/utils/industries'
-import { osmColorExpression } from '~/utils/osmCategories'
+import { getIndustryColor, industryColorExpression } from '~/utils/industries'
+import { osmCategoryColors, osmColorExpression } from '~/utils/osmCategories'
 import { shouldExcludeOsmFeature } from '~/utils/osmExclusions'
-import { pickMapEntityAtPoint } from '~/utils/mapFeaturePicking'
+import { pickMapEntityAtPoint, type InteractivePolygonFeature } from '~/utils/mapFeaturePicking'
 import { ensureStadtplanerLayerOrder, getStadtplanerLayerOrder, hasValidStadtplanerLayerOrder } from '~/utils/mapLayerOrder'
 import { loadMapStyle } from '~/config/mapStyles'
 
@@ -61,9 +66,7 @@ let forceNextOsmRefresh = false
 let hoverFrame: number | undefined
 let pendingHoverPoint: { x: number, y: number } | null = null
 let hoveredPolygonId: string | null = null
-let selectedPolygonId: string | null = null
-let selectedOsmState: { source: 'osm-pois' | 'osm-polygons', id: string } | null = null
-let selectedAnalysisAreaId: string | null = null
+let selectedOsmState: { source: 'osm-pois', id: string } | null = null
 const performanceCounters = {
   viewportFetches: 0,
   osmSetDataCalls: 0,
@@ -76,6 +79,9 @@ const performanceCounters = {
 const performanceDebugEnabled = import.meta.dev || config.public.mapPerformanceDebug
 
 const visibleFeatureCollection = computed<FeatureCollection>(() => polygonStore.featureCollection as FeatureCollection)
+const showEmptyState = computed(() => filterStore.activeFilterCount > 0
+  && !polygonStore.loading && !osmStore.loading
+  && polygonStore.polygons.length === 0 && (osmStore.data?.meta.business_count || 0) === 0)
 
 onMounted(async () => {
   if (!mapEl.value) return
@@ -112,7 +118,7 @@ onMounted(async () => {
       updateSource(visibleFeatureCollection.value)
       const requested = typeof route.query.polygon === 'string' ? route.query.polygon : ''
       if (requested && polygonStore.polygons.some(polygon => polygon.id === requested)) {
-        await selectPolygon(requested)
+        await selectPolygon(requested, true)
       } else {
         await selectRequestedArea(instance)
       }
@@ -175,6 +181,7 @@ onBeforeUnmount(() => {
       [map.value.getCenter().lng, map.value.getCenter().lat], map.value.getZoom(),
       map.value.getBearing(), map.value.getPitch()
     )
+    clearSelectionRendering()
     map.value.remove()
   }
   map.value = null
@@ -193,11 +200,15 @@ watch(() => filterStore.filterKey, () => {
   polygonFilterTimer = setTimeout(() => void polygonStore.loadPolygons(), 200)
   scheduleOsmViewportRefresh(200)
 })
-watch(() => polygonStore.selectedPolygonId, updatePolygonSelection)
+watch(() => mapStore.selectedMapEntity, () => {
+  updateSelectedPolygonOverlay()
+  updateOsmSelection()
+})
 watch(() => mapStore.categoryHighlight, applyFeatureStyles)
-watch(() => mapStore.thematicStyle, applyFeatureStyles)
-watch(() => osmStore.selectedFeature?.id, updateOsmSelection)
-watch(() => analysisAreasStore.selectedAreaId, updateAnalysisAreaSelection)
+watch(() => mapStore.thematicStyle, () => {
+  applyFeatureStyles()
+  updateSelectedPolygonOverlay()
+})
 watch(() => analysisAreasStore.visibility, setAnalysisAreaVisibility, { deep: true })
 watch(() => mapStore.polygonsVisible, setPolygonVisibility)
 watch(
@@ -245,19 +256,19 @@ function ensureOsmInfrastructure(instance: Map) {
     layout: { 'text-field': ['get', 'name'], 'text-font': ['noto_sans_regular'], 'text-size': 10, 'text-offset': [0, 1.25], 'text-anchor': 'top', 'text-optional': true },
     paint: { 'text-color': '#334155', 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 }
   })
-  if (!instance.getLayer('osm-selected-polygon')) instance.addLayer({
-    id: 'osm-selected-polygon', type: 'line', source: 'osm-polygons', minzoom: 14.5,
-    filter: ['!=', ['get', 'natural'], 'peninsula'],
+  if (!instance.getLayer('osm-selected-point-halo')) instance.addLayer({
+    id: 'osm-selected-point-halo', type: 'circle', source: 'osm-pois', minzoom: 11,
+    filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'natural'], 'peninsula']],
     paint: {
-      'line-color': '#0f172a', 'line-width': 3,
-      'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]
+      'circle-color': '#ffffff', 'circle-radius': 13,
+      'circle-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.96, 0]
     }
   })
   if (!instance.getLayer('osm-selected-point')) instance.addLayer({
     id: 'osm-selected-point', type: 'circle', source: 'osm-pois', minzoom: 11,
     filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'natural'], 'peninsula']],
     paint: {
-      'circle-color': '#ffffff', 'circle-radius': 11, 'circle-stroke-color': '#0f172a', 'circle-stroke-width': 3,
+      'circle-color': osmBusinessColorExpression(), 'circle-radius': 9, 'circle-stroke-color': '#154d73', 'circle-stroke-width': 3,
       'circle-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0],
       'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]
     }
@@ -319,6 +330,9 @@ function updateOsmSources(data = osmStore.data) {
   }
   ;(map.value.getSource('osm-pois') as GeoJSONSource | undefined)?.setData(points)
   ;(map.value.getSource('osm-polygons') as GeoJSONSource | undefined)?.setData(polygons)
+  if (osmStore.selectedFeature && !safeFeatures.some(feature => feature.properties.feature_id === osmStore.selectedFeature?.properties.feature_id)) {
+    mapSelection.clearSelection()
+  }
   updateOsmSelection()
   map.value.once('idle', () => {
     if (generation === osmStore.generation) {
@@ -334,9 +348,9 @@ function updateOsmSelection() {
     selectedOsmState = null
   }
   const feature = osmStore.selectedFeature
-  if (feature && map.value) {
+  if (feature?.properties.feature_type === 'point' && map.value) {
     selectedOsmState = {
-      source: feature.properties.feature_type === 'point' ? 'osm-pois' : 'osm-polygons',
+      source: 'osm-pois',
       id: feature.properties.feature_id
     }
     if (map.value.getSource(selectedOsmState.source)) map.value.setFeatureState(selectedOsmState, { selected: true })
@@ -352,7 +366,7 @@ async function handleMapClick(instance: Map, event: MapMouseEvent) {
     return
   }
 
-  if (picked.kind === 'point-poi' || picked.kind === 'osm-poi-polygon' || picked.kind === 'osm-context-polygon') {
+  if (picked.kind === 'point-poi') {
     const featureId = picked.feature.properties?.feature_id
     const feature = osmStore.data?.features.find(item => item.id === featureId)
     if (!feature) return
@@ -372,15 +386,8 @@ async function handleMapClick(instance: Map, event: MapMouseEvent) {
     return
   }
 
-  if (picked.kind === 'cityplanner-polygon' && picked.feature.properties?.id) {
-    await selectPolygon(String(picked.feature.properties.id))
-    return
-  }
-
-  if (picked.kind === 'analysis-area' && picked.feature.properties?.id) {
-    const detailRequest = mapSelection.selectAnalysisArea(String(picked.feature.properties.id))
-    if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openMobilePanel('selection')
-    await detailRequest
+  if (picked.kind === 'interactive-polygon') {
+    await selectInteractivePolygon(picked.polygon)
   }
 }
 
@@ -394,7 +401,9 @@ function handleMapHover(instance: Map, event: MapMouseEvent) {
     if (!point || disposed) return
     const picked = pickMapEntityAtPoint(instance, point, 4)
     instance.getCanvas().style.cursor = picked ? 'pointer' : ''
-    const polygonId = picked?.kind === 'cityplanner-polygon' ? String(picked.feature.properties?.id || '') : ''
+    const polygonId = picked?.kind === 'interactive-polygon' && picked.polygon.target.type === 'polygon'
+      ? picked.polygon.id
+      : ''
     updatePolygonHover(polygonId || null)
   })
 }
@@ -403,6 +412,7 @@ function ensureMapInfrastructure(instance: Map) {
   ensureAnalysisAreaInfrastructure(instance)
   ensureOsmInfrastructure(instance)
   ensurePolygonInfrastructure(instance)
+  ensureSelectionInfrastructure(instance)
   ensureStadtplanerLayerOrder(instance)
   if (import.meta.dev && !hasValidStadtplanerLayerOrder(instance)) {
     console.warn('Stadtplaner overlay layer order is invalid', getStadtplanerLayerOrder(instance))
@@ -432,15 +442,7 @@ function ensureAnalysisAreaInfrastructure(instance: Map) {
       paint: { 'text-color': layer.color, 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 }
     })
   }
-  if (!instance.getLayer('analysis-area-selected')) instance.addLayer({
-    id: 'analysis-area-selected', type: 'line', source: 'analysis-areas',
-    paint: {
-      'line-color': '#0f172a', 'line-width': 3.5,
-      'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.95, 0]
-    }
-  })
   setAnalysisAreaVisibility()
-  updateAnalysisAreaSelection()
 }
 
 function setAnalysisAreaVisibility() {
@@ -452,14 +454,8 @@ function setAnalysisAreaVisibility() {
       if (map.value.getLayer(layer)) map.value.setLayoutProperty(layer, 'visibility', visibility)
     }
   }
-}
-
-function updateAnalysisAreaSelection() {
-  const id = analysisAreasStore.selectedAreaId
-  if (!map.value || selectedAnalysisAreaId === id) return
-  if (selectedAnalysisAreaId) map.value.setFeatureState({ source: 'analysis-areas', id: selectedAnalysisAreaId }, { selected: false })
-  selectedAnalysisAreaId = id
-  if (id) map.value.setFeatureState({ source: 'analysis-areas', id }, { selected: true })
+  const selected = analysisAreasStore.selectedArea
+  if (selected && !analysisAreasStore.visibility[selected.area_type]) mapSelection.clearSelection()
 }
 
 function ensurePolygonInfrastructure(instance: Map) {
@@ -477,17 +473,148 @@ function ensurePolygonInfrastructure(instance: Map) {
     paint: { 'line-color': categoryColorExpression(), 'line-width': 2 }
   })
   applyFeatureStyles()
-  updatePolygonSelection()
   setPolygonVisibility(mapStore.polygonsVisible)
 }
 
-async function selectPolygon(id: string) {
+function ensureSelectionInfrastructure(instance: Map) {
+  const empty: FeatureCollection = { type: 'FeatureCollection', features: [] }
+  if (!instance.getSource('selected-polygon-source')) {
+    instance.addSource('selected-polygon-source', { type: 'geojson', data: empty })
+  }
+  if (!instance.getLayer('selected-polygon-fill')) instance.addLayer({
+    id: 'selected-polygon-fill', type: 'fill', source: 'selected-polygon-source',
+    paint: { 'fill-color': ['get', 'selection_color'], 'fill-opacity': 0.22 }
+  })
+  if (!instance.getLayer('selected-polygon-halo')) instance.addLayer({
+    id: 'selected-polygon-halo', type: 'line', source: 'selected-polygon-source',
+    paint: {
+      'line-color': '#ffffff',
+      'line-width': ['interpolate', ['linear'], ['zoom'], 7, 4.5, 18, 9],
+      'line-opacity': 0.96
+    }
+  })
+  if (!instance.getLayer('selected-polygon-outline')) instance.addLayer({
+    id: 'selected-polygon-outline', type: 'line', source: 'selected-polygon-source',
+    paint: {
+      'line-color': '#154d73',
+      'line-width': ['interpolate', ['linear'], ['zoom'], 7, 2.5, 18, 4.5],
+      'line-opacity': 1
+    }
+  })
+  updateSelectedPolygonOverlay()
+}
+
+async function selectInteractivePolygon(polygon: InteractivePolygonFeature) {
+  if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openMobilePanel('selection')
+  if (polygon.target.type === 'polygon') {
+    await selectPolygon(polygon.id)
+    return
+  }
+  if (polygon.target.type === 'analysis-area') {
+    await mapSelection.selectAnalysisArea(polygon.id)
+    return
+  }
+  const feature = osmStore.data?.features.find(item => item.properties.feature_id === polygon.id)
+  if (feature) await mapSelection.selectOsm(feature)
+  else mapSelection.clearSelection()
+}
+
+function updateSelectedPolygonOverlay() {
+  const entity = mapStore.selectedMapEntity
+  if (!entity) {
+    setSelectedPolygonOverlay(null)
+    return
+  }
+  if (entity.type === 'polygon') {
+    const polygon = polygonStore.polygons.find(item => item.id === entity.id)
+    setSelectedPolygonOverlay(polygon ? {
+      id: polygon.id,
+      source: 'overview-polygons',
+      layerId: 'overview-polygons-fill',
+      featureType: 'STADTPLANNER',
+      geometryType: polygon.geometry.type,
+      selectionKey: `overview-polygons:STADTPLANNER:${polygon.id}`,
+      geometry: polygon.geometry,
+      properties: { category: polygon.category, occupancy_status: polygon.occupancy_status, size: polygon.area_size, business_structure: polygon.business_structure },
+      target: { type: 'polygon', id: polygon.id }
+    } : null)
+    return
+  }
+  if (entity.type === 'osm') {
+    const feature = entity.feature
+    const featureType = feature.properties.category === 'landuse' || feature.properties.category === 'building' ? 'OSM_CONTEXT_POLYGON' : 'OSM_POLYGON'
+    setSelectedPolygonOverlay(feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon' ? {
+      id: feature.properties.feature_id,
+      source: 'osm-polygons',
+      layerId: 'osm-polygons-fill',
+      featureType,
+      geometryType: feature.geometry.type,
+      selectionKey: `osm-polygons:${featureType}:${feature.properties.feature_id}`,
+      geometry: feature.geometry,
+      properties: { category: feature.properties.category, canonical_category: feature.properties.canonical_category },
+      target: { type: 'osm', id: feature.properties.feature_id }
+    } : null)
+    return
+  }
+  const feature = analysisAreasStore.featureCollection.features.find(item => item.properties.id === entity.id)
+  setSelectedPolygonOverlay(feature ? {
+    id: entity.id,
+    source: 'analysis-areas',
+    layerId: `analysis-areas-${feature.properties.area_type.toLowerCase()}-fill`,
+    featureType: feature.properties.area_type,
+    geometryType: feature.geometry.type,
+    selectionKey: `analysis-areas:${feature.properties.area_type}:${entity.id}`,
+    geometry: feature.geometry,
+    properties: { area_type: feature.properties.area_type },
+    target: { type: 'analysis-area', id: entity.id }
+  } : null)
+}
+
+function setSelectedPolygonOverlay(polygon: InteractivePolygonFeature | null) {
+  const source = map.value?.getSource('selected-polygon-source') as GeoJSONSource | undefined
+  if (!source) return
+  const features = polygon ? [{
+    type: 'Feature' as const,
+    id: polygon.selectionKey,
+    geometry: polygon.geometry,
+    properties: {
+      id: polygon.id,
+      feature_type: polygon.featureType,
+      source_type: polygon.source,
+      selection_key: polygon.selectionKey,
+      selection_color: interactivePolygonColor(polygon)
+    }
+  }] : []
+  source.setData({ type: 'FeatureCollection', features } as FeatureCollection)
+}
+
+function interactivePolygonColor(polygon: InteractivePolygonFeature) {
+  if (polygon.source === 'analysis-areas') {
+    return polygon.featureType === 'MUNICIPALITY' ? '#2563eb' : polygon.featureType === 'DISTRICT' ? '#15803d' : '#b45309'
+  }
+  const canonicalCategory = polygon.properties?.canonical_category
+  if (typeof canonicalCategory === 'string') return getIndustryColor(canonicalCategory)
+  const category = polygon.properties?.category
+  if (polygon.source === 'overview-polygons' && typeof category === 'string') {
+    if (mapStore.thematicStyle === 'occupancy') return polygon.properties?.occupancy_status === 'OCCUPIED' ? '#10b981' : polygon.properties?.occupancy_status === 'VACANT' ? '#f43f5e' : '#94a3b8'
+    if (mapStore.thematicStyle === 'size') return ({ S: '#dbeafe', M: '#93c5fd', L: '#3b82f6', XL: '#1e3a8a' } as Record<string, string>)[String(polygon.properties?.size)] || '#94a3b8'
+    if (mapStore.thematicStyle === 'business') return polygon.properties?.business_structure === 'CHAIN' ? '#7c3aed' : polygon.properties?.business_structure === 'INDEPENDENT' ? '#f59e0b' : '#94a3b8'
+    return getIndustryColor(category)
+  }
+  return typeof category === 'string' ? osmCategoryColors[category] || '#64748b' : '#64748b'
+}
+
+async function selectPolygon(id: string, fitSelection = false) {
   const selectionRequest = mapSelection.selectPolygon(id)
   if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openMobilePanel('selection')
   await selectionRequest
   if (mapStore.selectedMapEntity?.type !== 'polygon' || mapStore.selectedMapEntity.id !== id) return
   const bbox = polygonStore.selectedMetrics?.bbox
-  if (bbox && map.value) map.value.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 72, maxZoom: 18 })
+  if (fitSelection && bbox && map.value) map.value.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], {
+    padding: window.matchMedia('(max-width: 1279px)').matches ? { top: 64, right: 40, bottom: 300, left: 40 } : 72,
+    maxZoom: 18,
+    duration: 0
+  })
 }
 
 async function selectRequestedArea(instance: Map) {
@@ -535,18 +662,14 @@ function applyFeatureStyles() {
   const highlighted = mapStore.categoryHighlight || ''
   map.value.setPaintProperty('overview-polygons-fill', 'fill-opacity', [
     'case',
-    ['boolean', ['feature-state', 'selected'], false], 0.55,
     ['boolean', ['feature-state', 'hovered'], false], 0.46,
     ['==', ['get', 'category'], highlighted], 0.5,
     0.3
   ])
   map.value.setPaintProperty('overview-polygons-fill', 'fill-color', thematicColorExpression())
-  map.value.setPaintProperty('overview-polygons-line', 'line-color', [
-    'case', ['boolean', ['feature-state', 'selected'], false], '#0f172a', categoryColorExpression()
-  ])
+  map.value.setPaintProperty('overview-polygons-line', 'line-color', categoryColorExpression())
   map.value.setPaintProperty('overview-polygons-line', 'line-width', [
-    'case', ['boolean', ['feature-state', 'selected'], false], 3.5,
-    ['boolean', ['feature-state', 'hovered'], false], 3, 2
+    'case', ['boolean', ['feature-state', 'hovered'], false], 3, 2
   ])
 }
 
@@ -557,12 +680,10 @@ function updatePolygonHover(id: string | null) {
   if (id) map.value.setFeatureState({ source: 'overview-polygons', id }, { hovered: true })
 }
 
-function updatePolygonSelection() {
-  const id = polygonStore.selectedPolygonId
-  if (!map.value || selectedPolygonId === id) return
-  if (selectedPolygonId) map.value.setFeatureState({ source: 'overview-polygons', id: selectedPolygonId }, { selected: false })
-  selectedPolygonId = id
-  if (id) map.value.setFeatureState({ source: 'overview-polygons', id }, { selected: true })
+function clearSelectionRendering() {
+  if (!map.value) return
+  if (selectedOsmState) map.value.setFeatureState(selectedOsmState, { selected: false })
+  setSelectedPolygonOverlay(null)
 }
 
 type ColorExpression = NonNullable<NonNullable<FillLayerSpecification['paint']>['fill-color']>
@@ -655,8 +776,10 @@ declare global {
 function setPolygonVisibility(visible: boolean) {
   if (!map.value) return
   const visibility = visible ? 'visible' : 'none'
-  map.value.setLayoutProperty('overview-polygons-fill', 'visibility', visibility)
-  map.value.setLayoutProperty('overview-polygons-line', 'visibility', visibility)
+  for (const layer of ['overview-polygons-fill', 'overview-polygons-line']) {
+    if (map.value.getLayer(layer)) map.value.setLayoutProperty(layer, 'visibility', visibility)
+  }
+  if (!visible && mapStore.selectedMapEntity?.type === 'polygon') mapSelection.clearSelection()
 }
 
 function resetView() {

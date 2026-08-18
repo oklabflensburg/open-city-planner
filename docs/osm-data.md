@@ -24,6 +24,8 @@ Ein bestehender osm2pgsql-/Imposm-Prozess kann seine relevanten POIs und Gebäud
 
 Die fachlichen Filter `area_sizes`, `floors`, `categories`, `occupancy_statuses`, `business_structures` und `sources` werden sowohl an die Stadtplaner- als auch an die OSM-Abfrage übergeben. Innerhalb einer Dimension gilt OR, zwischen Dimensionen AND. `osm_categories` steuert davon getrennt die Umfeldlayer wie ÖPNV, Parken oder Kultur.
 
+Für jede fachliche Dimension gilt derselbe öffentliche Vertrag: Ein fehlender Query-Parameter bedeutet „alle Werte“, der alleinstehende Sentinel `NONE` bedeutet „keine Werte“. `NONE` darf nicht mit realen Werten kombiniert werden. Die Oberfläche startet deshalb mit sichtbar ausgewählten Optionen, lässt die vollständige Auswahl zur kompakten Standard-URL weg und schreibt eine vollständig abgewählte Gruppe ausdrücklich als `NONE`. Fehlende Angaben bleiben in der ungefilterten Gesamtsicht enthalten; bei einer Teilmenge werden sie nicht geschätzt und erfüllen den Filter nicht.
+
 OSM-Tags werden in `app/services/osm_canonical.py` serverseitig auf die bestehenden Stadtplaner-Kategorien normalisiert. Das Mapping basiert auf dem lokal importierten Flensburger Tagbestand. Beispiele:
 
 | Stadtplaner-Kategorie | OSM-Tags, auszugsweise |

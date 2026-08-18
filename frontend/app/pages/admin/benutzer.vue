@@ -28,7 +28,7 @@
       <div v-for="index in 5" :key="index" class="h-20 animate-pulse rounded-2xl border border-slate-200 bg-white" />
     </div>
     <AdminUserList v-else-if="users.length" class="mt-5" :users="users" :current-user-id="authStore.user?.id" @manage="openUser" />
-    <Card v-else class="mt-5 p-10 text-center"><Users class="mx-auto size-9 text-slate-400" /><h2 class="mt-4 text-lg font-bold text-slate-950">Keine Benutzer gefunden</h2><p class="mt-2 text-sm text-slate-600">Passe Suche oder Filter an.</p></Card>
+    <Card v-else class="mt-5 p-10 text-center"><Users class="mx-auto size-9 text-slate-400" /><h2 class="mt-4 text-lg font-bold text-slate-950">Keine Benutzer gefunden</h2><p class="mt-2 text-sm text-slate-600">Passen Sie Suche oder Filter an.</p></Card>
 
     <nav v-if="totalPages > 1" class="mt-6 flex items-center justify-between" aria-label="Seitennavigation">
       <Button :disabled="page <= 1 || loading" @click="changePage(page - 1)"><ChevronLeft class="size-4" /> Zurück</Button>

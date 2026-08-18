@@ -149,7 +149,7 @@ async def authenticate_oauth_identity(session: AsyncSession, identity: OAuthIden
         if existing_user:
             raise oauth_error(
                 "OAUTH_EMAIL_CONFLICT",
-                f"Es existiert bereits ein Konto mit dieser E-Mail-Adresse. Bitte melde dich zuerst an und verknüpfe {provider_label(provider)} in deinem Profil.",
+                f"Es existiert bereits ein Konto mit dieser E-Mail-Adresse. Bitte melden Sie sich zuerst an und verknüpfen Sie {provider_label(provider)} anschließend im Profil.",
                 status.HTTP_409_CONFLICT,
             )
 
@@ -227,7 +227,7 @@ async def link_oauth_account(session: AsyncSession, user: User, identity: OAuthI
         raise oauth_error("OAUTH_ACCOUNT_ALREADY_LINKED", f"Dieses {provider_label(provider)}-Konto ist bereits mit einem anderen Benutzerkonto verbunden.", status.HTTP_409_CONFLICT)
     existing_provider = await get_for_user_provider(session, user.id, provider)
     if existing_provider and (not existing_identity or existing_provider.id != existing_identity.id):
-        raise oauth_error("OAUTH_ACCOUNT_ALREADY_LINKED", f"Dein Konto ist bereits mit {provider_label(provider)} verbunden.", status.HTTP_409_CONFLICT)
+        raise oauth_error("OAUTH_ACCOUNT_ALREADY_LINKED", f"Ihr Konto ist bereits mit {provider_label(provider)} verbunden.", status.HTTP_409_CONFLICT)
     account = existing_identity or await create_oauth_account(session, user, identity)
     update_oauth_account(account, identity)
     verify_matching_provider_email(user, identity)
@@ -269,7 +269,7 @@ async def unlink_oauth_account(session: AsyncSession, user: User, provider: str)
     )
     has_password = bool(user.password_hash)
     if not has_password and int(other_count or 0) == 0:
-        raise oauth_error("LAST_AUTH_METHOD", "Du kannst diese Verbindung nicht entfernen, da sie derzeit deine einzige Anmeldemethode ist.", status.HTTP_409_CONFLICT)
+        raise oauth_error("LAST_AUTH_METHOD", "Diese Verbindung kann nicht entfernt werden, da sie derzeit Ihre einzige Anmeldemethode ist.", status.HTTP_409_CONFLICT)
 
     provider_instance = account.provider_instance
     await session.delete(account)

@@ -65,7 +65,7 @@ describe('dynamic OSM viewport layer', () => {
     const filterLines = map.split('\n').filter(line => line.includes('filter:'))
     expect(filterLines).not.toEqual(expect.arrayContaining([expect.stringContaining("['feature-state'")]))
     expect(map).toContain("'circle-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]")
-    expect(map).toContain("'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.95, 0]")
+    expect(map).toContain("instance.addSource('selected-polygon-source'")
   })
 
   it('defensively removes peninsula features before rendering and from pickable layers', () => {
@@ -87,10 +87,11 @@ describe('dynamic OSM viewport layer', () => {
     const picking = appFile('utils/mapFeaturePicking.ts')
     expect(map).toContain('pickMapEntityAtPoint(instance, event.point, tolerance)')
     expect(picking.indexOf("kind: 'point-poi'")).toBeLessThan(picking.indexOf("kind: 'cluster'"))
-    expect(picking.indexOf("kind: 'cluster'")).toBeLessThan(picking.indexOf("kind: 'osm-poi-polygon'"))
-    expect(picking.indexOf("kind: 'osm-poi-polygon'")).toBeLessThan(picking.indexOf("kind: 'cityplanner-polygon'"))
+    expect(picking).toContain('INTERACTIVE_POLYGON_LAYERS')
+    expect(picking).toContain("kind: 'interactive-polygon'")
+    expect(picking).toContain('.sort((left, right) => right.priority - left.priority)')
     expect(map).toContain('mapSelection.selectOsm(feature)')
-    expect(map).toContain("picked.kind === 'cityplanner-polygon'")
+    expect(map).toContain("picked.kind === 'interactive-polygon'")
   })
 
   it('loads normalized details only after feature selection', () => {
@@ -110,6 +111,30 @@ describe('dynamic OSM viewport layer', () => {
     expect(filter).toContain('Flächenobjekte anzeigen')
     expect(filter).toContain('Gebäude ab Zoom 17')
     expect(filter).toContain('osm.toggleCategory')
+  })
+
+  it('uses the central accessible switch for every binary GIS layer control', () => {
+    const sidebar = appFile('components/layout/LeftSidebar.vue')
+    const osmFilter = appFile('components/filters/OsmFeatureFilter.vue')
+    const compactLayers = appFile('components/map/MapLayerControl.vue')
+    const toggle = appFile('components/filters/GisFilterToggleRow.vue')
+
+    expect(sidebar).not.toContain('type="checkbox"')
+    expect(sidebar.match(/<GisFilterToggleRow/g)).toHaveLength(2)
+    expect(sidebar).toContain('v-model="mapStore.polygonsVisible"')
+    expect(sidebar).toContain('v-model="analysisAreasStore.visibility[item.type]"')
+    expect(sidebar).toContain(':active-color="item.activeColor"')
+    expect(sidebar).not.toContain(':color="item.color"')
+    expect(sidebar).not.toContain('square-indicator')
+    expect(sidebar).toContain('class="mt-4 grid gap-1" aria-label="Administrative Gebietsgrenzen"')
+    expect(sidebar).not.toContain('rounded-xl border border-slate-200 p-2" aria-label="Administrative Gebietsgrenzen"')
+    expect(osmFilter.match(/<GisFilterToggleRow/g)).toHaveLength(3)
+    expect(osmFilter.match(/type="checkbox"/g)).toHaveLength(1)
+    expect(osmFilter).toContain(':disabled="!osmEnabled"')
+    expect(compactLayers).not.toContain('type="checkbox"')
+    expect(toggle).toContain('role="switch"')
+    expect(toggle).toContain(':aria-checked="modelValue"')
+    expect(toggle).toContain('min-h-[44px]')
   })
 
   it('shows viewport counts, truncation and local OSM data date', () => {

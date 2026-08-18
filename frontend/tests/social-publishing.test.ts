@@ -102,6 +102,6 @@ describe('Mastodon and Fediverse integration', () => {
     expect(map).toContain('gisPreviewReady')
     expect(map).toContain("instance.once('moveend'")
     expect(map).toContain("route.query.polygon")
-    expect(map).toContain('await selectPolygon(requested)')
+    expect(map).toContain('await selectPolygon(requested, true)')
   })
 })

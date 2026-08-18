@@ -33,7 +33,7 @@ async def _lock_user_and_protect_last_superuser(session: AsyncSession, user_id: 
     )
     if not user:
         raise account_error(
-            "AUTH_REQUIRED", "Bitte melde dich erneut an.", status.HTTP_401_UNAUTHORIZED
+            "AUTH_REQUIRED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED
         )
     if user.is_superuser:
         # Lock all candidates in a stable order so two superusers cannot remove the
@@ -52,7 +52,7 @@ async def _lock_user_and_protect_last_superuser(session: AsyncSession, user_id: 
             raise account_error(
                 "LAST_SUPERUSER_REQUIRED",
                 "Das letzte aktive Superuser-Konto kann nicht deaktiviert oder gelöscht werden. "
-                "Übertrage die Superuser-Berechtigung zunächst auf ein anderes Konto.",
+                "Übertragen Sie die Superuser-Berechtigung zunächst auf ein anderes Konto.",
                 status.HTTP_409_CONFLICT,
             )
     return user
@@ -96,7 +96,7 @@ async def delete_own_account(
     if confirmation_text.strip().casefold() != "löschen".casefold():
         raise account_error(
             "INVALID_DELETE_CONFIRMATION",
-            "Bitte gib zur Bestätigung LÖSCHEN ein.",
+            "Bitte geben Sie zur Bestätigung LÖSCHEN ein.",
             status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
 
@@ -113,7 +113,7 @@ async def delete_own_account(
         if not authenticated_at or (now - authenticated_at).total_seconds() > recent_auth_seconds:
             raise account_error(
                 "RECENT_AUTH_REQUIRED",
-                "Deine Anmeldung ist für diese Aktion zu alt. Bitte melde dich erneut an.",
+                "Ihre Anmeldung ist für diese Aktion zu alt. Bitte melden Sie sich erneut an.",
                 status.HTTP_403_FORBIDDEN,
             )
 

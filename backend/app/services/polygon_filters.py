@@ -23,10 +23,13 @@ def polygon_filter_clauses(
     *,
     exclude: Collection[str] = (),
 ) -> list[object]:
-    """OR within dimensions, AND between dimensions; empty dimensions are unrestricted."""
+    """OR within dimensions, AND between dimensions; missing is unrestricted, NONE matches nothing."""
     clauses: list[object] = []
     if filters.sources and "STADTPLANNER" not in filters.sources:
         return [false()]
+    for name in ("categories", "floors", "area_sizes", "occupancy_statuses", "business_structures"):
+        if name not in exclude and getattr(filters, name) == ("NONE",):
+            return [false()]
     if filters.categories and "categories" not in exclude:
         clauses.append(UserPolygon.category.in_(filters.categories))
     if filters.floors and "floors" not in exclude:

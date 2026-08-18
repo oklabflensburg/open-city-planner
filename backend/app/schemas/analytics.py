@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator, model_validator
 
@@ -44,7 +44,7 @@ class CityMetricsUpdate(BaseModel):
     @model_validator(mode="after")
     def require_changed_field(self) -> "CityMetricsUpdate":
         if not self.model_fields_set:
-            raise ValueError("At least one field must be provided")
+            raise ValueError("Mindestens ein Feld muss angegeben werden")
         return self
 
 
@@ -109,6 +109,72 @@ class MarketBenchmark(BaseModel):
 class MarketBenchmarkResult(BaseModel):
     items: list[MarketBenchmark]
     context_label: str
+    calculation: str = "CALCULATED"
+    source: str = "Erfasste Stadtplaner-Flächen"
+
+
+class AreaCompareFilters(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    categories: list[Literal[
+        "warehouse", "fashion", "food", "electronics", "furniture", "garden",
+        "other", "gastronomy", "services", "otherAreas", "__none__", "NONE",
+    ]] = Field(default_factory=list)
+    floors: list[Literal["UG", "EG", "OG", "NONE"]] = Field(default_factory=list)
+    area_sizes: list[Literal["S", "M", "L", "XL", "NONE"]] = Field(default_factory=list)
+    occupancy_statuses: list[Literal["OCCUPIED", "VACANT", "UNKNOWN", "NONE"]] = Field(default_factory=list)
+    business_structures: list[Literal["CHAIN", "INDEPENDENT", "UNKNOWN", "NONE"]] = Field(default_factory=list)
+    sources: list[Literal["STADTPLANNER", "OSM", "NONE"]] = Field(default_factory=list)
+
+
+class AreaCompareRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    area_slugs: list[str] = Field(min_length=1, max_length=4)
+    include_municipality_benchmark: bool = True
+    filters: AreaCompareFilters = Field(default_factory=AreaCompareFilters)
+
+    @field_validator("area_slugs")
+    @classmethod
+    def unique_normalized_slugs(cls, values: list[str]) -> list[str]:
+        normalized = [value.strip().lower() for value in values if value.strip()]
+        if not normalized:
+            raise ValueError("Mindestens ein Gebietsslug ist erforderlich")
+        return list(dict.fromkeys(normalized))
+
+
+class AreaCompareMetrics(BaseModel):
+    polygon_count: int = 0
+    occupied_count: int = 0
+    vacant_count: int = 0
+    chain_count: int = 0
+    independent_count: int = 0
+    total_area_m2: float | None = None
+    average_area_m2: float | None = None
+    median_area_m2: float | None = None
+    vacancy_rate: float | None = None
+    chain_store_rate: float | None = None
+    known_occupancy_count: int = 0
+    known_business_structure_count: int = 0
+    data_updated_at: datetime | None = None
+    locations_per_km2: float | None = None
+    retail_area_m2_per_km2: float | None = None
+
+
+class AreaCompareItem(BaseModel):
+    id: str
+    slug: str
+    name: str
+    area_type: Literal["MUNICIPALITY", "DISTRICT", "QUARTER"]
+    parent_name: str | None = None
+    area_m2: float
+    metrics: AreaCompareMetrics
+
+
+class AreaCompareResult(BaseModel):
+    areas: list[AreaCompareItem]
+    benchmark: AreaCompareItem | None = None
+    ignored_slugs: list[str] = Field(default_factory=list)
     calculation: str = "CALCULATED"
     source: str = "Erfasste Stadtplaner-Flächen"
 
