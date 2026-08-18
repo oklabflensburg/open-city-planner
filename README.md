@@ -189,7 +189,9 @@ NOMINATIM_EMAIL=
 
 OpenStreetMap-Informationen werden bevorzugt aus der lokalen PostGIS-Tabelle `osm_features` geladen. Einrichtung, Importvertrag, räumliches Ranking und der standardmäßig deaktivierte Overpass-Fallback sind in [docs/osm-data.md](docs/osm-data.md) dokumentiert.
 
-Die vollständige Serveranleitung für Download, Flensburg-Extrakt, osm2pgsql-Import und regelmäßige Aktualisierung steht in [SETUP.md](SETUP.md).
+Die vollständige Serveranleitung für den updatefähigen Schleswig-Holstein-Import,
+die stündliche OSM-Replikation, Monitoring und Recovery steht in
+[docs/osm-hourly-sync.md](docs/osm-hourly-sync.md).
 
 Profilbilder werden lokal unter `AVATAR_UPLOAD_DIR/avatars` gespeichert. Das Verzeichnis wird beim ersten Upload automatisch angelegt. Uploads werden als JPG, PNG oder WebP angenommen, serverseitig mit Pillow dekodiert, auf 512 x 512 Pixel normalisiert und als WebP ohne EXIF-Metadaten gespeichert.
 

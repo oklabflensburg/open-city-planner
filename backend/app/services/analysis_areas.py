@@ -178,6 +178,7 @@ async def sync_osm_analysis_areas(
     municipality_name: str = "Flensburg",
     *,
     publish_relevant_updates: bool = False,
+    commit: bool = True,
 ) -> AnalysisAreaImportReport:
     municipality = (await session.execute(MUNICIPALITY_SQL, {"name": municipality_name})).mappings().first()
     if municipality is None:
@@ -269,5 +270,6 @@ async def sync_osm_analysis_areas(
     )
     await refresh_polygon_area_assignments(session)
     await bump_cache_versions(session, ("analysis-areas", "analytics"))
-    await session.commit()
+    if commit:
+        await session.commit()
     return report

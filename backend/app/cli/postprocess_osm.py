@@ -1,0 +1,130 @@
+import argparse
+import asyncio
+from dataclasses import dataclass
+from datetime import UTC, datetime
+
+from sqlalchemy import text
+
+from app.db.session import AsyncSessionLocal
+from app.services.analysis_areas import sync_osm_analysis_areas
+from app.services.cache_versions import bump_cache_versions
+
+REGION_SQL = """
+SELECT geometry
+FROM osm_import.osm_features_stage
+WHERE osm_type='R'
+  AND tags->>'boundary'='administrative'
+  AND tags->>'ISO3166-2'='DE-SH'
+LIMIT 1
+"""
+
+UPSERT_SQL = text(f"""
+WITH region AS ({REGION_SQL}), selected AS (
+  SELECT CASE stage.osm_type WHEN 'N' THEN 'node' WHEN 'W' THEN 'way' ELSE 'relation' END AS osm_type,
+         stage.osm_id, stage.geometry, stage.tags
+  FROM osm_import.osm_features_stage stage CROSS JOIN region
+  WHERE ST_Dimension(stage.geometry) IN (0, 2)
+    AND ST_Intersects(stage.geometry, region.geometry)
+), changed AS (
+  INSERT INTO osm_features (osm_type, osm_id, geometry, tags, imported_at)
+  SELECT osm_type, osm_id, geometry, tags, now() FROM selected
+  ON CONFLICT (osm_type, osm_id) DO UPDATE SET
+    geometry=excluded.geometry, tags=excluded.tags, imported_at=now()
+  WHERE osm_features.geometry IS DISTINCT FROM excluded.geometry
+     OR osm_features.tags IS DISTINCT FROM excluded.tags
+  RETURNING (xmax = 0) AS inserted
+)
+SELECT count(*) FILTER (WHERE inserted) AS inserted,
+       count(*) FILTER (WHERE NOT inserted) AS updated
+FROM changed
+""")
+
+DELETE_SQL = text(f"""
+WITH region AS ({REGION_SQL}), selected AS (
+  SELECT CASE stage.osm_type WHEN 'N' THEN 'node' WHEN 'W' THEN 'way' ELSE 'relation' END AS osm_type,
+         stage.osm_id
+  FROM osm_import.osm_features_stage stage CROSS JOIN region
+  WHERE ST_Dimension(stage.geometry) IN (0, 2)
+    AND ST_Intersects(stage.geometry, region.geometry)
+)
+DELETE FROM osm_features feature
+WHERE NOT EXISTS (
+  SELECT 1 FROM selected
+  WHERE selected.osm_type=feature.osm_type AND selected.osm_id=feature.osm_id
+)
+""")
+
+STATE_SQL = text("""
+INSERT INTO osm_sync_state
+  (singleton, sequence, osm_timestamp, last_success_at, inserted_count, updated_count, deleted_count)
+VALUES (true, :sequence, :osm_timestamp, now(), :inserted, :updated, :deleted)
+ON CONFLICT (singleton) DO UPDATE SET
+  sequence=excluded.sequence,
+  osm_timestamp=excluded.osm_timestamp,
+  last_success_at=excluded.last_success_at,
+  inserted_count=excluded.inserted_count,
+  updated_count=excluded.updated_count,
+  deleted_count=excluded.deleted_count
+""")
+
+
+@dataclass(frozen=True)
+class ReconciliationCounts:
+    inserted: int
+    updated: int
+    deleted: int
+
+
+def parse_timestamp(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+async def run(sequence: int | None, osm_timestamp: datetime, municipality: str) -> None:
+    async with AsyncSessionLocal() as session:
+        if await session.scalar(text(f"SELECT EXISTS ({REGION_SQL})")) is not True:
+            raise SystemExit("DE-SH boundary relation is missing from osm_import.osm_features_stage")
+
+        upserted = (await session.execute(UPSERT_SQL)).mappings().one()
+        deleted = (await session.execute(DELETE_SQL)).rowcount or 0
+        counts = ReconciliationCounts(
+            inserted=int(upserted["inserted"] or 0),
+            updated=int(upserted["updated"] or 0),
+            deleted=int(deleted),
+        )
+
+        report = await sync_osm_analysis_areas(
+            session, municipality, publish_relevant_updates=False, commit=False
+        )
+        await bump_cache_versions(session, ("osm", "analytics"))
+        await session.execute(
+            STATE_SQL,
+            {
+                "sequence": sequence,
+                "osm_timestamp": osm_timestamp,
+                "inserted": counts.inserted,
+                "updated": counts.updated,
+                "deleted": counts.deleted,
+            },
+        )
+        await session.commit()
+
+    print(
+        f"OSM_POSTPROCESS sequence={sequence if sequence is not None else 'initial'} "
+        f"timestamp={osm_timestamp.isoformat()} inserted={counts.inserted} "
+        f"updated={counts.updated} deleted={counts.deleted} "
+        f"areas={sum(report.counts.values())}"
+    )
+    for warning in report.warnings:
+        print(f"OSM_POSTPROCESS_WARNING {warning}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="osm2pgsql staging data atomically publish")
+    parser.add_argument("--sequence", type=int)
+    parser.add_argument("--timestamp", required=True, type=parse_timestamp)
+    parser.add_argument("--municipality", default="Flensburg")
+    args = parser.parse_args()
+    asyncio.run(run(args.sequence, args.timestamp, args.municipality))

@@ -1,0 +1,13 @@
+[Unit]
+Description=Run Stadtplaner OpenStreetMap synchronization hourly
+
+[Timer]
+OnBootSec=10m
+OnUnitActiveSec=1h
+AccuracySec=1m
+RandomizedDelaySec=5m
+Persistent=true
+Unit=stadtplaner-osm-update.service
+
+[Install]
+WantedBy=timers.target

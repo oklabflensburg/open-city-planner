@@ -1,0 +1,20 @@
+[Unit]
+Description=Stadtplaner hourly OpenStreetMap replication update
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=oklab
+Group=www-data
+WorkingDirectory=/opt/git/open-city-planner
+EnvironmentFile=/etc/stadtplaner/osm-sync.env
+ExecStart=/opt/git/open-city-planner/scripts/osm/update.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/stadtplaner/osm
