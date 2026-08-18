@@ -74,6 +74,7 @@ body { background: var(--c-surface); color: var(--c-text); }
   color: white;
   font-size: 0.875rem;
   font-weight: 700;
+  cursor: pointer;
   transition: background-color 150ms ease;
 }
 
@@ -90,6 +91,7 @@ body { background: var(--c-surface); color: var(--c-text); }
   color: var(--c-text);
   font-size: 0.875rem;
   font-weight: 700;
+  cursor: pointer;
   transition: background-color 150ms ease;
 }
 
@@ -117,6 +119,12 @@ body { background: var(--c-surface); color: var(--c-text); }
 
 .page-button-primary:hover { background: var(--c-primary-800); }
 .page-button-secondary:hover { background: var(--c-surface); }
+.page-button-primary:disabled,
+.page-button-secondary:disabled,
+.page-button-primary[aria-disabled="true"],
+.page-button-secondary[aria-disabled="true"] {
+  cursor: not-allowed;
+}
 .page-button-primary:focus-visible,
 .page-button-secondary:focus-visible,
 .field-input:focus-visible {
@@ -124,6 +132,19 @@ body { background: var(--c-surface); color: var(--c-text); }
   outline-offset: 2px;
 }
 .field-input:focus-visible { border-color: var(--c-primary-600); }
+
+input.field-input,
+textarea.field-input {
+  cursor: text;
+}
+
+select.field-input {
+  cursor: pointer;
+}
+
+.field-input:disabled {
+  cursor: not-allowed;
+}
 
 .maplibregl-ctrl {
   box-shadow: 0 1px 8px rgb(31 41 55 / 0.12) !important;
@@ -134,6 +155,7 @@ body { background: var(--c-surface); color: var(--c-text); }
 .maplibregl-ctrl button {
   width: 34px !important;
   height: 34px !important;
+  cursor: pointer;
 }
 
 @media (max-width: 1023px) {

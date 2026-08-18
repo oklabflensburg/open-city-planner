@@ -6,7 +6,7 @@
         <h2 id="location-analysis-title" class="mt-1 text-lg font-bold text-slate-950">Standort &amp; Umfeld</h2>
       </div>
       <div class="flex rounded-xl border border-slate-200 p-1" aria-label="Analyseradius">
-        <button v-for="value in radii" :key="value" class="h-10 rounded-lg px-3 text-xs font-bold" :class="radius === value ? 'bg-[#154d73] text-white' : 'text-slate-600 hover:bg-slate-50'" type="button" :aria-pressed="radius === value" @click="load(value)">{{ value < 1000 ? `${value} m` : '1 km' }}</button>
+        <button v-for="value in radii" :key="value" class="h-10 cursor-pointer rounded-lg px-3 text-xs font-bold" :class="radius === value ? 'bg-[#154d73] text-white' : 'text-slate-600 hover:bg-slate-50'" type="button" :aria-pressed="radius === value" @click="load(value)">{{ value < 1000 ? `${value} m` : '1 km' }}</button>
       </div>
     </div>
     <div v-if="loading" class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Standortdaten werden geladen">
@@ -14,7 +14,7 @@
     </div>
     <div v-else-if="error" class="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-800">
       <p>Standortdaten konnten nicht geladen werden.</p>
-      <button class="mt-2 font-bold underline" type="button" @click="load(radius)">Erneut versuchen</button>
+      <button class="mt-2 cursor-pointer font-bold underline" type="button" @click="load(radius)">Erneut versuchen</button>
     </div>
     <template v-else-if="data">
       <p v-if="data.nearest_public_transport" class="mt-5 rounded-xl bg-sky-50 p-4 text-sm text-slate-700">

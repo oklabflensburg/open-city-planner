@@ -1,6 +1,6 @@
 <template>
   <button
-    class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--c-primary-600)] disabled:cursor-not-allowed disabled:opacity-50"
+    class="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--c-primary-600)] disabled:cursor-not-allowed disabled:opacity-50"
     :class="[variantClass, { 'border-[var(--c-primary-700)] bg-[var(--c-surface-muted)] text-[var(--c-primary-800)]': active }]"
     :type="type"
   >

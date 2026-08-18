@@ -3,7 +3,7 @@
     <span>{{ label }}</span>
     <input
       :id="id"
-      class="min-h-11 w-full min-w-0 rounded-xl border border-slate-300 border-[var(--c-border-strong)] bg-white px-3 text-sm font-normal text-[var(--c-text)] outline-none transition focus:border-[var(--c-primary-600)] focus:ring-2 focus:ring-[var(--c-secondary-500)]/20 disabled:bg-[var(--c-surface-muted)]"
+      class="min-h-11 w-full min-w-0 cursor-text rounded-xl border border-slate-300 border-[var(--c-border-strong)] bg-white px-3 text-sm font-normal text-[var(--c-text)] outline-none transition focus:border-[var(--c-primary-600)] focus:ring-2 focus:ring-[var(--c-secondary-500)]/20 disabled:cursor-not-allowed disabled:bg-[var(--c-surface-muted)]"
       :type="type"
       :autocomplete="autocomplete"
       :value="modelValue"

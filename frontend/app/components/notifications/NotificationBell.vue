@@ -1,7 +1,7 @@
 <template>
   <div ref="root" class="relative shrink-0">
     <button
-      class="relative grid size-11 place-items-center rounded-xl text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
+      class="relative grid size-11 cursor-pointer place-items-center rounded-xl text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
       type="button"
       aria-label="Benachrichtigungen"
       :aria-expanded="open"
@@ -14,7 +14,7 @@
     </button>
 
     <div v-if="mode === 'desktop' && open" class="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[min(28rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_46px_rgba(15,23,42,0.18)]" role="dialog" aria-label="Benachrichtigungen">
-      <div class="mb-2 flex items-center justify-between gap-3 px-1"><h2 class="text-base font-black text-slate-950">Benachrichtigungen</h2><button class="grid size-9 place-items-center rounded-lg hover:bg-slate-100" type="button" aria-label="Benachrichtigungen schließen" @click="open = false"><X class="size-4" /></button></div>
+      <div class="mb-2 flex items-center justify-between gap-3 px-1"><h2 class="text-base font-black text-slate-950">Benachrichtigungen</h2><button class="grid size-9 cursor-pointer place-items-center rounded-lg hover:bg-slate-100" type="button" aria-label="Benachrichtigungen schließen" @click="open = false"><X class="size-4" /></button></div>
       <div class="max-h-[min(70dvh,36rem)] overflow-y-auto overscroll-contain"><NotificationCenterContent @close="open = false" /></div>
     </div>
 

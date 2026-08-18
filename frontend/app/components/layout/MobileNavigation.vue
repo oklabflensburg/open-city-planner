@@ -1,7 +1,7 @@
 <template>
   <Transition name="mobile-navigation">
     <div v-if="open" class="lg:hidden">
-      <button class="fixed inset-0 top-16 z-[70] cursor-default bg-black/10" type="button" aria-label="Navigation schließen" @click="$emit('close')" />
+      <button class="fixed inset-0 top-16 z-[70] cursor-pointer bg-black/10" type="button" aria-label="Navigation schließen" @click="$emit('close')" />
       <nav :id="id" class="fixed inset-x-0 top-16 z-[90] max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-b border-slate-200 bg-white px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_16px_34px_rgba(15,23,42,0.14)]" aria-label="Mobile Navigation">
         <p class="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">OK Lab Flensburg</p>
         <div class="grid gap-1">
@@ -43,7 +43,7 @@
           <NuxtLink v-for="item in accountNavigation" :key="item.to" class="flex min-h-12 items-center rounded-xl px-4 text-sm font-semibold text-[#30363a] transition hover:bg-[#f4f6f6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]" :to="item.to" @click="$emit('close')">
             {{ item.label }}
           </NuxtLink>
-          <button class="flex min-h-12 items-center rounded-xl px-4 text-left text-sm font-semibold text-[#30363a] transition hover:bg-[#f4f6f6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]" type="button" @click="$emit('logout')">
+          <button class="flex min-h-12 cursor-pointer items-center rounded-xl px-4 text-left text-sm font-semibold text-[#30363a] transition hover:bg-[#f4f6f6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]" type="button" @click="$emit('logout')">
             Abmelden
           </button>
         </div>

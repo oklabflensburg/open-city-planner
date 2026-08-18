@@ -1,7 +1,7 @@
 <template>
   <div ref="control" class="relative h-11 w-11">
     <button
-      class="grid h-11 w-11 place-items-center rounded-xl border shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
+      class="grid h-11 w-11 cursor-pointer place-items-center rounded-xl border shadow-sm transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
       :class="open ? 'border-[#154d73] bg-[#edf4f8] text-[#154d73]' : 'border-slate-200 bg-white text-slate-600'"
       type="button"
       aria-label="Kartenlayer"

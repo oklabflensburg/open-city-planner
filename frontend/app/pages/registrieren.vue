@@ -9,7 +9,7 @@
         <FormField id="email" v-model="email" label="E-Mail" type="email" autocomplete="email" required :disabled="loading" />
         <FormField id="password" v-model="password" label="Passwort" type="password" autocomplete="new-password" required :disabled="loading" />
         <FormField id="password-confirm" v-model="passwordConfirm" label="Passwort bestätigen" type="password" autocomplete="new-password" required :disabled="loading" />
-        <label class="flex items-start gap-2 text-sm text-[#4f575c]">
+        <label class="flex cursor-pointer items-start gap-2 text-sm text-[#4f575c]">
           <input v-model="privacyRead" class="mt-1 accent-[#154d73]" type="checkbox" required>
           <span>Ich habe die <NuxtLink class="font-semibold text-[#154d73]" to="/datenschutz">Datenschutzerklärung</NuxtLink> gelesen.</span>
         </label>

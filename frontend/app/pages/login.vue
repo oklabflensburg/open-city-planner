@@ -18,7 +18,7 @@
       <form class="grid gap-4" @submit.prevent="submit">
         <FormField id="email" v-model="email" label="E-Mail" type="email" autocomplete="email" required :disabled="loading" />
         <FormField id="password" v-model="password" label="Passwort" type="password" autocomplete="current-password" required :disabled="loading" />
-        <label class="flex items-center gap-2 text-sm text-[#4f575c]">
+        <label class="flex cursor-pointer items-center gap-2 text-sm text-[#4f575c]">
           <input v-model="remember" class="accent-[#154d73]" type="checkbox">
           Angemeldet bleiben
         </label>

@@ -21,6 +21,24 @@ Betriebsformverteilungen sowie Datenvollständigkeit. Medianfläche, Leerstandsf
 und flächenbezogene Leerstandsquote werden aus den gefilterten Geometrien berechnet.
 Es werden keine Zeitreihen oder fehlenden Werte geschätzt.
 
+## Cursor und Desktop-Interaktion
+
+- Aktive Buttons, Links, Toggles, Tabs, Dropdown-Einträge und vollständig klickbare
+  Cards oder Zeilen verwenden den Pointer-Cursor.
+- Deaktivierte oder gerade gesperrte Controls verwenden `not-allowed`; Textfelder
+  behalten den Textcursor und Select-Trigger den Pointer-Cursor.
+- Statische Cards, Statusanzeigen, Tabellenzeilen, Kennzahlen, Beschreibungen und
+  dekorative Icons erhalten keine klickbare Affordance.
+- Karten verwenden im normalen Pan-Modus `grab`, während des Verschiebens
+  `grabbing` und nur über registrierten auswählbaren Features `pointer`.
+  Zeichenmodi verwenden `crosshair`, der Polygon-Editiermodus `move`.
+- Resize- und Drag-Flächen erhalten ihren funktionsbezogenen Cursor. Ein Modal-
+  Backdrop zeigt nur dann einen Pointer, wenn ein Klick das Modal tatsächlich schließt.
+
+Diese Regeln werden in den zentralen UI-Komponenten und Map-Cursor-Hilfsfunktionen
+umgesetzt. Es gibt bewusst keinen globalen `button`, `a` oder Universal-Selektor mit
+`cursor: pointer`.
+
 ## Filter- und Datenumfang
 
 Alle Stadtplaner-Aggregate verwenden denselben zentralen GIS-Filterzustand wie die

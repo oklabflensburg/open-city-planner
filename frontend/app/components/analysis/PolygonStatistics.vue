@@ -6,7 +6,7 @@
         <h2 class="mt-1 text-sm font-bold text-slate-900">{{ polygon.name }}</h2>
         <p v-if="polygon.address_display_name" class="mt-1 text-xs leading-5 text-slate-500">{{ polygon.address_display_name }}</p>
       </div>
-      <button v-if="!embedded" class="shrink-0 rounded-lg p-2 text-slate-500 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" aria-label="Auswahl schließen" @click="closeSelection">
+      <button v-if="!embedded" class="shrink-0 cursor-pointer rounded-lg p-2 text-slate-500 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" aria-label="Auswahl schließen" @click="closeSelection">
         <X class="size-4" />
       </button>
     </div>

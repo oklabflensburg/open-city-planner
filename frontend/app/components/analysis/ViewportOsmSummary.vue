@@ -21,7 +21,7 @@
       </template>
     </dl>
     </template>
-    <button v-if="summary.length > 8" class="mt-3 min-h-9 text-xs font-bold text-[#154d73]" type="button" @click="expanded = !expanded">{{ expanded ? 'Weniger anzeigen' : `Alle ${summary.length} Kategorien anzeigen` }}</button>
+    <button v-if="summary.length > 8" class="mt-3 min-h-9 cursor-pointer text-xs font-bold text-[#154d73] hover:underline" type="button" @click="expanded = !expanded">{{ expanded ? 'Weniger anzeigen' : `Alle ${summary.length} Kategorien anzeigen` }}</button>
     <p v-if="osm.data?.meta.truncated" class="mt-3 rounded-lg bg-amber-50 p-2 text-xs text-amber-900">Nicht alle Objekte passen in die Ansicht. Zoomen Sie weiter hinein.</p>
     <p v-if="osm.data?.meta.osm_data_updated_at" class="mt-3 text-[10px] text-slate-500">OSM-Datenstand: {{ formatDate(osm.data.meta.osm_data_updated_at) }}</p>
   </Card>

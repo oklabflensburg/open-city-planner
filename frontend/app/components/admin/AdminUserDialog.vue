@@ -34,7 +34,12 @@
       <h3 class="font-bold text-slate-950">Rollen</h3>
       <p class="mt-1 text-sm text-slate-600">Änderungen werden nach Bestätigung unmittelbar serverseitig gespeichert.</p>
       <div class="mt-4 space-y-3">
-        <label v-for="role in roles" :key="role.name" class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-4 hover:bg-slate-50">
+        <label
+          v-for="role in roles"
+          :key="role.name"
+          class="flex items-start gap-3 rounded-xl border border-slate-200 p-4 hover:bg-slate-50"
+          :class="mutationLoading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'"
+        >
           <input
             type="checkbox"
             class="mt-1 size-5 accent-[#154d73]"

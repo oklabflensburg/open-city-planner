@@ -3,13 +3,13 @@
     <div class="flex flex-col items-stretch justify-between gap-3 border-b border-[#dfe4e6] px-4 py-4 sm:flex-row sm:items-center sm:px-5">
       <h2 id="polygon-map-heading" class="text-lg font-bold text-[#202427]">Karte</h2>
       <div class="grid grid-cols-1 gap-2 min-[390px]:grid-cols-2 sm:flex sm:flex-wrap sm:justify-end">
-        <button type="button" class="min-h-11 rounded-xl border border-slate-300 px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" @click="fitPolygon">
+        <button type="button" class="min-h-11 cursor-pointer rounded-xl border border-slate-300 px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" @click="fitPolygon">
           Polygon zentrieren
         </button>
         <button
           v-if="editable"
           type="button"
-          class="min-h-11 rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white"
+          class="min-h-11 cursor-pointer rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white hover:bg-[#0f3f61]"
           @click="editing ? finishEditing() : startEditing()"
         >
           {{ editing ? 'Bearbeitung abschließen' : 'Polygon bearbeiten' }}
@@ -33,6 +33,7 @@ import type { GeoJSONSource, Map } from 'maplibre-gl'
 import type { TerraDraw } from 'terra-draw'
 import type { AreaGeometry, PolygonGeometry } from '~/types/geo'
 import { loadMapStyle } from '~/config/mapStyles'
+import { setMapCursor } from '~/utils/mapCursor'
 
 const props = defineProps<{
   geometry: AreaGeometry
@@ -74,7 +75,10 @@ onMounted(async () => {
       canvasContextAttributes: { powerPreference: 'low-power' }
     })
     map.value = instance
+    setMapCursor(instance, 'pan')
     instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
+    instance.on('dragstart', () => setMapCursor(instance, 'dragging'))
+    instance.on('dragend', () => setMapCursor(instance, editing.value ? 'editing' : 'pan'))
     instance.on('load', () => {
       instance.addSource('detail-polygon', { type: 'geojson', data: featureCollection(props.geometry) })
       instance.addLayer({
@@ -206,6 +210,7 @@ function startEditing() {
     editorFeatureIds.value = featureIds
   }
   editing.value = true
+  if (map.value) setMapCursor(map.value, 'editing')
   map.value?.dragPan.disable()
   map.value?.touchZoomRotate.disable()
   setStaticPolygonVisibility(false)
@@ -215,6 +220,7 @@ function startEditing() {
 function finishEditing() {
   if (!editing.value) return
   editing.value = false
+  if (map.value) setMapCursor(map.value, 'pan')
   map.value?.dragPan.enable()
   map.value?.touchZoomRotate.enable()
   const geometry = draftGeometry.value

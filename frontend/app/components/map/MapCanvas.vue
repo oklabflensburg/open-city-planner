@@ -18,7 +18,7 @@
     <div v-if="mapError" class="absolute inset-x-3 top-1/2 z-30 mx-auto max-w-sm -translate-y-1/2 rounded-xl border border-rose-200 bg-white p-4 text-center shadow-xl" role="alert">
       <p class="text-sm font-bold text-rose-800">Karte konnte nicht geladen werden.</p>
       <p class="mt-1 break-words text-xs leading-5 text-slate-600">{{ mapError }}</p>
-      <button class="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white" type="button" @click="retryMap">
+      <button class="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white hover:bg-[#0f3f61]" type="button" @click="retryMap">
         <RefreshCw class="size-4" aria-hidden="true" /> Erneut versuchen
       </button>
     </div>
@@ -28,7 +28,7 @@
     <div v-else-if="showEmptyState" class="absolute left-1/2 top-1/2 z-20 w-[min(22rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white/95 p-4 text-center shadow-xl" role="status">
       <p class="text-sm font-bold text-slate-800">Keine Objekte für diese Filter</p>
       <p class="mt-1 text-xs leading-5 text-slate-600">Die Kartenbasis bleibt sichtbar. Setzen Sie die Filter zurück, um wieder alle passenden Objekte anzuzeigen.</p>
-      <button class="mt-3 min-h-11 rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white" type="button" @click="filterStore.reset()">Alle Filter zurücksetzen</button>
+      <button class="mt-3 min-h-11 cursor-pointer rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white hover:bg-[#0f3f61]" type="button" @click="filterStore.reset()">Alle Filter zurücksetzen</button>
     </div>
   </div>
 </template>
@@ -43,6 +43,7 @@ import { osmCategoryColors, osmColorExpression } from '~/utils/osmCategories'
 import { shouldExcludeOsmFeature } from '~/utils/osmExclusions'
 import { pickMapEntityAtPoint, type InteractivePolygonFeature } from '~/utils/mapFeaturePicking'
 import { ensureStadtplanerLayerOrder, getStadtplanerLayerOrder, hasValidStadtplanerLayerOrder } from '~/utils/mapLayerOrder'
+import { setMapCursor } from '~/utils/mapCursor'
 import { loadMapStyle } from '~/config/mapStyles'
 
 const config = useRuntimeConfig()
@@ -64,6 +65,7 @@ let disposed = false
 let osmViewportTimer: ReturnType<typeof setTimeout> | undefined
 let forceNextOsmRefresh = false
 let hoverFrame: number | undefined
+let mapDragging = false
 let pendingHoverPoint: { x: number, y: number } | null = null
 let hoveredPolygonId: string | null = null
 let selectedOsmState: { source: 'osm-pois', id: string } | null = null
@@ -105,6 +107,7 @@ onMounted(async () => {
       canvasContextAttributes: { powerPreference: 'high-performance' }
     })
     map.value = markRaw(instance)
+    setMapCursor(instance, 'pan')
     installPerformanceDebug(instance)
     instance.touchZoomRotate.enable()
     instance.dragRotate.enable()
@@ -137,8 +140,16 @@ onMounted(async () => {
     })
     instance.on('click', event => void handleMapClick(instance, event))
     instance.on('mousemove', event => handleMapHover(instance, event))
+    instance.on('dragstart', () => {
+      mapDragging = true
+      setMapCursor(instance, 'dragging')
+    })
+    instance.on('dragend', () => {
+      mapDragging = false
+      setMapCursor(instance, 'pan')
+    })
     instance.getCanvas().addEventListener('mouseleave', () => {
-      instance.getCanvas().style.cursor = ''
+      setMapCursor(instance, mapDragging ? 'dragging' : 'pan')
       updatePolygonHover(null)
     })
     instance.on('moveend', () => {
@@ -399,8 +410,12 @@ function handleMapHover(instance: Map, event: MapMouseEvent) {
     const point = pendingHoverPoint
     pendingHoverPoint = null
     if (!point || disposed) return
+    if (mapDragging) {
+      setMapCursor(instance, 'dragging')
+      return
+    }
     const picked = pickMapEntityAtPoint(instance, point, 4)
-    instance.getCanvas().style.cursor = picked ? 'pointer' : ''
+    setMapCursor(instance, picked ? 'interactive' : 'pan')
     const polygonId = picked?.kind === 'interactive-polygon' && picked.polygon.target.type === 'polygon'
       ? picked.polygon.id
       : ''

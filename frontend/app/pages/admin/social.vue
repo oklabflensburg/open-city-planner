@@ -57,10 +57,10 @@
           <Card class="p-5 sm:p-6">
             <div class="flex items-start justify-between gap-4">
               <div><h2 class="text-xl font-bold text-slate-950">Automatische Veröffentlichungen</h2><p class="mt-1 text-sm leading-6 text-slate-600">Beim Ausschalten bleibt die vorhandene Queue erhalten und wird pausiert.</p></div>
-              <label class="inline-flex min-h-11 shrink-0 items-center gap-3"><span class="sr-only">Automatische Veröffentlichungen</span><input v-model="settingsDraft.enabled" type="checkbox" role="switch" :aria-checked="settingsDraft.enabled" class="size-5 accent-[#154d73]" @change="saveMasterSwitch"><span class="font-bold">{{ settingsDraft.enabled ? 'AN' : 'AUS' }}</span></label>
+              <label class="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-3"><span class="sr-only">Automatische Veröffentlichungen</span><input v-model="settingsDraft.enabled" type="checkbox" role="switch" :aria-checked="settingsDraft.enabled" class="size-5 accent-[#154d73]" @change="saveMasterSwitch"><span class="font-bold">{{ settingsDraft.enabled ? 'AN' : 'AUS' }}</span></label>
             </div>
             <fieldset class="mt-5"><legend class="field-label">Veröffentlichungsmodus</legend><div class="mt-2 grid gap-2">
-              <label v-for="mode in approvalModes" :key="mode.value" class="flex min-h-11 min-w-0 items-start gap-3 rounded-xl border border-slate-200 p-3"><input v-model="settingsDraft.approval_mode" type="radio" :value="mode.value" class="mt-1 shrink-0 accent-[#154d73]" @change="scheduleControlPatch({ approval_mode: settingsDraft.approval_mode })"><span class="min-w-0"><strong class="block text-sm [overflow-wrap:anywhere]">{{ mode.label }}</strong><span class="text-xs text-slate-600 [overflow-wrap:anywhere]">{{ mode.description }}</span></span></label>
+              <label v-for="mode in approvalModes" :key="mode.value" class="flex min-h-11 min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 hover:bg-slate-50"><input v-model="settingsDraft.approval_mode" type="radio" :value="mode.value" class="mt-1 shrink-0 accent-[#154d73]" @change="scheduleControlPatch({ approval_mode: settingsDraft.approval_mode })"><span class="min-w-0"><strong class="block text-sm [overflow-wrap:anywhere]">{{ mode.label }}</strong><span class="text-xs text-slate-600 [overflow-wrap:anywhere]">{{ mode.description }}</span></span></label>
             </div></fieldset>
             <label class="mt-5 block min-w-0"><span class="field-label">Änderungen zusammenfassen</span><select v-model.number="settingsDraft.debounce_seconds" class="field-input" @change="scheduleControlPatch({ debounce_seconds: settingsDraft.debounce_seconds })"><option :value="0">Sofort</option><option :value="60">1 Minute</option><option :value="300">5 Minuten</option><option :value="900">15 Minuten</option><option :value="3600">1 Stunde</option></select></label>
           </Card>
@@ -81,7 +81,7 @@
           <p class="mt-1 text-sm text-slate-600">Nur technisch implementierte, öffentliche Eventtypen stehen zur Auswahl. Neue Eventtypen bleiben standardmäßig deaktiviert.</p>
           <div class="mt-5 grid gap-6 lg:grid-cols-2">
             <fieldset v-for="group in topicGroups" :key="group.topic"><legend class="text-sm font-black uppercase tracking-wider text-[#154d73]">{{ group.label }}</legend><div class="mt-2 space-y-2">
-              <label v-for="event in group.events" :key="event.event_type" class="flex min-h-11 min-w-0 items-start gap-3 rounded-xl border border-slate-200 p-3"><input :checked="settingsDraft.enabled_events.includes(event.event_type)" type="checkbox" class="mt-1 size-4 shrink-0 accent-[#154d73]" @change="toggleEvent(event.event_type)"><span class="min-w-0"><strong class="block text-sm text-slate-950 [overflow-wrap:anywhere]">{{ event.label }}</strong><span class="text-xs leading-5 text-slate-600 [overflow-wrap:anywhere]">{{ event.description }}</span></span></label>
+              <label v-for="event in group.events" :key="event.event_type" class="flex min-h-11 min-w-0 cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 hover:bg-slate-50"><input :checked="settingsDraft.enabled_events.includes(event.event_type)" type="checkbox" class="mt-1 size-4 shrink-0 accent-[#154d73]" @change="toggleEvent(event.event_type)"><span class="min-w-0"><strong class="block text-sm text-slate-950 [overflow-wrap:anywhere]">{{ event.label }}</strong><span class="text-xs leading-5 text-slate-600 [overflow-wrap:anywhere]">{{ event.description }}</span></span></label>
             </div></fieldset>
           </div>
         </Card>
@@ -92,7 +92,7 @@
               <h2 class="text-xl font-bold text-slate-950">Neue aus OSM übernommene Flächen</h2>
               <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">Erzeugt genau beim erfolgreichen, bewussten OSM-Import einen einmaligen Post. Spätere Autosaves oder Bearbeitungen lösen keinen weiteren Post aus.</p>
             </div>
-            <label class="inline-flex min-h-11 shrink-0 items-center gap-3">
+            <label class="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-3">
               <span class="sr-only">Aus OpenStreetMap übernommene Flächen veröffentlichen</span>
               <input :checked="polygonAdoptionEnabled" type="checkbox" role="switch" :aria-checked="polygonAdoptionEnabled" aria-describedby="polygon-adoption-help" class="size-5 accent-[#154d73]" @change="togglePolygonAdoption">
               <span class="font-bold">{{ polygonAdoptionEnabled ? 'AN' : 'AUS' }}</span>
@@ -106,7 +106,7 @@
           <h2 class="text-xl font-bold text-slate-950">Screenshot-Einstellungen</h2>
           <div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <label class="min-w-0"><span class="field-label">Format</span><select v-model="settingsDraft.screenshot_viewport" class="field-input" @change="scheduleControlPatch({ screenshot_viewport: settingsDraft.screenshot_viewport })"><option value="LANDSCAPE_16_9">1200 × 675 (16:9)</option><option value="LANDSCAPE_OG">1200 × 630</option><option value="SQUARE">1080 × 1080</option></select></label>
-            <label v-for="option in screenshotOptions" :key="option.key" class="flex min-h-11 min-w-0 items-center gap-3 rounded-xl border border-slate-200 px-3"><input v-model="settingsDraft[option.key]" type="checkbox" class="size-4 shrink-0 accent-[#154d73]" @change="saveScreenshotOption(option.key)"><span class="min-w-0 text-sm font-semibold [overflow-wrap:anywhere]">{{ option.label }}</span></label>
+            <label v-for="option in screenshotOptions" :key="option.key" class="flex min-h-11 min-w-0 cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-3 hover:bg-slate-50"><input v-model="settingsDraft[option.key]" type="checkbox" class="size-4 shrink-0 accent-[#154d73]" @change="saveScreenshotOption(option.key)"><span class="min-w-0 text-sm font-semibold [overflow-wrap:anywhere]">{{ option.label }}</span></label>
           </div>
           <p class="mt-4 text-xs leading-5 text-slate-500">Der Worker öffnet ausschließlich freigegebene öffentliche Stadtplaner-Routen ohne Anmeldung. Adminseiten und frei übergebene URLs sind technisch ausgeschlossen.</p>
         </Card>

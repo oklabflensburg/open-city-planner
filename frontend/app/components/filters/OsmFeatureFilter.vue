@@ -9,7 +9,12 @@
     <details class="mt-2" :class="{ 'pointer-events-none opacity-50': !osmEnabled || !osm.showPois }" :aria-disabled="!osmEnabled || !osm.showPois">
       <summary class="flex min-h-11 cursor-pointer items-center text-sm font-bold text-[#154d73]">POI-Kategorien auswählen</summary>
       <div class="grid gap-1 pb-1">
-        <label v-for="category in osmPoiCategories" :key="category.key" class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-slate-50">
+        <label
+          v-for="category in osmPoiCategories"
+          :key="category.key"
+          class="flex min-h-10 items-center gap-2 rounded-lg px-2 hover:bg-slate-50"
+          :class="!osmEnabled || !osm.showPois ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'"
+        >
           <input :checked="osm.activeCategories.includes(category.key)" :disabled="!osmEnabled || !osm.showPois" class="size-4 accent-[#154d73]" type="checkbox" @change="osm.toggleCategory(category.key)">
           <span class="size-2.5 rounded-full" :style="{ backgroundColor: category.color }" aria-hidden="true" />
           <span>{{ category.label }}</span>

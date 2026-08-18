@@ -3,7 +3,8 @@
     <Transition name="app-sheet-backdrop">
       <button
         v-if="open"
-        class="fixed inset-0 z-40 cursor-default bg-slate-950/30 xl:hidden"
+        class="fixed inset-0 z-40 bg-slate-950/30 xl:hidden"
+        :class="closeOnOverlay ? 'cursor-pointer' : 'cursor-default'"
         type="button"
         tabindex="-1"
         aria-label="Dialog schließen"
@@ -28,6 +29,7 @@
         <header class="relative z-10 shrink-0 border-b border-slate-200 bg-white">
           <div
             class="flex h-11 touch-none items-center justify-center"
+            :class="dragging ? 'cursor-grabbing' : 'cursor-grab'"
             data-sheet-drag-handle
             aria-hidden="true"
             @pointerdown="startHandleDrag"
@@ -39,7 +41,7 @@
           </div>
           <div class="flex min-h-14 items-center justify-between gap-3 px-4 pb-3">
             <h2 :id="titleId" class="min-w-0 text-base font-bold text-slate-950">{{ title }}</h2>
-            <button class="grid size-11 shrink-0 place-items-center rounded-xl hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" :aria-label="closeLabel || `${title} schließen`" @click="requestClose">
+            <button class="grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" :aria-label="closeLabel || `${title} schließen`" @click="requestClose">
               <X class="size-5" aria-hidden="true" />
             </button>
           </div>

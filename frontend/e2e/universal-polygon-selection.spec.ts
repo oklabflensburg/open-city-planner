@@ -102,6 +102,28 @@ test('one universal overlay selects every interactive polygon type and clears cl
   await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText('1 Stadtplaner · 1 OSM im Ausschnitt')).toBeVisible({ timeout: 20_000 })
 
+  const canvas = page.locator('.maplibregl-canvas')
+  await expect(canvas).toHaveCSS('cursor', 'grab')
+  const hoverPoint = await page.evaluate(async () => {
+    const map = (window as typeof window & { __stadtplanerMapPerformance?: { map: import('maplibre-gl').Map } }).__stadtplanerMapPerformance!.map
+    map.jumpTo({ center: [9.4305, 54.78035], zoom: 16.4 })
+    await new Promise<void>(resolve => map.once('idle', () => resolve()))
+    const point = map.project([9.4305, 54.78035])
+    const bounds = map.getCanvas().getBoundingClientRect()
+    return { x: bounds.left + point.x, y: bounds.top + point.y }
+  })
+  await page.mouse.move(hoverPoint.x, hoverPoint.y)
+  await expect(canvas).toHaveCSS('cursor', 'pointer')
+
+  const bounds = await canvas.boundingBox()
+  if (!bounds) throw new Error('Map canvas has no bounding box')
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(bounds.x + bounds.width / 2 + 60, bounds.y + bounds.height / 2 + 30, { steps: 4 })
+  await expect(canvas).toHaveCSS('cursor', 'grabbing')
+  await page.mouse.up()
+  await expect(canvas).toHaveCSS('cursor', 'grab')
+
   expect(await clickCoordinate(page, [9.4305, 54.78035], 16.4)).toContain('overview-polygons-fill')
   await expectUniversalSelection(page, 'STADTPLANNER')
   await expect(page.getByText('Browser-Testfläche', { exact: true })).toBeVisible()

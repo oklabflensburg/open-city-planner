@@ -9,10 +9,10 @@
 
     <div class="mx-auto max-w-[1536px] px-4 py-8 sm:px-6 lg:px-8">
       <div class="mb-6 flex gap-3 xl:hidden">
-        <button class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800" type="button" aria-controls="docs-mobile-navigation" :aria-expanded="mobileNavigationOpen" @click="mobileNavigationOpen = !mobileNavigationOpen">
+        <button class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 hover:bg-slate-50" type="button" aria-controls="docs-mobile-navigation" :aria-expanded="mobileNavigationOpen" @click="mobileNavigationOpen = !mobileNavigationOpen">
           <Menu class="size-4" aria-hidden="true" /> Inhalte
         </button>
-        <button class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 lg:hidden" type="button" aria-controls="docs-mobile-toc" :aria-expanded="mobileTocOpen" @click="mobileTocOpen = !mobileTocOpen">
+        <button class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 hover:bg-slate-50 lg:hidden" type="button" aria-controls="docs-mobile-toc" :aria-expanded="mobileTocOpen" @click="mobileTocOpen = !mobileTocOpen">
           <List class="size-4" aria-hidden="true" /> Auf dieser Seite
         </button>
       </div>

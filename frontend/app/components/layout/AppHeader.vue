@@ -51,7 +51,7 @@
               <button
                 ref="accountButton"
                 data-header-account
-                class="inline-flex h-10 w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
+            class="inline-flex h-10 w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
                 type="button"
                 :aria-expanded="accountOpen"
                 aria-haspopup="menu"
@@ -72,7 +72,7 @@
                 <NuxtLink v-for="item in accountNavigation" :key="item.to" class="flex min-h-10 items-center rounded-lg px-3 text-sm font-semibold text-[#30363a] hover:bg-[#f4f6f6]" :to="item.to" role="menuitem" @click="accountOpen = false">
                   {{ item.label }}
                 </NuxtLink>
-                <button class="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm font-semibold text-[#30363a] hover:bg-[#f4f6f6]" type="button" role="menuitem" @click="logout">
+                <button class="flex min-h-10 w-full cursor-pointer items-center rounded-lg px-3 text-left text-sm font-semibold text-[#30363a] hover:bg-[#f4f6f6]" type="button" role="menuitem" @click="logout">
                   Abmelden
                 </button>
               </div>
@@ -100,7 +100,7 @@
           </template>
         </ClientOnly>
         <button
-          class="inline-flex size-11 items-center justify-center rounded-xl text-[#30363a] transition hover:bg-[#f4f6f6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
+          class="inline-flex size-11 cursor-pointer items-center justify-center rounded-xl text-[#30363a] transition hover:bg-[#f4f6f6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
           type="button"
           aria-controls="mobile-navigation"
           :aria-expanded="mobileOpen"

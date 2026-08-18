@@ -12,7 +12,7 @@
         <input class="size-5 shrink-0 accent-[#0b8190]" type="checkbox" :checked="store.preferences[option.key]" @change="toggle(option.key, $event)">
       </label>
     </fieldset>
-    <button v-if="state === 'error'" class="mt-3 min-h-10 rounded-lg px-3 text-sm font-bold text-[#154d73] hover:bg-slate-100" type="button" @click="queue.retry()">Erneut versuchen</button>
+    <button v-if="state === 'error'" class="mt-3 min-h-10 cursor-pointer rounded-lg px-3 text-sm font-bold text-[#154d73] hover:bg-slate-100" type="button" @click="queue.retry()">Erneut versuchen</button>
     <p class="mt-4 text-xs leading-5 text-slate-500">Konto- und Sicherheitsmeldungen bleiben unabhängig von diesen Einstellungen aktiv. E-Mail und Web-Push sind derzeit nicht aktiviert.</p>
   </Card>
 </template>

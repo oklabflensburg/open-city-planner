@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div v-if="open" class="lg:hidden">
-      <button class="fixed inset-0 z-40 cursor-default bg-slate-950/30" type="button" tabindex="-1" aria-label="Dialog schließen" @click="$emit('close')" />
+      <button class="fixed inset-0 z-40 cursor-pointer bg-slate-950/30" type="button" tabindex="-1" aria-label="Dialog schließen" @click="$emit('close')" />
       <aside
         ref="panel"
         class="fixed z-50 min-w-0 bg-white shadow-[0_8px_40px_rgba(0,0,0,0.18)] outline-none lg:hidden"

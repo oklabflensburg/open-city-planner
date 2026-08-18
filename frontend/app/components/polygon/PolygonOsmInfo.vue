@@ -11,7 +11,7 @@
     </div>
     <div v-else-if="error" class="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
       <p>OpenStreetMap-Daten konnten momentan nicht geladen werden.</p>
-      <button type="button" class="mt-2 font-bold text-[#154d73] underline" @click="$emit('retry')">Erneut versuchen</button>
+      <button type="button" class="mt-2 cursor-pointer font-bold text-[#154d73] underline" @click="$emit('retry')">Erneut versuchen</button>
     </div>
     <p v-else-if="!info?.primary_match" class="mt-3 text-sm leading-6 text-[#687176]">
       Für diese Fläche wurden keine passenden OpenStreetMap-Daten gefunden.

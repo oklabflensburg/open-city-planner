@@ -26,7 +26,7 @@
 
     <div v-if="canEditPublicFields || canEditVerwaltung" class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
       <span class="text-sm font-semibold" :class="saveStatusClass">{{ saveStatusLabel }}</span>
-      <button v-if="autosaveStatus === 'error' || autosaveStatus === 'conflict'" type="button" class="text-sm font-bold text-[#154d73] underline" @click="autosave.retry()">
+      <button v-if="autosaveStatus === 'error' || autosaveStatus === 'conflict'" type="button" class="cursor-pointer text-sm font-bold text-[#154d73] underline" @click="autosave.retry()">
         Erneut versuchen
       </button>
     </div>

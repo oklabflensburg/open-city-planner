@@ -6,7 +6,7 @@
         <h2 id="analysis-area-title" class="mt-1 truncate text-lg font-black text-slate-900">{{ area.name }}</h2>
         <p v-if="area.parent_name" class="mt-1 text-xs text-slate-500">in {{ area.parent_name }}</p>
       </div>
-      <button v-if="!embedded" class="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" type="button" aria-label="Gebietsauswahl schließen" @click="clearSelection">
+      <button v-if="!embedded" class="grid size-9 shrink-0 cursor-pointer place-items-center rounded-lg text-slate-500 hover:bg-slate-100" type="button" aria-label="Gebietsauswahl schließen" @click="clearSelection">
         <X class="size-4" aria-hidden="true" />
       </button>
     </div>

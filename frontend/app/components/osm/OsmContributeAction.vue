@@ -1,7 +1,7 @@
 <template>
   <div>
     <p v-if="vacant" class="mb-2 text-xs leading-5 text-amber-800">Ist diese Fläche nicht mehr leer oder zeigt OSM noch eine alte Nutzung?</p>
-    <button class="inline-flex min-h-11 items-center gap-2 text-xs font-bold text-[#154d73] underline" type="button" @click="open = true">
+    <button class="inline-flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold text-[#154d73] underline" type="button" @click="open = true">
       <ProviderIcon provider="openstreetmap" class="size-5" /> OpenStreetMap-Daten verbessern
     </button>
     <OsmContributeDialog

@@ -6,7 +6,7 @@
       id="docs-search"
       ref="input"
       v-model="query"
-      class="h-11 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-20 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-500 focus:border-[#154d73] focus:ring-2 focus:ring-[#154d73]/20"
+      class="h-11 w-full cursor-text rounded-xl border border-slate-300 bg-white pl-10 pr-20 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-500 focus:border-[#154d73] focus:ring-2 focus:ring-[#154d73]/20"
       type="search"
       autocomplete="off"
       placeholder="Dokumentation durchsuchen …"

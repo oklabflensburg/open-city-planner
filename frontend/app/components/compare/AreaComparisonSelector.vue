@@ -5,7 +5,7 @@
       <li v-for="(area, index) in selectedAreas" :key="area.id" class="flex min-w-0 items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
         <span class="size-3 shrink-0 rounded-full" :style="{ backgroundColor: colors[index] }" aria-hidden="true" />
         <span class="min-w-0 flex-1"><strong class="block truncate text-sm text-slate-950">{{ area.name }}</strong><span class="text-xs text-slate-500">{{ typeLabel(area.area_type) }}</span></span>
-        <button class="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" :aria-label="`${area.name} aus Vergleich entfernen`" @click="$emit('remove', area.slug)"><X class="size-4" aria-hidden="true" /></button>
+        <button class="grid size-9 shrink-0 cursor-pointer place-items-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" :aria-label="`${area.name} aus Vergleich entfernen`" @click="$emit('remove', area.slug)"><X class="size-4" aria-hidden="true" /></button>
       </li>
     </ul>
     <p v-else class="mt-3 text-sm leading-6 text-slate-600">Wählen Sie zwei Gebiete oder ein Gebiet mit Gesamtstadt-Referenz.</p>
@@ -42,7 +42,7 @@
           v-for="area in group.areas"
           :key="area.id"
           data-compare-area-option
-          class="flex min-h-11 w-full min-w-0 items-center rounded-lg px-2 text-left hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]"
+          class="flex min-h-11 w-full min-w-0 cursor-pointer items-center rounded-lg px-2 text-left hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]"
           type="button"
           @click="add(area.slug)"
         >

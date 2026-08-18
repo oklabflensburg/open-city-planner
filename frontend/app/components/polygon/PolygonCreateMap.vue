@@ -5,7 +5,7 @@
         <h2 id="create-map-heading" class="font-bold text-slate-950">Fläche zeichnen</h2>
         <p class="mt-1 text-sm text-slate-600">Setzen Sie mindestens drei Eckpunkte und schließen Sie das Polygon am ersten Punkt.</p>
       </div>
-      <button v-if="geometry" class="min-h-11 shrink-0 rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50" type="button" @click="resetDrawing">Neu zeichnen</button>
+      <button v-if="geometry" class="min-h-11 shrink-0 cursor-pointer rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50" type="button" @click="resetDrawing">Neu zeichnen</button>
     </div>
     <div class="relative">
       <div ref="mapElement" class="h-[clamp(320px,50dvh,520px)] w-full sm:h-[560px]" />
@@ -22,6 +22,7 @@ import type { Map } from 'maplibre-gl'
 import type { TerraDraw } from 'terra-draw'
 import type { PolygonGeometry } from '~/types/geo'
 import { loadMapStyle } from '~/config/mapStyles'
+import { setMapCursor } from '~/utils/mapCursor'
 
 const props = defineProps<{ color: string, center?: [number, number] }>()
 const emit = defineEmits<{ 'update:geometry': [geometry: PolygonGeometry | null] }>()
@@ -56,7 +57,10 @@ onMounted(async () => {
       canvasContextAttributes: { powerPreference: 'low-power' }
     })
     map.value = instance
+    setMapCursor(instance, 'drawing')
     instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
+    instance.on('dragstart', () => setMapCursor(instance, 'dragging'))
+    instance.on('dragend', () => setMapCursor(instance, 'drawing'))
     instance.on('load', () => {
       const terra = new terraDraw.TerraDraw({
         adapter: new adapter.TerraDrawMapLibreGLAdapter({ map: instance }),

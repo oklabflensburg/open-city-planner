@@ -4,12 +4,13 @@
       <div
         v-if="open"
         class="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/40 p-4 [padding-bottom:max(1rem,env(safe-area-inset-bottom))] [padding-top:max(1rem,env(safe-area-inset-top))] backdrop-blur-[1px]"
+        :class="closeOnOverlay && !busy ? 'cursor-pointer' : 'cursor-default'"
         data-app-modal-root
         @click.self="requestOverlayClose"
       >
         <section
           ref="panel"
-          class="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-[var(--radius-panel)] border border-[var(--c-border)] bg-white shadow-[var(--shadow-floating)] outline-none"
+          class="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-full cursor-auto flex-col overflow-hidden rounded-[var(--radius-panel)] border border-[var(--c-border)] bg-white shadow-[var(--shadow-floating)] outline-none"
           :class="sizeClass"
           :role="role"
           aria-modal="true"
@@ -26,7 +27,7 @@
             </div>
             <button
               v-if="showClose"
-              class="grid size-11 shrink-0 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] disabled:cursor-wait disabled:opacity-50"
+              class="grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] disabled:cursor-not-allowed disabled:opacity-50"
               type="button"
               :disabled="busy"
               :aria-label="`${title} schließen`"

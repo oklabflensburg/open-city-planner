@@ -2,7 +2,7 @@
   <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="area-map-title">
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
       <h2 id="area-map-title" class="text-lg font-bold text-slate-950">Gebietskarte</h2>
-      <button class="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-bold text-[#154d73] hover:bg-slate-50" type="button" @click="fitArea">Gebiet zentrieren</button>
+      <button class="min-h-11 cursor-pointer rounded-xl border border-slate-300 px-4 text-sm font-bold text-[#154d73] hover:bg-slate-50" type="button" @click="fitArea">Gebiet zentrieren</button>
     </div>
     <div class="relative">
       <div ref="mapElement" class="h-[clamp(300px,45dvh,500px)] w-full" role="img" :aria-label="`Karte des Gebiets ${area.name}`" />
@@ -17,6 +17,7 @@ import type { GeoJSONSource, Map } from 'maplibre-gl'
 import type { PolygonFeatureCollection } from '~/types/geo'
 import type { AnalysisAreaDetail } from '~/types/analysisArea'
 import { loadMapStyle } from '~/config/mapStyles'
+import { setMapCursor } from '~/utils/mapCursor'
 
 const props = defineProps<{ area: AnalysisAreaDetail }>()
 const emit = defineEmits<{ ready: [] }>()
@@ -25,6 +26,7 @@ const mapElement = ref<HTMLDivElement | null>(null)
 const map = shallowRef<Map | null>(null)
 const mapError = ref('')
 let disposed = false
+let mapDragging = false
 let resizeObserver: ResizeObserver | null = null
 
 onMounted(async () => {
@@ -47,7 +49,16 @@ onMounted(async () => {
       canvasContextAttributes: { powerPreference: 'low-power' }
     })
     map.value = instance
+    setMapCursor(instance, 'pan')
     instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
+    instance.on('dragstart', () => {
+      mapDragging = true
+      setMapCursor(instance, 'dragging')
+    })
+    instance.on('dragend', () => {
+      mapDragging = false
+      setMapCursor(instance, 'pan')
+    })
     instance.on('load', () => {
       instance.addSource('area-detail-boundary', { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: props.area.geometry } })
       instance.addLayer({ id: 'area-detail-fill', type: 'fill', source: 'area-detail-boundary', paint: { 'fill-color': '#154d73', 'fill-opacity': 0.12 } })
@@ -56,8 +67,8 @@ onMounted(async () => {
       instance.addLayer({ id: 'area-detail-polygons-fill', type: 'fill', source: 'area-detail-polygons', paint: { 'fill-color': '#d97706', 'fill-opacity': 0.38 } })
       instance.addLayer({ id: 'area-detail-polygons-line', type: 'line', source: 'area-detail-polygons', paint: { 'line-color': '#92400e', 'line-width': 1.5 } })
       instance.once('render', () => emit('ready'))
-      instance.on('mouseenter', 'area-detail-polygons-fill', () => { instance.getCanvas().style.cursor = 'pointer' })
-      instance.on('mouseleave', 'area-detail-polygons-fill', () => { instance.getCanvas().style.cursor = '' })
+      instance.on('mouseenter', 'area-detail-polygons-fill', () => setMapCursor(instance, mapDragging ? 'dragging' : 'interactive'))
+      instance.on('mouseleave', 'area-detail-polygons-fill', () => setMapCursor(instance, mapDragging ? 'dragging' : 'pan'))
       instance.on('click', 'area-detail-polygons-fill', event => {
         const slug = event.features?.[0]?.properties?.slug
         if (slug) void navigateTo(`/flaechen/${slug}`)

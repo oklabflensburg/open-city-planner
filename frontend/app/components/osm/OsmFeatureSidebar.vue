@@ -6,7 +6,7 @@
         <h2 class="mt-1 break-words text-base font-bold text-slate-950">{{ detail?.name || feature.properties.name || typeLabel }}</h2>
         <p class="mt-1 text-xs text-slate-500">{{ typeLabel }}</p>
       </div>
-      <button v-if="!embedded" class="grid size-11 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" aria-label="OSM-Auswahl schließen" @click="closeSelection">
+      <button v-if="!embedded" class="grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl text-slate-500 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" aria-label="OSM-Auswahl schließen" @click="closeSelection">
         <X class="size-4" aria-hidden="true" />
       </button>
     </div>

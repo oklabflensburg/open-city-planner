@@ -31,7 +31,7 @@
         </button>
         <button
           v-else
-          class="page-button-primary disabled:cursor-wait disabled:opacity-60"
+          class="page-button-primary disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
           :disabled="loadingProvider === provider.id"
           @click="link(provider.id)"

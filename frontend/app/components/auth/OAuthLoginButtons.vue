@@ -5,7 +5,7 @@
       <button
         v-for="provider in authStore.oauthProviders"
         :key="provider.id"
-        class="grid min-h-11 w-full grid-cols-[1.5rem_minmax(0,1fr)_1.5rem] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] disabled:cursor-wait disabled:opacity-70"
+        class="grid min-h-11 w-full cursor-pointer grid-cols-[1.5rem_minmax(0,1fr)_1.5rem] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] disabled:cursor-not-allowed disabled:opacity-70"
         type="button"
         :aria-label="`${buttonLabel(provider.label)}`"
         :disabled="loadingProvider !== ''"

@@ -5,7 +5,7 @@
         <button
           v-for="option in filters"
           :key="option.value"
-          class="min-h-9 shrink-0 rounded-lg px-3 text-xs font-bold"
+          class="min-h-9 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold"
           :class="filter === option.value ? 'bg-[#e2edf4] text-[#154d73]' : 'text-slate-600 hover:bg-slate-100'"
           type="button"
           role="tab"
@@ -13,7 +13,7 @@
           @click="selectFilter(option.value)"
         >{{ option.label }}</button>
       </div>
-      <button v-if="store.unreadCount" class="min-h-9 rounded-lg px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100" type="button" @click="store.markAllRead()">Alle gelesen</button>
+      <button v-if="store.unreadCount" class="min-h-9 cursor-pointer rounded-lg px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100" type="button" @click="store.markAllRead()">Alle gelesen</button>
     </div>
 
     <div v-if="store.loading && !store.items.length" class="grid min-h-56 place-items-center text-sm text-slate-500" role="status">Benachrichtigungen werden geladen …</div>
@@ -23,7 +23,7 @@
     <ul v-else class="divide-y divide-slate-200" aria-label="Benachrichtigungsliste">
       <li v-for="item in store.items" :key="item.id">
         <button
-          class="grid min-h-20 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-2 py-3 text-left hover:bg-slate-50"
+          class="grid min-h-20 w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-2 py-3 text-left hover:bg-slate-50"
           :class="item.is_read ? 'bg-white' : 'bg-[#edf7f8]'"
           type="button"
           @click="openNotification(item)"
@@ -34,7 +34,7 @@
         </button>
       </li>
     </ul>
-    <button v-if="store.page < store.pages" class="mt-3 min-h-11 w-full rounded-xl border border-slate-300 text-sm font-bold text-[#154d73] hover:bg-slate-50" type="button" @click="loadMore">Mehr laden</button>
+    <button v-if="store.page < store.pages" class="mt-3 min-h-11 w-full cursor-pointer rounded-xl border border-slate-300 text-sm font-bold text-[#154d73] hover:bg-slate-50" type="button" @click="loadMore">Mehr laden</button>
   </div>
 </template>
 

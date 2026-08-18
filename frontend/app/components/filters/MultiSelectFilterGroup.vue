@@ -2,7 +2,7 @@
   <fieldset class="min-w-0">
     <div class="mb-3 flex min-h-8 min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1">
       <legend class="min-w-0 flex-1 pt-2 text-xs font-bold uppercase tracking-wide text-slate-600">{{ title }}</legend>
-      <button class="min-h-8 shrink-0 rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="toggleAll">
+      <button class="min-h-8 shrink-0 cursor-pointer rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="toggleAll">
         {{ allSelected ? 'Alle abwählen' : 'Alle auswählen' }}
       </button>
     </div>
@@ -23,7 +23,7 @@
       <button
         v-for="option in options"
         :key="option.value"
-        class="flex min-h-11 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
+        class="flex min-h-11 cursor-pointer items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
         :class="{ '!border-[#6f9fbd] !bg-[#edf4f8] !text-[#154d73] shadow-sm': modelValue.includes(option.value) }"
         type="button"
         :aria-pressed="modelValue.includes(option.value)"

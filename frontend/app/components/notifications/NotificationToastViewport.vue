@@ -4,7 +4,7 @@
       <div v-for="toast in store.toasts" :key="toast.id" class="pointer-events-auto flex items-start gap-3 rounded-2xl border bg-white p-4 shadow-xl" :class="toastStyle(toast.priority)" role="status">
         <component :is="toastIcon(toast.priority)" class="mt-0.5 size-5 shrink-0" aria-hidden="true" />
         <div class="min-w-0 flex-1"><p class="text-sm font-black">{{ toast.title }}</p><p v-if="toast.message" class="mt-1 text-xs leading-5 text-slate-600">{{ toast.message }}</p></div>
-        <button class="grid size-8 shrink-0 place-items-center rounded-lg hover:bg-slate-100" type="button" aria-label="Benachrichtigung schließen" @click="store.dismissToast(toast.id)"><X class="size-4" /></button>
+        <button class="grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg hover:bg-slate-100" type="button" aria-label="Benachrichtigung schließen" @click="store.dismissToast(toast.id)"><X class="size-4" /></button>
       </div>
     </TransitionGroup>
   </div>

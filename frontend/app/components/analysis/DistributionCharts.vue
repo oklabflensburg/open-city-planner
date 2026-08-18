@@ -2,7 +2,7 @@
   <Card class="p-4">
     <div><p class="civic-kicker">Struktur &amp; Datenqualität</p><h2 class="mt-1 text-sm font-extrabold text-[var(--c-text)]">Gefilterte Flächen im Überblick</h2><p class="mt-1 text-[11px] text-[var(--c-text-muted)]">Berechnet aus gepflegten Stadtplaner-Flächen</p></div>
     <div class="mt-3 flex gap-1 overflow-x-auto rounded-xl bg-[var(--c-surface-muted)] p-1" role="tablist" aria-label="Diagramm auswählen">
-      <button v-for="tab in tabs" :key="tab.key" class="min-h-9 shrink-0 rounded-lg px-2.5 text-[11px] font-bold transition" :class="activeTab === tab.key ? 'bg-white text-[var(--c-primary-800)] shadow-sm' : 'text-[var(--c-text-muted)] hover:text-[var(--c-text)]'" type="button" role="tab" :aria-selected="activeTab === tab.key" @click="activeTab = tab.key">{{ tab.label }}</button>
+      <button v-for="tab in tabs" :key="tab.key" class="min-h-9 shrink-0 cursor-pointer rounded-lg px-2.5 text-[11px] font-bold transition" :class="activeTab === tab.key ? 'bg-white text-[var(--c-primary-800)] shadow-sm' : 'text-[var(--c-text-muted)] hover:text-[var(--c-text)]'" type="button" role="tab" :aria-selected="activeTab === tab.key" @click="activeTab = tab.key">{{ tab.label }}</button>
     </div>
     <div v-if="analytics.loading && !analytics.data" class="mt-3 h-48 animate-pulse rounded-xl bg-[var(--c-surface-muted)]" />
     <div v-else-if="values.some(value => value > 0)" class="mt-3 h-52">
