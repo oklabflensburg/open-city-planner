@@ -27,6 +27,7 @@ osm2pgsql-replication update \
   --max-diff-size "$OSM_MAX_DIFF_MB" \
   --post-processing "$SCRIPT_DIR/post-process.sh" \
   -- \
+  --schema "$OSM_OUTPUT_SCHEMA" \
   --output flex \
   --style "$OSM_STYLE"
 

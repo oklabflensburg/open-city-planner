@@ -266,7 +266,13 @@ Migrationen zuerst gegen die Anwendungsdatenbank einspielen:
 ```bash
 cd /opt/git/open-city-planner/backend
 .venv/bin/alembic upgrade head
+sudo -u postgres psql open_city_map -c \
+  'GRANT SELECT ON TABLE public.osm_sync_state TO osm;'
 ```
+
+Der eng begrenzte Grant erlaubt dem mit der Importrolle laufenden Statusskript,
+den publizierten Datenstand zu lesen. Die Rolle `osm` erhält dadurch keine
+Schreibrechte auf Anwendungstabellen.
 
 Der Initialimport lädt PBF und MD5 nicht nach `/tmp`, prüft den Hash, zeigt mit
 `osmium fileinfo` Bounding Box und Header und bricht ohne Replikationszeitstempel
@@ -344,6 +350,11 @@ dieselben Flex-/Style-/Schema-Parameter wie beim Erstimport und gibt sie nicht
 widersprüchlich doppelt an. Das Postprocessing erhält Sequenz und Timestamp. Bei
 einem Fehler verschiebt osm2pgsql-replication den Replikationsstand nicht; ein
 erneuter Lauf ist idempotent.
+
+Bei osm2pgsql-replication 1.11 muss `--schema osm_import` zusätzlich hinter dem
+Argumenttrenner `--` stehen. Nur dort wird es an den gestarteten osm2pgsql-Prozess
+weitergereicht. Fehlt es, versucht osm2pgsql während des Append-Laufs im Schema
+`public` zu arbeiten und scheitert bei einer minimal privilegierten Importrolle.
 
 ## 9. Postprocessing und Konsistenz
 
