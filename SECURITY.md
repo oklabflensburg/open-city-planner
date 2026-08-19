@@ -1,35 +1,35 @@
-# Security Policy
+# Sicherheitsrichtlinie
 
-## Supported versions
+## Unterstützte Versionen
 
-Security fixes are applied to the current `main` branch. There are currently no separately maintained release branches.
+Sicherheitskorrekturen werden für den aktuellen Stand des Branches `main` bereitgestellt. Derzeit gibt es keine separat gepflegten Release-Branches.
 
-## Reporting a vulnerability
+## Sicherheitslücken melden
 
-Please do not publish vulnerabilities in a public issue. Use the [Stadtplaner contact page](https://stadtplaner.oklabflensburg.de/kontakt) and initially include only the technical details needed to reproduce and assess the issue. Allow the maintainers reasonable time to investigate and deploy a fix before disclosure. Do not access or retain data belonging to other people while researching an issue.
+Bitte veröffentlichen Sie Sicherheitslücken nicht in einem öffentlichen Issue. Nutzen Sie die [Kontaktseite des Stadtplaners](https://stadtplaner.oklabflensburg.de/kontakt) und übermitteln Sie zunächst nur die technischen Angaben, die zur Reproduktion und Bewertung des Problems erforderlich sind. Geben Sie den Verantwortlichen ausreichend Zeit, das Problem zu untersuchen und eine Korrektur bereitzustellen, bevor Sie es veröffentlichen. Greifen Sie bei Sicherheitsuntersuchungen nicht auf Daten anderer Personen zu und speichern Sie solche Daten nicht.
 
-## Security architecture
+## Sicherheitsarchitektur
 
-- Access and refresh tokens are held in `HttpOnly` cookies. Short-lived access JWTs are bound to an issuer, audience and fixed algorithm. Refresh tokens rotate and server-side session families detect reuse.
-- Cookie-authenticated mutations use double-submit CSRF protection. Refresh additionally requires an exact allowed `Origin` or `Referer` in production.
-- Password and OAuth logins stop at a short-lived, one-time server-side MFA challenge when a strong factor is configured. OAuth MFA challenges use a narrowly scoped `HttpOnly` cookie and never appear in redirect URLs.
-- TOTP secrets are encrypted; recovery codes use a dedicated HMAC pepper; OAuth state uses its own key. Passkeys store only public-key material.
-- Superuser endpoints require a strong current authentication method (`otp`, `recovery`, or `webauthn`) in production. Admin mutations additionally require CSRF.
-- Public GIS writes require an active, verified account. Ownership and management-role checks remain server-side.
-- Redis provides atomic, cross-worker security rate limits in production. Expensive public queries are rate-limited, cached and receive a transaction-local PostgreSQL statement timeout.
-- Request bodies, passwords, GeoJSON vertices, descriptions and serialized properties are bounded. Avatar files continue through the validated image re-encoding pipeline.
-- Private/auth/admin responses are marked non-cacheable. Application and Nuxt responses add CSP, anti-framing, referrer, MIME-sniffing and cross-origin policies; production enables HSTS.
+- Zugriffs- und Aktualisierungstokens werden in `HttpOnly`-Cookies gespeichert. Kurzlebige Zugriffs-JWTs sind an einen Aussteller, eine Zielgruppe und einen festgelegten Algorithmus gebunden. Aktualisierungstokens werden regelmäßig ersetzt; serverseitige Sitzungsfamilien erkennen eine Wiederverwendung.
+- Änderungen mit Cookie-Authentifizierung verwenden einen doppelten CSRF-Schutz. Das Aktualisieren einer Sitzung erfordert in der Produktion zusätzlich einen exakt erlaubten `Origin`- oder `Referer`-Header.
+- Wenn ein starker zweiter Faktor eingerichtet ist, werden Passwort- und OAuth-Anmeldungen zunächst durch eine kurzlebige, einmalig verwendbare serverseitige MFA-Anforderung unterbrochen. OAuth-MFA-Anforderungen verwenden ein eng begrenztes `HttpOnly`-Cookie und erscheinen niemals in Weiterleitungs-URLs.
+- TOTP-Geheimnisse werden verschlüsselt gespeichert. Wiederherstellungscodes verwenden einen eigenen HMAC-Pepper, und der OAuth-Status verwendet einen eigenen Schlüssel. Für Passkeys wird ausschließlich öffentliches Schlüsselmaterial gespeichert.
+- Superuser-Endpunkte verlangen in der Produktion eine starke aktuelle Authentifizierungsmethode (`otp`, `recovery` oder `webauthn`). Administrative Änderungen erfordern zusätzlich einen gültigen CSRF-Nachweis.
+- Öffentliche GIS-Änderungen setzen ein aktives und verifiziertes Benutzerkonto voraus. Eigentums- und Rollenprüfungen erfolgen weiterhin serverseitig.
+- Redis stellt in der Produktion atomare und prozessübergreifende Sicherheitslimits bereit. Aufwendige öffentliche Abfragen werden begrenzt, zwischengespeichert und mit einem transaktionslokalen PostgreSQL-Zeitlimit ausgeführt.
+- Anfrageinhalte, Passwörter, GeoJSON-Stützpunkte, Beschreibungen und serialisierte Eigenschaften sind größenbegrenzt. Avatar-Dateien durchlaufen weiterhin die validierte Bildneukodierung.
+- Private Antworten sowie Authentifizierungs- und Administrationsantworten dürfen nicht zwischengespeichert werden. API und Nuxt setzen unter anderem CSP-, Frame-, Referrer-, MIME-Sniffing- und Cross-Origin-Schutzheader; in der Produktion wird zusätzlich HSTS aktiviert.
 
-## Secrets and rotation
+## Geheimnisse und Schlüsselwechsel
 
-Production must use independent random values for `JWT_SECRET_KEY`, `OAUTH_STATE_SECRET`, `MFA_RECOVERY_PEPPER`, and `MFA_ENCRYPTION_KEY`. Never commit them or log tokens, OAuth codes, passwords, MFA values, recovery codes, CSRF values, or provider credentials.
+In der Produktion müssen für `JWT_SECRET_KEY`, `OAUTH_STATE_SECRET`, `MFA_RECOVERY_PEPPER` und `MFA_ENCRYPTION_KEY` voneinander unabhängige, zufällig erzeugte Werte verwendet werden. Diese Werte dürfen niemals in das Repository aufgenommen werden. Tokens, OAuth-Codes, Passwörter, MFA-Werte, Wiederherstellungscodes, CSRF-Werte und Zugangsdaten externer Anbieter dürfen nicht protokolliert werden.
 
-Rotating `JWT_SECRET_KEY` invalidates active browser tokens. Rotating `MFA_RECOVERY_PEPPER` invalidates existing recovery codes; coordinate the rotation and require affected users to generate a new set. Losing `MFA_ENCRYPTION_KEY` makes existing TOTP registrations unusable, so include it in encrypted secret backups.
+Ein Wechsel von `JWT_SECRET_KEY` macht aktive Browser-Tokens ungültig. Ein Wechsel von `MFA_RECOVERY_PEPPER` macht bestehende Wiederherstellungscodes ungültig und muss daher mit der Erzeugung neuer Codes durch die betroffenen Benutzer abgestimmt werden. Geht `MFA_ENCRYPTION_KEY` verloren, können bestehende TOTP-Einrichtungen nicht mehr verwendet werden. Dieser Schlüssel muss deshalb in die verschlüsselte Sicherung der Geheimnisse aufgenommen werden.
 
-## Rate limiting and enumeration
+## Anfragelimits und Benutzerermittlung
 
-Production deliberately fails closed when Redis security rate limiting is unavailable. Login and password-reset responses avoid account disclosure. Signup retains the existing `EMAIL_ALREADY_REGISTERED` response for product compatibility; this is an accepted enumeration risk mitigated by strict IP plus normalized-email rate limits. Revisit that contract if compatibility no longer requires it.
+Wenn Redis für die Sicherheitslimits nicht erreichbar ist, lehnt die Produktionsumgebung geschützte Anfragen bewusst ab. Die Antworten bei Anmeldung und Passwortzurücksetzung vermeiden Rückschlüsse darauf, ob ein Benutzerkonto existiert. Die Registrierung behält aus Kompatibilitätsgründen die bestehende Antwort `EMAIL_ALREADY_REGISTERED` bei. Das damit verbundene Risiko einer Benutzerermittlung wird bewusst akzeptiert und durch strenge Limits pro IP-Adresse und normalisierter E-Mail-Adresse reduziert. Diese Schnittstellenentscheidung sollte erneut bewertet werden, sobald die Kompatibilität sie nicht mehr erfordert.
 
-## Deployment requirements
+## Anforderungen an die Bereitstellung
 
-Run the [production security checklist](docs/security/production-checklist.md) for every environment and release. The API, frontend, PostgreSQL and Redis must be deployed on trusted networks with TLS at the public edge. Run migrations before starting the updated application.
+Für jede Umgebung und jede Veröffentlichung ist die [Sicherheitscheckliste für den Produktivbetrieb](docs/security/production-checklist.md) abzuarbeiten. API, Frontend, PostgreSQL und Redis müssen in vertrauenswürdigen Netzen betrieben werden; am öffentlichen Netzübergang ist TLS erforderlich. Datenbankmigrationen müssen vor dem Start der aktualisierten Anwendung ausgeführt werden.

@@ -1,31 +1,31 @@
-# Production security checklist
+# Sicherheitscheckliste für den Produktivbetrieb
 
-## Required application settings
+## Erforderliche Anwendungseinstellungen
 
-- [ ] `APP_ENVIRONMENT=production`
-- [ ] `AUTH_COOKIE_SECURE=true` and an appropriate cookie domain/path
-- [ ] `REQUIRE_MFA_FOR_SUPERUSERS=true`
-- [ ] `REFRESH_REQUIRE_ORIGIN=true`
-- [ ] `AUTH_RATE_LIMIT_BACKEND=redis`
-- [ ] `RATE_LIMIT_FAIL_CLOSED=true`
-- [ ] `REDIS_ENABLED=true` and Redis is reachable before traffic is enabled
-- [ ] `JWT_ALGORITHM=HS256`, with the expected `JWT_ISSUER` and `JWT_AUDIENCE`
-- [ ] Independent, randomly generated `JWT_SECRET_KEY`, `OAUTH_STATE_SECRET`, `MFA_RECOVERY_PEPPER`, and `MFA_ENCRYPTION_KEY` are injected from the secret store
-- [ ] `CORS_ORIGINS`, `APP_BASE_URL`, `API_BASE_URL`, OAuth callbacks, `WEBAUTHN_ORIGIN`, and `WEBAUTHN_RP_ID` exactly match public deployment origins
-- [ ] `TRUSTED_PROXIES` contains only the actual reverse-proxy addresses/CIDRs; otherwise leave it empty
+- [ ] `APP_ENVIRONMENT=production` ist gesetzt.
+- [ ] `AUTH_COOKIE_SECURE=true` sowie eine geeignete Cookie-Domain und ein geeigneter Cookie-Pfad sind konfiguriert.
+- [ ] `REQUIRE_MFA_FOR_SUPERUSERS=true` ist gesetzt.
+- [ ] `REFRESH_REQUIRE_ORIGIN=true` ist gesetzt.
+- [ ] `AUTH_RATE_LIMIT_BACKEND=redis` ist gesetzt.
+- [ ] `RATE_LIMIT_FAIL_CLOSED=true` ist gesetzt.
+- [ ] `REDIS_ENABLED=true` ist gesetzt, und Redis ist erreichbar, bevor Anfragen freigeschaltet werden.
+- [ ] `JWT_ALGORITHM=HS256` sowie die erwarteten Werte für `JWT_ISSUER` und `JWT_AUDIENCE` sind konfiguriert.
+- [ ] Voneinander unabhängige und zufällig erzeugte Werte für `JWT_SECRET_KEY`, `OAUTH_STATE_SECRET`, `MFA_RECOVERY_PEPPER` und `MFA_ENCRYPTION_KEY` werden aus der Geheimnisverwaltung eingebunden.
+- [ ] `CORS_ORIGINS`, `APP_BASE_URL`, `API_BASE_URL`, die OAuth-Callback-Adressen, `WEBAUTHN_ORIGIN` und `WEBAUTHN_RP_ID` stimmen exakt mit den öffentlich verwendeten Ursprüngen überein.
+- [ ] `TRUSTED_PROXIES` enthält ausschließlich die tatsächlich eingesetzten Reverse-Proxy-Adressen beziehungsweise CIDR-Netze. Andernfalls bleibt die Einstellung leer.
 
-The backend intentionally refuses to start when core production invariants are missing. Do not replace production values with the documented development defaults.
+Das Backend verweigert den Start bewusst, wenn zentrale Sicherheitsvorgaben für die Produktion fehlen. Die dokumentierten Entwicklungswerte dürfen nicht für eine Produktivumgebung übernommen werden.
 
-## Edge and network
+## Netzübergang und Infrastruktur
 
-- [ ] HTTPS-only redirects are active and HSTS is returned after HTTPS is confirmed everywhere
-- [ ] CSP and the remaining security headers are preserved by the proxy/CDN
-- [ ] PostgreSQL and Redis are not publicly reachable and require authenticated, encrypted connections where the platform supports them
-- [ ] The application database role uses least privilege; migration credentials are separated when practical
-- [ ] API and worker processes run as unprivileged users
-- [ ] Firewall and egress policy allow only required OAuth, mail, map/data and Mastodon destinations
+- [ ] Weiterleitungen auf HTTPS sind aktiv. HSTS wird ausgeliefert, nachdem der ausschließliche HTTPS-Betrieb für alle Endpunkte sichergestellt wurde.
+- [ ] CSP und die übrigen Sicherheitsheader werden vom Proxy oder CDN unverändert weitergegeben.
+- [ ] PostgreSQL und Redis sind nicht öffentlich erreichbar. Soweit von der Plattform unterstützt, werden authentifizierte und verschlüsselte Verbindungen verwendet.
+- [ ] Die Datenbankrolle der Anwendung besitzt nur die erforderlichen Berechtigungen. Zugangsdaten für Migrationen werden, soweit praktikabel, getrennt verwaltet.
+- [ ] API- und Hintergrundprozesse laufen unter Benutzern ohne erhöhte Systemrechte.
+- [ ] Firewall- und ausgehende Netzwerkregeln erlauben ausschließlich die benötigten OAuth-, E-Mail-, Karten-, Daten- und Mastodon-Ziele.
 
-Example Nginx body and header baseline (adapt host-specific origins before use):
+Beispiel für grundlegende Nginx-Grenzwerte und -Header; die erlaubten Ursprünge müssen vor der Verwendung an den jeweiligen Host angepasst werden:
 
 ```nginx
 client_max_body_size 6m;
@@ -35,23 +35,23 @@ add_header X-Frame-Options "DENY" always;
 add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 ```
 
-The application still enforces its own streamed-body limits when `Content-Length` is absent or false. Keep the proxy limit slightly above the configured avatar size plus multipart overhead, and never use it as the only control.
+Die Anwendung setzt ihre eigenen Größenlimits auch dann durch, wenn `Content-Length` fehlt oder einen falschen Wert enthält. Das Proxy-Limit sollte etwas oberhalb der konfigurierten Avatargröße zuzüglich des Multipart-Overheads liegen. Es darf nicht als einzige Schutzmaßnahme verwendet werden.
 
-## Data and operations
+## Daten und Betrieb
 
-- [ ] Run `alembic upgrade head` before the new backend starts; migration `20260819_0028` adds reset-token invalidation state
-- [ ] Verify Redis persistence/eviction policy is suitable for security counters and that the configured prefix is environment-specific
-- [ ] Automated encrypted database and secret backups exist, restore tests are scheduled, and retention is documented
-- [ ] Logs are access-controlled, rotated and redacted; tokens, passwords, MFA values, OAuth codes and authorization headers never enter logs
-- [ ] Monitoring alerts on authentication spikes, rate-limit backend failures, refresh reuse, repeated MFA failures and elevated database timeouts
-- [ ] Dependency audits, security tests and application tests run in CI; critical advisories block deployment
-- [ ] OS, Python, Node, database, Redis, proxy and container updates follow a defined patch cadence
+- [ ] Vor dem Start des neuen Backends wurde `alembic upgrade head` ausgeführt. Die Migration `20260819_0028` ergänzt den Status zur Ungültigmachung von Passwortzurücksetzungstokens.
+- [ ] Die Redis-Konfiguration für Persistenz und Verdrängung eignet sich für Sicherheitszähler. Das konfigurierte Präfix ist für jede Umgebung eindeutig.
+- [ ] Automatisierte und verschlüsselte Sicherungen der Datenbank und Geheimnisse sind vorhanden. Wiederherstellungstests sind geplant und die Aufbewahrungsdauer ist dokumentiert.
+- [ ] Protokolle sind zugriffsgeschützt, werden rotiert und enthalten keine vertraulichen Werte. Tokens, Passwörter, MFA-Werte, OAuth-Codes und Autorisierungsheader gelangen nicht in die Protokolle.
+- [ ] Die Überwachung alarmiert bei ungewöhnlich vielen Anmeldungen, Ausfällen des Limitierungsdienstes, wiederverwendeten Aktualisierungstokens, wiederholten MFA-Fehlern und erhöhten Datenbank-Zeitüberschreitungen.
+- [ ] Abhängigkeitsprüfungen, Sicherheitstests und Anwendungstests laufen in der CI-Pipeline. Kritische Sicherheitshinweise verhindern eine Bereitstellung.
+- [ ] Für Betriebssystem, Python, Node.js, Datenbank, Redis, Proxy und Container gilt ein festgelegter Aktualisierungsrhythmus.
 
-## Release verification
+## Prüfung vor der Veröffentlichung
 
-- [ ] Backend tests and Ruff pass
-- [ ] Frontend tests, typecheck and production build pass
-- [ ] Existing Playwright tests pass against an isolated environment
-- [ ] `pnpm audit --prod` and a Python dependency audit have been reviewed
-- [ ] Login, OAuth+MFA, password reset, password-change logout, refresh rotation, admin MFA and verified GIS writes were smoke-tested
-- [ ] Security headers were checked on the actual public frontend and API responses
+- [ ] Backend-Tests und Ruff sind erfolgreich.
+- [ ] Frontend-Tests, Typprüfung und Produktions-Build sind erfolgreich.
+- [ ] Die bestehenden Playwright-Tests sind in einer isolierten Umgebung erfolgreich.
+- [ ] `pnpm audit --prod` und eine Python-Abhängigkeitsprüfung wurden ausgewertet.
+- [ ] Anmeldung, OAuth mit MFA, Passwortzurücksetzung, Abmeldung nach Passwortänderung, Rotation der Aktualisierungstokens, Admin-MFA und verifizierte GIS-Schreibzugriffe wurden durch Funktionstests geprüft.
+- [ ] Die Sicherheitsheader wurden anhand der tatsächlich öffentlich ausgelieferten Frontend- und API-Antworten geprüft.
