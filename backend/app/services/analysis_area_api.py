@@ -38,6 +38,45 @@ FROM analysis_areas area LEFT JOIN analysis_areas parent ON parent.id=area.paren
 """)
 
 
+POI_TAG_PREDICATE_SQL = """
+osm.tags ? 'shop'
+OR osm.tags ? 'amenity'
+OR osm.tags ? 'tourism'
+OR osm.tags ? 'leisure'
+"""
+
+# ST_PointOnSurface(osm.geometry) ist kein Ausdruck des GiST-Indexes auf geometry.
+# Der Bounding-Box-Operator begrenzt deshalb zuerst indexierbar die Kandidatenmenge.
+AREA_POI_ANALYTICS_SQL = text(f"""
+WITH target AS (
+  SELECT geometry
+  FROM analysis_areas
+  WHERE id = :id
+)
+SELECT
+  coalesce(
+    osm.tags->>'shop',
+    osm.tags->>'amenity',
+    osm.tags->>'tourism',
+    osm.tags->>'leisure',
+    'other'
+  ) AS category,
+  count(*) AS count
+FROM osm_features osm
+CROSS JOIN target
+WHERE osm.geometry && target.geometry
+  AND ST_Covers(target.geometry, ST_PointOnSurface(osm.geometry))
+  AND ({POI_TAG_PREDICATE_SQL})
+GROUP BY 1
+ORDER BY count(*) DESC, 1
+""")
+
+
+async def _area_poi_categories(session: AsyncSession, area_db_id: int) -> list[IndustryCount]:
+    rows = (await session.execute(AREA_POI_ANALYTICS_SQL, {"id": area_db_id})).all()
+    return [IndustryCount(category=str(category), count=int(count)) for category, count in rows]
+
+
 def _external_links(values: dict) -> AnalysisAreaExternalLinks:
     qid = values.pop("public_wikidata_id", None)
     title = values.pop("public_wikipedia_title", None)
@@ -154,15 +193,9 @@ async def _area_analytics_uncached(session: AsyncSession, area_id: uuid.UUID, **
     selected_filters = _filters(area.id, **kwargs)
     metrics = await _benchmark_metrics(session, selected_filters)
     distribution = await _counts(session, selected_filters)
-    poi_rows = []
+    poi_categories: list[IndustryCount] = []
     if not kwargs["sources"] or "OSM" in kwargs["sources"]:
-        poi_rows = (await session.execute(text("""
-          SELECT coalesce(tags->>'shop',tags->>'amenity',tags->>'tourism',tags->>'leisure','other') AS category, count(*) AS count
-          FROM osm_features WHERE ST_Covers((SELECT geometry FROM analysis_areas WHERE id=:id), ST_PointOnSurface(geometry))
-            AND (tags ? 'shop' OR tags ? 'amenity' OR tags ? 'tourism' OR tags ? 'leisure')
-          GROUP BY 1 ORDER BY count(*) DESC, 1
-        """), {"id": area.id})).all()
-    poi_categories = [IndustryCount(category=str(category), count=int(count)) for category, count in poi_rows]
+        poi_categories = await _area_poi_categories(session, area.id)
     density = metrics.total_area_m2 / (area.area_m2 / 1_000_000) if metrics.total_area_m2 is not None and area.area_m2 else None
     return AnalysisAreaAnalytics(area=detail, metrics=metrics, industry_distribution=distribution,
                                  poi_count=sum(item.count for item in poi_categories), poi_categories=poi_categories,

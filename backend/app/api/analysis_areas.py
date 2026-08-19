@@ -1,7 +1,8 @@
 import uuid
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cache.service import last_cache_status
@@ -29,10 +30,26 @@ from app.services.analysis_area_api import (
     list_areas,
 )
 from app.services.area_statistics import area_statistic_series, area_statistics
-from app.services.public_query_security import guard_public_query
+from app.services.public_query_security import guard_public_query, is_statement_timeout_error
 
 router = APIRouter(prefix="/analysis-areas", tags=["Analysis Areas"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+ANALYTICS_TIMEOUT_DETAIL = {
+    "error": {
+        "code": "ANALYTICS_QUERY_TIMEOUT",
+        "message": "Die Gebietsanalyse konnte nicht rechtzeitig abgeschlossen werden.",
+    }
+}
+
+
+async def _raise_analytics_database_error(session: AsyncSession, error: DBAPIError) -> NoReturn:
+    if not is_statement_timeout_error(error):
+        raise error
+    await session.rollback()
+    raise HTTPException(
+        status_code=503,
+        detail=ANALYTICS_TIMEOUT_DETAIL,
+    ) from error
 
 
 @router.get("", response_model=list[AnalysisAreaRead], summary="Analysegebiete auflisten")
@@ -153,10 +170,13 @@ async def get_area_analytics_by_slug(
     slug: str, session: SessionDep, request: Request
 ) -> AnalysisAreaAnalytics:
     await guard_public_query(request, session, "area-analytics")
-    area_id = await area_uuid_by_slug(session, slug)
-    if area_id is None:
-        raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
-    result = await area_analytics(session, area_id, **filters(PolygonFilterParams()))
+    try:
+        area_id = await area_uuid_by_slug(session, slug)
+        if area_id is None:
+            raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
+        result = await area_analytics(session, area_id, **filters(PolygonFilterParams()))
+    except DBAPIError as exc:
+        await _raise_analytics_database_error(session, exc)
     if result is None:
         raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
     return result
@@ -192,7 +212,10 @@ async def get_area_analytics(
     filter_params: Annotated[PolygonFilterParams, Depends(polygon_filter_query)],
 ) -> AnalysisAreaAnalytics:
     await guard_public_query(request, session, "area-analytics")
-    result = await area_analytics(session, area_id, **filters(filter_params))
+    try:
+        result = await area_analytics(session, area_id, **filters(filter_params))
+    except DBAPIError as exc:
+        await _raise_analytics_database_error(session, exc)
     if result is None:
         raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
     return result

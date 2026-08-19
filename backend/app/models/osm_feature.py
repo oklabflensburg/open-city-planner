@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, Index, String, func
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, Index, String, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,5 +28,13 @@ class OsmFeature(Base):
             "osm_type IN ('node', 'way', 'relation')", name="ck_osm_features_type"
         ),
         Index("idx_osm_features_geometry", "geometry", postgresql_using="gist"),
+        Index(
+            "idx_osm_features_poi_geometry",
+            "geometry",
+            postgresql_using="gist",
+            postgresql_where=text(
+                "tags ? 'shop' OR tags ? 'amenity' OR tags ? 'tourism' OR tags ? 'leisure'"
+            ),
+        ),
         Index("idx_osm_features_tags", "tags", postgresql_using="gin"),
     )
