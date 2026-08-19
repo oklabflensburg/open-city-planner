@@ -11,6 +11,13 @@ describe('profile account danger zone', () => {
   const profile = appFile('pages/profil/index.vue')
   const dangerZone = appFile('components/profile/AccountDangerZone.vue')
 
+  it('renders session-dependent profile content only after client hydration', () => {
+    expect(profile).toContain('<ClientOnly>')
+    expect(profile).toContain('<template #fallback>')
+    expect(profile).toContain('Profil wird geladen …')
+    expect(profile).toContain('watch(() => authStore.user')
+  })
+
   it('keeps deactivation and permanent deletion visibly separate at the end of profile', () => {
     expect(profile).toContain('<AccountDangerZone />')
     expect(dangerZone).toContain('Gefahrenbereich')

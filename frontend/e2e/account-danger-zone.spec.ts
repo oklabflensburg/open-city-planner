@@ -34,6 +34,20 @@ async function openProfile(page: Page) {
   await expect(page.getByText(account.email, { exact: true })).toBeVisible()
 }
 
+test('profile hydration remains stable after loading the authenticated session', async ({ page }) => {
+  const hydrationWarnings: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'warning' && /hydration/i.test(message.text())) {
+      hydrationWarnings.push(message.text())
+    }
+  })
+  await mockProfile(page)
+
+  await openProfile(page)
+
+  expect(hydrationWarnings).toEqual([])
+})
+
 test('deactivation confirms once, logs out and reports success', async ({ page }) => {
   await mockProfile(page)
   let requestCount = 0
