@@ -18,8 +18,40 @@ export type AuthUser = {
 }
 
 export type AuthResponse = {
+  status: 'authenticated'
   user: AuthUser
   csrf_token: string
+}
+
+export type MfaChallengeResponse = {
+  status: 'mfa_required'
+  challenge_token: string
+  method: 'totp'
+  expires_in: number
+}
+
+export type LoginResponse = AuthResponse | MfaChallengeResponse
+
+export type MfaChallenge = {
+  token: string
+  method: 'totp'
+  expiresAt: number
+}
+
+export type MfaSecurityStatus = {
+  enabled: boolean
+  method: 'totp' | null
+  enabled_at: string | null
+  last_used_at: string | null
+  recovery_codes_remaining: number
+}
+
+export type TotpSetup = {
+  secret: string
+  otpauth_uri: string
+  issuer: string
+  account_name: string
+  expires_in: number
 }
 
 export type VerificationResponse = {

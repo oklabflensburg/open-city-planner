@@ -1,5 +1,7 @@
 <template>
   <ContentPageShell title="Sicherheit" description="Passwort und aktive Anmeldungen Ihres Kontos verwalten." eyebrow="Konto" :breadcrumbs="[{ label: 'Startseite', to: '/' }, { label: 'Profil', to: '/profil' }, { label: 'Sicherheit' }]" max-width="reading">
+    <div class="space-y-6">
+    <MfaSecurityPanel />
     <Card class="p-5 sm:p-7">
       <form class="grid gap-4" @submit.prevent="submit">
         <FormField id="current-password" v-model="currentPassword" label="Aktuelles Passwort" type="password" autocomplete="current-password" required />
@@ -23,6 +25,7 @@
       :error="logoutError"
       @confirm="logoutAll"
     />
+    </div>
   </ContentPageShell>
 </template>
 

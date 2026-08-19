@@ -30,10 +30,19 @@ from app.schemas.auth import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
+    LoginResponse,
     MessageResponse,
+    MfaChallengeResponse,
+    MfaDisableRequest,
+    MfaRegenerateRequest,
+    MfaSecurityStatus,
+    MfaVerifyRequest,
+    RecoveryCodesResponse,
     ResetPasswordRequest,
     SignupRequest,
     TokenRequest,
+    TotpConfirmRequest,
+    TotpSetupResponse,
     VerificationResponse,
 )
 from app.schemas.oauth import (
@@ -59,10 +68,23 @@ from app.services.auth_service import (
     signup,
     verify_email,
 )
+from app.services.email_service import send_mfa_security_email
 from app.services.mastodon_sso import (
     consume_mastodon_oauth_flow,
     create_mastodon_oauth_flow,
     exchange_mastodon_oauth_code,
+)
+from app.services.mfa_service import (
+    confirm_totp_setup,
+    create_login_challenge,
+    disable_mfa,
+    regenerate_recovery_codes,
+    require_recent_auth,
+    revoke_other_sessions,
+    security_status,
+    start_totp_setup,
+    user_requires_mfa,
+    verify_login_challenge,
 )
 from app.services.oauth_account_service import (
     authenticate_oauth_identity,
@@ -105,10 +127,16 @@ async def start_mastodon_oauth_login(
     request: Request,
 ) -> OAuthStartRead:
     if not provider_is_configured("mastodon"):
-        raise HTTPException(status_code=404, detail={"error": {"code": "OAUTH_PROVIDER_DISABLED", "message": "Mastodon-Anmeldung ist nicht aktiviert."}})
-    check_rate_limit(
-        f"mastodon-oauth-start:{request.client.host if request.client else 'unknown'}"
-    )
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": {
+                    "code": "OAUTH_PROVIDER_DISABLED",
+                    "message": "Mastodon-Anmeldung ist nicht aktiviert.",
+                }
+            },
+        )
+    check_rate_limit(f"mastodon-oauth-start:{request.client.host if request.client else 'unknown'}")
     state, url = await create_mastodon_oauth_flow(
         session,
         payload.instance,
@@ -132,10 +160,27 @@ async def start_mastodon_oauth_link(
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> OAuthStartRead:
     validate_csrf(request)
+    require_recent_auth(request)
     if not provider_is_configured("mastodon"):
-        raise HTTPException(status_code=404, detail={"error": {"code": "OAUTH_PROVIDER_DISABLED", "message": "Mastodon-Anmeldung ist nicht aktiviert."}})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": {
+                    "code": "OAUTH_PROVIDER_DISABLED",
+                    "message": "Mastodon-Anmeldung ist nicht aktiviert.",
+                }
+            },
+        )
     if await get_for_user_provider(session, user.id, "mastodon"):
-        raise HTTPException(status_code=409, detail={"error": {"code": "OAUTH_ACCOUNT_ALREADY_LINKED", "message": "Ihr Konto ist bereits mit Mastodon verbunden."}})
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": {
+                    "code": "OAUTH_ACCOUNT_ALREADY_LINKED",
+                    "message": "Ihr Konto ist bereits mit Mastodon verbunden.",
+                }
+            },
+        )
     state, url = await create_mastodon_oauth_flow(
         session,
         payload.instance,
@@ -168,8 +213,12 @@ async def post_complete_oauth_email(
 
 
 @router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-async def post_signup(payload: SignupRequest, session: SessionDep, response: Response, request: Request) -> AuthResponse:
-    check_rate_limit(f"signup:{request.client.host if request.client else 'unknown'}:{payload.email}")
+async def post_signup(
+    payload: SignupRequest, session: SessionDep, response: Response, request: Request
+) -> AuthResponse:
+    check_rate_limit(
+        f"signup:{request.client.host if request.client else 'unknown'}:{payload.email}"
+    )
     user = await signup(session, payload)
     csrf_token = await issue_session(session, response, user, request)
     return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
@@ -177,7 +226,7 @@ async def post_signup(payload: SignupRequest, session: SessionDep, response: Res
 
 @router.post(
     "/login",
-    response_model=AuthResponse,
+    response_model=LoginResponse,
     responses={
         401: {"description": "Ungültige E-Mail-Adresse oder ungültiges Passwort"},
         403: {
@@ -188,11 +237,133 @@ async def post_signup(payload: SignupRequest, session: SessionDep, response: Res
         },
     },
 )
-async def post_login(payload: LoginRequest, session: SessionDep, response: Response, request: Request) -> AuthResponse:
-    check_rate_limit(f"login:{request.client.host if request.client else 'unknown'}:{payload.email}")
+async def post_login(
+    payload: LoginRequest, session: SessionDep, response: Response, request: Request
+) -> LoginResponse:
+    check_rate_limit(
+        f"login:{request.client.host if request.client else 'unknown'}:{payload.email}"
+    )
     user = await authenticate(session, payload)
-    csrf_token = await issue_session(session, response, user, request)
+    if await user_requires_mfa(session, user.id):
+        challenge = await create_login_challenge(session, user, request, primary_method="password")
+        return MfaChallengeResponse(
+            challenge_token=challenge.token, expires_in=challenge.expires_in
+        )
+    csrf_token = await issue_session(session, response, user, request, amr=["pwd"])
     return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
+
+
+@router.post("/mfa/verify", response_model=AuthResponse)
+async def post_mfa_verify(
+    payload: MfaVerifyRequest, session: SessionDep, response: Response, request: Request
+) -> AuthResponse:
+    settings = get_settings()
+    fingerprint = hash_token(payload.challenge_token)[:24]
+    check_rate_limit(
+        f"mfa-verify:{request.client.host if request.client else 'unknown'}:{fingerprint}",
+        attempts=settings.mfa_max_attempts,
+        window_seconds=settings.mfa_challenge_expire_seconds,
+        code="MFA_TOO_MANY_ATTEMPTS",
+        message="Zu viele Fehlversuche. Bitte melden Sie sich erneut an.",
+    )
+    user, factor, primary_method = await verify_login_challenge(
+        session,
+        payload.challenge_token,
+        code=payload.code,
+        recovery_code=payload.recovery_code,
+    )
+    primary = "oauth" if primary_method.startswith("oauth") else "pwd"
+    csrf_token = await issue_session(
+        session, response, user, request, amr=[primary, "otp" if factor == "totp" else "recovery"]
+    )
+    if factor == "recovery":
+        send_mfa_security_email(user, "recovery_used")
+    return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
+
+
+@router.get("/mfa/security", response_model=MfaSecurityStatus)
+async def get_mfa_security(
+    session: SessionDep, user: Annotated[User, Depends(get_current_active_user)]
+) -> MfaSecurityStatus:
+    return MfaSecurityStatus(**await security_status(session, user.id))
+
+
+@router.post("/mfa/totp/setup", response_model=TotpSetupResponse)
+async def post_totp_setup(
+    session: SessionDep, request: Request, user: Annotated[User, Depends(get_current_active_user)]
+) -> TotpSetupResponse:
+    validate_csrf(request)
+    require_recent_auth(request)
+    settings = get_settings()
+    check_rate_limit(f"mfa-setup:{user.id}", attempts=3, window_seconds=600)
+    secret, uri = await start_totp_setup(session, user)
+    return TotpSetupResponse(
+        secret=secret,
+        otpauth_uri=uri,
+        issuer=settings.mfa_totp_issuer,
+        account_name=user.email,
+        expires_in=settings.mfa_setup_expire_seconds,
+    )
+
+
+@router.post("/mfa/totp/confirm", response_model=RecoveryCodesResponse)
+async def post_totp_confirm(
+    payload: TotpConfirmRequest,
+    session: SessionDep,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> RecoveryCodesResponse:
+    validate_csrf(request)
+    check_rate_limit(f"mfa-confirm:{user.id}", attempts=5, window_seconds=600)
+    codes = await confirm_totp_setup(session, user, payload.code)
+    await revoke_other_sessions(session, user.id, request, "mfa_enabled")
+    send_mfa_security_email(user, "enabled")
+    return RecoveryCodesResponse(recovery_codes=codes)
+
+
+@router.post("/mfa/recovery-codes", response_model=RecoveryCodesResponse)
+async def post_recovery_codes(
+    payload: MfaRegenerateRequest,
+    session: SessionDep,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> RecoveryCodesResponse:
+    validate_csrf(request)
+    check_rate_limit(f"mfa-recovery-regenerate:{user.id}", attempts=3, window_seconds=600)
+    codes = await regenerate_recovery_codes(
+        session,
+        user,
+        current_password=payload.current_password,
+        code=payload.code,
+        recovery_code=payload.recovery_code,
+    )
+    await revoke_other_sessions(session, user.id, request, "mfa_recovery_regenerated")
+    send_mfa_security_email(user, "recovery_regenerated")
+    return RecoveryCodesResponse(recovery_codes=codes)
+
+
+@router.delete("/mfa/totp", response_model=MessageResponse)
+async def delete_totp(
+    payload: MfaDisableRequest,
+    session: SessionDep,
+    response: Response,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> MessageResponse:
+    validate_csrf(request)
+    check_rate_limit(f"mfa-disable:{user.id}", attempts=3, window_seconds=600)
+    await disable_mfa(
+        session,
+        user,
+        current_password=payload.current_password,
+        code=payload.code,
+        recovery_code=payload.recovery_code,
+    )
+    clear_auth_cookies(response)
+    send_mfa_security_email(user, "disabled")
+    return MessageResponse(
+        message="Zwei-Faktor-Authentifizierung wurde deaktiviert. Bitte melden Sie sich erneut an."
+    )
 
 
 @router.post("/refresh", response_model=AuthResponse)
@@ -202,7 +373,15 @@ async def post_refresh(session: SessionDep, response: Response, request: Request
     refresh_token = request.cookies.get(settings.auth_refresh_cookie_name)
     if not refresh_token:
         clear_auth_cookies(response)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error": {"code": "REFRESH_TOKEN_MISSING", "message": "Bitte melden Sie sich erneut an."}})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error": {
+                    "code": "REFRESH_TOKEN_MISSING",
+                    "message": "Bitte melden Sie sich erneut an.",
+                }
+            },
+        )
     check_rate_limit(
         f"refresh:{request.client.host if request.client else 'unknown'}:{hash_token(refresh_token)[:16]}",
         attempts=settings.refresh_rate_limit_attempts,
@@ -214,9 +393,7 @@ async def post_refresh(session: SessionDep, response: Response, request: Request
         user, csrf_token = await refresh_session(session, response, refresh_token, request)
     except HTTPException as exc:
         error_code = (
-            exc.detail.get("error", {}).get("code")
-            if isinstance(exc.detail, dict)
-            else None
+            exc.detail.get("error", {}).get("code") if isinstance(exc.detail, dict) else None
         )
         if exc.status_code == status.HTTP_401_UNAUTHORIZED or error_code in {
             "ACCOUNT_SELF_DEACTIVATED",
@@ -315,14 +492,22 @@ async def post_resend_verification(
 
 
 @router.post("/forgot-password", response_model=MessageResponse)
-async def post_forgot_password(payload: ForgotPasswordRequest, session: SessionDep, request: Request) -> MessageResponse:
-    check_rate_limit(f"forgot-password:{request.client.host if request.client else 'unknown'}:{payload.email}")
+async def post_forgot_password(
+    payload: ForgotPasswordRequest, session: SessionDep, request: Request
+) -> MessageResponse:
+    check_rate_limit(
+        f"forgot-password:{request.client.host if request.client else 'unknown'}:{payload.email}"
+    )
     await forgot_password(session, str(payload.email), request)
-    return MessageResponse(message="Wenn ein Konto mit dieser E-Mail-Adresse existiert, wurde eine E-Mail zum Zurücksetzen des Passworts versendet.")
+    return MessageResponse(
+        message="Wenn ein Konto mit dieser E-Mail-Adresse existiert, wurde eine E-Mail zum Zurücksetzen des Passworts versendet."
+    )
 
 
 @router.post("/reset-password", response_model=MessageResponse)
-async def post_reset_password(payload: ResetPasswordRequest, session: SessionDep) -> MessageResponse:
+async def post_reset_password(
+    payload: ResetPasswordRequest, session: SessionDep
+) -> MessageResponse:
     check_rate_limit(f"reset-password:{payload.token[:16]}")
     await reset_password(session, payload.token, payload.password)
     return MessageResponse(message="Passwort wurde zurückgesetzt.")
@@ -344,7 +529,15 @@ async def post_change_password(
 async def oauth_login(provider: str, redirect: str | None = None) -> RedirectResponse:
     provider = normalize_provider(provider)
     if not provider_is_configured(provider):
-        raise HTTPException(status_code=404, detail={"error": {"code": "OAUTH_PROVIDER_DISABLED", "message": "Dieser OAuth-Provider ist nicht konfiguriert."}})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": {
+                    "code": "OAUTH_PROVIDER_DISABLED",
+                    "message": "Dieser OAuth-Provider ist nicht konfiguriert.",
+                }
+            },
+        )
     state = create_oauth_state()
     response = RedirectResponse(authorization_url(provider, state), status_code=302)
     settings = get_settings()
@@ -371,11 +564,21 @@ async def oauth_login(provider: str, redirect: str | None = None) -> RedirectRes
 async def oauth_link(
     provider: str,
     session: SessionDep,
+    request: Request,
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> RedirectResponse:
+    require_recent_auth(request)
     provider = normalize_provider(provider)
     if not provider_is_configured(provider):
-        raise HTTPException(status_code=404, detail={"error": {"code": "OAUTH_PROVIDER_DISABLED", "message": "Dieser OAuth-Provider ist nicht konfiguriert."}})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": {
+                    "code": "OAUTH_PROVIDER_DISABLED",
+                    "message": "Dieser OAuth-Provider ist nicht konfiguriert.",
+                }
+            },
+        )
     settings = get_settings()
     if await get_for_user_provider(session, user.id, provider):
         response = oauth_link_result_redirect(provider, success="already_connected")
@@ -416,7 +619,15 @@ async def oauth_callback(
     provider = normalize_provider(provider)
     settings = get_settings()
     if not provider_is_configured(provider):
-        raise HTTPException(status_code=404, detail={"error": {"code": "OAUTH_PROVIDER_DISABLED", "message": "Dieser OAuth-Provider ist nicht konfiguriert."}})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": {
+                    "code": "OAUTH_PROVIDER_DISABLED",
+                    "message": "Dieser OAuth-Provider ist nicht konfiguriert.",
+                }
+            },
+        )
     flow = decode_oauth_flow(request.cookies.get(oauth_cookie_name(provider)))
     if not flow:
         redirect_response = oauth_login_error_redirect("INVALID_OAUTH_STATE")
@@ -462,7 +673,11 @@ async def oauth_callback(
             )
         return oauth_flow_error_redirect(flow.mode, provider, flow_error_code(flow.mode))
     except Exception:
-        logger.exception("OAuth code exchange failed provider=%s instance=%s", provider, mastodon_grant.instance_origin if mastodon_grant else None)
+        logger.exception(
+            "OAuth code exchange failed provider=%s instance=%s",
+            provider,
+            mastodon_grant.instance_origin if mastodon_grant else None,
+        )
         if provider == "mastodon":
             await audit_oauth_failure(
                 session,
@@ -479,7 +694,11 @@ async def oauth_callback(
         try:
             await link_oauth_account(session, current_user, identity)
         except HTTPException as exc:
-            code_value = exc.detail.get("error", {}).get("code", "OAUTH_LINK_FAILED") if isinstance(exc.detail, dict) else "OAUTH_LINK_FAILED"
+            code_value = (
+                exc.detail.get("error", {}).get("code", "OAUTH_LINK_FAILED")
+                if isinstance(exc.detail, dict)
+                else "OAUTH_LINK_FAILED"
+            )
             if provider == "mastodon":
                 await audit_oauth_failure(
                     session,
@@ -499,7 +718,11 @@ async def oauth_callback(
     try:
         user = await authenticate_oauth_identity(session, identity)
     except HTTPException as exc:
-        code_value = exc.detail.get("error", {}).get("code", "OAUTH_LOGIN_FAILED") if isinstance(exc.detail, dict) else "OAUTH_LOGIN_FAILED"
+        code_value = (
+            exc.detail.get("error", {}).get("code", "OAUTH_LOGIN_FAILED")
+            if isinstance(exc.detail, dict)
+            else "OAUTH_LOGIN_FAILED"
+        )
         return oauth_flow_error_redirect("login", provider, code_value)
     callback_url = f"{settings.app_base_url.rstrip('/')}/auth/callback"
     redirect_path = (
@@ -507,10 +730,29 @@ async def oauth_callback(
         if user.email_pending
         else safe_redirect_path(flow.redirect_path)
     )
+    if await user_requires_mfa(session, user.id):
+        challenge = await create_login_challenge(
+            session,
+            user,
+            request,
+            primary_method=f"oauth:{provider}",
+            redirect_path=redirect_path,
+        )
+        mfa_query = urllib.parse.urlencode(
+            {"challenge": challenge.token, "redirect": redirect_path}
+        )
+        redirect_response = RedirectResponse(
+            f"{settings.app_base_url.rstrip('/')}/auth/mfa?{mfa_query}",
+            status_code=302,
+        )
+        clear_oauth_cookie(redirect_response, provider)
+        return redirect_response
     callback_query = urllib.parse.urlencode({"redirect": redirect_path})
     redirect_response = RedirectResponse(f"{callback_url}?{callback_query}", status_code=302)
-    await issue_session(session, redirect_response, user, request)
-    redirect_response.delete_cookie(oauth_cookie_name(provider), path="/api/v1/auth/oauth", domain=settings.auth_cookie_domain)
+    await issue_session(session, redirect_response, user, request, amr=["oauth"])
+    redirect_response.delete_cookie(
+        oauth_cookie_name(provider), path="/api/v1/auth/oauth", domain=settings.auth_cookie_domain
+    )
     return redirect_response
 
 

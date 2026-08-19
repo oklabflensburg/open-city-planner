@@ -5,12 +5,14 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyCookie
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.csrf import validate_csrf
 from app.auth.jwt import decode_jwt
 from app.core.config import get_settings
 from app.db.session import get_session
+from app.models.mfa import UserMfaMethod
 from app.models.user import User
 from app.services.auth_service import get_user_by_id, inactive_account_error
 
@@ -23,8 +25,13 @@ access_cookie_scheme = APIKeyCookie(
 )
 
 
-def auth_exception(code: str = "AUTH_REQUIRED", message: str = "Bitte melden Sie sich an.") -> HTTPException:
-    return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error": {"code": code, "message": message}})
+def auth_exception(
+    code: str = "AUTH_REQUIRED", message: str = "Bitte melden Sie sich an."
+) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={"error": {"code": code, "message": message}},
+    )
 
 
 async def get_optional_user(request: Request, session: SessionDep) -> User | None:
@@ -69,7 +76,12 @@ async def get_current_user(
 
 async def get_current_active_user(user: Annotated[User, Depends(get_current_user)]) -> User:
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": {"code": "ACCOUNT_INACTIVE", "message": "Dieses Konto ist deaktiviert."}})
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": {"code": "ACCOUNT_INACTIVE", "message": "Dieses Konto ist deaktiviert."}
+            },
+        )
     return user
 
 
@@ -82,14 +94,26 @@ async def get_csrf_protected_active_user(
     return user
 
 
-async def get_verified_user(request: Request, user: Annotated[User, Depends(get_current_active_user)]) -> User:
+async def get_verified_user(
+    request: Request, user: Annotated[User, Depends(get_current_active_user)]
+) -> User:
     validate_csrf(request)
     if not user.is_verified:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": {"code": "EMAIL_NOT_VERIFIED", "message": "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse."}})
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": {
+                    "code": "EMAIL_NOT_VERIFIED",
+                    "message": "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.",
+                }
+            },
+        )
     return user
 
 
 async def require_superuser(
+    request: Request,
+    session: SessionDep,
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> User:
     if not user.is_superuser:
@@ -102,6 +126,29 @@ async def require_superuser(
                 }
             },
         )
+    if get_settings().require_mfa_for_superusers:
+        method = await session.scalar(
+            select(UserMfaMethod.id).where(
+                UserMfaMethod.user_id == user.id,
+                UserMfaMethod.type == "totp",
+                UserMfaMethod.is_enabled.is_(True),
+            )
+        )
+        token = request.cookies.get(get_settings().auth_access_cookie_name)
+        try:
+            amr = decode_jwt(token or "", "access").get("amr", [])
+        except jwt.PyJWTError:
+            amr = []
+        if not method or not isinstance(amr, list) or not ({"otp", "recovery"} & set(amr)):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": {
+                        "code": "MFA_SETUP_REQUIRED",
+                        "message": "Für administrative Funktionen ist eine bestätigte Zwei-Faktor-Anmeldung erforderlich.",
+                    }
+                },
+            )
     return user
 
 
@@ -116,13 +163,14 @@ async def require_csrf_superuser(
 def has_role(user: User, role: str) -> bool:
     """Database-backed role check; superusers retain all administrative access."""
     expected = role.strip().upper()
-    return user.is_superuser or any(value.strip().upper() == expected for value in (user.roles or []))
+    return user.is_superuser or any(
+        value.strip().upper() == expected for value in (user.roles or [])
+    )
 
 
 def can_edit_polygon(user: User, created_by_user_id: uuid.UUID | None) -> bool:
-    return (
-        has_role(user, "VERWALTUNG")
-        or (created_by_user_id is not None and created_by_user_id == user.id)
+    return has_role(user, "VERWALTUNG") or (
+        created_by_user_id is not None and created_by_user_id == user.id
     )
 
 
@@ -131,9 +179,8 @@ def can_create_polygon(user: User) -> bool:
 
 
 def can_delete_polygon(user: User, created_by_user_id: uuid.UUID | None) -> bool:
-    return (
-        has_role(user, "VERWALTUNG")
-        or (created_by_user_id is not None and created_by_user_id == user.id)
+    return has_role(user, "VERWALTUNG") or (
+        created_by_user_id is not None and created_by_user_id == user.id
     )
 
 
@@ -145,7 +192,9 @@ def require_role(role: str) -> Callable[..., User]:
         if not has_role(user, role):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={"error": {"code": "ROLE_REQUIRED", "message": f"Rolle {role} erforderlich."}},
+                detail={
+                    "error": {"code": "ROLE_REQUIRED", "message": f"Rolle {role} erforderlich."}
+                },
             )
         return user
 

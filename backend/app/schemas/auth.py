@@ -1,4 +1,5 @@
-from typing import Literal
+from datetime import datetime
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
@@ -38,8 +39,71 @@ class LoginRequest(BaseModel):
 
 
 class AuthResponse(BaseModel):
+    status: Literal["authenticated"] = "authenticated"
     user: UserRead
     csrf_token: str
+
+
+class MfaChallengeResponse(BaseModel):
+    status: Literal["mfa_required"] = "mfa_required"
+    challenge_token: str
+    method: Literal["totp"] = "totp"
+    expires_in: int
+
+
+LoginResponse = Annotated[AuthResponse | MfaChallengeResponse, Field(discriminator="status")]
+
+
+class MfaVerifyRequest(BaseModel):
+    challenge_token: str = Field(min_length=32, max_length=512)
+    code: str | None = Field(default=None, min_length=6, max_length=8)
+    recovery_code: str | None = Field(default=None, min_length=12, max_length=32)
+
+    @model_validator(mode="after")
+    def exactly_one_code(self) -> "MfaVerifyRequest":
+        if bool(self.code) == bool(self.recovery_code):
+            raise ValueError("Geben Sie genau einen Authenticator- oder Wiederherstellungscode an.")
+        return self
+
+
+class TotpSetupResponse(BaseModel):
+    secret: str
+    otpauth_uri: str
+    issuer: str
+    account_name: str
+    expires_in: int
+
+
+class TotpConfirmRequest(BaseModel):
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class RecoveryCodesResponse(BaseModel):
+    recovery_codes: list[str]
+
+
+class MfaDisableRequest(BaseModel):
+    current_password: str | None = Field(default=None, max_length=512)
+    code: str | None = Field(default=None, min_length=6, max_length=8)
+    recovery_code: str | None = Field(default=None, min_length=12, max_length=32)
+
+    @model_validator(mode="after")
+    def exactly_one_factor(self) -> "MfaDisableRequest":
+        if bool(self.code) == bool(self.recovery_code):
+            raise ValueError("Geben Sie genau einen Authenticator- oder Wiederherstellungscode an.")
+        return self
+
+
+class MfaRegenerateRequest(MfaDisableRequest):
+    pass
+
+
+class MfaSecurityStatus(BaseModel):
+    enabled: bool
+    method: Literal["totp"] | None = None
+    enabled_at: datetime | None = None
+    last_used_at: datetime | None = None
+    recovery_codes_remaining: int = 0
 
 
 class MessageResponse(BaseModel):

@@ -79,12 +79,14 @@ async def test_mastodon_provider_requires_instance_without_exposing_secrets(
 
     result = [item.model_dump() for item in await auth_api.get_oauth_providers()]
 
-    assert result == [{
-        "id": "mastodon",
-        "label": "Mastodon",
-        "requires_instance": True,
-        "default_instance": "https://norden.social",
-    }]
+    assert result == [
+        {
+            "id": "mastodon",
+            "label": "Mastodon",
+            "requires_instance": True,
+            "default_instance": "https://norden.social",
+        }
+    ]
     assert "key" not in str(result).lower()
 
 
@@ -102,10 +104,20 @@ async def test_mastodon_login_start_sets_bound_http_only_cookie(
         async_return(("opaque-state", "https://social.example/oauth/authorize?state=opaque-state")),
     )
     response = Response()
-    request = Request({"type": "http", "method": "POST", "path": "/", "headers": [], "client": ("203.0.113.4", 1234)})
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/",
+            "headers": [],
+            "client": ("203.0.113.4", 1234),
+        }
+    )
 
     result = await auth_api.start_mastodon_oauth_login(
-        auth_api.MastodonOAuthStartRequest(instance="social.example", redirect="https://evil.example"),
+        auth_api.MastodonOAuthStartRequest(
+            instance="social.example", redirect="https://evil.example"
+        ),
         response,
         object(),  # type: ignore[arg-type]
         request,
@@ -149,10 +161,9 @@ async def test_mastodon_callback_consumes_grant_and_logs_in_existing_identity(
     monkeypatch.setattr(auth_api, "consume_mastodon_oauth_flow", consume)
     monkeypatch.setattr(auth_api, "exchange_mastodon_oauth_code", exchange)
     monkeypatch.setattr(auth_api, "authenticate_oauth_identity", authenticate)
+    monkeypatch.setattr(auth_api, "user_requires_mfa", AsyncMock(return_value=False))
     monkeypatch.setattr(auth_api, "issue_session", issue)
-    cookie = oauth.encode_oauth_flow(
-        oauth.OAuthFlowState("random-state", "login", "/profil")
-    )
+    cookie = oauth.encode_oauth_flow(oauth.OAuthFlowState("random-state", "login", "/profil"))
     request = request_with_cookie(oauth.oauth_cookie_name("mastodon"), cookie)
 
     session = object()
@@ -229,9 +240,7 @@ def test_self_deactivated_oauth_login_redirects_to_structured_login_status(
     response = auth_api.oauth_login_error_redirect("ACCOUNT_SELF_DEACTIVATED")
 
     assert response.status_code == 302
-    assert response.headers["location"].endswith(
-        "/login?auth_error=ACCOUNT_SELF_DEACTIVATED"
-    )
+    assert response.headers["location"].endswith("/login?auth_error=ACCOUNT_SELF_DEACTIVATED")
 
 
 def test_oauth_flow_cookie_is_signed_and_bound_to_user(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -367,8 +376,11 @@ async def test_link_endpoint_is_idempotent_for_connected_provider(
     monkeypatch.setattr(auth_api, "get_settings", lambda: configured)
     monkeypatch.setattr(auth_api, "provider_is_configured", lambda _provider: True)
     monkeypatch.setattr(auth_api, "get_for_user_provider", async_return(account))
+    monkeypatch.setattr(auth_api, "require_recent_auth", lambda _request: None)
 
-    response = await auth_api.oauth_link("github", object(), user)  # type: ignore[arg-type]
+    response = await auth_api.oauth_link(
+        "github", object(), request_with_cookie("unused", "unused"), user
+    )  # type: ignore[arg-type]
 
     assert response.headers["location"] == (
         "http://localhost:3001/profil?provider=github&oauth_link=already_connected"

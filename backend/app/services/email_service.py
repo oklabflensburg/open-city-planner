@@ -98,6 +98,33 @@ def send_password_changed_email(user: User) -> None:
     send_email(user.email, "Passwort geändert – OK Lab Flensburg", html, text)
 
 
+def send_mfa_security_email(user: User, event: str) -> None:
+    labels = {
+        "enabled": (
+            "Zwei-Faktor-Authentifizierung aktiviert",
+            "Die Zwei-Faktor-Authentifizierung Ihres Kontos wurde aktiviert.",
+        ),
+        "disabled": (
+            "Zwei-Faktor-Authentifizierung deaktiviert",
+            "Die Zwei-Faktor-Authentifizierung Ihres Kontos wurde deaktiviert.",
+        ),
+        "recovery_regenerated": (
+            "Neue Wiederherstellungscodes erzeugt",
+            "Für Ihr Konto wurden neue Wiederherstellungscodes erzeugt. Alle bisherigen Codes sind ungültig.",
+        ),
+        "recovery_used": (
+            "Wiederherstellungscode verwendet",
+            "Für die Anmeldung bei Ihrem Konto wurde ein Wiederherstellungscode verwendet.",
+        ),
+    }
+    subject, message = labels[event]
+    html, text = render_pair(
+        "mfa_security",
+        {"user": user, "name": display_name(user), "message": message},
+    )
+    send_email(user.email, f"{subject} – OK Lab Flensburg", html, text)
+
+
 def send_contact_notification(
     *,
     name: str,

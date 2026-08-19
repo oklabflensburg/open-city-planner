@@ -42,6 +42,67 @@ describe('auth store', () => {
     expect(store.canWrite).toBe(true)
   })
 
+  it('keeps an MFA login challenge only in memory and does not authenticate early', async () => {
+    const request = vi.fn().mockResolvedValue({
+      status: 'mfa_required',
+      challenge_token: 'opaque-challenge-token-value-1234567890',
+      method: 'totp',
+      expires_in: 300
+    })
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+
+    const result = await store.login({ email: user.email, password: 'test password' })
+
+    expect(result.status).toBe('mfa_required')
+    expect(store.user).toBeNull()
+    expect(store.csrfToken).toBeNull()
+    expect(store.mfaChallenge?.token).toBe('opaque-challenge-token-value-1234567890')
+    expect(Object.keys(store.$state)).not.toContain('localStorage')
+  })
+
+  it('applies the session only after successful MFA verification', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 'authenticated', user, csrf_token: 'csrf-mfa' })
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+    store.setMfaChallenge('opaque-challenge-token-value-1234567890')
+
+    await store.verifyMfa('123456')
+
+    expect(request).toHaveBeenCalledWith('/auth/mfa/verify', expect.objectContaining({
+      method: 'POST',
+      retryOnUnauthorized: false
+    }))
+    expect(store.user).toEqual(user)
+    expect(store.mfaChallenge).toBeNull()
+  })
+
+  it('rejects malformed MFA factors before sending them to the API', async () => {
+    const request = vi.fn()
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+    store.setMfaChallenge('opaque-challenge-token-value-1234567890')
+
+    await expect(store.verifyMfa('3223322323', true)).rejects.toThrow(
+      'zwölf Buchstaben oder Ziffern'
+    )
+    await expect(store.verifyMfa('12345')).rejects.toThrow('sechs Ziffern')
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('keeps the user unauthenticated after an invalid MFA code and clears challenges on logout', async () => {
+    const request = vi.fn().mockRejectedValueOnce(new ApiError('Ungültig', { statusCode: 401, code: 'MFA_CODE_INVALID' })).mockResolvedValueOnce(undefined)
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+    store.setMfaChallenge('opaque-challenge-token-value-1234567890')
+
+    await expect(store.verifyMfa('000000')).rejects.toThrow('Ungültig')
+    expect(store.user).toBeNull()
+    expect(store.mfaChallenge).not.toBeNull()
+    await store.logout()
+    expect(store.mfaChallenge).toBeNull()
+  })
+
   it('keeps an existing session when initialization only fails because of the network', async () => {
     const request = vi.fn().mockRejectedValue(new TypeError('network unavailable'))
     vi.stubGlobal('useApi', () => ({ request }))

@@ -18,6 +18,7 @@ from app.schemas.user import AccountDeletionRequest, UserRead, UserUpdate
 from app.services.account_service import deactivate_own_account, delete_own_account
 from app.services.auth_service import clear_auth_cookies
 from app.services.avatar_service import delete_avatar_file, save_avatar
+from app.services.mfa_service import require_recent_auth
 from app.services.oauth_account_service import (
     get_for_user,
     normalize_provider,
@@ -116,6 +117,7 @@ async def delete_user_oauth_account(
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> None:
     validate_csrf(request)
+    require_recent_auth(request)
     await unlink_oauth_account(session, user, normalize_provider(provider))
 
 

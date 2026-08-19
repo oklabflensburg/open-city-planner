@@ -40,7 +40,9 @@ def utcnow() -> datetime:
 
 
 def auth_error(code: str, message: str, status_code: int) -> HTTPException:
-    return HTTPException(status_code=status_code, detail={"error": {"code": code, "message": message}})
+    return HTTPException(
+        status_code=status_code, detail={"error": {"code": code, "message": message}}
+    )
 
 
 def inactive_account_error(user: User) -> HTTPException:
@@ -110,11 +112,17 @@ async def create_verification_token(session: AsyncSession, user: User) -> str:
 async def signup(session: AsyncSession, payload: SignupRequest) -> User:
     existing = await get_user_by_email(session, str(payload.email))
     if existing:
-        raise auth_error("EMAIL_ALREADY_REGISTERED", "Diese E-Mail-Adresse ist bereits registriert.", status.HTTP_409_CONFLICT)
+        raise auth_error(
+            "EMAIL_ALREADY_REGISTERED",
+            "Diese E-Mail-Adresse ist bereits registriert.",
+            status.HTTP_409_CONFLICT,
+        )
     try:
         password_hash = hash_password(payload.password)
     except ValueError as exc:
-        raise auth_error("INVALID_PASSWORD", str(exc), status.HTTP_422_UNPROCESSABLE_ENTITY) from exc
+        raise auth_error(
+            "INVALID_PASSWORD", str(exc), status.HTTP_422_UNPROCESSABLE_ENTITY
+        ) from exc
     user = User(
         email=str(payload.email),
         password_hash=password_hash,
@@ -153,8 +161,16 @@ async def complete_oauth_email(session: AsyncSession, user: User, email: str) ->
 
 async def authenticate(session: AsyncSession, payload: LoginRequest) -> User:
     user = await get_user_by_email(session, str(payload.email))
-    if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
-        raise auth_error("INVALID_CREDENTIALS", "E-Mail-Adresse oder Passwort ist nicht korrekt.", status.HTTP_401_UNAUTHORIZED)
+    if (
+        not user
+        or not user.password_hash
+        or not verify_password(payload.password, user.password_hash)
+    ):
+        raise auth_error(
+            "INVALID_CREDENTIALS",
+            "E-Mail-Adresse oder Passwort ist nicht korrekt.",
+            status.HTTP_401_UNAUTHORIZED,
+        )
     await ensure_user_can_authenticate(
         session, user, provider="password", audit_interactive_attempt=True
     )
@@ -164,12 +180,20 @@ async def authenticate(session: AsyncSession, payload: LoginRequest) -> User:
     return user
 
 
-async def issue_session(session: AsyncSession, response: Response, user: User, request: Request) -> str:
+async def issue_session(
+    session: AsyncSession,
+    response: Response,
+    user: User,
+    request: Request,
+    *,
+    amr: list[str] | None = None,
+) -> str:
     access_token, refresh_token, session_record = create_session_record(
         user,
         request,
         family_id=uuid.uuid4(),
         authenticated_at=int(utcnow().timestamp()),
+        amr=amr,
     )
     session.add(session_record)
     await session.commit()
@@ -184,9 +208,12 @@ def create_session_record(
     *,
     family_id: uuid.UUID,
     authenticated_at: int | None = None,
+    amr: list[str] | None = None,
 ) -> tuple[str, str, UserSession]:
     settings = get_settings()
     authentication_claim = {"auth_time": authenticated_at} if authenticated_at else {}
+    if amr:
+        authentication_claim["amr"] = amr
     access_token, _ = create_jwt(
         str(user.id),
         "access",
@@ -215,16 +242,39 @@ def create_session_record(
     return access_token, refresh_token, session_record
 
 
-def set_auth_cookies(response: Response, access_token: str, refresh_token: str, csrf_token: str) -> None:
+def set_auth_cookies(
+    response: Response, access_token: str, refresh_token: str, csrf_token: str
+) -> None:
     settings = get_settings()
     common = {
         "secure": settings.auth_cookie_secure,
         "samesite": settings.auth_cookie_samesite,
         "domain": settings.auth_cookie_domain,
     }
-    response.set_cookie(settings.auth_access_cookie_name, access_token, httponly=True, path=settings.auth_cookie_path, max_age=settings.access_token_expire_minutes * 60, **common)
-    response.set_cookie(settings.auth_refresh_cookie_name, refresh_token, httponly=True, path="/api/v1/auth", max_age=settings.refresh_token_expire_days * 86400, **common)
-    response.set_cookie(settings.auth_csrf_cookie_name, csrf_token, httponly=False, path=settings.auth_cookie_path, max_age=settings.refresh_token_expire_days * 86400, **common)
+    response.set_cookie(
+        settings.auth_access_cookie_name,
+        access_token,
+        httponly=True,
+        path=settings.auth_cookie_path,
+        max_age=settings.access_token_expire_minutes * 60,
+        **common,
+    )
+    response.set_cookie(
+        settings.auth_refresh_cookie_name,
+        refresh_token,
+        httponly=True,
+        path="/api/v1/auth",
+        max_age=settings.refresh_token_expire_days * 86400,
+        **common,
+    )
+    response.set_cookie(
+        settings.auth_csrf_cookie_name,
+        csrf_token,
+        httponly=False,
+        path=settings.auth_cookie_path,
+        max_age=settings.refresh_token_expire_days * 86400,
+        **common,
+    )
 
 
 def clear_auth_cookies(response: Response) -> None:
@@ -237,27 +287,49 @@ def clear_auth_cookies(response: Response) -> None:
         response.delete_cookie(name, path=path, domain=settings.auth_cookie_domain)
 
 
-async def refresh_session(session: AsyncSession, response: Response, refresh_token: str, request: Request) -> tuple[User, str]:
+async def refresh_session(
+    session: AsyncSession, response: Response, refresh_token: str, request: Request
+) -> tuple[User, str]:
     try:
         payload = decode_jwt(refresh_token, "refresh")
     except jwt.ExpiredSignatureError as exc:
         logger.info("AUTH_REFRESH_FAILED reason=REFRESH_TOKEN_EXPIRED")
-        raise auth_error("REFRESH_TOKEN_EXPIRED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED) from exc
+        raise auth_error(
+            "REFRESH_TOKEN_EXPIRED",
+            "Bitte melden Sie sich erneut an.",
+            status.HTTP_401_UNAUTHORIZED,
+        ) from exc
     except jwt.PyJWTError as exc:
         logger.info("AUTH_REFRESH_FAILED reason=REFRESH_TOKEN_INVALID")
-        raise auth_error("REFRESH_TOKEN_INVALID", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED) from exc
+        raise auth_error(
+            "REFRESH_TOKEN_INVALID",
+            "Bitte melden Sie sich erneut an.",
+            status.HTTP_401_UNAUTHORIZED,
+        ) from exc
     subject = payload.get("sub")
     jti = payload.get("jti")
     if not subject or not jti:
-        raise auth_error("REFRESH_TOKEN_INVALID", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error(
+            "REFRESH_TOKEN_INVALID",
+            "Bitte melden Sie sich erneut an.",
+            status.HTTP_401_UNAUTHORIZED,
+        )
 
     record = await session.scalar(
         select(UserSession).where(UserSession.jti == jti).with_for_update()
     )
     now = utcnow()
-    if not record or record.token_hash != hash_token(refresh_token) or str(record.user_id) != subject:
+    if (
+        not record
+        or record.token_hash != hash_token(refresh_token)
+        or str(record.user_id) != subject
+    ):
         logger.warning("AUTH_REFRESH_FAILED reason=REFRESH_TOKEN_INVALID")
-        raise auth_error("REFRESH_TOKEN_INVALID", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error(
+            "REFRESH_TOKEN_INVALID",
+            "Bitte melden Sie sich erneut an.",
+            status.HTTP_401_UNAUTHORIZED,
+        )
     if record.rotated_at:
         grace = timedelta(seconds=get_settings().refresh_token_reuse_grace_seconds)
         if now - record.rotated_at <= grace:
@@ -277,22 +349,34 @@ async def refresh_session(session: AsyncSession, response: Response, refresh_tok
         )
         await session.commit()
         logger.error("REFRESH_TOKEN_REUSE_DETECTED family_id=%s", record.family_id)
-        raise auth_error("REFRESH_TOKEN_REUSE_DETECTED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error(
+            "REFRESH_TOKEN_REUSE_DETECTED",
+            "Bitte melden Sie sich erneut an.",
+            status.HTTP_401_UNAUTHORIZED,
+        )
     if record.revoked_at:
         logger.info("AUTH_REFRESH_FAILED reason=SESSION_REVOKED family_id=%s", record.family_id)
-        raise auth_error("SESSION_REVOKED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error(
+            "SESSION_REVOKED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED
+        )
     if record.expires_at <= now:
         record.revoked_at = now
         record.revocation_reason = "expired"
         await session.commit()
-        raise auth_error("REFRESH_TOKEN_EXPIRED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error(
+            "REFRESH_TOKEN_EXPIRED",
+            "Bitte melden Sie sich erneut an.",
+            status.HTTP_401_UNAUTHORIZED,
+        )
 
     user = await get_user_by_id(session, record.user_id)
     if not user:
         await revoke_token_family(session, record.family_id, now, "user_inactive")
         await session.commit()
         logger.info("AUTH_REFRESH_FAILED reason=USER_INACTIVE family_id=%s", record.family_id)
-        raise auth_error("USER_INACTIVE", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error(
+            "USER_INACTIVE", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED
+        )
     try:
         await ensure_user_can_authenticate(
             session, user, provider="refresh", audit_interactive_attempt=False
@@ -310,6 +394,9 @@ async def refresh_session(session: AsyncSession, response: Response, refresh_tok
         authenticated_at=(
             int(payload["auth_time"]) if isinstance(payload.get("auth_time"), int) else None
         ),
+        amr=[str(value) for value in payload.get("amr", [])]
+        if isinstance(payload.get("amr"), list)
+        else None,
     )
     record.revoked_at = now
     record.rotated_at = now
@@ -420,7 +507,9 @@ async def resend_verification(session: AsyncSession, user: User) -> bool:
         .execution_options(populate_existing=True)
     )
     if not locked_user:
-        raise auth_error("AUTH_REQUIRED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error(
+            "AUTH_REQUIRED", "Bitte melden Sie sich erneut an.", status.HTTP_401_UNAUTHORIZED
+        )
     if locked_user.is_verified:
         await session.commit()
         return False
@@ -456,16 +545,26 @@ async def reset_password(session: AsyncSession, token: str, password: str) -> Us
     try:
         validate_password_policy(password)
     except ValueError as exc:
-        raise auth_error("INVALID_PASSWORD", str(exc), status.HTTP_422_UNPROCESSABLE_ENTITY) from exc
-    record = await session.scalar(select(PasswordResetToken).where(PasswordResetToken.token_hash == hash_token(token)))
+        raise auth_error(
+            "INVALID_PASSWORD", str(exc), status.HTTP_422_UNPROCESSABLE_ENTITY
+        ) from exc
+    record = await session.scalar(
+        select(PasswordResetToken).where(PasswordResetToken.token_hash == hash_token(token))
+    )
     now = utcnow()
     if not record or record.used_at:
-        raise auth_error("INVALID_RESET_TOKEN", "Der Reset-Link ist ungültig.", status.HTTP_400_BAD_REQUEST)
+        raise auth_error(
+            "INVALID_RESET_TOKEN", "Der Reset-Link ist ungültig.", status.HTTP_400_BAD_REQUEST
+        )
     if record.expires_at <= now:
-        raise auth_error("RESET_TOKEN_EXPIRED", "Der Reset-Link ist abgelaufen.", status.HTTP_400_BAD_REQUEST)
+        raise auth_error(
+            "RESET_TOKEN_EXPIRED", "Der Reset-Link ist abgelaufen.", status.HTTP_400_BAD_REQUEST
+        )
     user = await session.get(User, record.user_id)
     if not user:
-        raise auth_error("INVALID_RESET_TOKEN", "Der Reset-Link ist ungültig.", status.HTTP_400_BAD_REQUEST)
+        raise auth_error(
+            "INVALID_RESET_TOKEN", "Der Reset-Link ist ungültig.", status.HTTP_400_BAD_REQUEST
+        )
     user.password_hash = hash_password(password)
     user.updated_at = now
     record.used_at = now
@@ -475,9 +574,15 @@ async def reset_password(session: AsyncSession, token: str, password: str) -> Us
     return user
 
 
-async def change_password(session: AsyncSession, user: User, current_password: str, new_password: str) -> None:
+async def change_password(
+    session: AsyncSession, user: User, current_password: str, new_password: str
+) -> None:
     if not user.password_hash or not verify_password(current_password, user.password_hash):
-        raise auth_error("INVALID_CREDENTIALS", "Das aktuelle Passwort ist nicht korrekt.", status.HTTP_401_UNAUTHORIZED)
+        raise auth_error(
+            "INVALID_CREDENTIALS",
+            "Das aktuelle Passwort ist nicht korrekt.",
+            status.HTTP_401_UNAUTHORIZED,
+        )
     user.password_hash = hash_password(new_password)
     user.updated_at = utcnow()
     await session.commit()

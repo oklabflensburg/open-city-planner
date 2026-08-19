@@ -1,0 +1,7 @@
+Hallo {{ name }},
+
+{{ message }}
+
+Falls Sie diese Änderung nicht selbst vorgenommen haben, ändern Sie bitte umgehend Ihr Passwort und wenden Sie sich an den Support.
+
+Ihr OK Lab Flensburg

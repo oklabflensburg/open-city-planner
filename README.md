@@ -1,4 +1,6 @@
-# Open City Planner
+# Stadtplaner Flensburg
+
+![Screenshot Stadtplaner Flensburg](https://raw.githubusercontent.com/oklabflensburg/open-city-planner/main/screenshot_stadtplaner.webp)
 
 Produktionsnaher GIS-Monorepo-Scaffold mit Nuxt 4, TailwindCSS 4, MapLibre, Terra Draw, FastAPI, Cookie-basierter Authentifizierung und PostgreSQL/PostGIS.
 
@@ -295,6 +297,26 @@ Die Auswahl des Feedback-Musters folgt diesen Regeln:
 Native `alert()`, `confirm()` und `prompt()` sind im produktiven Frontend nicht zulässig.
 
 ## Authentifizierung und Schreibrechte
+
+Konten können unter `/profil/sicherheit` TOTP-Zwei-Faktor-Authentifizierung einrichten. Passwort- und OAuth-Login werden für aktivierte Konten vor Ausgabe der bestehenden Access-/Refresh-Cookies durch dieselbe kurzlebige MFA-Challenge geschützt. QR-Codes entstehen lokal im Browser; Authenticator-Secrets liegen verschlüsselt und Wiederherstellungscodes nur gehasht in PostgreSQL. Die Sicherheitsinvarianten und der Deployment-Ablauf sind in [docs/security/mfa.md](docs/security/mfa.md) beschrieben.
+
+Für den Betrieb muss ein eigener Fernet-Schlüssel gesetzt und die Migration ausgeführt werden:
+
+```env
+MFA_ENCRYPTION_KEY=<mit Fernet.generate_key() erzeugter Wert>
+MFA_CHALLENGE_EXPIRE_SECONDS=300
+MFA_MAX_ATTEMPTS=5
+MFA_TOTP_ISSUER="Stadtplaner - OK Lab Flensburg"
+MFA_TOTP_VALID_WINDOW=1
+MFA_RECOVERY_CODE_COUNT=10
+REAUTH_MAX_AGE_SECONDS=600
+REQUIRE_MFA_FOR_SUPERUSERS=false
+```
+
+```bash
+cd backend
+alembic upgrade head
+```
 
 Lesender Zugriff auf Karte, Polygone und Analysen bleibt öffentlich. Schreibende Operationen sind serverseitig geschützt:
 

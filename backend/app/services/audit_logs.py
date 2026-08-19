@@ -19,10 +19,21 @@ from app.schemas.admin import (
 
 REDACTED = "[REDACTED]"
 _SENSITIVE_PARTS = {
-    "password", "passwordhash", "token", "accesstoken", "refreshtoken",
-    "csrftoken", "secret", "clientsecret", "resettoken",
-    "emailverificationtoken", "apikey", "authorization",
-    "authorizationcode", "codeverifier", "clientid",
+    "password",
+    "passwordhash",
+    "token",
+    "accesstoken",
+    "refreshtoken",
+    "csrftoken",
+    "secret",
+    "clientsecret",
+    "resettoken",
+    "emailverificationtoken",
+    "apikey",
+    "authorization",
+    "authorizationcode",
+    "codeverifier",
+    "clientid",
 }
 
 
@@ -32,7 +43,11 @@ def redact_audit_metadata(value: Any) -> Any:
         result: dict[str, Any] = {}
         for key, item in value.items():
             normalized = re.sub(r"[^a-z0-9]", "", str(key).lower())
-            result[str(key)] = REDACTED if any(part in normalized for part in _SENSITIVE_PARTS) else redact_audit_metadata(item)
+            result[str(key)] = (
+                REDACTED
+                if any(part in normalized for part in _SENSITIVE_PARTS)
+                else redact_audit_metadata(item)
+            )
         return result
     if isinstance(value, list):
         return [redact_audit_metadata(item) for item in value]
@@ -44,7 +59,11 @@ def redact_audit_metadata(value: Any) -> Any:
 def _display_name(user: User | None) -> str | None:
     if not user:
         return None
-    return user.display_name or " ".join(part for part in (user.first_name, user.last_name) if part) or user.email
+    return (
+        user.display_name
+        or " ".join(part for part in (user.first_name, user.last_name) if part)
+        or user.email
+    )
 
 
 def _summary(log: AdminAuditLog, target: User | None) -> str:
@@ -77,15 +96,29 @@ def _summary(log: AdminAuditLog, target: User | None) -> str:
         "OAUTH_ACCOUNT_LINKED": f"Ein externes Konto wurde mit {label} verknüpft.",
         "OAUTH_ACCOUNT_LINK_FAILED": f"Ein externes Konto konnte nicht mit {label} verknüpft werden.",
         "OAUTH_ACCOUNT_UNLINKED": f"Eine externe Kontoverknüpfung von {label} wurde entfernt.",
+        "MFA_SETUP_STARTED": f"Die Einrichtung der Zwei-Faktor-Authentifizierung für {label} wurde begonnen.",
+        "MFA_ENABLED": f"Zwei-Faktor-Authentifizierung wurde für {label} aktiviert.",
+        "MFA_DISABLED": f"Zwei-Faktor-Authentifizierung wurde für {label} deaktiviert.",
+        "MFA_LOGIN_SUCCESS": f"Die Zwei-Faktor-Anmeldung für {label} war erfolgreich.",
+        "MFA_LOGIN_FAILED": f"Eine Zwei-Faktor-Anmeldung für {label} ist fehlgeschlagen.",
+        "MFA_RECOVERY_CODE_USED": f"Ein Wiederherstellungscode von {label} wurde verwendet.",
+        "MFA_RECOVERY_CODES_REGENERATED": f"Neue Wiederherstellungscodes wurden für {label} erzeugt.",
+        "MFA_CHALLENGE_BLOCKED": f"Eine Zwei-Faktor-Anmeldung für {label} wurde nach zu vielen Versuchen gesperrt.",
         "POLYGON_DELETED": f"Die Fläche {(log.event_metadata or {}).get('title') or log.resource_id} wurde gelöscht.",
     }
     return summaries.get(log.action, f"Administrative Aktion {log.action} für {label}.")
 
 
 def _serialize(log: AdminAuditLog, actor: User | None, target: User | None) -> AuditLogListItem:
-    actor_dto = AuditLogActor(
-        id=actor.id, display_name=_display_name(actor), email=actor.email,
-    ) if actor else None
+    actor_dto = (
+        AuditLogActor(
+            id=actor.id,
+            display_name=_display_name(actor),
+            email=actor.email,
+        )
+        if actor
+        else None
+    )
     is_system_resource = log.action == "FLENSBURG_STATISTICS_SYNC"
     resource_type = log.resource_type or ("SYSTEM" if is_system_resource else "USER")
     if resource_type == "ANALYSIS_AREA":
@@ -101,10 +134,17 @@ def _serialize(log: AdminAuditLog, actor: User | None, target: User | None) -> A
         id=log.resource_id or log.target_user_id,
         label=resource_label,
     )
-    details = redact_audit_metadata({**(log.event_metadata or {}), **({"role": log.role} if log.role else {})})
+    details = redact_audit_metadata(
+        {**(log.event_metadata or {}), **({"role": log.role} if log.role else {})}
+    )
     return AuditLogListItem(
-        id=log.id, created_at=log.created_at, action=log.action,
-        actor=actor_dto, resource=resource, summary=_summary(log, target), details=details,
+        id=log.id,
+        created_at=log.created_at,
+        action=log.action,
+        actor=actor_dto,
+        resource=resource,
+        summary=_summary(log, target),
+        details=details,
     )
 
 
@@ -129,13 +169,29 @@ async def list_audit_logs(
     if user_id:
         filters.append(AdminAuditLog.actor_user_id == user_id)
     if resource_id:
-        filters.append(or_(AdminAuditLog.target_user_id == resource_id, AdminAuditLog.resource_id == resource_id))
+        filters.append(
+            or_(
+                AdminAuditLog.target_user_id == resource_id,
+                AdminAuditLog.resource_id == resource_id,
+            )
+        )
     if resource_type:
         normalized_type = resource_type.upper()
         if normalized_type == "SYSTEM":
-            filters.append(or_(AdminAuditLog.resource_type == "SYSTEM", AdminAuditLog.action == "FLENSBURG_STATISTICS_SYNC"))
+            filters.append(
+                or_(
+                    AdminAuditLog.resource_type == "SYSTEM",
+                    AdminAuditLog.action == "FLENSBURG_STATISTICS_SYNC",
+                )
+            )
         elif normalized_type == "USER":
-            filters.append(or_(AdminAuditLog.resource_type == "USER", AdminAuditLog.resource_type.is_(None) & (AdminAuditLog.action != "FLENSBURG_STATISTICS_SYNC")))
+            filters.append(
+                or_(
+                    AdminAuditLog.resource_type == "USER",
+                    AdminAuditLog.resource_type.is_(None)
+                    & (AdminAuditLog.action != "FLENSBURG_STATISTICS_SYNC"),
+                )
+            )
         else:
             filters.append(AdminAuditLog.resource_type == normalized_type)
     if date_from:
@@ -144,15 +200,20 @@ async def list_audit_logs(
         filters.append(AdminAuditLog.created_at <= date_to)
     if search and (term := search.strip()):
         pattern = f"%{term}%"
-        filters.append(or_(
-            AdminAuditLog.action.ilike(pattern), AdminAuditLog.role.ilike(pattern),
-            actor.email.ilike(pattern), target.email.ilike(pattern),
-            actor.display_name.ilike(pattern), target.display_name.ilike(pattern),
-            func.concat(actor.first_name, " ", actor.last_name).ilike(pattern),
-            func.concat(target.first_name, " ", target.last_name).ilike(pattern),
-            cast(AdminAuditLog.target_user_id, String).ilike(pattern),
-            cast(AdminAuditLog.resource_id, String).ilike(pattern),
-        ))
+        filters.append(
+            or_(
+                AdminAuditLog.action.ilike(pattern),
+                AdminAuditLog.role.ilike(pattern),
+                actor.email.ilike(pattern),
+                target.email.ilike(pattern),
+                actor.display_name.ilike(pattern),
+                target.display_name.ilike(pattern),
+                func.concat(actor.first_name, " ", actor.last_name).ilike(pattern),
+                func.concat(target.first_name, " ", target.last_name).ilike(pattern),
+                cast(AdminAuditLog.target_user_id, String).ilike(pattern),
+                cast(AdminAuditLog.resource_id, String).ilike(pattern),
+            )
+        )
 
     joined = (
         select(AdminAuditLog, actor, target)
@@ -160,21 +221,34 @@ async def list_audit_logs(
         .outerjoin(target, target.id == AdminAuditLog.target_user_id)
         .where(*filters)
     )
-    total = int(await session.scalar(
-        select(func.count(AdminAuditLog.id))
-        .outerjoin(actor, actor.id == AdminAuditLog.actor_user_id)
-        .outerjoin(target, target.id == AdminAuditLog.target_user_id)
-        .where(*filters)
-    ) or 0)
-    rows = (await session.execute(
-        joined.order_by(AdminAuditLog.created_at.desc(), AdminAuditLog.id.desc())
-        .offset((page - 1) * page_size).limit(page_size)
-    )).all()
-    actions = list((await session.scalars(
-        select(AdminAuditLog.action).distinct().order_by(AdminAuditLog.action)
-    )).all())
+    total = int(
+        await session.scalar(
+            select(func.count(AdminAuditLog.id))
+            .outerjoin(actor, actor.id == AdminAuditLog.actor_user_id)
+            .outerjoin(target, target.id == AdminAuditLog.target_user_id)
+            .where(*filters)
+        )
+        or 0
+    )
+    rows = (
+        await session.execute(
+            joined.order_by(AdminAuditLog.created_at.desc(), AdminAuditLog.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).all()
+    actions = list(
+        (
+            await session.scalars(
+                select(AdminAuditLog.action).distinct().order_by(AdminAuditLog.action)
+            )
+        ).all()
+    )
     return AuditLogListRead(
         items=[_serialize(log, actor_user, target_user) for log, actor_user, target_user in rows],
-        total=total, page=page, page_size=page_size,
-        pages=max(1, math.ceil(total / page_size)), available_actions=actions,
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=max(1, math.ceil(total / page_size)),
+        available_actions=actions,
     )

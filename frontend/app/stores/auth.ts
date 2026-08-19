@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { AuthResponse, AuthUser, OAuthAccount, OAuthProvider, VerificationResponse } from '~/types/auth'
+import type { AuthResponse, AuthUser, LoginResponse, MfaChallenge, MfaSecurityStatus, OAuthAccount, OAuthProvider, TotpSetup, VerificationResponse } from '~/types/auth'
 import { buildApiUrl } from '~/utils/apiUrl'
 import { sanitizeInternalRedirect } from '~/utils/redirect'
 
@@ -27,7 +27,8 @@ export const useAuthStore = defineStore('auth', {
     oauthProvidersLoading: false,
     oauthProvidersLoaded: false,
     oauthError: '' as string,
-    oauthAccounts: [] as OAuthAccount[]
+    oauthAccounts: [] as OAuthAccount[],
+    mfaChallenge: null as MfaChallenge | null
   }),
   getters: {
     authenticated: (state) => !!state.user,
@@ -150,6 +151,7 @@ export const useAuthStore = defineStore('auth', {
       this.csrfToken = result.csrf_token
       this.sessionExpired = false
       this.sessionUncertain = false
+      this.mfaChallenge = null
     },
     clearAuthSession(expired = false, blockedAuthCode?: string) {
       const wasAuthenticated = this.authenticated
@@ -160,18 +162,58 @@ export const useAuthStore = defineStore('auth', {
       this.sessionExpired = expired && wasAuthenticated
       this.sessionUncertain = false
       this.blockedAuthCode = ['ACCOUNT_SELF_DEACTIVATED', 'ACCOUNT_DISABLED'].includes(blockedAuthCode || '') ? blockedAuthCode || '' : ''
+      this.mfaChallenge = null
     },
     async login(payload: { email: string; password: string; remember?: boolean }) {
       const { request } = useApi()
-      const result = await request<AuthResponse>('/auth/login', {
+      this.clearMfaChallenge()
+      const result = await request<LoginResponse>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ ...payload, remember: payload.remember ?? true }),
         retryOnUnauthorized: false
       })
-      this.user = result.user
-      this.csrfToken = result.csrf_token
-      this.sessionExpired = false
-      this.sessionUncertain = false
+      if (result.status === 'mfa_required') {
+        this.mfaChallenge = {
+          token: result.challenge_token,
+          method: result.method,
+          expiresAt: Date.now() + result.expires_in * 1000
+        }
+        this.user = null
+        this.csrfToken = null
+        return result
+      }
+      this.applyAuthSession(result)
+      return result
+    },
+    setMfaChallenge(token: string, expiresIn = 300) {
+      this.mfaChallenge = { token, method: 'totp', expiresAt: Date.now() + expiresIn * 1000 }
+    },
+    clearMfaChallenge() {
+      this.mfaChallenge = null
+    },
+    async verifyMfa(value: string, recovery = false) {
+      if (!this.mfaChallenge || this.mfaChallenge.expiresAt <= Date.now()) {
+        this.clearMfaChallenge()
+        throw new Error('Die Anmeldung ist abgelaufen. Bitte melden Sie sich erneut an.')
+      }
+      const factor = value.trim()
+      if (recovery && !/^[A-Z0-9]{12}$/i.test(factor.replace(/[\s-]/g, ''))) {
+        throw new Error('Der Wiederherstellungscode muss aus zwölf Buchstaben oder Ziffern bestehen.')
+      }
+      if (!recovery && !/^\d{6}$/.test(factor)) {
+        throw new Error('Der Authenticator-Code muss aus sechs Ziffern bestehen.')
+      }
+      const { request } = useApi()
+      const result = await request<AuthResponse>('/auth/mfa/verify', {
+        method: 'POST',
+        body: JSON.stringify({
+          challenge_token: this.mfaChallenge.token,
+          ...(recovery ? { recovery_code: factor } : { code: factor })
+        }),
+        retryOnUnauthorized: false
+      })
+      this.applyAuthSession(result)
+      return result
     },
     async signup(payload: SignupPayload) {
       const { request } = useApi()
@@ -196,6 +238,7 @@ export const useAuthStore = defineStore('auth', {
         this.user = null
         this.csrfToken = null
         this.refreshing = false
+        this.clearMfaChallenge()
       }
     },
     async logoutAll() {
@@ -294,6 +337,26 @@ export const useAuthStore = defineStore('auth', {
           new_password_confirm: newPasswordConfirm
         })
       })
+    },
+    async loadMfaSecurity() {
+      return await useApi().request<MfaSecurityStatus>('/auth/mfa/security')
+    },
+    async startTotpSetup() {
+      return await useApi().request<TotpSetup>('/auth/mfa/totp/setup', { method: 'POST' })
+    },
+    async confirmTotpSetup(code: string) {
+      return await useApi().request<{ recovery_codes: string[] }>('/auth/mfa/totp/confirm', {
+        method: 'POST', body: JSON.stringify({ code })
+      })
+    },
+    async regenerateRecoveryCodes(payload: { current_password?: string, code?: string, recovery_code?: string }) {
+      return await useApi().request<{ recovery_codes: string[] }>('/auth/mfa/recovery-codes', {
+        method: 'POST', body: JSON.stringify(payload)
+      })
+    },
+    async disableMfa(payload: { current_password?: string, code?: string, recovery_code?: string }) {
+      await useApi().request('/auth/mfa/totp', { method: 'DELETE', body: JSON.stringify(payload) })
+      this.clearAuthSession(false)
     }
   }
 })

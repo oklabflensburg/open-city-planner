@@ -2,6 +2,7 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.analysis_area import AnalysisArea, PolygonAnalysisArea
 from app.models.cache_version import CacheVersion
 from app.models.city_metrics import CityMetrics
+from app.models.mfa import AuthMfaChallenge, UserMfaMethod, UserMfaRecoveryCode
 from app.models.notification import Notification, NotificationPreference, NotificationSubscription
 from app.models.oauth_account import MastodonOAuthInstance, OAuthFlowGrant, UserOAuthAccount
 from app.models.osm_feature import OsmFeature
@@ -27,6 +28,7 @@ from app.models.verification_token import EmailVerificationToken
 __all__ = [
     "AdminAuditLog",
     "AnalysisArea",
+    "AuthMfaChallenge",
     "CacheVersion",
     "CityMetrics",
     "EmailVerificationToken",
@@ -48,6 +50,8 @@ __all__ = [
     "StatisticalMetric",
     "StatisticalObservation",
     "User",
+    "UserMfaMethod",
+    "UserMfaRecoveryCode",
     "UserOAuthAccount",
     "UserPolygon",
     "UserSession",

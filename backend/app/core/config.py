@@ -71,6 +71,15 @@ class Settings(BaseSettings):
     mastodon_sso_registration_backoff_seconds: int = 300
     auth_rate_limit_attempts: int = 8
     auth_rate_limit_window_seconds: int = 300
+    mfa_encryption_key: str | None = None
+    mfa_challenge_expire_seconds: int = Field(default=300, ge=60, le=900)
+    mfa_max_attempts: int = Field(default=5, ge=3, le=10)
+    mfa_totp_issuer: str = "Stadtplaner - OK Lab Flensburg"
+    mfa_totp_valid_window: int = Field(default=1, ge=0, le=1)
+    mfa_recovery_code_count: int = Field(default=10, ge=8, le=20)
+    mfa_setup_expire_seconds: int = Field(default=600, ge=300, le=1800)
+    reauth_max_age_seconds: int = Field(default=600, ge=60, le=3600)
+    require_mfa_for_superusers: bool = False
     avatar_upload_dir: str = "data/uploads"
     avatar_max_file_size: int = 5_242_880
     avatar_output_size: int = 512
@@ -109,7 +118,9 @@ class Settings(BaseSettings):
     analytics_cache_ttl: int = 600
     analysis_area_cache_ttl: int = 3_600
     wikidata_api_url: str = "https://www.wikidata.org/w/api.php"
-    wikidata_user_agent: str = "Stadtplaner/1.0 (https://stadtplaner.oklabflensburg.de; OK Lab Flensburg)"
+    wikidata_user_agent: str = (
+        "Stadtplaner/1.0 (https://stadtplaner.oklabflensburg.de; OK Lab Flensburg)"
+    )
     wikidata_timeout_seconds: float = 10.0
     wikidata_cache_ttl_seconds: int = 604_800
     wikidata_negative_cache_ttl_seconds: int = 86_400
@@ -182,6 +193,11 @@ class Settings(BaseSettings):
                 Fernet(self.mastodon_sso_encryption_key.encode())
             except (TypeError, ValueError) as exc:
                 raise RuntimeError("MASTODON_SSO_ENCRYPTION_KEY is invalid") from exc
+        if self.mfa_encryption_key:
+            try:
+                Fernet(self.mfa_encryption_key.encode())
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError("MFA_ENCRYPTION_KEY is invalid") from exc
         if self.mastodon_area_update_debounce_seconds < 0:
             raise RuntimeError("MASTODON_AREA_UPDATE_DEBOUNCE_SECONDS must not be negative")
         if not 0 <= self.mastodon_boundary_change_min_ratio <= 1:
