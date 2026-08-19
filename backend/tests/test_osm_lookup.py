@@ -45,7 +45,10 @@ def test_normalizes_known_tags_and_keeps_missing_values_null() -> None:
         osm_id=42,
         tags={
             "name": "Modehaus",
+            "name:de": "Deutsches Modehaus",
             "shop": "clothes",
+            "religion": "christian",
+            "denomination": "protestant",
             "contact:website": "https://example.org",
             "addr:street": "Holm",
             "private_note": "must not leak",
@@ -59,6 +62,9 @@ def test_normalizes_known_tags_and_keeps_missing_values_null() -> None:
     assert result.phone is None
     assert result.address and result.address.street == "Holm"
     assert "private_note" not in result.tags
+    assert result.tags["name:de"] == "Deutsches Modehaus"
+    assert result.tags["religion"] == "christian"
+    assert result.tags["denomination"] == "protestant"
 
 
 def test_lutherpark_osm_tags_produce_allowlisted_external_links() -> None:

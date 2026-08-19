@@ -19,14 +19,32 @@ logger = logging.getLogger(__name__)
 
 RELEVANT_TAGS = (
     "name",
+    "name:de",
+    "official_name",
+    "alt_name",
     "shop",
     "amenity",
     "office",
     "craft",
     "tourism",
     "leisure",
+    "historic",
+    "healthcare",
+    "natural",
+    "public_transport",
+    "railway",
+    "parking",
+    "sport",
+    "club",
     "building",
     "building:levels",
+    "religion",
+    "denomination",
+    "cuisine",
+    "access",
+    "surface",
+    "service_times",
+    "description",
     "brand",
     "operator",
     "opening_hours",
@@ -51,7 +69,10 @@ RELEVANT_TAGS = (
     "wikidata",
     "wikipedia",
 )
-CATEGORY_TAGS = ("shop", "amenity", "office", "craft", "tourism", "leisure", "building")
+CATEGORY_TAGS = (
+    "shop", "amenity", "office", "craft", "tourism", "historic", "leisure",
+    "healthcare", "building", "natural", "public_transport", "railway",
+)
 
 LOCAL_LOOKUP_SQL = text(
     """

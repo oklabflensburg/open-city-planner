@@ -14,9 +14,10 @@ describe('polygon OSM info', () => {
     vi.stubGlobal('ref', ref)
   })
 
-  it('maps known categories and preserves unknown raw tags', () => {
+  it('maps known and unknown categories without exposing raw key=value tags', () => {
     expect(osmCategoryLabel(first.matches[0])).toBe('Mode / Bekleidung')
-    expect(osmCategoryLabel({ ...first.matches[0], shop: 'charity' })).toBe('shop=charity')
+    expect(osmCategoryLabel({ ...first.matches[0], shop: 'charity' })).toBe('Sozialkaufhaus')
+    expect(osmCategoryLabel({ ...first.matches[0], shop: 'musical_instrument' })).toBe('Musical instrument')
   })
 
   it('deduplicates identical requests and exposes the primary match', async () => {

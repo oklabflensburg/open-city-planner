@@ -1,28 +1,16 @@
 import type { OsmAddress, OsmObjectInfo } from '~/types/osm'
-
-const labels: Record<string, string> = {
-  'shop=clothes': 'Mode / Bekleidung',
-  'shop=supermarket': 'Supermarkt',
-  'shop=bakery': 'Bäckerei',
-  'shop=shoes': 'Schuhgeschäft',
-  'shop=department_store': 'Warenhaus',
-  'amenity=restaurant': 'Restaurant',
-  'amenity=cafe': 'Café',
-  'amenity=pharmacy': 'Apotheke',
-  'amenity=bank': 'Bank',
-  'tourism=hotel': 'Hotel'
-}
-
-const categoryKeys = ['shop', 'amenity', 'office', 'craft', 'tourism', 'leisure', 'building'] as const
-
-export function osmCategoryRaw(object: OsmObjectInfo) {
-  const key = categoryKeys.find(candidate => object[candidate])
-  return key ? `${key}=${object[key]}` : null
-}
+import { formatOsmCategory } from '~/utils/osmTranslations'
 
 export function osmCategoryLabel(object: OsmObjectInfo) {
-  const raw = osmCategoryRaw(object)
-  return raw ? labels[raw] || raw : 'Nicht kategorisiert'
+  return formatOsmCategory(osmObjectTags(object)).value
+}
+
+export function osmObjectTags(object: OsmObjectInfo): Record<string, string> {
+  const tags = { ...object.tags }
+  for (const key of ['shop', 'amenity', 'office', 'craft', 'tourism', 'leisure', 'building'] as const) {
+    if (object[key] && !tags[key]) tags[key] = object[key]
+  }
+  return tags
 }
 
 export function osmObjectUrl(object: OsmObjectInfo) {

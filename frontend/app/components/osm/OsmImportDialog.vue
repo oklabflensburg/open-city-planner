@@ -8,7 +8,7 @@
   >
     <div class="space-y-4 text-sm">
       <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p class="font-bold text-slate-950">{{ detail?.name || feature.properties.name || 'OSM-Objekt' }}</p>
+        <p class="font-bold text-slate-950">{{ displayName || 'OSM-Objekt' }}</p>
         <p class="mt-1 text-slate-600">{{ categoryLabel }}</p>
         <p v-if="address" class="mt-1 text-slate-600">{{ address }}</p>
         <span v-if="detail?.occupancy_status === 'VACANT'" class="mt-3 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">Leerstand laut OpenStreetMap</span>
@@ -39,14 +39,20 @@
 import { LoaderCircle } from 'lucide-vue-next'
 import { ApiError } from '~/composables/useApi'
 import type { OsmFeatureDetail, OsmViewportFeature } from '~/types/osm'
+import { osmObjectTags } from '~/utils/osm'
 import { osmCategoryLabels } from '~/utils/osmCategories'
+import { formatOsmCategory, localizedOsmName } from '~/utils/osmTranslations'
 
 const props = defineProps<{ open: boolean, feature: OsmViewportFeature, detail: OsmFeatureDetail | null }>()
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
 const { importing, error, importFeature } = useOsmImport()
 const floor = ref<string | null>(null)
 const floors = ['UG', 'EG', '1OG', '2OG', '3OG', 'DG']
-const categoryLabel = computed(() => osmCategoryLabels[props.feature.properties.category])
+const tags = computed(() => props.detail ? osmObjectTags(props.detail) : {})
+const displayName = computed(() => localizedOsmName(tags.value, props.detail?.name || props.feature.properties.name))
+const categoryLabel = computed(() => props.detail
+  ? formatOsmCategory(tags.value).value
+  : osmCategoryLabels[props.feature.properties.category])
 const address = computed(() => {
   const value = props.detail?.address
   return value ? [[value.street, value.house_number].filter(Boolean).join(' '), [value.postal_code, value.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') : ''

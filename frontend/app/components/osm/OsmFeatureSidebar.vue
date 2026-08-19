@@ -3,7 +3,7 @@
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
         <p class="text-[10px] font-bold uppercase tracking-wide text-[#154d73]">OpenStreetMap · {{ categoryLabel }}</p>
-        <h2 class="mt-1 break-words text-base font-bold text-slate-950">{{ detail?.name || feature.properties.name || typeLabel }}</h2>
+        <h2 class="mt-1 break-words text-base font-bold text-slate-950">{{ displayName || typeLabel }}</h2>
         <p class="mt-1 text-xs text-slate-500">{{ typeLabel }}</p>
       </div>
       <button v-if="!embedded" class="grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl text-slate-500 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" aria-label="OSM-Auswahl schließen" @click="closeSelection">
@@ -27,6 +27,8 @@
     </div>
     <p v-else-if="osm.detailError" class="mt-3 text-xs text-rose-700" role="alert">{{ osm.detailError }}</p>
     <dl v-else-if="detail" class="mt-3 grid gap-2 text-xs">
+      <div class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">{{ detailCategory.label }}</dt><dd class="break-words">{{ detailCategory.value }}</dd></div>
+      <div v-for="item in localizedDetails" :key="item.label" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">{{ item.label }}</dt><dd class="break-words">{{ item.value }}</dd></div>
       <div v-if="address" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Adresse</dt><dd class="break-words">{{ address }}</dd></div>
       <div v-if="detail.opening_hours" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Öffnung</dt><dd class="break-words">{{ detail.opening_hours }}</dd></div>
       <div v-if="detail.brand" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Marke</dt><dd class="break-words">{{ detail.brand }}</dd></div>
@@ -37,7 +39,7 @@
     <AreaExternalLinks
       v-if="detail && (detail.external_links.wikipedia || detail.external_links.wikidata)"
       class="mt-4"
-      :area-name="detail.name || feature.properties.name || typeLabel"
+      :area-name="displayName || typeLabel"
       :links="detail.external_links"
     />
 
@@ -74,7 +76,8 @@
 import { LoaderCircle, X } from 'lucide-vue-next'
 import { osmCategoryLabels } from '~/utils/osmCategories'
 import { getIndustryLabel } from '~/utils/industries'
-import { safeOsmWebsite } from '~/utils/osm'
+import { osmObjectTags, safeOsmWebsite } from '~/utils/osm'
+import { formatOsmCategory, formatOsmTag, localizedOsmName, osmDetailKeys } from '~/utils/osmTranslations'
 
 const osm = useOsmViewportStore()
 const auth = useAuthStore()
@@ -85,10 +88,18 @@ const embedded = computed(() => props.embedded)
 const importOpen = ref(false)
 const feature = computed(() => osm.selectedFeature)
 const detail = computed(() => osm.detail)
+const detailTags = computed(() => detail.value ? osmObjectTags(detail.value) : {})
+const displayName = computed(() => localizedOsmName(detailTags.value, detail.value?.name || feature.value?.properties.name))
+const detailCategory = computed(() => formatOsmCategory(detailTags.value))
+const localizedDetails = computed(() => osmDetailKeys
+  .map(key => formatOsmTag(key, detailTags.value[key], detailTags.value))
+  .filter((item): item is NonNullable<typeof item> => item !== null))
 const categoryLabel = computed(() => feature.value?.properties.canonical_category
   ? getIndustryLabel(feature.value.properties.canonical_category)
   : feature.value ? osmCategoryLabels[feature.value.properties.category] : '')
-const typeLabel = computed(() => feature.value?.properties.primary_type || (feature.value?.properties.feature_type === 'point' ? 'POI' : 'Flächenobjekt'))
+const typeLabel = computed(() => detail.value
+  ? detailCategory.value.value
+  : categoryLabel.value || (feature.value?.properties.feature_type === 'point' ? 'POI' : 'Flächenobjekt'))
 const isVacant = computed(() => detail.value?.occupancy_status === 'VACANT' || feature.value?.properties.occupancy_status === 'VACANT')
 const address = computed(() => {
   const value = detail.value?.address
