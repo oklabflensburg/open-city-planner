@@ -155,7 +155,9 @@ async def delete_user_passkey(
     validate_csrf(request)
     require_recent_auth(request)
     remaining = await remove_passkey(session, user, credential_id)
-    send_mfa_security_email(user, "passkey_removed" if remaining else "passkeys_removed")
+    await send_mfa_security_email(
+        session, user, "passkey_removed" if remaining else "passkeys_removed"
+    )
 
 
 @router.get("/me/polygons", response_model=list[PolygonRead])

@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from datetime import timedelta
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import HTTPException
@@ -118,7 +118,7 @@ async def test_resend_for_verified_user_creates_neither_token_nor_email(
     session = AsyncMock()
     session.scalar.return_value = user
     create_token = AsyncMock(return_value="token")
-    send_email = Mock()
+    send_email = AsyncMock()
     monkeypatch.setattr(service, "create_verification_token", create_token)
     monkeypatch.setattr(service, "send_verification_email", send_email)
 
@@ -126,7 +126,7 @@ async def test_resend_for_verified_user_creates_neither_token_nor_email(
 
     assert sent is False
     create_token.assert_not_awaited()
-    send_email.assert_not_called()
+    send_email.assert_not_awaited()
     session.commit.assert_awaited_once()
 
 
@@ -138,7 +138,7 @@ async def test_resend_for_unverified_user_sends_exactly_once(
     session = AsyncMock()
     session.scalar.return_value = user
     create_token = AsyncMock(return_value="token")
-    send_email = Mock()
+    send_email = AsyncMock()
     monkeypatch.setattr(service, "create_verification_token", create_token)
     monkeypatch.setattr(service, "send_verification_email", send_email)
 
@@ -146,7 +146,7 @@ async def test_resend_for_unverified_user_sends_exactly_once(
 
     assert sent is True
     create_token.assert_awaited_once_with(session, user)
-    send_email.assert_called_once_with(user, "token")
+    send_email.assert_awaited_once_with(session, user, "token")
 
 
 class LockedSession:

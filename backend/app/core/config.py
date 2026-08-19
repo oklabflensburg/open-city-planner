@@ -255,6 +255,19 @@ class Settings(BaseSettings):
                 Fernet(self.mfa_encryption_key.encode())
             except (TypeError, ValueError) as exc:
                 raise RuntimeError("MFA_ENCRYPTION_KEY is invalid") from exc
+        app_origin = urlsplit(self.app_base_url)
+        if (
+            app_origin.scheme not in {"http", "https"}
+            or not app_origin.hostname
+            or app_origin.username
+            or app_origin.password
+            or app_origin.path not in {"", "/"}
+            or app_origin.query
+            or app_origin.fragment
+        ):
+            raise RuntimeError("APP_BASE_URL must be an absolute HTTP(S) origin without path")
+        if self.production and app_origin.scheme != "https":
+            raise RuntimeError("APP_BASE_URL must use HTTPS in production")
         if self.production and not self.webauthn_origin.startswith("https://"):
             raise RuntimeError("WEBAUTHN_ORIGIN must use HTTPS in production")
         if "://" in self.webauthn_rp_id or "/" in self.webauthn_rp_id:

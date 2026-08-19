@@ -7,19 +7,29 @@
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #dde2e3;">
             <tr>
               <td style="padding:24px 28px;border-bottom:1px solid #e7ebec;">
-                <strong style="font-size:18px;">OK Lab Flensburg</strong>
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding-right:14px;vertical-align:middle;">
+                      <img src="{{ logo_url }}" alt="OK Lab Flensburg" width="56" height="64" style="display:block;width:56px;height:64px;max-width:100%;">
+                    </td>
+                    <td style="vertical-align:middle;">
+                      <strong style="display:block;font-size:18px;">OK Lab Flensburg</strong>
+                      <span style="display:block;margin-top:3px;color:#687176;font-size:14px;">{{ site_name }}</span>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
             <tr>
               <td style="padding:28px;line-height:1.55;font-size:15px;">
-                {% block content %}{% endblock %}
+                {{ content }}
               </td>
             </tr>
             <tr>
               <td style="padding:20px 28px;border-top:1px solid #e7ebec;color:#687176;font-size:12px;line-height:1.5;">
-                OK Lab Flensburg<br>
-                <a href="/impressum" style="color:#154d73;">Impressum</a> ·
-                <a href="/datenschutz" style="color:#154d73;">Datenschutz</a>
+                OK Lab Flensburg · {{ site_name }}<br>
+                <a href="{{ imprint_url }}" style="color:#154d73;">Impressum</a> ·
+                <a href="{{ privacy_url }}" style="color:#154d73;">Datenschutz</a>
               </td>
             </tr>
           </table>

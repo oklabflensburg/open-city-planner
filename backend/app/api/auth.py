@@ -330,7 +330,7 @@ async def post_passkey_registration_verify(
     record = await verify_registration(
         session, user, payload.ceremony_token, payload.credential, payload.name
     )
-    send_mfa_security_email(user, "passkey_added")
+    await send_mfa_security_email(session, user, "passkey_added")
     return PasskeyRead.model_validate(record)
 
 
@@ -478,7 +478,7 @@ async def post_mfa_verify(
         session, response, user, request, amr=[primary, "otp" if factor == "totp" else "recovery"]
     )
     if factor == "recovery":
-        send_mfa_security_email(user, "recovery_used")
+        await send_mfa_security_email(session, user, "recovery_used")
     clear_mfa_cookie(response)
     return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
 
@@ -519,7 +519,7 @@ async def post_totp_confirm(
     await check_rate_limit(f"mfa-confirm:{user.id}", attempts=5, window_seconds=600)
     codes = await confirm_totp_setup(session, user, payload.code)
     await revoke_other_sessions(session, user.id, request, "mfa_enabled")
-    send_mfa_security_email(user, "enabled")
+    await send_mfa_security_email(session, user, "enabled")
     return RecoveryCodesResponse(recovery_codes=codes)
 
 
@@ -540,7 +540,7 @@ async def post_recovery_codes(
         recovery_code=payload.recovery_code,
     )
     await revoke_other_sessions(session, user.id, request, "mfa_recovery_regenerated")
-    send_mfa_security_email(user, "recovery_regenerated")
+    await send_mfa_security_email(session, user, "recovery_regenerated")
     return RecoveryCodesResponse(recovery_codes=codes)
 
 
@@ -562,7 +562,7 @@ async def delete_totp(
         recovery_code=payload.recovery_code,
     )
     clear_auth_cookies(response)
-    send_mfa_security_email(user, "disabled")
+    await send_mfa_security_email(session, user, "disabled")
     return MessageResponse(
         message="Zwei-Faktor-Authentifizierung wurde deaktiviert. Bitte melden Sie sich erneut an."
     )

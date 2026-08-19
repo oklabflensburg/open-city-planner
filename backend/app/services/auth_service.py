@@ -133,7 +133,7 @@ async def signup(session: AsyncSession, payload: SignupRequest) -> User:
     await session.commit()
     await session.refresh(user)
     token = await create_verification_token(session, user)
-    send_verification_email(user, token)
+    await send_verification_email(session, user, token)
     return user
 
 
@@ -156,7 +156,7 @@ async def complete_oauth_email(session: AsyncSession, user: User, email: str) ->
     user.email_pending = False
     await session.commit()
     token = await create_verification_token(session, user)
-    send_verification_email(user, token)
+    await send_verification_email(session, user, token)
 
 
 async def authenticate(session: AsyncSession, payload: LoginRequest) -> User:
@@ -527,7 +527,7 @@ async def resend_verification(session: AsyncSession, user: User) -> bool:
             status.HTTP_409_CONFLICT,
         )
     token = await create_verification_token(session, locked_user)
-    send_verification_email(locked_user, token)
+    await send_verification_email(session, locked_user, token)
     return True
 
 
@@ -558,7 +558,7 @@ async def forgot_password(session: AsyncSession, email: str, request: Request) -
     )
     session.add(record)
     await session.commit()
-    send_password_reset_email(user, token)
+    await send_password_reset_email(session, user, token)
 
 
 async def reset_password(session: AsyncSession, token: str, password: str) -> User:
@@ -603,7 +603,7 @@ async def reset_password(session: AsyncSession, token: str, password: str) -> Us
     )
     await revoke_all_sessions(session, user.id, commit=False, reason="password_reset")
     await session.commit()
-    send_password_changed_email(user)
+    await send_password_changed_email(session, user)
     return user
 
 
@@ -620,4 +620,4 @@ async def change_password(
     user.updated_at = utcnow()
     await revoke_all_sessions(session, user.id, commit=False, reason="password_changed")
     await session.commit()
-    send_password_changed_email(user)
+    await send_password_changed_email(session, user)

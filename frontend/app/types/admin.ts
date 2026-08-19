@@ -67,6 +67,33 @@ export interface AuditLogFilters {
   pageSize: number
 }
 
+export interface EmailTemplateListItem {
+  key: string
+  name: string
+  description: string
+  category: 'Sicherheit' | 'Konto' | 'Kontakt'
+  customized: boolean
+  active: boolean
+  security_sensitive: boolean
+  version: number
+  updated_at: string | null
+  updated_by: string | null
+}
+
+export interface EmailTemplateDetail extends EmailTemplateListItem {
+  subject: string
+  html_body: string
+  text_body: string
+  allowed_variables: string[]
+  required_variables: string[]
+}
+
+export interface EmailTemplatePreview {
+  subject: string
+  html: string
+  text: string
+}
+
 export interface MastodonAdminStatus {
   enabled: boolean
   configured: boolean

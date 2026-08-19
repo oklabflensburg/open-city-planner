@@ -68,3 +68,47 @@ class AuditLogListRead(BaseModel):
     page_size: int
     pages: int
     available_actions: list[str] = Field(default_factory=list)
+
+
+class EmailTemplateListItemRead(BaseModel):
+    key: str
+    name: str
+    description: str
+    category: str
+    customized: bool
+    active: bool
+    security_sensitive: bool
+    version: int
+    updated_at: datetime | None
+    updated_by: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EmailTemplateDetailRead(EmailTemplateListItemRead):
+    subject: str
+    html_body: str
+    text_body: str
+    allowed_variables: list[str]
+    required_variables: list[str]
+
+
+class EmailTemplateUpdate(BaseModel):
+    subject: str = Field(max_length=200)
+    html_body: str = Field(max_length=50_000)
+    text_body: str = Field(max_length=50_000)
+    version: int = Field(ge=0)
+
+
+class EmailTemplateReset(BaseModel):
+    version: int = Field(ge=0)
+
+
+class EmailTemplatePreviewRead(BaseModel):
+    subject: str
+    html: str
+    text: str
+
+
+class EmailTemplateTestSendRead(BaseModel):
+    message: str

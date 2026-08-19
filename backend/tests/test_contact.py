@@ -1,6 +1,6 @@
 import asyncio
 from email.message import EmailMessage
-from unittest.mock import Mock
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -70,11 +70,11 @@ async def post_contact(
     *,
     changes: dict[str, object] | None = None,
     origin: str = "http://localhost:3000",
-    notification: Mock | None = None,
-    copy: Mock | None = None,
-) -> tuple[httpx.Response, Mock, Mock]:
-    notification = notification or Mock()
-    copy = copy or Mock()
+    notification: AsyncMock | None = None,
+    copy: AsyncMock | None = None,
+) -> tuple[httpx.Response, AsyncMock, AsyncMock]:
+    notification = notification or AsyncMock()
+    copy = copy or AsyncMock()
     monkeypatch.setattr(contact_api, "send_contact_notification", notification)
     monkeypatch.setattr(contact_api, "send_contact_copy", copy)
     token = contact_service.create_form_token()
@@ -97,9 +97,9 @@ async def test_contact_sends_notification_with_reply_data_and_copy(
     response, notification, copy = await post_contact(monkeypatch)
     assert response.status_code == 200
     assert response.json() == {"status": "sent", "copy_sent": True}
-    notification.assert_called_once()
+    notification.assert_awaited_once()
     assert notification.call_args.kwargs["email"] == "erika@example.org"
-    copy.assert_called_once()
+    copy.assert_awaited_once()
     assert copy.call_args.kwargs["message"].startswith("Ich habe")
 
 
@@ -185,17 +185,17 @@ async def test_copy_failure_does_not_fail_delivered_message(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     response, notification, _copy = await post_contact(
-        monkeypatch, copy=Mock(side_effect=RuntimeError("mail error"))
+        monkeypatch, copy=AsyncMock(side_effect=RuntimeError("mail error"))
     )
     assert response.status_code == 200
     assert response.json()["copy_sent"] is False
-    notification.assert_called_once()
+    notification.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_notification_failure_returns_safe_error(monkeypatch: pytest.MonkeyPatch) -> None:
     response, _notification, copy = await post_contact(
-        monkeypatch, notification=Mock(side_effect=RuntimeError("SMTP secret detail"))
+        monkeypatch, notification=AsyncMock(side_effect=RuntimeError("SMTP secret detail"))
     )
     assert response.status_code == 503
     assert response.json()["detail"]["error"]["code"] == "CONTACT_SEND_FAILED"
@@ -205,8 +205,8 @@ async def test_notification_failure_returns_safe_error(monkeypatch: pytest.Monke
 
 @pytest.mark.asyncio
 async def test_parallel_replay_sends_operator_mail_once(monkeypatch: pytest.MonkeyPatch) -> None:
-    notification = Mock()
-    copy = Mock()
+    notification = AsyncMock()
+    copy = AsyncMock()
     monkeypatch.setattr(contact_api, "send_contact_notification", notification)
     monkeypatch.setattr(contact_api, "send_contact_copy", copy)
     token = contact_service.create_form_token()
@@ -223,7 +223,7 @@ async def test_parallel_replay_sends_operator_mail_once(monkeypatch: pytest.Monk
 
     responses = await asyncio.gather(submit(), submit())
     assert sorted(response.status_code for response in responses) == [200, 409]
-    notification.assert_called_once()
+    notification.assert_awaited_once()
 
 
 def test_contact_templates_escape_user_html() -> None:

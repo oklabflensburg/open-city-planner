@@ -13,6 +13,7 @@ from app.models import (  # noqa: F401
     AuthMfaChallenge,
     CacheVersion,
     CityMetrics,
+    EmailTemplate,
     EmailVerificationToken,
     MastodonOAuthInstance,
     OAuthFlowGrant,

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from app.auth.dependencies import (
     SessionDep,
@@ -19,6 +19,12 @@ from app.schemas.admin import (
     AdminUserRead,
     AdminUserStatusUpdate,
     AuditLogListRead,
+    EmailTemplateDetailRead,
+    EmailTemplateListItemRead,
+    EmailTemplatePreviewRead,
+    EmailTemplateReset,
+    EmailTemplateTestSendRead,
+    EmailTemplateUpdate,
 )
 from app.schemas.social import (
     MastodonAdminStatusRead,
@@ -29,6 +35,15 @@ from app.schemas.social import (
     SocialPublicationPreviewRead,
     SocialPublishingSettingsRead,
     SocialPublishingSettingsUpdate,
+)
+from app.services.admin_email_templates import (
+    EmailTemplateVersionConflict,
+    get_email_template,
+    list_email_templates,
+    preview_email_template,
+    reset_email_template,
+    send_test_email,
+    update_email_template,
 )
 from app.services.admin_social import (
     approve_social_publication,
@@ -52,10 +67,170 @@ from app.services.admin_users import (
 )
 from app.services.audit_logs import list_audit_logs
 from app.services.cache_versions import bump_cache_versions
+from app.services.email_service import EmailTemplateValidationError
+from app.services.rate_limit import check_rate_limit, rate_limit_key
 from app.services.social_screenshots import ScreenshotService
 
 router = APIRouter(prefix="/admin", tags=["Administration"])
 CACHE_NAMESPACES = {"osm", "analytics", "analysis-areas", "polygons"}
+
+
+def email_template_error(exc: EmailTemplateValidationError) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail={
+            "error": {
+                "code": exc.code,
+                "message": str(exc),
+                **exc.details,
+            }
+        },
+    )
+
+
+def email_template_conflict() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={
+            "error": {
+                "code": "EMAIL_TEMPLATE_VERSION_CONFLICT",
+                "message": "Die Vorlage wurde zwischenzeitlich geändert. Bitte laden Sie sie neu.",
+            }
+        },
+    )
+
+
+@router.get("/email-templates", response_model=list[EmailTemplateListItemRead])
+async def get_email_templates_admin(
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_superuser)],
+) -> list[EmailTemplateListItemRead]:
+    private_no_store(response)
+    return [EmailTemplateListItemRead.model_validate(item) for item in await list_email_templates(session)]
+
+
+@router.get("/email-templates/{key}", response_model=EmailTemplateDetailRead)
+async def get_email_template_admin(
+    key: str,
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_superuser)],
+) -> EmailTemplateDetailRead:
+    private_no_store(response)
+    try:
+        return EmailTemplateDetailRead.model_validate(await get_email_template(session, key))
+    except LookupError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+
+@router.patch("/email-templates/{key}", response_model=EmailTemplateDetailRead)
+async def patch_email_template_admin(
+    key: str,
+    payload: EmailTemplateUpdate,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> EmailTemplateDetailRead:
+    private_no_store(response)
+    try:
+        result = await update_email_template(
+            session,
+            key,
+            subject=payload.subject,
+            html_body=payload.html_body,
+            text_body=payload.text_body,
+            expected_version=payload.version,
+            actor=actor,
+        )
+        return EmailTemplateDetailRead.model_validate(result)
+    except LookupError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except EmailTemplateVersionConflict as exc:
+        raise email_template_conflict() from exc
+    except EmailTemplateValidationError as exc:
+        raise email_template_error(exc) from exc
+
+
+@router.post("/email-templates/{key}/reset", response_model=EmailTemplateDetailRead)
+async def reset_email_template_admin(
+    key: str,
+    payload: EmailTemplateReset,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> EmailTemplateDetailRead:
+    private_no_store(response)
+    try:
+        result = await reset_email_template(
+            session, key, expected_version=payload.version, actor=actor
+        )
+        return EmailTemplateDetailRead.model_validate(result)
+    except LookupError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except EmailTemplateVersionConflict as exc:
+        raise email_template_conflict() from exc
+
+
+@router.post("/email-templates/{key}/preview", response_model=EmailTemplatePreviewRead)
+async def preview_email_template_admin(
+    key: str,
+    payload: EmailTemplateUpdate,
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> EmailTemplatePreviewRead:
+    private_no_store(response)
+    try:
+        rendered = await preview_email_template(
+            session,
+            key,
+            subject=payload.subject,
+            html_body=payload.html_body,
+            text_body=payload.text_body,
+            version=payload.version,
+        )
+        return EmailTemplatePreviewRead(
+            subject=rendered.subject, html=rendered.html, text=rendered.text
+        )
+    except LookupError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except EmailTemplateValidationError as exc:
+        raise email_template_error(exc) from exc
+
+
+@router.post("/email-templates/{key}/test-send", response_model=EmailTemplateTestSendRead)
+async def test_send_email_template_admin(
+    key: str,
+    payload: EmailTemplateUpdate,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> EmailTemplateTestSendRead:
+    private_no_store(response)
+    await check_rate_limit(
+        rate_limit_key(request, "admin-email-template-test", str(actor.id)),
+        attempts=5,
+        window_seconds=600,
+    )
+    try:
+        await send_test_email(
+            session,
+            key,
+            subject=payload.subject,
+            html_body=payload.html_body,
+            text_body=payload.text_body,
+            version=payload.version,
+            actor=actor,
+        )
+        return EmailTemplateTestSendRead(
+            message=f"Die Test-E-Mail wurde an {actor.email} gesendet."
+        )
+    except LookupError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except EmailTemplateValidationError as exc:
+        raise email_template_error(exc) from exc
 
 
 @router.get("/social/mastodon/status", response_model=MastodonAdminStatusRead)

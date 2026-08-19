@@ -358,7 +358,7 @@ async def test_new_password_reset_invalidates_previous_tokens_transactionally(
     session.add = MagicMock()
     session.scalar = AsyncMock(return_value=user)
     monkeypatch.setattr(auth_service, "get_user_by_email", AsyncMock(return_value=user))
-    monkeypatch.setattr(auth_service, "send_password_reset_email", lambda *_args: None)
+    monkeypatch.setattr(auth_service, "send_password_reset_email", AsyncMock())
 
     await auth_service.forgot_password(session, user.email, request())
 
@@ -398,7 +398,7 @@ async def test_password_reset_rejects_invalidated_token_and_consumes_valid_token
     session = AsyncMock()
     session.scalar = AsyncMock(side_effect=[valid, user])
     monkeypatch.setattr(auth_service, "hash_password", lambda _password: "new-hash")
-    monkeypatch.setattr(auth_service, "send_password_changed_email", lambda *_args: None)
+    monkeypatch.setattr(auth_service, "send_password_changed_email", AsyncMock())
 
     result = await auth_service.reset_password(session, "v" * 32, "safe-password-123")
 
@@ -419,7 +419,7 @@ async def test_password_change_revokes_all_session_families(
     session = AsyncMock()
     monkeypatch.setattr(auth_service, "verify_password", lambda *_args: True)
     monkeypatch.setattr(auth_service, "hash_password", lambda _password: "new")
-    monkeypatch.setattr(auth_service, "send_password_changed_email", lambda *_args: None)
+    monkeypatch.setattr(auth_service, "send_password_changed_email", AsyncMock())
 
     await auth_service.change_password(session, account, "current", "new-password-123")
 

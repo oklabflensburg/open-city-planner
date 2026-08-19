@@ -3,8 +3,8 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request, status
-from starlette.concurrency import run_in_threadpool
 
+from app.auth.dependencies import SessionDep
 from app.core.config import get_settings
 from app.schemas.contact import (
     ContactFormTokenResponse,
@@ -45,6 +45,7 @@ async def get_contact_form_token() -> ContactFormTokenResponse:
 async def post_contact_message(
     payload: ContactMessageCreate,
     request: Request,
+    session: SessionDep,
 ) -> ContactMessageResponse:
     settings = get_settings()
     request_id = str(uuid.uuid4())
@@ -99,8 +100,8 @@ async def post_contact_message(
 
     try:
         await verify_turnstile(payload.turnstile_token, remote_ip)
-        await run_in_threadpool(
-            send_contact_notification,
+        await send_contact_notification(
+            session,
             name=payload.name,
             email=str(payload.email),
             subject=payload.subject,
@@ -125,8 +126,8 @@ async def post_contact_message(
     await finish_nonce(nonce, sent=True)
     copy_sent = True
     try:
-        await run_in_threadpool(
-            send_contact_copy,
+        await send_contact_copy(
+            session,
             name=payload.name,
             email=str(payload.email),
             subject=payload.subject,
