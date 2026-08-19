@@ -116,6 +116,18 @@ def send_mfa_security_email(user: User, event: str) -> None:
             "Wiederherstellungscode verwendet",
             "Für die Anmeldung bei Ihrem Konto wurde ein Wiederherstellungscode verwendet.",
         ),
+        "passkey_added": (
+            "Passkey hinzugefügt",
+            "Für Ihr Konto wurde ein neuer Passkey hinzugefügt. Falls Sie diese Änderung nicht vorgenommen haben, prüfen Sie bitte umgehend Ihre Kontosicherheit.",
+        ),
+        "passkey_removed": (
+            "Passkey entfernt",
+            "Ein Passkey wurde aus Ihrem Konto entfernt. Falls Sie diese Änderung nicht vorgenommen haben, prüfen Sie bitte umgehend Ihre Kontosicherheit.",
+        ),
+        "passkeys_removed": (
+            "Alle Passkeys entfernt",
+            "Der letzte Passkey wurde aus Ihrem Konto entfernt. Falls Sie diese Änderung nicht vorgenommen haben, prüfen Sie bitte umgehend Ihre Kontosicherheit.",
+        ),
     }
     subject, message = labels[event]
     html, text = render_pair(

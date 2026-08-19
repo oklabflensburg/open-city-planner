@@ -12,7 +12,7 @@ from app.auth.csrf import validate_csrf
 from app.auth.jwt import decode_jwt
 from app.core.config import get_settings
 from app.db.session import get_session
-from app.models.mfa import UserMfaMethod
+from app.models.mfa import UserMfaMethod, UserWebAuthnCredential
 from app.models.user import User
 from app.services.auth_service import get_user_by_id, inactive_account_error
 
@@ -127,19 +127,24 @@ async def require_superuser(
             },
         )
     if get_settings().require_mfa_for_superusers:
-        method = await session.scalar(
+        totp_method = await session.scalar(
             select(UserMfaMethod.id).where(
                 UserMfaMethod.user_id == user.id,
                 UserMfaMethod.type == "totp",
                 UserMfaMethod.is_enabled.is_(True),
             )
         )
+        passkey = await session.scalar(
+            select(UserWebAuthnCredential.id).where(UserWebAuthnCredential.user_id == user.id)
+        )
         token = request.cookies.get(get_settings().auth_access_cookie_name)
         try:
             amr = decode_jwt(token or "", "access").get("amr", [])
         except jwt.PyJWTError:
             amr = []
-        if not method or not isinstance(amr, list) or not ({"otp", "recovery"} & set(amr)):
+        configured = bool(totp_method or passkey)
+        strong_amr = {"otp", "recovery", "webauthn"}
+        if not configured or not isinstance(amr, list) or not (strong_amr & set(amr)):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={

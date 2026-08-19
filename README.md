@@ -300,6 +300,8 @@ Native `alert()`, `confirm()` und `prompt()` sind im produktiven Frontend nicht 
 
 Konten können unter `/profil/sicherheit` TOTP-Zwei-Faktor-Authentifizierung einrichten. Passwort- und OAuth-Login werden für aktivierte Konten vor Ausgabe der bestehenden Access-/Refresh-Cookies durch dieselbe kurzlebige MFA-Challenge geschützt. QR-Codes entstehen lokal im Browser; Authenticator-Secrets liegen verschlüsselt und Wiederherstellungscodes nur gehasht in PostgreSQL. Die Sicherheitsinvarianten und der Deployment-Ablauf sind in [docs/security/mfa.md](docs/security/mfa.md) beschrieben.
 
+Passkeys/WebAuthn sind als bevorzugte Anmeldung, passwortloser Login und MFA-Step-up integriert. Mehrere Credentials pro Konto werden unterstützt; der Server speichert nur Public Keys und technische Credential-Metadaten. Details zu Challenge-Replay-Schutz, Sign Counter, RP-Konfiguration und HTTPS stehen in [docs/security/passkeys.md](docs/security/passkeys.md).
+
 Für den Betrieb muss ein eigener Fernet-Schlüssel gesetzt und die Migration ausgeführt werden:
 
 ```env
@@ -311,6 +313,11 @@ MFA_TOTP_VALID_WINDOW=1
 MFA_RECOVERY_CODE_COUNT=10
 REAUTH_MAX_AGE_SECONDS=600
 REQUIRE_MFA_FOR_SUPERUSERS=false
+WEBAUTHN_RP_ID=localhost
+WEBAUTHN_RP_NAME="Stadtplaner OK Lab Flensburg"
+WEBAUTHN_ORIGIN=http://localhost:3000
+WEBAUTHN_CHALLENGE_EXPIRE_SECONDS=300
+WEBAUTHN_TIMEOUT_MS=60000
 ```
 
 ```bash

@@ -104,3 +104,94 @@ test('MFA disable requires password and factor, then returns to login', async ({
   await page.getByRole('button', { name: 'Bestätigen' }).click()
   await expect(page).toHaveURL(/\/login/)
 })
+
+test('virtual authenticator registers, signs in, confirms MFA and removes a passkey', async ({ page, context }) => {
+  test.setTimeout(60_000)
+  const cdp = await context.newCDPSession(page)
+  await cdp.send('WebAuthn.enable')
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: {
+      protocol: 'ctap2',
+      transport: 'internal',
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true
+    }
+  })
+  let authenticated = true
+  let registeredId = ''
+  let passkeys: Array<Record<string, unknown>> = []
+  const creationOptions = {
+    rp: { id: 'localhost', name: 'Stadtplaner Test' },
+    user: { id: 'AAAAAAAAAAAAAAAAAAAAAQ', name: user.email, displayName: 'Mfa User' },
+    challenge: 'AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA',
+    pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+    timeout: 60000,
+    attestation: 'none',
+    authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
+    excludeCredentials: []
+  }
+  const authenticationOptions = () => ({
+    challenge: 'ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8',
+    rpId: 'localhost',
+    timeout: 60000,
+    userVerification: 'required',
+    allowCredentials: registeredId ? [{ type: 'public-key', id: registeredId, transports: ['internal'] }] : []
+  })
+  await quietBackgroundApis(page)
+  await page.route('**/api/v1/auth/session', route => authenticated
+    ? route.fulfill({ json: { status: 'authenticated', user, csrf_token: 'csrf' } })
+    : route.fulfill({ status: 401, json: { detail: { error: { code: 'AUTH_REQUIRED', message: 'Bitte anmelden.' } } } }))
+  await page.route('**/api/v1/auth/mfa/security', route => route.fulfill({ json: { enabled: false, method: null, enabled_at: null, last_used_at: null, recovery_codes_remaining: 0 } }))
+  await page.route('**/api/v1/users/me/passkeys', async (route) => {
+    return route.fulfill({ json: passkeys })
+  })
+  await page.route('**/api/v1/users/me/passkeys/*', async (route) => {
+    if (route.request().method() === 'DELETE') {
+      passkeys = []
+      return route.fulfill({ status: 204 })
+    }
+    return route.fulfill({ json: passkeys[0] })
+  })
+  await page.route('**/api/v1/auth/passkeys/register/options', route => route.fulfill({ json: { ceremony_token: 'register-ceremony-token-value-123456', options: creationOptions } }))
+  await page.route('**/api/v1/auth/passkeys/register/verify', async (route) => {
+    const body = route.request().postDataJSON()
+    registeredId = body.credential.rawId
+    passkeys = [{ id: '11111111-1111-1111-1111-111111111111', name: body.name || 'Passkey 1', created_at: new Date().toISOString(), updated_at: new Date().toISOString(), last_used_at: null, device_type: 'single_device', backed_up: false, transports: ['internal'] }]
+    return route.fulfill({ json: passkeys[0] })
+  })
+  await page.route('**/api/v1/auth/passkeys/login/options', route => route.fulfill({ json: { ceremony_token: 'login-ceremony-token-value-123456789', options: authenticationOptions() } }))
+  await page.route('**/api/v1/auth/passkeys/login/verify', async (route) => { authenticated = true; await route.fulfill({ json: { status: 'authenticated', user, csrf_token: 'csrf-passkey' } }) })
+  await page.route('**/api/v1/auth/passkeys/reauth/options', route => route.fulfill({ json: { ceremony_token: 'reauth-ceremony-token-value-123456', options: authenticationOptions() } }))
+  await page.route('**/api/v1/auth/passkeys/reauth/verify', route => route.fulfill({ json: { status: 'authenticated', user, csrf_token: 'csrf-reauth' } }))
+  await page.route('**/api/v1/auth/logout', async (route) => { authenticated = false; await route.fulfill({ json: { message: 'Abgemeldet.' } }) })
+  await page.route('**/api/v1/auth/login', route => route.fulfill({ json: { status: 'mfa_required', challenge_token: 'opaque-challenge-token-value-1234567890', method: 'passkey', methods: ['passkey'], expires_in: 300 } }))
+  await page.route('**/api/v1/auth/mfa/passkey/options', route => route.fulfill({ json: { ceremony_token: 'mfa-ceremony-token-value-1234567890', options: authenticationOptions() } }))
+  await page.route('**/api/v1/auth/mfa/passkey/verify', async (route) => { authenticated = true; await route.fulfill({ json: { status: 'authenticated', user, csrf_token: 'csrf-mfa-passkey' } }) })
+
+  await page.goto('http://localhost:3010/profil/sicherheit')
+  await page.getByLabel('Name des neuen Passkeys (optional)').fill('Test-Laptop')
+  await page.getByRole('button', { name: 'Passkey hinzufügen' }).click()
+  await expect(page.getByRole('heading', { name: 'Test-Laptop' })).toBeVisible()
+
+  await page.locator('[data-header-account]').click()
+  await page.getByRole('menuitem', { name: 'Abmelden' }).click()
+  await page.goto('http://localhost:3010/login')
+  await page.getByRole('button', { name: 'Mit Passkey anmelden' }).click()
+  await expect(page).toHaveURL('http://localhost:3010/')
+
+  await page.locator('[data-header-account]').click()
+  await page.getByRole('menuitem', { name: 'Abmelden' }).click()
+  await page.goto('http://localhost:3010/login')
+  await page.getByLabel('E-Mail').fill(user.email)
+  await page.getByLabel('Passwort').fill('correct horse battery staple')
+  await page.getByRole('button', { name: 'Anmelden', exact: true }).click()
+  await page.getByRole('button', { name: 'Passkey verwenden' }).click()
+  await expect(page).toHaveURL('http://localhost:3010/')
+
+  await page.goto('http://localhost:3010/profil/sicherheit')
+  await page.getByRole('button', { name: 'Entfernen' }).click()
+  await page.getByRole('button', { name: 'Passkey entfernen', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Test-Laptop' })).toHaveCount(0)
+})

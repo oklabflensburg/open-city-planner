@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from cryptography.fernet import Fernet
 from pydantic import Field
@@ -80,6 +81,11 @@ class Settings(BaseSettings):
     mfa_setup_expire_seconds: int = Field(default=600, ge=300, le=1800)
     reauth_max_age_seconds: int = Field(default=600, ge=60, le=3600)
     require_mfa_for_superusers: bool = False
+    webauthn_rp_id: str = "localhost"
+    webauthn_rp_name: str = "Stadtplaner OK Lab Flensburg"
+    webauthn_origin: str = "http://localhost:3000"
+    webauthn_challenge_expire_seconds: int = Field(default=300, ge=60, le=900)
+    webauthn_timeout_ms: int = Field(default=60_000, ge=15_000, le=300_000)
     avatar_upload_dir: str = "data/uploads"
     avatar_max_file_size: int = 5_242_880
     avatar_output_size: int = 512
@@ -198,6 +204,25 @@ class Settings(BaseSettings):
                 Fernet(self.mfa_encryption_key.encode())
             except (TypeError, ValueError) as exc:
                 raise RuntimeError("MFA_ENCRYPTION_KEY is invalid") from exc
+        if self.production and not self.webauthn_origin.startswith("https://"):
+            raise RuntimeError("WEBAUTHN_ORIGIN must use HTTPS in production")
+        if "://" in self.webauthn_rp_id or "/" in self.webauthn_rp_id:
+            raise RuntimeError("WEBAUTHN_RP_ID must be a hostname without scheme or path")
+        origin = urlsplit(self.webauthn_origin)
+        if (
+            origin.scheme not in {"http", "https"}
+            or not origin.hostname
+            or origin.username
+            or origin.password
+            or origin.path not in {"", "/"}
+            or origin.query
+            or origin.fragment
+        ):
+            raise RuntimeError("WEBAUTHN_ORIGIN must be an HTTP(S) origin without path")
+        rp_id = self.webauthn_rp_id.lower().rstrip(".")
+        origin_host = origin.hostname.lower().rstrip(".")
+        if origin_host != rp_id and not origin_host.endswith(f".{rp_id}"):
+            raise RuntimeError("WEBAUTHN_RP_ID must match the WebAuthn origin hostname")
         if self.mastodon_area_update_debounce_seconds < 0:
             raise RuntimeError("MASTODON_AREA_UPDATE_DEBOUNCE_SECONDS must not be negative")
         if not 0 <= self.mastodon_boundary_change_min_ratio <= 1:

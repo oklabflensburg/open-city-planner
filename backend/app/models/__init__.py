@@ -2,7 +2,13 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.analysis_area import AnalysisArea, PolygonAnalysisArea
 from app.models.cache_version import CacheVersion
 from app.models.city_metrics import CityMetrics
-from app.models.mfa import AuthMfaChallenge, UserMfaMethod, UserMfaRecoveryCode
+from app.models.mfa import (
+    AuthMfaChallenge,
+    UserMfaMethod,
+    UserMfaRecoveryCode,
+    UserWebAuthnCredential,
+    WebAuthnChallenge,
+)
 from app.models.notification import Notification, NotificationPreference, NotificationSubscription
 from app.models.oauth_account import MastodonOAuthInstance, OAuthFlowGrant, UserOAuthAccount
 from app.models.osm_feature import OsmFeature
@@ -55,4 +61,6 @@ __all__ = [
     "UserOAuthAccount",
     "UserPolygon",
     "UserSession",
+    "UserWebAuthnCredential",
+    "WebAuthnChallenge",
 ]

@@ -37,6 +37,11 @@ from app.schemas.auth import (
     MfaRegenerateRequest,
     MfaSecurityStatus,
     MfaVerifyRequest,
+    PasskeyAuthenticationVerifyRequest,
+    PasskeyMfaOptionsRequest,
+    PasskeyMfaVerifyRequest,
+    PasskeyRead,
+    PasskeyRegistrationVerifyRequest,
     RecoveryCodesResponse,
     ResetPasswordRequest,
     SignupRequest,
@@ -44,6 +49,7 @@ from app.schemas.auth import (
     TotpConfirmRequest,
     TotpSetupResponse,
     VerificationResponse,
+    WebAuthnOptionsResponse,
 )
 from app.schemas.oauth import (
     MastodonOAuthLinkRequest,
@@ -91,6 +97,18 @@ from app.services.oauth_account_service import (
     get_for_user_provider,
     link_oauth_account,
     normalize_provider,
+)
+from app.services.passkey_service import (
+    authentication_options,
+    available_mfa_methods,
+    mfa_options,
+    registration_options,
+    verify_passwordless_login,
+    verify_reauthentication,
+    verify_registration,
+)
+from app.services.passkey_service import (
+    verify_mfa as verify_passkey_mfa,
 )
 from app.services.rate_limit import check_rate_limit
 
@@ -246,11 +264,140 @@ async def post_login(
     user = await authenticate(session, payload)
     if await user_requires_mfa(session, user.id):
         challenge = await create_login_challenge(session, user, request, primary_method="password")
+        methods = await available_mfa_methods(session, user.id)
         return MfaChallengeResponse(
-            challenge_token=challenge.token, expires_in=challenge.expires_in
+            challenge_token=challenge.token,
+            method="passkey" if "passkey" in methods else "totp",
+            methods=methods,
+            expires_in=challenge.expires_in,
         )
     csrf_token = await issue_session(session, response, user, request, amr=["pwd"])
     return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
+
+
+@router.post("/passkeys/register/options", response_model=WebAuthnOptionsResponse)
+async def post_passkey_registration_options(
+    session: SessionDep,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> WebAuthnOptionsResponse:
+    validate_csrf(request)
+    require_recent_auth(request)
+    check_rate_limit(f"passkey-register-options:{user.id}", attempts=5, window_seconds=600)
+    result = await registration_options(session, user, request)
+    return WebAuthnOptionsResponse(ceremony_token=result.token, options=result.options)
+
+
+@router.post("/passkeys/register/verify", response_model=PasskeyRead)
+async def post_passkey_registration_verify(
+    payload: PasskeyRegistrationVerifyRequest,
+    session: SessionDep,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> PasskeyRead:
+    validate_csrf(request)
+    require_recent_auth(request)
+    check_rate_limit(f"passkey-register-verify:{user.id}", attempts=5, window_seconds=600)
+    record = await verify_registration(
+        session, user, payload.ceremony_token, payload.credential, payload.name
+    )
+    send_mfa_security_email(user, "passkey_added")
+    return PasskeyRead.model_validate(record)
+
+
+@router.post("/passkeys/login/options", response_model=WebAuthnOptionsResponse)
+async def post_passkey_login_options(
+    session: SessionDep, request: Request
+) -> WebAuthnOptionsResponse:
+    check_rate_limit(
+        f"passkey-login-options:{request.client.host if request.client else 'unknown'}",
+        attempts=10,
+        window_seconds=300,
+    )
+    result = await authentication_options(session, request)
+    return WebAuthnOptionsResponse(ceremony_token=result.token, options=result.options)
+
+
+@router.post("/passkeys/login/verify", response_model=AuthResponse)
+async def post_passkey_login_verify(
+    payload: PasskeyAuthenticationVerifyRequest,
+    session: SessionDep,
+    response: Response,
+    request: Request,
+) -> AuthResponse:
+    check_rate_limit(
+        f"passkey-login-verify:{request.client.host if request.client else 'unknown'}",
+        attempts=8,
+        window_seconds=300,
+    )
+    user = await verify_passwordless_login(session, payload.ceremony_token, payload.credential)
+    csrf_token = await issue_session(session, response, user, request, amr=["webauthn"])
+    return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
+
+
+@router.post("/mfa/passkey/options", response_model=WebAuthnOptionsResponse)
+async def post_mfa_passkey_options(
+    payload: PasskeyMfaOptionsRequest, session: SessionDep, request: Request
+) -> WebAuthnOptionsResponse:
+    fingerprint = hash_token(payload.challenge_token)[:24]
+    check_rate_limit(f"passkey-mfa-options:{fingerprint}", attempts=5, window_seconds=300)
+    result = await mfa_options(session, request, payload.challenge_token)
+    return WebAuthnOptionsResponse(ceremony_token=result.token, options=result.options)
+
+
+@router.post("/mfa/passkey/verify", response_model=AuthResponse)
+async def post_mfa_passkey_verify(
+    payload: PasskeyMfaVerifyRequest,
+    session: SessionDep,
+    response: Response,
+    request: Request,
+) -> AuthResponse:
+    fingerprint = hash_token(payload.challenge_token)[:24]
+    check_rate_limit(f"passkey-mfa-verify:{fingerprint}", attempts=5, window_seconds=300)
+    user, primary_method = await verify_passkey_mfa(
+        session, payload.challenge_token, payload.ceremony_token, payload.credential
+    )
+    primary = "oauth" if primary_method.startswith("oauth") else "pwd"
+    csrf_token = await issue_session(
+        session, response, user, request, amr=[primary, "webauthn"]
+    )
+    return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
+
+
+@router.post("/passkeys/reauth/options", response_model=WebAuthnOptionsResponse)
+async def post_passkey_reauth_options(
+    session: SessionDep,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> WebAuthnOptionsResponse:
+    validate_csrf(request)
+    check_rate_limit(f"passkey-reauth-options:{user.id}", attempts=5, window_seconds=300)
+    result = await authentication_options(
+        session, request, user_id=user.id, purpose="passkey_step_up"
+    )
+    return WebAuthnOptionsResponse(ceremony_token=result.token, options=result.options)
+
+
+@router.post("/passkeys/reauth/verify", response_model=AuthResponse)
+async def post_passkey_reauth_verify(
+    payload: PasskeyAuthenticationVerifyRequest,
+    session: SessionDep,
+    response: Response,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> AuthResponse:
+    validate_csrf(request)
+    check_rate_limit(f"passkey-reauth-verify:{user.id}", attempts=5, window_seconds=300)
+    verified_user = await verify_reauthentication(
+        session, user.id, payload.ceremony_token, payload.credential
+    )
+    await revoke_current_session(
+        session, request.cookies.get(get_settings().auth_refresh_cookie_name)
+    )
+    csrf_token = await issue_session(
+        session, response, verified_user, request, amr=["webauthn"]
+    )
+    return AuthResponse(user=UserRead.model_validate(verified_user), csrf_token=csrf_token)
 
 
 @router.post("/mfa/verify", response_model=AuthResponse)
@@ -731,6 +878,7 @@ async def oauth_callback(
         else safe_redirect_path(flow.redirect_path)
     )
     if await user_requires_mfa(session, user.id):
+        methods = await available_mfa_methods(session, user.id)
         challenge = await create_login_challenge(
             session,
             user,
@@ -739,7 +887,11 @@ async def oauth_callback(
             redirect_path=redirect_path,
         )
         mfa_query = urllib.parse.urlencode(
-            {"challenge": challenge.token, "redirect": redirect_path}
+            {
+                "challenge": challenge.token,
+                "redirect": redirect_path,
+                "methods": ",".join(methods),
+            }
         )
         redirect_response = RedirectResponse(
             f"{settings.app_base_url.rstrip('/')}/auth/mfa?{mfa_query}",

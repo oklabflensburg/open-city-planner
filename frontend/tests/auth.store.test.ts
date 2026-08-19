@@ -77,6 +77,69 @@ describe('auth store', () => {
     expect(store.mfaChallenge).toBeNull()
   })
 
+  it('starts and finishes passwordless passkey login through the existing session state', async () => {
+    const options = { ceremony_token: 'ceremony-token-value-123456789012345', options: { challenge: 'AQID' } }
+    const request = vi.fn()
+      .mockResolvedValueOnce(options)
+      .mockResolvedValueOnce({ status: 'authenticated', user, csrf_token: 'csrf-passkey' })
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+
+    expect(await store.startPasskeyLogin()).toEqual(options)
+    await store.finishPasskeyLogin(options.ceremony_token, { id: 'credential' })
+
+    expect(request).toHaveBeenNthCalledWith(1, '/auth/passkeys/login/options', {
+      method: 'POST', retryOnUnauthorized: false
+    })
+    expect(JSON.parse(request.mock.calls[1][1].body)).toEqual({
+      ceremony_token: options.ceremony_token,
+      credential: { id: 'credential' }
+    })
+    expect(store.user).toEqual(user)
+    expect(store.csrfToken).toBe('csrf-passkey')
+  })
+
+  it('binds passkey MFA ceremonies to the in-memory login challenge', async () => {
+    const options = { ceremony_token: 'ceremony-token-value-123456789012345', options: { challenge: 'AQID' } }
+    const request = vi.fn()
+      .mockResolvedValueOnce(options)
+      .mockResolvedValueOnce({ status: 'authenticated', user, csrf_token: 'csrf-mfa-passkey' })
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+    store.setMfaChallenge('opaque-challenge-token-value-1234567890', 300, ['passkey', 'totp'])
+
+    await store.startPasskeyMfa()
+    await store.finishPasskeyMfa(options.ceremony_token, { id: 'credential' })
+
+    expect(JSON.parse(request.mock.calls[0][1].body)).toEqual({
+      challenge_token: 'opaque-challenge-token-value-1234567890'
+    })
+    expect(JSON.parse(request.mock.calls[1][1].body)).toEqual({
+      challenge_token: 'opaque-challenge-token-value-1234567890',
+      ceremony_token: options.ceremony_token,
+      credential: { id: 'credential' }
+    })
+    expect(store.user).toEqual(user)
+    expect(store.mfaChallenge).toBeNull()
+  })
+
+  it('loads, registers and renames passkeys without persisting credential material', async () => {
+    const first = { id: 'passkey-1', name: 'Laptop', created_at: new Date().toISOString(), updated_at: new Date().toISOString(), last_used_at: null, device_type: 'single_device', backed_up: false, transports: ['internal'] }
+    const renamed = { ...first, name: 'Arbeitslaptop' }
+    const request = vi.fn()
+      .mockResolvedValueOnce([first])
+      .mockResolvedValueOnce(renamed)
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+
+    await store.loadPasskeys()
+    await store.renamePasskey(first.id, renamed.name)
+
+    expect(store.passkeys).toEqual([renamed])
+    expect(JSON.stringify(store.$state)).not.toContain('public_key')
+    expect(JSON.stringify(store.$state)).not.toContain('credential_id')
+  })
+
   it('rejects malformed MFA factors before sending them to the API', async () => {
     const request = vi.fn()
     vi.stubGlobal('useApi', () => ({ request }))

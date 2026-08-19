@@ -5,9 +5,10 @@ Revises: 20260814_0012
 """
 
 import sqlalchemy as sa
-from alembic import op
 from geoalchemy2 import Geometry
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision = "20260814_0013"
 down_revision = "20260814_0012"

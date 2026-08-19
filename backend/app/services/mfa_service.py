@@ -16,7 +16,12 @@ from app.auth.passwords import verify_password
 from app.auth.tokens import generate_token, hash_token
 from app.core.config import get_settings
 from app.models.admin_audit_log import AdminAuditLog
-from app.models.mfa import AuthMfaChallenge, UserMfaMethod, UserMfaRecoveryCode
+from app.models.mfa import (
+    AuthMfaChallenge,
+    UserMfaMethod,
+    UserMfaRecoveryCode,
+    UserWebAuthnCredential,
+)
 from app.models.user import User
 from app.models.user_session import UserSession
 from app.security.encryption import MfaEncryptionError, decrypt_mfa_secret, encrypt_mfa_secret
@@ -84,7 +89,13 @@ async def enabled_method(
 
 
 async def user_requires_mfa(session: AsyncSession, user_id: uuid.UUID) -> bool:
-    return await enabled_method(session, user_id) is not None
+    if await enabled_method(session, user_id) is not None:
+        return True
+    return bool(
+        await session.scalar(
+            select(UserWebAuthnCredential.id).where(UserWebAuthnCredential.user_id == user_id)
+        )
+    )
 
 
 async def create_login_challenge(

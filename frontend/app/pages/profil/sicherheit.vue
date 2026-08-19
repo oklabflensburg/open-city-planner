@@ -1,6 +1,7 @@
 <template>
   <ContentPageShell title="Sicherheit" description="Passwort und aktive Anmeldungen Ihres Kontos verwalten." eyebrow="Konto" :breadcrumbs="[{ label: 'Startseite', to: '/' }, { label: 'Profil', to: '/profil' }, { label: 'Sicherheit' }]" max-width="reading">
     <div class="space-y-6">
+    <PasskeySecurityPanel />
     <MfaSecurityPanel />
     <Card class="p-5 sm:p-7">
       <form class="grid gap-4" @submit.prevent="submit">

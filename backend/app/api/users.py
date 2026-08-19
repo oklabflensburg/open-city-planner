@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -11,19 +12,21 @@ from app.auth.jwt import decode_jwt
 from app.core.config import get_settings
 from app.models.user import User
 from app.models.user_polygon import UserPolygon
-from app.schemas.auth import MessageResponse
+from app.schemas.auth import MessageResponse, PasskeyRead, PasskeyRenameRequest
 from app.schemas.geojson import PolygonRead
 from app.schemas.oauth import UserOAuthAccountRead
 from app.schemas.user import AccountDeletionRequest, UserRead, UserUpdate
 from app.services.account_service import deactivate_own_account, delete_own_account
 from app.services.auth_service import clear_auth_cookies
 from app.services.avatar_service import delete_avatar_file, save_avatar
+from app.services.email_service import send_mfa_security_email
 from app.services.mfa_service import require_recent_auth
 from app.services.oauth_account_service import (
     get_for_user,
     normalize_provider,
     unlink_oauth_account,
 )
+from app.services.passkey_service import list_passkeys, remove_passkey, rename_passkey
 from app.services.polygons import serialize_polygon
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -119,6 +122,40 @@ async def delete_user_oauth_account(
     validate_csrf(request)
     require_recent_auth(request)
     await unlink_oauth_account(session, user, normalize_provider(provider))
+
+
+@router.get("/me/passkeys", response_model=list[PasskeyRead])
+async def get_user_passkeys(
+    session: SessionDep, user: Annotated[User, Depends(get_current_active_user)]
+) -> list[PasskeyRead]:
+    return [PasskeyRead.model_validate(value) for value in await list_passkeys(session, user.id)]
+
+
+@router.patch("/me/passkeys/{credential_id}", response_model=PasskeyRead)
+async def patch_user_passkey(
+    credential_id: uuid.UUID,
+    payload: PasskeyRenameRequest,
+    session: SessionDep,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> PasskeyRead:
+    validate_csrf(request)
+    require_recent_auth(request)
+    record = await rename_passkey(session, user.id, credential_id, payload.name)
+    return PasskeyRead.model_validate(record)
+
+
+@router.delete("/me/passkeys/{credential_id}", status_code=204)
+async def delete_user_passkey(
+    credential_id: uuid.UUID,
+    session: SessionDep,
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+) -> None:
+    validate_csrf(request)
+    require_recent_auth(request)
+    remaining = await remove_passkey(session, user, credential_id)
+    send_mfa_security_email(user, "passkey_removed" if remaining else "passkeys_removed")
 
 
 @router.get("/me/polygons", response_model=list[PolygonRead])

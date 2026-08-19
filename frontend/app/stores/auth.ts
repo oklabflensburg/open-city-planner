@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
-import type { AuthResponse, AuthUser, LoginResponse, MfaChallenge, MfaSecurityStatus, OAuthAccount, OAuthProvider, TotpSetup, VerificationResponse } from '~/types/auth'
+import type { AuthResponse, AuthUser, LoginResponse, MfaChallenge, MfaSecurityStatus, OAuthAccount, OAuthProvider, Passkey, TotpSetup, VerificationResponse, WebAuthnOptionsResponse } from '~/types/auth'
 import { buildApiUrl } from '~/utils/apiUrl'
 import { sanitizeInternalRedirect } from '~/utils/redirect'
+import { authenticateWithPasskey, createPasskey } from '~/utils/webauthn'
 
 const initializationPromises = new WeakMap<object, Promise<void>>()
 
@@ -28,7 +29,8 @@ export const useAuthStore = defineStore('auth', {
     oauthProvidersLoaded: false,
     oauthError: '' as string,
     oauthAccounts: [] as OAuthAccount[],
-    mfaChallenge: null as MfaChallenge | null
+    mfaChallenge: null as MfaChallenge | null,
+    passkeys: [] as Passkey[]
   }),
   getters: {
     authenticated: (state) => !!state.user,
@@ -173,9 +175,11 @@ export const useAuthStore = defineStore('auth', {
         retryOnUnauthorized: false
       })
       if (result.status === 'mfa_required') {
+        const methods: MfaChallenge['methods'] = result.methods || ['totp', 'recovery_code']
         this.mfaChallenge = {
           token: result.challenge_token,
-          method: result.method,
+          method: methods.includes('passkey') ? 'passkey' : result.method,
+          methods,
           expiresAt: Date.now() + result.expires_in * 1000
         }
         this.user = null
@@ -185,8 +189,8 @@ export const useAuthStore = defineStore('auth', {
       this.applyAuthSession(result)
       return result
     },
-    setMfaChallenge(token: string, expiresIn = 300) {
-      this.mfaChallenge = { token, method: 'totp', expiresAt: Date.now() + expiresIn * 1000 }
+    setMfaChallenge(token: string, expiresIn = 300, methods: MfaChallenge['methods'] = ['totp', 'recovery_code']) {
+      this.mfaChallenge = { token, method: methods.includes('passkey') ? 'passkey' : 'totp', methods, expiresAt: Date.now() + expiresIn * 1000 }
     },
     clearMfaChallenge() {
       this.mfaChallenge = null
@@ -214,6 +218,101 @@ export const useAuthStore = defineStore('auth', {
       })
       this.applyAuthSession(result)
       return result
+    },
+    async startPasskeyLogin() {
+      return await useApi().request<WebAuthnOptionsResponse>('/auth/passkeys/login/options', {
+        method: 'POST', retryOnUnauthorized: false
+      })
+    },
+    async finishPasskeyLogin(ceremonyToken: string, credential: Record<string, unknown>) {
+      const result = await useApi().request<AuthResponse>('/auth/passkeys/login/verify', {
+        method: 'POST',
+        body: JSON.stringify({ ceremony_token: ceremonyToken, credential }),
+        retryOnUnauthorized: false
+      })
+      this.applyAuthSession(result)
+      return result
+    },
+    async loginWithPasskey() {
+      const ceremony = await this.startPasskeyLogin()
+      const credential = await authenticateWithPasskey(ceremony.options)
+      return await this.finishPasskeyLogin(ceremony.ceremony_token, credential)
+    },
+    async startPasskeyRegistration() {
+      return await useApi().request<WebAuthnOptionsResponse>('/auth/passkeys/register/options', {
+        method: 'POST'
+      })
+    },
+    async finishPasskeyRegistration(ceremonyToken: string, credential: Record<string, unknown>, name?: string) {
+      const record = await useApi().request<Passkey>('/auth/passkeys/register/verify', {
+        method: 'POST',
+        body: JSON.stringify({ ceremony_token: ceremonyToken, credential, name: name || null })
+      })
+      this.passkeys.push(record)
+      return record
+    },
+    async registerPasskey(name?: string) {
+      const ceremony = await this.startPasskeyRegistration()
+      const credential = await createPasskey(ceremony.options)
+      return await this.finishPasskeyRegistration(ceremony.ceremony_token, credential, name)
+    },
+    async startPasskeyMfa() {
+      if (!this.mfaChallenge || this.mfaChallenge.expiresAt <= Date.now()) {
+        this.clearMfaChallenge()
+        throw new Error('Die Anmeldung ist abgelaufen. Bitte melden Sie sich erneut an.')
+      }
+      return await useApi().request<WebAuthnOptionsResponse>('/auth/mfa/passkey/options', {
+        method: 'POST',
+        body: JSON.stringify({ challenge_token: this.mfaChallenge.token }),
+        retryOnUnauthorized: false
+      })
+    },
+    async finishPasskeyMfa(ceremonyToken: string, credential: Record<string, unknown>) {
+      if (!this.mfaChallenge) throw new Error('Die Anmeldung ist abgelaufen. Bitte melden Sie sich erneut an.')
+      const result = await useApi().request<AuthResponse>('/auth/mfa/passkey/verify', {
+        method: 'POST',
+        body: JSON.stringify({
+          challenge_token: this.mfaChallenge.token,
+          ceremony_token: ceremonyToken,
+          credential
+        }),
+        retryOnUnauthorized: false
+      })
+      this.applyAuthSession(result)
+      return result
+    },
+    async verifyMfaWithPasskey() {
+      const ceremony = await this.startPasskeyMfa()
+      const credential = await authenticateWithPasskey(ceremony.options)
+      return await this.finishPasskeyMfa(ceremony.ceremony_token, credential)
+    },
+    async reauthenticateWithPasskey() {
+      const ceremony = await useApi().request<WebAuthnOptionsResponse>('/auth/passkeys/reauth/options', {
+        method: 'POST'
+      })
+      const credential = await authenticateWithPasskey(ceremony.options)
+      const result = await useApi().request<AuthResponse>('/auth/passkeys/reauth/verify', {
+        method: 'POST',
+        body: JSON.stringify({ ceremony_token: ceremony.ceremony_token, credential })
+      })
+      this.applyAuthSession(result)
+      return result
+    },
+    async loadPasskeys() {
+      this.passkeys = await useApi().request<Passkey[]>('/users/me/passkeys')
+      return this.passkeys
+    },
+    async renamePasskey(id: string, name: string) {
+      const updated = await useApi().request<Passkey>(`/users/me/passkeys/${id}`, {
+        method: 'PATCH', body: JSON.stringify({ name })
+      })
+      this.passkeys = this.passkeys.map(value => value.id === id ? updated : value)
+      return updated
+    },
+    async deletePasskey(id: string) {
+      await this.reauthenticateWithPasskey()
+      await useApi().request(`/users/me/passkeys/${id}`, { method: 'DELETE' })
+      this.passkeys = this.passkeys.filter(value => value.id !== id)
     },
     async signup(payload: SignupPayload) {
       const { request } = useApi()

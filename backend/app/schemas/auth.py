@@ -1,5 +1,6 @@
+import uuid
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
@@ -47,7 +48,10 @@ class AuthResponse(BaseModel):
 class MfaChallengeResponse(BaseModel):
     status: Literal["mfa_required"] = "mfa_required"
     challenge_token: str
-    method: Literal["totp"] = "totp"
+    method: Literal["passkey", "totp"] = "totp"
+    methods: list[Literal["passkey", "totp", "recovery_code"]] = Field(
+        default_factory=lambda: ["totp", "recovery_code"]
+    )
     expires_in: int
 
 
@@ -104,6 +108,65 @@ class MfaSecurityStatus(BaseModel):
     enabled_at: datetime | None = None
     last_used_at: datetime | None = None
     recovery_codes_remaining: int = 0
+
+
+class WebAuthnOptionsResponse(BaseModel):
+    ceremony_token: str
+    options: dict[str, Any]
+
+
+class PasskeyRegistrationVerifyRequest(BaseModel):
+    ceremony_token: str = Field(min_length=32, max_length=512)
+    credential: dict[str, Any]
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+
+    @field_validator("name")
+    @classmethod
+    def strip_optional_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Der Passkey-Name darf nicht leer sein.")
+        return stripped
+
+
+class PasskeyAuthenticationVerifyRequest(BaseModel):
+    ceremony_token: str = Field(min_length=32, max_length=512)
+    credential: dict[str, Any]
+
+
+class PasskeyMfaOptionsRequest(BaseModel):
+    challenge_token: str = Field(min_length=32, max_length=512)
+
+
+class PasskeyMfaVerifyRequest(PasskeyAuthenticationVerifyRequest):
+    challenge_token: str = Field(min_length=32, max_length=512)
+
+
+class PasskeyRead(BaseModel):
+    id: uuid.UUID
+    name: str
+    created_at: datetime
+    updated_at: datetime
+    last_used_at: datetime | None
+    device_type: str | None
+    backed_up: bool | None
+    transports: list[str] | None
+
+    model_config = {"from_attributes": True}
+
+
+class PasskeyRenameRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Der Passkey-Name darf nicht leer sein.")
+        return stripped
 
 
 class MessageResponse(BaseModel):

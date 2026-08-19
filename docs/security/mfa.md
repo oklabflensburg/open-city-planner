@@ -1,6 +1,6 @@
-# Zwei-Faktor-Authentifizierung (TOTP)
+# Zwei-Faktor-Authentifizierung (Passkeys und TOTP)
 
-Stadtplaner unterstützt optionale TOTP-Zwei-Faktor-Authentifizierung nach RFC 6238 (SHA-1, sechs Stellen, 30 Sekunden, Zeitfenster ±1). Die Einrichtung befindet sich unter `/profil/sicherheit`.
+Stadtplaner unterstützt Passkeys/WebAuthn als bevorzugte starke Methode und optionale TOTP-Zwei-Faktor-Authentifizierung nach RFC 6238 (SHA-1, sechs Stellen, 30 Sekunden, Zeitfenster ±1). Die Einrichtung befindet sich unter `/profil/sicherheit`; WebAuthn-Details stehen in [passkeys.md](passkeys.md).
 
 ## Sicherheitsinvarianten
 
@@ -13,7 +13,7 @@ Stadtplaner unterstützt optionale TOTP-Zwei-Faktor-Authentifizierung nach RFC 6
 - MFA-Änderungen verlangen eine frische, serverseitig über `auth_time` geprüfte Anmeldung. Deaktivierung und Code-Regeneration verlangen zusätzlich Passwort (sofern vorhanden) und TOTP/Recovery-Code.
 - MFA-Deaktivierung widerruft alle Refresh-Sitzungen. Refresh-Rotation übernimmt nach abgeschlossenem Login `auth_time` und `amr`, ohne erneut nach TOTP zu fragen.
 - Aktivierung und Recovery-Code-Regeneration widerrufen alle anderen Refresh-Familien; die gerade per Step-up bestätigte Browser-Sitzung bleibt gezielt erhalten.
-- Mit `REQUIRE_MFA_FOR_SUPERUSERS=true` verweigern die zentralen Superuser-Abhängigkeiten Admin-Zugriff, solange weder eine aktive TOTP-Methode noch ein `otp`-/Recovery-Nachweis im aktuellen JWT vorliegt. Die MFA-Einrichtungsseite bleibt erreichbar; anschließend ist eine neue MFA-Anmeldung erforderlich.
+- Mit `REQUIRE_MFA_FOR_SUPERUSERS=true` verweigern die zentralen Superuser-Abhängigkeiten Admin-Zugriff, solange weder Passkey noch aktive TOTP-Methode eingerichtet und als `webauthn`, `otp` oder `recovery` im aktuellen JWT nachgewiesen ist. Die Sicherheitseinrichtungsseite bleibt erreichbar; anschließend ist eine neue starke Anmeldung erforderlich.
 - Secrets, OTPs, Recovery-Codes und Challenge-Tokens dürfen weder in Audit-Metadaten noch in Logs gelangen.
 
 ## Betrieb

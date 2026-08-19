@@ -26,7 +26,8 @@ export type AuthResponse = {
 export type MfaChallengeResponse = {
   status: 'mfa_required'
   challenge_token: string
-  method: 'totp'
+  method: 'passkey' | 'totp'
+  methods: Array<'passkey' | 'totp' | 'recovery_code'>
   expires_in: number
 }
 
@@ -34,8 +35,25 @@ export type LoginResponse = AuthResponse | MfaChallengeResponse
 
 export type MfaChallenge = {
   token: string
-  method: 'totp'
+  method: 'passkey' | 'totp'
+  methods: Array<'passkey' | 'totp' | 'recovery_code'>
   expiresAt: number
+}
+
+export type WebAuthnOptionsResponse = {
+  ceremony_token: string
+  options: Record<string, any>
+}
+
+export type Passkey = {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string
+  last_used_at: string | null
+  device_type: 'single_device' | 'multi_device' | null
+  backed_up: boolean | null
+  transports: string[] | null
 }
 
 export type MfaSecurityStatus = {

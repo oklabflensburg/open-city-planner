@@ -3,16 +3,20 @@
     <ClientOnly>
       <AuthCard eyebrow="Konto" :title="mfaStep ? 'Zwei-Faktor-Authentifizierung' : 'Anmelden'">
       <template v-if="mfaStep">
-        <p class="mb-5 text-sm leading-6 text-slate-600">Geben Sie den sechsstelligen Code aus Ihrer Authenticator-App ein.</p>
+        <p class="mb-5 text-sm leading-6 text-slate-600">Bestätigen Sie Ihre Anmeldung mit einem Passkey oder einer anderen eingerichteten Sicherheitsmethode.</p>
         <form class="grid gap-4" @submit.prevent="submitMfa">
-          <OtpInput v-if="!useRecovery" ref="otpInput" v-model="mfaCode" :disabled="loading" :invalid="Boolean(error)" described-by="mfa-error" />
-          <div v-else class="grid gap-2">
+          <button v-if="passkeySupported && hasPasskeyMethod" class="page-button-primary" type="button" :disabled="passkeyLoading" @click="submitPasskeyMfa">
+            {{ passkeyLoading ? 'Passkey wird geprüft …' : 'Passkey verwenden' }}
+          </button>
+          <div v-if="hasPasskeyMethod && hasTotpMethod" class="flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-slate-400"><span class="h-px flex-1 bg-slate-200" /><span>oder</span><span class="h-px flex-1 bg-slate-200" /></div>
+          <OtpInput v-if="hasTotpMethod && !useRecovery" ref="otpInput" v-model="mfaCode" :disabled="loading" :invalid="Boolean(error)" described-by="mfa-error" />
+          <div v-else-if="hasTotpMethod" class="grid gap-2">
             <FormField id="recovery-code" v-model="recoveryCode" label="Wiederherstellungscode" autocomplete="one-time-code" required :disabled="loading" />
             <p class="text-xs text-slate-500">Geben Sie einen Ihrer zwölfstelligen Codes ein, zum Beispiel ABCD-EFGH-JKLM.</p>
           </div>
           <p v-if="error" id="mfa-error" class="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" role="alert">{{ error }}</p>
-          <button class="page-button-primary disabled:opacity-60" type="submit" :disabled="loading || (useRecovery ? !recoveryCodeValid : mfaCode.length !== 6)">{{ loading ? 'Wird geprüft …' : 'Bestätigen' }}</button>
-          <button class="text-sm font-semibold text-[#154d73]" type="button" :disabled="loading" @click="toggleRecovery">{{ useRecovery ? 'Authenticator-Code verwenden' : 'Wiederherstellungscode verwenden' }}</button>
+          <button v-if="hasTotpMethod" class="page-button-secondary disabled:opacity-60" type="submit" :disabled="loading || (useRecovery ? !recoveryCodeValid : mfaCode.length !== 6)">{{ loading ? 'Wird geprüft …' : 'Authenticator-Code bestätigen' }}</button>
+          <button v-if="hasTotpMethod" class="text-sm font-semibold text-[#154d73]" type="button" :disabled="loading" @click="toggleRecovery">{{ useRecovery ? 'Authenticator-Code verwenden' : 'Wiederherstellungscode verwenden' }}</button>
           <button class="text-sm font-semibold text-slate-600" type="button" :disabled="loading" @click="backToLogin">Zurück</button>
         </form>
       </template>
@@ -30,6 +34,10 @@
         <p v-if="authErrorPresentation.showSupportLink" class="mt-2 text-sm leading-6 text-slate-700">Wenn Sie Ihr Konto wieder verwenden möchten, wenden Sie sich bitte an den Support.</p>
         <NuxtLink v-if="authErrorPresentation.showSupportLink" class="page-button-secondary mt-4 w-full sm:w-auto" to="/kontakt">Kontakt aufnehmen</NuxtLink>
       </Card>
+      <button v-if="passkeySupported" class="page-button-primary mb-5 w-full" type="button" :disabled="passkeyLoading" @click="submitPasskeyLogin">
+        {{ passkeyLoading ? 'Passkey wird geprüft …' : 'Mit Passkey anmelden' }}
+      </button>
+      <div v-if="passkeySupported" class="mb-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-slate-400"><span class="h-px flex-1 bg-slate-200" /><span>oder</span><span class="h-px flex-1 bg-slate-200" /></div>
       <form class="grid gap-4" @submit.prevent="submit">
         <FormField id="email" v-model="email" label="E-Mail" type="email" autocomplete="email" required :disabled="loading" />
         <FormField id="password" v-model="password" label="Passwort" type="password" autocomplete="current-password" required :disabled="loading" />
@@ -63,6 +71,7 @@
 import { ApiError } from '~/composables/useApi'
 import { getAuthErrorPresentation } from '~/utils/authErrors'
 import { sanitizeInternalRedirect } from '~/utils/redirect'
+import { isPasskeySupported } from '~/utils/webauthn'
 
 definePageMeta({ middleware: 'guest' })
 const route = useRoute()
@@ -76,9 +85,13 @@ const error = ref('')
 const mfaCode = ref('')
 const recoveryCode = ref('')
 const useRecovery = ref(false)
+const passkeySupported = ref(false)
+const passkeyLoading = ref(false)
 const otpInput = ref<{ focus: () => void } | null>(null)
 const mfaStep = computed(() => Boolean(authStore.mfaChallenge))
 const recoveryCodeValid = computed(() => /^[A-Z0-9]{12}$/i.test(recoveryCode.value.replace(/[\s-]/g, '')))
+const hasPasskeyMethod = computed(() => authStore.mfaChallenge?.methods.includes('passkey') ?? false)
+const hasTotpMethod = computed(() => authStore.mfaChallenge?.methods.includes('totp') ?? false)
 const authErrorCode = ref(typeof route.query.auth_error === 'string' ? route.query.auth_error : '')
 const accountResult = ref(typeof route.query.account === 'string' ? route.query.account : '')
 const redirectTarget = computed(() => sanitizeInternalRedirect(route.query.redirect))
@@ -90,12 +103,39 @@ const accountStatusMessage = computed(() => ({
 const authErrorPresentation = computed(() => getAuthErrorPresentation(authErrorCode.value))
 
 onMounted(async () => {
+  passkeySupported.value = isPasskeySupported()
   if (!route.query.auth_error && !route.query.account) return
   const query = { ...route.query }
   delete query.auth_error
   delete query.account
   await router.replace({ query })
 })
+
+async function submitPasskeyLogin() {
+  passkeyLoading.value = true
+  error.value = ''
+  try {
+    await authStore.loginWithPasskey()
+    await router.push(redirectTarget.value)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Die Passkey-Anmeldung ist fehlgeschlagen.'
+  } finally {
+    passkeyLoading.value = false
+  }
+}
+
+async function submitPasskeyMfa() {
+  passkeyLoading.value = true
+  error.value = ''
+  try {
+    await authStore.verifyMfaWithPasskey()
+    await router.push(redirectTarget.value)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Der Passkey konnte nicht geprüft werden.'
+  } finally {
+    passkeyLoading.value = false
+  }
+}
 
 async function submit() {
   loading.value = true

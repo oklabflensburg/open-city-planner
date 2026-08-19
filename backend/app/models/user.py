@@ -42,6 +42,7 @@ class User(Base):
     sessions = relationship("UserSession", back_populates="user")
     oauth_accounts = relationship("UserOAuthAccount", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     mfa_methods = relationship("UserMfaMethod", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    webauthn_credentials = relationship("UserWebAuthnCredential", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         Index("uq_users_email_lower", func.lower(email), unique=True),

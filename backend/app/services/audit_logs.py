@@ -34,6 +34,13 @@ _SENSITIVE_PARTS = {
     "authorizationcode",
     "codeverifier",
     "clientid",
+    "challenge",
+    "credential",
+    "publickey",
+    "clientdata",
+    "attestation",
+    "signature",
+    "userhandle",
 }
 
 
@@ -104,6 +111,16 @@ def _summary(log: AdminAuditLog, target: User | None) -> str:
         "MFA_RECOVERY_CODE_USED": f"Ein Wiederherstellungscode von {label} wurde verwendet.",
         "MFA_RECOVERY_CODES_REGENERATED": f"Neue Wiederherstellungscodes wurden für {label} erzeugt.",
         "MFA_CHALLENGE_BLOCKED": f"Eine Zwei-Faktor-Anmeldung für {label} wurde nach zu vielen Versuchen gesperrt.",
+        "PASSKEY_REGISTRATION_STARTED": f"Die Passkey-Einrichtung für {label} wurde begonnen.",
+        "PASSKEY_REGISTERED": f"Ein Passkey wurde für {label} registriert.",
+        "PASSKEY_REGISTRATION_FAILED": f"Ein Passkey konnte für {label} nicht registriert werden.",
+        "PASSKEY_LOGIN_SUCCESS": f"Die Passkey-Anmeldung für {label} war erfolgreich.",
+        "PASSKEY_LOGIN_FAILED": f"Eine Passkey-Anmeldung für {label} ist fehlgeschlagen.",
+        "PASSKEY_MFA_SUCCESS": f"Die Passkey-Sicherheitsbestätigung für {label} war erfolgreich.",
+        "PASSKEY_MFA_FAILED": f"Die Passkey-Sicherheitsbestätigung für {label} ist fehlgeschlagen.",
+        "PASSKEY_COUNTER_REGRESSION": f"Ein auffälliger Passkey-Signaturzähler wurde für {label} protokolliert.",
+        "PASSKEY_RENAMED": f"Ein Passkey von {label} wurde umbenannt.",
+        "PASSKEY_REMOVED": f"Ein Passkey von {label} wurde entfernt.",
         "POLYGON_DELETED": f"Die Fläche {(log.event_metadata or {}).get('title') or log.resource_id} wurde gelöscht.",
     }
     return summaries.get(log.action, f"Administrative Aktion {log.action} für {label}.")
