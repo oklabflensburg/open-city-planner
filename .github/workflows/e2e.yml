@@ -49,6 +49,8 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - uses: pnpm/action-setup@v6
+        with:
+          version: 11.20.0
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
