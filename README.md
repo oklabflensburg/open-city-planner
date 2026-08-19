@@ -1,5 +1,10 @@
 # Stadtplaner Flensburg
 
+[![Backend CI](https://github.com/oklabflensburg/open-city-planner/actions/workflows/backend.yml/badge.svg)](https://github.com/oklabflensburg/open-city-planner/actions/workflows/backend.yml)
+[![Frontend CI](https://github.com/oklabflensburg/open-city-planner/actions/workflows/frontend.yml/badge.svg)](https://github.com/oklabflensburg/open-city-planner/actions/workflows/frontend.yml)
+[![E2E Tests](https://github.com/oklabflensburg/open-city-planner/actions/workflows/e2e.yml/badge.svg)](https://github.com/oklabflensburg/open-city-planner/actions/workflows/e2e.yml)
+[![Security](https://github.com/oklabflensburg/open-city-planner/actions/workflows/security.yml/badge.svg)](https://github.com/oklabflensburg/open-city-planner/actions/workflows/security.yml)
+
 ![Screenshot Stadtplaner Flensburg](https://raw.githubusercontent.com/oklabflensburg/open-city-planner/main/screenshot_stadtplaner.webp)
 
 Produktionsnaher GIS-Monorepo-Scaffold mit Nuxt 4, TailwindCSS 4, MapLibre, Terra Draw, FastAPI, Cookie-basierter Authentifizierung und PostgreSQL/PostGIS.
@@ -10,6 +15,17 @@ Produktionsnaher GIS-Monorepo-Scaffold mit Nuxt 4, TailwindCSS 4, MapLibre, Terr
 - `backend/` FastAPI REST API mit SQLAlchemy 2, GeoAlchemy2, Alembic, PostGIS, Argon2id-Passwort-Hashing und JWT/Refresh-Session-Verwaltung
 
 Das offizielle Repository des Stadtplaners ist [oklabflensburg/open-city-planner](https://github.com/oklabflensburg/open-city-planner). Hinweise für Beiträge stehen in [CONTRIBUTING.md](CONTRIBUTING.md). Die im Frontend verwendeten Repository-, Issues- und Beitrags-URLs werden zentral in `frontend/app/config/project.ts` gepflegt.
+
+## Continuous Integration
+
+GitHub Actions prüft Backend, Frontend, Datenbankmigrationen und die wichtigsten
+Nutzerwege bei jedem Push und Pull Request. Die Browser-Tests starten dafür eine
+frische PostGIS-Datenbank mit reproduzierbaren Testdaten; externe Live-Dienste und
+Redis werden nicht benötigt. Netzabhängige Abhängigkeitsaudits laufen getrennt
+wöchentlich oder manuell.
+
+Die exakten lokalen Befehle, stabilen Check-Namen und die empfohlene Branch
+Protection sind in [docs/ci.md](docs/ci.md) dokumentiert.
 
 ## Frontend starten
 

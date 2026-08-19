@@ -11,6 +11,7 @@ const polygon = {
   id: polygonId, slug: 'osm-mode-adoptiert', name: 'OSM Mode', description: null, floor: 'EG', area_size: 'S', address_display_name: 'Holm 1, Flensburg',
   address_street: 'Holm', address_house_number: '1', address_postal_code: '24937', address_city: 'Flensburg', address_country: 'Deutschland', address_lookup_status: 'resolved',
   category: 'fashion', occupancy_status: 'UNKNOWN', occupancy_source: 'UNKNOWN', business_structure: 'UNKNOWN', geometry,
+  external_links: { wikidata: null, wikipedia: null },
   osm_sources: [{ osm_type: 'node', osm_id: 123, is_primary: true, imported_at: '2026-08-17T08:00:00Z' }],
   area_m2: 120, perimeter_m: 48, centroid: [9.435, 54.783], bbox: [9.4348, 54.7828, 9.4352, 54.7832],
   properties: {}, created_at: '2026-08-17T08:00:00Z', updated_at: '2026-08-17T08:00:00Z'
@@ -53,7 +54,8 @@ test('OSM adoption invalidates the same viewport and shows the persisted polygon
   await page.route('**/api/v1/analysis-areas**', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/osm/features/node/123', route => route.fulfill({ json: {
     osm_id: 123, osm_type: 'node', name: 'OSM Mode', category: 'retail', shop: 'clothes', level: '0', tags: { shop: 'clothes', level: '0' },
-    centroid: { longitude: 9.435, latitude: 54.783 }, occupancy_status: 'UNKNOWN', occupancy_source: null
+    centroid: { longitude: 9.435, latitude: 54.783 }, occupancy_status: 'UNKNOWN', occupancy_source: null,
+    external_links: { wikidata: null, wikipedia: null }
   } }))
   await page.route('**/api/v1/polygons/from-osm', route => {
     adoptionRequests += 1

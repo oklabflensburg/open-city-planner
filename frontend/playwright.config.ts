@@ -1,27 +1,39 @@
+import { existsSync } from 'node:fs'
 import { defineConfig, devices } from '@playwright/test'
+
+const localBackendPython = process.platform === 'win32'
+  ? '../backend/.venv/Scripts/python.exe'
+  : '../backend/.venv/bin/python'
+const backendPython = process.env.PLAYWRIGHT_BACKEND_PYTHON
+  || (existsSync(localBackendPython) ? localBackendPython : 'python')
+const chromiumPath = process.env.PLAYWRIGHT_CHROMIUM_PATH
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  fullyParallel: !process.env.CI,
+  workers: process.env.CI ? 1 : undefined,
   retries: 0,
-  reporter: 'line',
+  reporter: process.env.CI
+    ? [['line'], ['html', { open: 'never' }]]
+    : 'line',
   use: {
     baseURL: 'http://127.0.0.1:3010',
     trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
     ...devices['Desktop Chrome'],
-    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || '/snap/bin/chromium' }
+    launchOptions: chromiumPath ? { executablePath: chromiumPath } : undefined
   },
   webServer: [
     {
-      command: 'MASTODON_ENABLED=false ../backend/.venv/bin/uvicorn app.main:app --app-dir ../backend --host 127.0.0.1 --port 8010',
+      command: `${backendPython} -m uvicorn app.main:app --app-dir ../backend --host 127.0.0.1 --port 8010`,
       url: 'http://127.0.0.1:8010/health',
-      reuseExistingServer: true,
+      reuseExistingServer: !process.env.CI,
       timeout: 120_000
     },
     {
       command: 'NUXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8010/api/v1 pnpm dev --host 127.0.0.1 --port 3010',
       url: 'http://127.0.0.1:3010',
-      reuseExistingServer: true,
+      reuseExistingServer: !process.env.CI,
       timeout: 120_000
     }
   ]

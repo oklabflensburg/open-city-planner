@@ -63,17 +63,27 @@ Frontend prüfen:
 
 ```bash
 cd frontend
+pnpm install --frozen-lockfile
 pnpm test
 pnpm typecheck
 pnpm build
+pnpm audit:language
 ```
 
 Für Änderungen an wichtigen Nutzerwegen zusätzlich:
 
 ```bash
 cd frontend
+pnpm exec playwright install chromium
 pnpm test:e2e
 ```
+
+Die E2E-Suite startet Backend und Frontend selbst. Aktiviere vorher die Backend-
+Umgebung oder setze `PLAYWRIGHT_BACKEND_PYTHON` auf den gewünschten Python-
+Interpreter. Ein vorhandenes `backend/.venv` wird automatisch erkannt. Nur für
+einen bewusst verwendeten Systembrowser kann optional
+`PLAYWRIGHT_CHROMIUM_PATH` gesetzt werden; standardmäßig nutzt Playwright sein
+eigenes Chromium.
 
 ### Backend und Datenbank
 
@@ -90,18 +100,23 @@ cd backend
 source .venv/bin/activate
 ruff check app tests
 pytest
+python -c "from app.main import app; assert app.title"
 ```
 
 Eine neue Migration lässt sich im Backend beispielsweise so erzeugen und prüfen:
 
 ```bash
 alembic revision --autogenerate -m "kurze beschreibung"
+alembic heads
 alembic upgrade head
 alembic downgrade -1
 alembic upgrade head
 ```
 
 Prüfe die automatisch erzeugte Migration immer manuell, besonders bei PostGIS-Typen, Constraints und Datenmigrationen.
+
+Eine vollständige Übersicht der CI-Jobs und der als Required Checks empfohlenen
+Job-Namen steht in [docs/ci.md](docs/ci.md).
 
 ## Pull Requests
 

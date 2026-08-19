@@ -62,7 +62,7 @@ test('deactivation confirms once, logs out and reports success', async ({ page }
   await expect(dialog).toContainText('Ihre Daten und bisherigen Beiträge bleiben erhalten.')
   await dialog.getByRole('button', { name: 'Konto deaktivieren', exact: true }).click()
 
-  await expect(page).toHaveURL(/\/login\?account=deactivated$/)
+  await expect(page).toHaveURL(/\/login$/)
   await expect(page.getByText('Das Konto wurde deaktiviert.', { exact: false })).toBeVisible()
   expect(requestCount).toBe(1)
 })
