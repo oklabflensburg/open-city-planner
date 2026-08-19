@@ -161,7 +161,7 @@ async def test_mastodon_callback_consumes_grant_and_logs_in_existing_identity(
     monkeypatch.setattr(auth_api, "consume_mastodon_oauth_flow", consume)
     monkeypatch.setattr(auth_api, "exchange_mastodon_oauth_code", exchange)
     monkeypatch.setattr(auth_api, "authenticate_oauth_identity", authenticate)
-    monkeypatch.setattr(auth_api, "user_requires_mfa", AsyncMock(return_value=False))
+    monkeypatch.setattr(auth_api, "available_mfa_methods", AsyncMock(return_value=[]))
     monkeypatch.setattr(auth_api, "issue_session", issue)
     cookie = oauth.encode_oauth_flow(oauth.OAuthFlowState("random-state", "login", "/profil"))
     request = request_with_cookie(oauth.oauth_cookie_name("mastodon"), cookie)
@@ -195,7 +195,6 @@ async def test_oauth_mfa_redirect_uses_http_only_cookie_not_url(
     monkeypatch.setattr(auth_api, "provider_is_configured", lambda _provider: True)
     monkeypatch.setattr(auth_api, "exchange_oauth_code", AsyncMock(return_value=identity))
     monkeypatch.setattr(auth_api, "authenticate_oauth_identity", AsyncMock(return_value=user))
-    monkeypatch.setattr(auth_api, "user_requires_mfa", AsyncMock(return_value=True))
     monkeypatch.setattr(auth_api, "available_mfa_methods", AsyncMock(return_value=["totp"]))
     monkeypatch.setattr(
         auth_api,
@@ -215,7 +214,8 @@ async def test_oauth_mfa_redirect_uses_http_only_cookie_not_url(
 
     assert "secret-challenge" not in response.headers["location"]
     assert "challenge=" not in response.headers["location"]
-    assert response.headers["location"].endswith("/auth/mfa?redirect=%2Fprofil&methods=totp")
+    assert response.headers["location"].endswith("/auth/mfa?redirect=%2Fprofil")
+    assert "methods=" not in response.headers["location"]
     set_cookies = response.headers.getlist("set-cookie")
     challenge_cookie = next(value for value in set_cookies if "ocm_mfa_challenge=" in value)
     assert "secret-challenge" in challenge_cookie

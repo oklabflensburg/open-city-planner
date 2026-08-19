@@ -23,11 +23,20 @@ export type AuthResponse = {
   csrf_token: string
 }
 
+export type MfaMethod = 'passkey' | 'totp' | 'recovery_code'
+
 export type MfaChallengeResponse = {
   status: 'mfa_required'
   challenge_token: string
   method: 'passkey' | 'totp'
-  methods: Array<'passkey' | 'totp' | 'recovery_code'>
+  preferred_method: MfaMethod
+  methods: MfaMethod[]
+  expires_in: number
+}
+
+export type MfaChallengeDetailsResponse = {
+  preferred_method: MfaMethod
+  methods: MfaMethod[]
   expires_in: number
 }
 
@@ -35,8 +44,8 @@ export type LoginResponse = AuthResponse | MfaChallengeResponse
 
 export type MfaChallenge = {
   token: string
-  method: 'passkey' | 'totp'
-  methods: Array<'passkey' | 'totp' | 'recovery_code'>
+  preferredMethod: MfaMethod
+  methods: MfaMethod[]
   expiresAt: number
 }
 

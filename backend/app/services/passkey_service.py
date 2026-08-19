@@ -167,24 +167,6 @@ async def has_passkeys(session: AsyncSession, user_id: uuid.UUID) -> bool:
     )
 
 
-async def available_mfa_methods(
-    session: AsyncSession, user_id: uuid.UUID
-) -> list[str]:
-    methods: list[str] = []
-    if await has_passkeys(session, user_id):
-        methods.append("passkey")
-    totp = await session.scalar(
-        select(UserMfaMethod.id).where(
-            UserMfaMethod.user_id == user_id,
-            UserMfaMethod.type == "totp",
-            UserMfaMethod.is_enabled.is_(True),
-        )
-    )
-    if totp:
-        methods.extend(("totp", "recovery_code"))
-    return methods
-
-
 async def registration_options(
     session: AsyncSession, user: User, request: Request
 ) -> CeremonyOptions:

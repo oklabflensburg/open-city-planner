@@ -32,6 +32,7 @@ from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
     MessageResponse,
+    MfaChallengeDetailsResponse,
     MfaChallengeResponse,
     MfaDisableRequest,
     MfaRegenerateRequest,
@@ -81,15 +82,17 @@ from app.services.mastodon_sso import (
     exchange_mastodon_oauth_code,
 )
 from app.services.mfa_service import (
+    available_mfa_methods,
     confirm_totp_setup,
     create_login_challenge,
     disable_mfa,
+    login_challenge_details,
+    preferred_mfa_method,
     regenerate_recovery_codes,
     require_recent_auth,
     revoke_other_sessions,
     security_status,
     start_totp_setup,
-    user_requires_mfa,
     verify_login_challenge,
 )
 from app.services.oauth_account_service import (
@@ -100,7 +103,6 @@ from app.services.oauth_account_service import (
 )
 from app.services.passkey_service import (
     authentication_options,
-    available_mfa_methods,
     mfa_options,
     registration_options,
     verify_passwordless_login,
@@ -288,12 +290,13 @@ async def post_login(
 ) -> LoginResponse:
     await check_rate_limit(rate_limit_key(request, "login", str(payload.email)))
     user = await authenticate(session, payload)
-    if await user_requires_mfa(session, user.id):
+    methods = await available_mfa_methods(session, user.id)
+    if methods:
         challenge = await create_login_challenge(session, user, request, primary_method="password")
-        methods = await available_mfa_methods(session, user.id)
         return MfaChallengeResponse(
             challenge_token=challenge.token,
             method="passkey" if "passkey" in methods else "totp",
+            preferred_method=preferred_mfa_method(methods),
             methods=methods,
             expires_in=challenge.expires_in,
         )
@@ -374,6 +377,23 @@ async def post_mfa_passkey_options(
     )
     result = await mfa_options(session, request, challenge_token)
     return WebAuthnOptionsResponse(ceremony_token=result.token, options=result.options)
+
+
+@router.get("/mfa/challenge", response_model=MfaChallengeDetailsResponse)
+async def get_mfa_challenge(session: SessionDep, request: Request) -> MfaChallengeDetailsResponse:
+    challenge_token = mfa_challenge_token(request, None)
+    fingerprint = hash_token(challenge_token)[:24]
+    await check_rate_limit(
+        rate_limit_key(request, "mfa-challenge", fingerprint),
+        attempts=10,
+        window_seconds=300,
+    )
+    details = await login_challenge_details(session, challenge_token)
+    return MfaChallengeDetailsResponse(
+        preferred_method=details.preferred_method,
+        methods=details.methods,
+        expires_in=details.expires_in,
+    )
 
 
 @router.post("/mfa/passkey/verify", response_model=AuthResponse)
@@ -917,8 +937,8 @@ async def oauth_callback(
         if user.email_pending
         else safe_redirect_path(flow.redirect_path)
     )
-    if await user_requires_mfa(session, user.id):
-        methods = await available_mfa_methods(session, user.id)
+    methods = await available_mfa_methods(session, user.id)
+    if methods:
         challenge = await create_login_challenge(
             session,
             user,
@@ -926,9 +946,7 @@ async def oauth_callback(
             primary_method=f"oauth:{provider}",
             redirect_path=redirect_path,
         )
-        mfa_query = urllib.parse.urlencode(
-            {"redirect": redirect_path, "methods": ",".join(methods)}
-        )
+        mfa_query = urllib.parse.urlencode({"redirect": redirect_path})
         redirect_response = RedirectResponse(
             f"{settings.app_base_url.rstrip('/')}/auth/mfa?{mfa_query}",
             status_code=302,

@@ -6,6 +6,8 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, model_validato
 
 from app.schemas.user import UserRead
 
+MfaMethod = Literal["passkey", "totp", "recovery_code"]
+
 
 def normalize_email(email: str) -> str:
     return email.strip().lower()
@@ -49,9 +51,14 @@ class MfaChallengeResponse(BaseModel):
     status: Literal["mfa_required"] = "mfa_required"
     challenge_token: str
     method: Literal["passkey", "totp"] = "totp"
-    methods: list[Literal["passkey", "totp", "recovery_code"]] = Field(
-        default_factory=lambda: ["totp", "recovery_code"]
-    )
+    preferred_method: MfaMethod = "totp"
+    methods: list[MfaMethod] = Field(default_factory=lambda: ["totp", "recovery_code"])
+    expires_in: int
+
+
+class MfaChallengeDetailsResponse(BaseModel):
+    preferred_method: MfaMethod
+    methods: list[MfaMethod]
     expires_in: int
 
 

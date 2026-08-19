@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
-import type { AuthResponse, AuthUser, LoginResponse, MfaChallenge, MfaSecurityStatus, OAuthAccount, OAuthProvider, Passkey, TotpSetup, VerificationResponse, WebAuthnOptionsResponse } from '~/types/auth'
+import type { AuthResponse, AuthUser, LoginResponse, MfaChallenge, MfaChallengeDetailsResponse, MfaMethod, MfaSecurityStatus, OAuthAccount, OAuthProvider, Passkey, TotpSetup, VerificationResponse, WebAuthnOptionsResponse } from '~/types/auth'
 import { buildApiUrl } from '~/utils/apiUrl'
 import { sanitizeInternalRedirect } from '~/utils/redirect'
 import { authenticateWithPasskey, createPasskey } from '~/utils/webauthn'
+import { normalizeRecoveryCode } from '~/utils/mfa'
 
 const initializationPromises = new WeakMap<object, Promise<void>>()
 
@@ -178,7 +179,7 @@ export const useAuthStore = defineStore('auth', {
         const methods: MfaChallenge['methods'] = result.methods || ['totp', 'recovery_code']
         this.mfaChallenge = {
           token: result.challenge_token,
-          method: methods.includes('passkey') ? 'passkey' : result.method,
+          preferredMethod: result.preferred_method || (methods.includes('passkey') ? 'passkey' : result.method),
           methods,
           expiresAt: Date.now() + result.expires_in * 1000
         }
@@ -189,8 +190,20 @@ export const useAuthStore = defineStore('auth', {
       this.applyAuthSession(result)
       return result
     },
-    setMfaChallenge(token: string, expiresIn = 300, methods: MfaChallenge['methods'] = ['totp', 'recovery_code']) {
-      this.mfaChallenge = { token, method: methods.includes('passkey') ? 'passkey' : 'totp', methods, expiresAt: Date.now() + expiresIn * 1000 }
+    setMfaChallenge(token: string, expiresIn = 300, methods: MfaChallenge['methods'] = ['totp', 'recovery_code'], preferredMethod?: MfaMethod) {
+      this.mfaChallenge = {
+        token,
+        preferredMethod: preferredMethod || (methods.includes('passkey') ? 'passkey' : methods[0] || 'totp'),
+        methods,
+        expiresAt: Date.now() + expiresIn * 1000
+      }
+    },
+    async loadMfaChallenge() {
+      const result = await useApi().request<MfaChallengeDetailsResponse>('/auth/mfa/challenge', {
+        retryOnUnauthorized: false
+      })
+      this.setMfaChallenge('', result.expires_in, result.methods, result.preferred_method)
+      return result
     },
     clearMfaChallenge() {
       this.mfaChallenge = null
@@ -200,8 +213,12 @@ export const useAuthStore = defineStore('auth', {
         this.clearMfaChallenge()
         throw new Error('Die Anmeldung ist abgelaufen. Bitte melden Sie sich erneut an.')
       }
-      const factor = value.trim()
-      if (recovery && !/^[A-Z0-9]{12}$/i.test(factor.replace(/[\s-]/g, ''))) {
+      const method: MfaMethod = recovery ? 'recovery_code' : 'totp'
+      if (!this.mfaChallenge.methods.includes(method)) {
+        throw new Error('Diese Sicherheitsmethode ist für die Anmeldung nicht verfügbar.')
+      }
+      const factor = recovery ? normalizeRecoveryCode(value) : value.trim()
+      if (recovery && !/^[A-Z0-9]{12}$/.test(factor)) {
         throw new Error('Der Wiederherstellungscode muss aus zwölf Buchstaben oder Ziffern bestehen.')
       }
       if (!recovery && !/^\d{6}$/.test(factor)) {
@@ -260,6 +277,9 @@ export const useAuthStore = defineStore('auth', {
       if (!this.mfaChallenge || this.mfaChallenge.expiresAt <= Date.now()) {
         this.clearMfaChallenge()
         throw new Error('Die Anmeldung ist abgelaufen. Bitte melden Sie sich erneut an.')
+      }
+      if (!this.mfaChallenge.methods.includes('passkey')) {
+        throw new Error('Für diese Anmeldung ist kein Passkey verfügbar.')
       }
       return await useApi().request<WebAuthnOptionsResponse>('/auth/mfa/passkey/options', {
         method: 'POST',

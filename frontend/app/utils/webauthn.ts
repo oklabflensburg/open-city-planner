@@ -76,12 +76,31 @@ export function serializeCredential(credential: PublicKeyCredential): Record<str
   }
 }
 
-function passkeyBrowserError(error: unknown): Error {
+export class PasskeyBrowserError extends Error {
+  constructor(
+    message: string,
+    public readonly code: 'PASSKEY_CANCELLED' | 'PASSKEY_TIMEOUT'
+  ) {
+    super(message)
+    this.name = 'PasskeyBrowserError'
+  }
+}
+
+function passkeyBrowserError(error: unknown, elapsedMs = 0, timeoutMs = 0): Error {
   if (error instanceof DOMException && error.name === 'InvalidStateError') {
     return new Error('Dieser Passkey ist bereits registriert.')
   }
   if (error instanceof DOMException && error.name === 'NotAllowedError') {
-    return new Error('Die Passkey-Anmeldung wurde abgebrochen oder ist abgelaufen.')
+    if (timeoutMs > 0 && elapsedMs >= timeoutMs - 250) {
+      return new PasskeyBrowserError('Die Passkey-Anmeldung ist abgelaufen.', 'PASSKEY_TIMEOUT')
+    }
+    return new PasskeyBrowserError('Die Passkey-Anmeldung wurde abgebrochen.', 'PASSKEY_CANCELLED')
+  }
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return new PasskeyBrowserError('Die Passkey-Anmeldung wurde abgebrochen.', 'PASSKEY_CANCELLED')
+  }
+  if (error instanceof DOMException && error.name === 'TimeoutError') {
+    return new PasskeyBrowserError('Die Passkey-Anmeldung ist abgelaufen.', 'PASSKEY_TIMEOUT')
   }
   return error instanceof Error ? error : new Error('Der Passkey konnte nicht verwendet werden.')
 }
@@ -101,6 +120,7 @@ export async function createPasskey(options: WebAuthnOptions): Promise<Record<st
 
 export async function authenticateWithPasskey(options: WebAuthnOptions): Promise<Record<string, unknown>> {
   if (!isPasskeySupported()) throw new Error('Passkeys werden von diesem Browser nicht unterstützt.')
+  const startedAt = Date.now()
   try {
     const credential = await navigator.credentials.get({
       publicKey: deserializeRequestOptions(options)
@@ -108,6 +128,6 @@ export async function authenticateWithPasskey(options: WebAuthnOptions): Promise
     if (!credential) throw new Error('Es wurde kein Passkey ausgewählt.')
     return serializeCredential(credential)
   } catch (error) {
-    throw passkeyBrowserError(error)
+    throw passkeyBrowserError(error, Date.now() - startedAt, Number(options.timeout || 0))
   }
 }

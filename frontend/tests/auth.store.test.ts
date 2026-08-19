@@ -77,6 +77,34 @@ describe('auth store', () => {
     expect(store.mfaChallenge).toBeNull()
   })
 
+  it('loads OAuth MFA methods from the backend challenge cookie', async () => {
+    const request = vi.fn().mockResolvedValue({
+      preferred_method: 'totp',
+      methods: ['totp', 'recovery_code'],
+      expires_in: 240
+    })
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+
+    await store.loadMfaChallenge()
+
+    expect(request).toHaveBeenCalledWith('/auth/mfa/challenge', { retryOnUnauthorized: false })
+    expect(store.mfaChallenge?.token).toBe('')
+    expect(store.mfaChallenge?.preferredMethod).toBe('totp')
+    expect(store.mfaChallenge?.methods).toEqual(['totp', 'recovery_code'])
+  })
+
+  it('normalizes recovery codes before verification', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 'authenticated', user, csrf_token: 'csrf' })
+    vi.stubGlobal('useApi', () => ({ request }))
+    const store = useAuthStore()
+    store.setMfaChallenge('opaque-challenge-token-value-1234567890')
+
+    await store.verifyMfa('abcd efgh-ijkl', true)
+
+    expect(JSON.parse(request.mock.calls[0][1].body)).toMatchObject({ recovery_code: 'ABCDEFGHIJKL' })
+  })
+
   it('starts and finishes passwordless passkey login through the existing session state', async () => {
     const options = { ceremony_token: 'ceremony-token-value-123456789012345', options: { challenge: 'AQID' } }
     const request = vi.fn()

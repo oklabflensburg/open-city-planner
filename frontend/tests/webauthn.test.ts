@@ -4,7 +4,8 @@ import {
   arrayBufferToBase64url,
   base64urlToArrayBuffer,
   deserializeCreationOptions,
-  deserializeRequestOptions
+  deserializeRequestOptions,
+  PasskeyBrowserError
 } from '~/utils/webauthn'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -60,7 +61,22 @@ describe('WebAuthn utilities', () => {
       }
     })
 
-    await expect(authenticateWithPasskey({ challenge: 'AQID', rpId: 'localhost' }))
-      .rejects.toThrow('Die Passkey-Anmeldung wurde abgebrochen oder ist abgelaufen.')
+    const result = authenticateWithPasskey({ challenge: 'AQID', rpId: 'localhost' })
+    await expect(result).rejects.toThrow('Die Passkey-Anmeldung wurde abgebrochen.')
+    await expect(result).rejects.toMatchObject<PasskeyBrowserError>({ code: 'PASSKEY_CANCELLED' })
+  })
+
+  it('distinguishes an explicit browser timeout from cancellation', async () => {
+    vi.stubGlobal('window', { PublicKeyCredential: class {} })
+    vi.stubGlobal('PublicKeyCredential', class {})
+    vi.stubGlobal('navigator', {
+      credentials: {
+        get: vi.fn().mockRejectedValue(new DOMException('timed out', 'TimeoutError'))
+      }
+    })
+
+    const result = authenticateWithPasskey({ challenge: 'AQID', rpId: 'localhost' })
+    await expect(result).rejects.toThrow('Die Passkey-Anmeldung ist abgelaufen.')
+    await expect(result).rejects.toMatchObject<PasskeyBrowserError>({ code: 'PASSKEY_TIMEOUT' })
   })
 })

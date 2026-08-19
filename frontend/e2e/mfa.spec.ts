@@ -20,7 +20,7 @@ async function quietBackgroundApis(page: Page) {
 
 test('password login creates an MFA step and authenticates only after TOTP', async ({ page }) => {
   await unauthenticated(page)
-  await page.route('**/api/v1/auth/login', route => route.fulfill({ json: { status: 'mfa_required', challenge_token: 'opaque-challenge-token-value-1234567890', method: 'totp', expires_in: 300 } }))
+  await page.route('**/api/v1/auth/login', route => route.fulfill({ json: { status: 'mfa_required', challenge_token: 'opaque-challenge-token-value-1234567890', method: 'totp', preferred_method: 'totp', methods: ['totp'], expires_in: 300 } }))
   await page.route('**/api/v1/auth/mfa/verify', route => route.fulfill({ json: { status: 'authenticated', user, csrf_token: 'csrf-mfa' } }))
 
   await page.goto('/login')
@@ -35,7 +35,7 @@ test('password login creates an MFA step and authenticates only after TOTP', asy
 
 test('invalid TOTP remains logged out and recovery code can finish login', async ({ page }) => {
   await unauthenticated(page)
-  await page.route('**/api/v1/auth/login', route => route.fulfill({ json: { status: 'mfa_required', challenge_token: 'opaque-challenge-token-value-1234567890', method: 'totp', expires_in: 300 } }))
+  await page.route('**/api/v1/auth/login', route => route.fulfill({ json: { status: 'mfa_required', challenge_token: 'opaque-challenge-token-value-1234567890', method: 'totp', preferred_method: 'totp', methods: ['totp', 'recovery_code'], expires_in: 300 } }))
   let attempts = 0
   await page.route('**/api/v1/auth/mfa/verify', async (route) => {
     attempts += 1
@@ -50,12 +50,79 @@ test('invalid TOTP remains logged out and recovery code can finish login', async
   await page.getByRole('button', { name: 'Bestätigen' }).click()
   await expect(page.getByRole('alert')).toContainText('nicht gültig')
   await page.getByRole('button', { name: 'Wiederherstellungscode verwenden' }).click()
-  await expect(page.getByText('zwölfstelligen Codes')).toBeVisible()
-  await page.getByLabel('Wiederherstellungscode').fill('3223322323')
-  await expect(page.getByRole('button', { name: 'Bestätigen' })).toBeDisabled()
-  await page.getByLabel('Wiederherstellungscode').fill('ABCD-EFGH-JKLM')
-  await page.getByRole('button', { name: 'Bestätigen' }).click()
+  await expect(page.getByText('Jeder Wiederherstellungscode kann nur einmal verwendet werden.')).toBeVisible()
+  await page.getByLabel('Zwölfstelliger Wiederherstellungscode').fill('3223322323')
+  await expect(page.getByRole('button', { name: 'Wiederherstellungscode bestätigen' })).toBeDisabled()
+  await page.getByLabel('Zwölfstelliger Wiederherstellungscode').fill('abcd efgh ijkl')
+  await page.getByRole('button', { name: 'Wiederherstellungscode bestätigen' }).click()
   await expect(page).toHaveURL('/')
+})
+
+test('cancelled passkey keeps TOTP and recovery alternatives available', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 })
+  let passkeyVerifyRequests = 0
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/v1/auth/mfa/passkey/verify')) passkeyVerifyRequests += 1
+  })
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'credentials', {
+      configurable: true,
+      value: { get: async () => { throw new DOMException('cancelled', 'NotAllowedError') } }
+    })
+  })
+  await unauthenticated(page)
+  await page.route('**/api/v1/auth/login', route => route.fulfill({ json: {
+    status: 'mfa_required',
+    challenge_token: 'opaque-challenge-token-value-1234567890',
+    method: 'passkey',
+    preferred_method: 'passkey',
+    methods: ['passkey', 'totp', 'recovery_code'],
+    expires_in: 300
+  } }))
+  await page.route('**/api/v1/auth/mfa/passkey/options', route => route.fulfill({ json: {
+    ceremony_token: 'mfa-ceremony-token-value-1234567890',
+    options: { challenge: 'AQID', rpId: 'localhost', allowCredentials: [] }
+  } }))
+  await page.route('**/api/v1/auth/mfa/verify', route => route.fulfill({ json: {
+    status: 'authenticated', user, csrf_token: 'csrf-after-cancel'
+  } }))
+
+  await page.goto('/login')
+  await page.getByLabel('E-Mail').fill(user.email)
+  await page.getByLabel('Passwort').fill('correct horse battery staple')
+  await page.getByRole('button', { name: 'Anmelden', exact: true }).click()
+  await page.getByRole('button', { name: 'Passkey verwenden', exact: true }).click()
+
+  await expect(page.getByRole('status')).toContainText('Passkey-Anmeldung nicht abgeschlossen')
+  await expect(page.getByRole('button', { name: 'Passkey erneut versuchen' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Authenticator-App verwenden' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Wiederherstellungscode verwenden' })).toBeVisible()
+  expect(passkeyVerifyRequests).toBe(0)
+  await expect.poll(() => page.evaluate(() =>
+    document.documentElement.scrollWidth <= document.documentElement.clientWidth
+  )).toBe(true)
+
+  await page.getByRole('button', { name: 'Authenticator-App verwenden' }).click()
+  await expect(page.getByLabel('Sechsstelliger Authenticator-Code')).toBeFocused()
+  await page.getByLabel('Sechsstelliger Authenticator-Code').fill('123456')
+  await page.getByRole('button', { name: 'Code bestätigen' }).click()
+  await expect(page).toHaveURL('/')
+})
+
+test('OAuth MFA ignores URL method hints and renders only backend methods', async ({ page }) => {
+  await unauthenticated(page)
+  await page.route('**/api/v1/auth/mfa/challenge', route => route.fulfill({ json: {
+    preferred_method: 'recovery_code',
+    methods: ['recovery_code'],
+    expires_in: 300
+  } }))
+
+  await page.goto('/auth/mfa?redirect=%2Fprofil&methods=passkey%2Ctotp')
+
+  await expect(page.getByLabel('Zwölfstelliger Wiederherstellungscode')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Passkey verwenden' })).toHaveCount(0)
+  await expect(page.getByLabel('Sechsstelliger Authenticator-Code')).toHaveCount(0)
+  await expect(page).toHaveURL('/auth/mfa')
 })
 
 test('TOTP setup shows a local QR code and one-time recovery codes', async ({ page }) => {
@@ -166,7 +233,7 @@ test('virtual authenticator registers, signs in, confirms MFA and removes a pass
   await page.route('**/api/v1/auth/passkeys/reauth/options', route => route.fulfill({ json: { ceremony_token: 'reauth-ceremony-token-value-123456', options: authenticationOptions() } }))
   await page.route('**/api/v1/auth/passkeys/reauth/verify', route => route.fulfill({ json: { status: 'authenticated', user, csrf_token: 'csrf-reauth' } }))
   await page.route('**/api/v1/auth/logout', async (route) => { authenticated = false; await route.fulfill({ json: { message: 'Abgemeldet.' } }) })
-  await page.route('**/api/v1/auth/login', route => route.fulfill({ json: { status: 'mfa_required', challenge_token: 'opaque-challenge-token-value-1234567890', method: 'passkey', methods: ['passkey'], expires_in: 300 } }))
+  await page.route('**/api/v1/auth/login', route => route.fulfill({ json: { status: 'mfa_required', challenge_token: 'opaque-challenge-token-value-1234567890', method: 'passkey', preferred_method: 'passkey', methods: ['passkey'], expires_in: 300 } }))
   await page.route('**/api/v1/auth/mfa/passkey/options', route => route.fulfill({ json: { ceremony_token: 'mfa-ceremony-token-value-1234567890', options: authenticationOptions() } }))
   await page.route('**/api/v1/auth/mfa/passkey/verify', async (route) => { authenticated = true; await route.fulfill({ json: { status: 'authenticated', user, csrf_token: 'csrf-mfa-passkey' } }) })
 

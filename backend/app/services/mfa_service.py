@@ -4,6 +4,7 @@ import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
+from typing import Literal
 
 import jwt
 import pyotp
@@ -31,6 +32,16 @@ from app.services.auth_service import auth_error, utcnow
 @dataclass(frozen=True)
 class ChallengeResult:
     token: str
+    expires_in: int
+
+
+MfaMethodName = Literal["passkey", "totp", "recovery_code"]
+
+
+@dataclass(frozen=True)
+class ChallengeDetails:
+    methods: list[MfaMethodName]
+    preferred_method: MfaMethodName
     expires_in: int
 
 
@@ -88,13 +99,66 @@ async def enabled_method(
     return await session.scalar(query)
 
 
-async def user_requires_mfa(session: AsyncSession, user_id: uuid.UUID) -> bool:
-    if await enabled_method(session, user_id) is not None:
-        return True
-    return bool(
-        await session.scalar(
-            select(UserWebAuthnCredential.id).where(UserWebAuthnCredential.user_id == user_id)
+async def available_mfa_methods(session: AsyncSession, user_id: uuid.UUID) -> list[MfaMethodName]:
+    methods: list[MfaMethodName] = []
+    if await session.scalar(
+        select(UserWebAuthnCredential.id).where(UserWebAuthnCredential.user_id == user_id)
+    ):
+        methods.append("passkey")
+    totp = await session.scalar(
+        select(UserMfaMethod.id).where(
+            UserMfaMethod.user_id == user_id,
+            UserMfaMethod.type == "totp",
+            UserMfaMethod.is_enabled.is_(True),
         )
+    )
+    if totp:
+        methods.append("totp")
+        if await session.scalar(
+            select(UserMfaRecoveryCode.id).where(
+                UserMfaRecoveryCode.user_id == user_id,
+                UserMfaRecoveryCode.used_at.is_(None),
+            )
+        ):
+            methods.append("recovery_code")
+    return methods
+
+
+def preferred_mfa_method(methods: list[MfaMethodName]) -> MfaMethodName:
+    for method in ("passkey", "totp", "recovery_code"):
+        if method in methods:
+            return method
+    raise ValueError("Für die MFA-Anforderung ist keine Sicherheitsmethode verfügbar.")
+
+
+async def login_challenge_details(session: AsyncSession, token: str) -> ChallengeDetails:
+    challenge = await session.scalar(
+        select(AuthMfaChallenge).where(AuthMfaChallenge.token_hash == hash_token(token))
+    )
+    now = utcnow()
+    if (
+        not challenge
+        or challenge.used_at
+        or challenge.invalidated_at
+        or challenge.expires_at <= now
+    ):
+        raise auth_error(
+            "MFA_CHALLENGE_EXPIRED",
+            "Die Anmeldung ist abgelaufen. Bitte melden Sie sich erneut an.",
+            status.HTTP_400_BAD_REQUEST,
+        )
+    user = await session.get(User, challenge.user_id)
+    methods = await available_mfa_methods(session, challenge.user_id)
+    if not user or not user.is_active or not methods:
+        raise auth_error(
+            "MFA_CHALLENGE_INVALID",
+            "Die Anmeldung ist nicht mehr gültig. Bitte melden Sie sich erneut an.",
+            status.HTTP_400_BAD_REQUEST,
+        )
+    return ChallengeDetails(
+        methods=methods,
+        preferred_method=preferred_mfa_method(methods),
+        expires_in=max(1, int((challenge.expires_at - now).total_seconds())),
     )
 
 
@@ -275,8 +339,13 @@ async def verify_login_challenge(
                 status.HTTP_429_TOO_MANY_REQUESTS,
             )
         code_name = "MFA_RECOVERY_CODE_INVALID" if recovery_code else "MFA_CODE_INVALID"
+        message = (
+            "Der Wiederherstellungscode ist nicht gültig."
+            if recovery_code
+            else "Der Authenticator-Code ist nicht gültig."
+        )
         raise auth_error(
-            code_name, "Der eingegebene Code ist nicht gültig.", status.HTTP_401_UNAUTHORIZED
+            code_name, message, status.HTTP_401_UNAUTHORIZED
         )
     challenge.used_at = now
     user.last_login_at = now
