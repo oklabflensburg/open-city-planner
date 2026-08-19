@@ -52,14 +52,14 @@ async def post_contact_message(
     email_hash = masked_email_hash(str(payload.email))
     validate_contact_origin(request)
     try:
-        check_rate_limit(
+        await check_rate_limit(
             f"contact-ip:{remote_ip}",
             attempts=settings.contact_ip_rate_limit_attempts,
             window_seconds=settings.contact_rate_limit_window_seconds,
             code="CONTACT_RATE_LIMITED",
             message="Zu viele Nachrichten in kurzer Zeit. Bitte versuchen Sie es später erneut.",
         )
-        check_rate_limit(
+        await check_rate_limit(
             f"contact-email:{email_hash}",
             attempts=settings.contact_email_rate_limit_attempts,
             window_seconds=settings.contact_rate_limit_window_seconds,

@@ -97,7 +97,7 @@ async def test_mastodon_login_start_sets_bound_http_only_cookie(
     configured = oauth_settings()
     monkeypatch.setattr(auth_api, "get_settings", lambda: configured)
     monkeypatch.setattr(auth_api, "provider_is_configured", lambda _provider: True)
-    monkeypatch.setattr(auth_api, "check_rate_limit", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(auth_api, "check_rate_limit", AsyncMock())
     monkeypatch.setattr(
         auth_api,
         "create_mastodon_oauth_flow",
@@ -181,6 +181,47 @@ async def test_mastodon_callback_consumes_grant_and_logs_in_existing_identity(
     authenticate.assert_awaited_once_with(session, identity)
     issue.assert_awaited_once()
     assert response.headers["location"].endswith("/auth/callback?redirect=%2Fprofil")
+
+
+@pytest.mark.asyncio
+async def test_oauth_mfa_redirect_uses_http_only_cookie_not_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured = oauth_settings()
+    user = User(id=uuid.uuid4(), email="user@example.org", is_active=True)
+    identity = oauth.OAuthIdentity(provider="github", subject="github-user")
+    monkeypatch.setattr(oauth, "get_settings", lambda: configured)
+    monkeypatch.setattr(auth_api, "get_settings", lambda: configured)
+    monkeypatch.setattr(auth_api, "provider_is_configured", lambda _provider: True)
+    monkeypatch.setattr(auth_api, "exchange_oauth_code", AsyncMock(return_value=identity))
+    monkeypatch.setattr(auth_api, "authenticate_oauth_identity", AsyncMock(return_value=user))
+    monkeypatch.setattr(auth_api, "user_requires_mfa", AsyncMock(return_value=True))
+    monkeypatch.setattr(auth_api, "available_mfa_methods", AsyncMock(return_value=["totp"]))
+    monkeypatch.setattr(
+        auth_api,
+        "create_login_challenge",
+        AsyncMock(return_value=type("Challenge", (), {"token": "secret-challenge"})()),
+    )
+    cookie = oauth.encode_oauth_flow(oauth.OAuthFlowState("random-state", "login", "/profil"))
+
+    response = await auth_api.oauth_callback(
+        "github",
+        "random-state",
+        object(),  # type: ignore[arg-type]
+        request_with_cookie(oauth.oauth_cookie_name("github"), cookie),
+        Response(),
+        code="authorization-code",
+    )
+
+    assert "secret-challenge" not in response.headers["location"]
+    assert "challenge=" not in response.headers["location"]
+    assert response.headers["location"].endswith("/auth/mfa?redirect=%2Fprofil&methods=totp")
+    set_cookies = response.headers.getlist("set-cookie")
+    challenge_cookie = next(value for value in set_cookies if "ocm_mfa_challenge=" in value)
+    assert "secret-challenge" in challenge_cookie
+    assert "HttpOnly" in challenge_cookie
+    assert "SameSite=lax" in challenge_cookie
+    assert "Path=/api/v1/auth/mfa" in challenge_cookie
 
 
 @pytest.mark.parametrize(

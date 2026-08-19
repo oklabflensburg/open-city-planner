@@ -46,6 +46,7 @@ const DEFINITIVE_AUTH_CODES = new Set([
 export const useApi = () => {
   const config = useRuntimeConfig()
   const authStore = useAuthStore()
+  const adminMfaRequirement = useState<'MFA_SETUP_REQUIRED' | 'MFA_REAUTH_REQUIRED' | null>('admin-mfa-requirement', () => null)
   const forwardedCookie = import.meta.server ? useRequestHeaders(['cookie']).cookie : undefined
 
   async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
@@ -75,11 +76,15 @@ export const useApi = () => {
 
     if (!response.ok) {
       const error = await apiError(response)
+      if (path.startsWith('/admin/') && (error.code === 'MFA_SETUP_REQUIRED' || error.code === 'MFA_REAUTH_REQUIRED')) {
+        adminMfaRequirement.value = error.code
+      }
       if (DEFINITIVE_AUTH_CODES.has(error.code || '') && authStore.authenticated) {
         authStore.clearAuthSession(false, error.code)
       }
       throw error
     }
+    if (path.startsWith('/admin/')) adminMfaRequirement.value = null
     if (response.status === 204) return undefined as T
     return await response.json() as T
   }

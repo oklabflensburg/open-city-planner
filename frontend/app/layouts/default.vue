@@ -3,6 +3,7 @@
     <AppHeader />
     <NotificationToastViewport />
     <main class="min-h-screen pt-16">
+      <AdminMfaRequirement />
       <slot />
     </main>
     <AppFooter />

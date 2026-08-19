@@ -63,7 +63,7 @@ def encode_oauth_flow(flow: OAuthFlowState) -> str:
     ).encode()
     encoded = base64.urlsafe_b64encode(payload).decode().rstrip("=")
     signature = hmac.new(
-        get_settings().jwt_secret_key.encode(), encoded.encode(), hashlib.sha256
+        get_settings().oauth_state_secret.encode(), encoded.encode(), hashlib.sha256
     ).hexdigest()
     return f"{encoded}.{signature}"
 
@@ -74,7 +74,7 @@ def decode_oauth_flow(value: str | None) -> OAuthFlowState | None:
     try:
         encoded, signature = value.rsplit(".", 1)
         expected = hmac.new(
-            get_settings().jwt_secret_key.encode(), encoded.encode(), hashlib.sha256
+            get_settings().oauth_state_secret.encode(), encoded.encode(), hashlib.sha256
         ).hexdigest()
         if not hmac.compare_digest(signature, expected):
             return None
@@ -117,24 +117,36 @@ def authorization_url(provider: str, state: str) -> str:
     settings = get_settings()
     redirect_uri = oauth_redirect_uri(provider)
     if provider == "github":
-        query = urllib.parse.urlencode({
-            "client_id": settings.github_client_id,
-            "redirect_uri": redirect_uri,
-            "scope": "read:user user:email",
-            "state": state,
-        })
+        query = urllib.parse.urlencode(
+            {
+                "client_id": settings.github_client_id,
+                "redirect_uri": redirect_uri,
+                "scope": "read:user user:email",
+                "state": state,
+            }
+        )
         return f"https://github.com/login/oauth/authorize?{query}"
     if provider == "google":
-        query = urllib.parse.urlencode({
-            "client_id": settings.google_client_id,
-            "redirect_uri": redirect_uri,
-            "response_type": "code",
-            "scope": "openid email profile",
-            "state": state,
-            "nonce": secrets.token_urlsafe(24),
-        })
+        query = urllib.parse.urlencode(
+            {
+                "client_id": settings.google_client_id,
+                "redirect_uri": redirect_uri,
+                "response_type": "code",
+                "scope": "openid email profile",
+                "state": state,
+                "nonce": secrets.token_urlsafe(24),
+            }
+        )
         return f"https://accounts.google.com/o/oauth2/v2/auth?{query}"
-    raise HTTPException(status_code=404, detail={"error": {"code": "OAUTH_PROVIDER_DISABLED", "message": "Dieser OAuth-Provider ist nicht konfiguriert."}})
+    raise HTTPException(
+        status_code=404,
+        detail={
+            "error": {
+                "code": "OAUTH_PROVIDER_DISABLED",
+                "message": "Dieser OAuth-Provider ist nicht konfiguriert.",
+            }
+        },
+    )
 
 
 async def exchange_oauth_code(provider: str, code: str) -> OAuthIdentity:
@@ -143,7 +155,15 @@ async def exchange_oauth_code(provider: str, code: str) -> OAuthIdentity:
         return await exchange_github(code)
     if provider == "google":
         return await exchange_google(code)
-    raise HTTPException(status_code=404, detail={"error": {"code": "OAUTH_PROVIDER_DISABLED", "message": "Dieser OAuth-Provider ist nicht konfiguriert."}})
+    raise HTTPException(
+        status_code=404,
+        detail={
+            "error": {
+                "code": "OAUTH_PROVIDER_DISABLED",
+                "message": "Dieser OAuth-Provider ist nicht konfiguriert.",
+            }
+        },
+    )
 
 
 async def exchange_github(code: str) -> OAuthIdentity:
@@ -155,20 +175,28 @@ async def exchange_github(code: str) -> OAuthIdentity:
         timeout=15,
     )
     token = await oauth_client.fetch_token(
-            "https://github.com/login/oauth/access_token",
-            code=code,
-            headers={"Accept": "application/json"},
-        )
+        "https://github.com/login/oauth/access_token",
+        code=code,
+        headers={"Accept": "application/json"},
+    )
     access_token = token.get("access_token")
     if not access_token:
         raise oauth_error()
     async with httpx.AsyncClient(timeout=15) as client:
-        user_response = await client.get("https://api.github.com/user", headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"})
+        user_response = await client.get(
+            "https://api.github.com/user",
+            headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
+        )
         user_response.raise_for_status()
         profile = user_response.json()
-        emails_response = await client.get("https://api.github.com/user/emails", headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"})
+        emails_response = await client.get(
+            "https://api.github.com/user/emails",
+            headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
+        )
         emails = emails_response.json() if emails_response.status_code == 200 else []
-    verified_email = next((item.get("email") for item in emails if item.get("primary") and item.get("verified")), None)
+    verified_email = next(
+        (item.get("email") for item in emails if item.get("primary") and item.get("verified")), None
+    )
     return OAuthIdentity(
         provider="github",
         subject=str(profile["id"]),
@@ -189,14 +217,17 @@ async def exchange_google(code: str) -> OAuthIdentity:
         timeout=15,
     )
     token = await oauth_client.fetch_token(
-            "https://oauth2.googleapis.com/token",
-            code=code,
-        )
+        "https://oauth2.googleapis.com/token",
+        code=code,
+    )
     access_token = token.get("access_token")
     if not access_token:
         raise oauth_error()
     async with httpx.AsyncClient(timeout=15) as client:
-        user_response = await client.get("https://openidconnect.googleapis.com/v1/userinfo", headers={"Authorization": f"Bearer {access_token}"})
+        user_response = await client.get(
+            "https://openidconnect.googleapis.com/v1/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
         user_response.raise_for_status()
         profile = user_response.json()
     return OAuthIdentity(
@@ -211,4 +242,12 @@ async def exchange_google(code: str) -> OAuthIdentity:
 
 
 def oauth_error() -> HTTPException:
-    return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error": {"code": "INVALID_OAUTH_CALLBACK", "message": "OAuth-Anmeldung fehlgeschlagen."}})
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={
+            "error": {
+                "code": "INVALID_OAUTH_CALLBACK",
+                "message": "OAuth-Anmeldung fehlgeschlagen.",
+            }
+        },
+    )

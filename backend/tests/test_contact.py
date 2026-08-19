@@ -35,7 +35,7 @@ def contact_state(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "contact_ip_rate_limit_attempts", 20)
     monkeypatch.setattr(settings, "contact_email_rate_limit_attempts", 20)
     monkeypatch.setattr(settings, "contact_turnstile_enabled", False)
-    rate_limit._buckets.clear()
+    rate_limit.reset_memory_rate_limits()
     contact_service._used_nonces.clear()
     contact_service._pending_nonces.clear()
 

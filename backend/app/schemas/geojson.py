@@ -1,9 +1,11 @@
+import json
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.core.config import get_settings
 from app.schemas.external_links import ExternalLinks
 
 Position = tuple[float, float]
@@ -38,7 +40,9 @@ class MultiPolygonGeometry(BaseModel):
 
     @field_validator("coordinates")
     @classmethod
-    def validate_coordinates(cls, polygons: list[list[list[Position]]]) -> list[list[list[Position]]]:
+    def validate_coordinates(
+        cls, polygons: list[list[list[Position]]]
+    ) -> list[list[list[Position]]]:
         if not polygons:
             raise ValueError("MultiPolygon requires at least one polygon")
         for rings in polygons:
@@ -65,11 +69,21 @@ class FeatureCollection(BaseModel):
 
 class PolygonBase(BaseModel):
     name: str = Field(min_length=1, max_length=160)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=10_000)
     category: str = Field(default="custom", min_length=1, max_length=80)
     geometry: AreaGeometry
     properties: dict[str, Any] = Field(default_factory=dict)
     floor: str | None = Field(default=None, max_length=16)
+
+    @field_validator("properties")
+    @classmethod
+    def bound_properties(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if (
+            len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode())
+            > get_settings().polygon_properties_max_bytes
+        ):
+            raise ValueError("Polygon properties exceed maximum serialized size")
+        return value
 
 
 class PolygonCreate(PolygonBase):
@@ -80,7 +94,7 @@ class PolygonUpdate(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     name: str | None = Field(default=None, min_length=1, max_length=160)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=10_000)
     category: str | None = Field(default=None, min_length=1, max_length=80)
     geometry: AreaGeometry | None = None
     properties: dict[str, Any] | None = None
@@ -88,9 +102,28 @@ class PolygonUpdate(BaseModel):
     area_size: Literal["S", "M", "L", "XL"] | None = None
     expected_updated_at: datetime | None = None
 
+    @field_validator("properties")
+    @classmethod
+    def bound_properties(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        if (
+            value is not None
+            and len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode())
+            > get_settings().polygon_properties_max_bytes
+        ):
+            raise ValueError("Polygon properties exceed maximum serialized size")
+        return value
+
     @model_validator(mode="after")
     def require_any_field(self) -> "PolygonUpdate":
-        editable = {"name", "description", "category", "geometry", "properties", "floor", "area_size"}
+        editable = {
+            "name",
+            "description",
+            "category",
+            "geometry",
+            "properties",
+            "floor",
+            "area_size",
+        }
         if not self.model_fields_set.intersection(editable) and not self.model_extra:
             raise ValueError("Mindestens ein Feld muss angegeben werden")
         return self

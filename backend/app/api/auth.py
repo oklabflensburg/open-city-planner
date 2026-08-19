@@ -110,10 +110,34 @@ from app.services.passkey_service import (
 from app.services.passkey_service import (
     verify_mfa as verify_passkey_mfa,
 )
-from app.services.rate_limit import check_rate_limit
+from app.services.rate_limit import check_rate_limit, rate_limit_key
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 logger = logging.getLogger(__name__)
+
+
+def mfa_challenge_token(request: Request, supplied: str | None) -> str:
+    token = supplied or request.cookies.get(get_settings().auth_mfa_cookie_name)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": {
+                    "code": "MFA_CHALLENGE_MISSING",
+                    "message": "Die Anmeldung ist abgelaufen. Bitte melden Sie sich erneut an.",
+                }
+            },
+        )
+    return token
+
+
+def clear_mfa_cookie(response: Response) -> None:
+    settings = get_settings()
+    response.delete_cookie(
+        settings.auth_mfa_cookie_name,
+        path="/api/v1/auth/mfa",
+        domain=settings.auth_cookie_domain,
+    )
 
 
 @router.get("/providers")
@@ -154,7 +178,7 @@ async def start_mastodon_oauth_login(
                 }
             },
         )
-    check_rate_limit(f"mastodon-oauth-start:{request.client.host if request.client else 'unknown'}")
+    await check_rate_limit(rate_limit_key(request, "mastodon-oauth-start"))
     state, url = await create_mastodon_oauth_flow(
         session,
         payload.instance,
@@ -178,6 +202,7 @@ async def start_mastodon_oauth_link(
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> OAuthStartRead:
     validate_csrf(request)
+    await check_rate_limit(rate_limit_key(request, "mastodon-oauth-link", str(user.id)))
     require_recent_auth(request)
     if not provider_is_configured("mastodon"):
         raise HTTPException(
@@ -234,8 +259,11 @@ async def post_complete_oauth_email(
 async def post_signup(
     payload: SignupRequest, session: SessionDep, response: Response, request: Request
 ) -> AuthResponse:
-    check_rate_limit(
-        f"signup:{request.client.host if request.client else 'unknown'}:{payload.email}"
+    await check_rate_limit(rate_limit_key(request, "signup"), attempts=10, window_seconds=3_600)
+    await check_rate_limit(
+        rate_limit_key(request, "signup-account", str(payload.email)),
+        attempts=3,
+        window_seconds=3_600,
     )
     user = await signup(session, payload)
     csrf_token = await issue_session(session, response, user, request)
@@ -258,9 +286,7 @@ async def post_signup(
 async def post_login(
     payload: LoginRequest, session: SessionDep, response: Response, request: Request
 ) -> LoginResponse:
-    check_rate_limit(
-        f"login:{request.client.host if request.client else 'unknown'}:{payload.email}"
-    )
+    await check_rate_limit(rate_limit_key(request, "login", str(payload.email)))
     user = await authenticate(session, payload)
     if await user_requires_mfa(session, user.id):
         challenge = await create_login_challenge(session, user, request, primary_method="password")
@@ -283,7 +309,7 @@ async def post_passkey_registration_options(
 ) -> WebAuthnOptionsResponse:
     validate_csrf(request)
     require_recent_auth(request)
-    check_rate_limit(f"passkey-register-options:{user.id}", attempts=5, window_seconds=600)
+    await check_rate_limit(f"passkey-register-options:{user.id}", attempts=5, window_seconds=600)
     result = await registration_options(session, user, request)
     return WebAuthnOptionsResponse(ceremony_token=result.token, options=result.options)
 
@@ -297,7 +323,7 @@ async def post_passkey_registration_verify(
 ) -> PasskeyRead:
     validate_csrf(request)
     require_recent_auth(request)
-    check_rate_limit(f"passkey-register-verify:{user.id}", attempts=5, window_seconds=600)
+    await check_rate_limit(f"passkey-register-verify:{user.id}", attempts=5, window_seconds=600)
     record = await verify_registration(
         session, user, payload.ceremony_token, payload.credential, payload.name
     )
@@ -309,8 +335,8 @@ async def post_passkey_registration_verify(
 async def post_passkey_login_options(
     session: SessionDep, request: Request
 ) -> WebAuthnOptionsResponse:
-    check_rate_limit(
-        f"passkey-login-options:{request.client.host if request.client else 'unknown'}",
+    await check_rate_limit(
+        rate_limit_key(request, "passkey-login-options"),
         attempts=10,
         window_seconds=300,
     )
@@ -325,8 +351,8 @@ async def post_passkey_login_verify(
     response: Response,
     request: Request,
 ) -> AuthResponse:
-    check_rate_limit(
-        f"passkey-login-verify:{request.client.host if request.client else 'unknown'}",
+    await check_rate_limit(
+        rate_limit_key(request, "passkey-login-verify"),
         attempts=8,
         window_seconds=300,
     )
@@ -339,9 +365,14 @@ async def post_passkey_login_verify(
 async def post_mfa_passkey_options(
     payload: PasskeyMfaOptionsRequest, session: SessionDep, request: Request
 ) -> WebAuthnOptionsResponse:
-    fingerprint = hash_token(payload.challenge_token)[:24]
-    check_rate_limit(f"passkey-mfa-options:{fingerprint}", attempts=5, window_seconds=300)
-    result = await mfa_options(session, request, payload.challenge_token)
+    challenge_token = mfa_challenge_token(request, payload.challenge_token)
+    fingerprint = hash_token(challenge_token)[:24]
+    await check_rate_limit(
+        rate_limit_key(request, "passkey-mfa-options", fingerprint),
+        attempts=5,
+        window_seconds=300,
+    )
+    result = await mfa_options(session, request, challenge_token)
     return WebAuthnOptionsResponse(ceremony_token=result.token, options=result.options)
 
 
@@ -352,15 +383,19 @@ async def post_mfa_passkey_verify(
     response: Response,
     request: Request,
 ) -> AuthResponse:
-    fingerprint = hash_token(payload.challenge_token)[:24]
-    check_rate_limit(f"passkey-mfa-verify:{fingerprint}", attempts=5, window_seconds=300)
+    challenge_token = mfa_challenge_token(request, payload.challenge_token)
+    fingerprint = hash_token(challenge_token)[:24]
+    await check_rate_limit(
+        rate_limit_key(request, "passkey-mfa-verify", fingerprint),
+        attempts=5,
+        window_seconds=300,
+    )
     user, primary_method = await verify_passkey_mfa(
-        session, payload.challenge_token, payload.ceremony_token, payload.credential
+        session, challenge_token, payload.ceremony_token, payload.credential
     )
     primary = "oauth" if primary_method.startswith("oauth") else "pwd"
-    csrf_token = await issue_session(
-        session, response, user, request, amr=[primary, "webauthn"]
-    )
+    csrf_token = await issue_session(session, response, user, request, amr=[primary, "webauthn"])
+    clear_mfa_cookie(response)
     return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
 
 
@@ -371,7 +406,7 @@ async def post_passkey_reauth_options(
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> WebAuthnOptionsResponse:
     validate_csrf(request)
-    check_rate_limit(f"passkey-reauth-options:{user.id}", attempts=5, window_seconds=300)
+    await check_rate_limit(f"passkey-reauth-options:{user.id}", attempts=5, window_seconds=300)
     result = await authentication_options(
         session, request, user_id=user.id, purpose="passkey_step_up"
     )
@@ -387,16 +422,14 @@ async def post_passkey_reauth_verify(
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> AuthResponse:
     validate_csrf(request)
-    check_rate_limit(f"passkey-reauth-verify:{user.id}", attempts=5, window_seconds=300)
+    await check_rate_limit(f"passkey-reauth-verify:{user.id}", attempts=5, window_seconds=300)
     verified_user = await verify_reauthentication(
         session, user.id, payload.ceremony_token, payload.credential
     )
     await revoke_current_session(
         session, request.cookies.get(get_settings().auth_refresh_cookie_name)
     )
-    csrf_token = await issue_session(
-        session, response, verified_user, request, amr=["webauthn"]
-    )
+    csrf_token = await issue_session(session, response, verified_user, request, amr=["webauthn"])
     return AuthResponse(user=UserRead.model_validate(verified_user), csrf_token=csrf_token)
 
 
@@ -405,9 +438,10 @@ async def post_mfa_verify(
     payload: MfaVerifyRequest, session: SessionDep, response: Response, request: Request
 ) -> AuthResponse:
     settings = get_settings()
-    fingerprint = hash_token(payload.challenge_token)[:24]
-    check_rate_limit(
-        f"mfa-verify:{request.client.host if request.client else 'unknown'}:{fingerprint}",
+    challenge_token = mfa_challenge_token(request, payload.challenge_token)
+    fingerprint = hash_token(challenge_token)[:24]
+    await check_rate_limit(
+        rate_limit_key(request, "mfa-verify", fingerprint),
         attempts=settings.mfa_max_attempts,
         window_seconds=settings.mfa_challenge_expire_seconds,
         code="MFA_TOO_MANY_ATTEMPTS",
@@ -415,7 +449,7 @@ async def post_mfa_verify(
     )
     user, factor, primary_method = await verify_login_challenge(
         session,
-        payload.challenge_token,
+        challenge_token,
         code=payload.code,
         recovery_code=payload.recovery_code,
     )
@@ -425,6 +459,7 @@ async def post_mfa_verify(
     )
     if factor == "recovery":
         send_mfa_security_email(user, "recovery_used")
+    clear_mfa_cookie(response)
     return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
 
 
@@ -442,7 +477,7 @@ async def post_totp_setup(
     validate_csrf(request)
     require_recent_auth(request)
     settings = get_settings()
-    check_rate_limit(f"mfa-setup:{user.id}", attempts=3, window_seconds=600)
+    await check_rate_limit(f"mfa-setup:{user.id}", attempts=3, window_seconds=600)
     secret, uri = await start_totp_setup(session, user)
     return TotpSetupResponse(
         secret=secret,
@@ -461,7 +496,7 @@ async def post_totp_confirm(
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> RecoveryCodesResponse:
     validate_csrf(request)
-    check_rate_limit(f"mfa-confirm:{user.id}", attempts=5, window_seconds=600)
+    await check_rate_limit(f"mfa-confirm:{user.id}", attempts=5, window_seconds=600)
     codes = await confirm_totp_setup(session, user, payload.code)
     await revoke_other_sessions(session, user.id, request, "mfa_enabled")
     send_mfa_security_email(user, "enabled")
@@ -476,7 +511,7 @@ async def post_recovery_codes(
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> RecoveryCodesResponse:
     validate_csrf(request)
-    check_rate_limit(f"mfa-recovery-regenerate:{user.id}", attempts=3, window_seconds=600)
+    await check_rate_limit(f"mfa-recovery-regenerate:{user.id}", attempts=3, window_seconds=600)
     codes = await regenerate_recovery_codes(
         session,
         user,
@@ -498,7 +533,7 @@ async def delete_totp(
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> MessageResponse:
     validate_csrf(request)
-    check_rate_limit(f"mfa-disable:{user.id}", attempts=3, window_seconds=600)
+    await check_rate_limit(f"mfa-disable:{user.id}", attempts=3, window_seconds=600)
     await disable_mfa(
         session,
         user,
@@ -529,8 +564,8 @@ async def post_refresh(session: SessionDep, response: Response, request: Request
                 }
             },
         )
-    check_rate_limit(
-        f"refresh:{request.client.host if request.client else 'unknown'}:{hash_token(refresh_token)[:16]}",
+    await check_rate_limit(
+        rate_limit_key(request, "refresh", hash_token(refresh_token)[:24]),
         attempts=settings.refresh_rate_limit_attempts,
         window_seconds=settings.refresh_rate_limit_window_seconds,
         code="REFRESH_RATE_LIMITED",
@@ -623,7 +658,7 @@ async def post_resend_verification(
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> VerificationResponse:
     validate_csrf(request)
-    check_rate_limit(f"resend-verification:{user.id}")
+    await check_rate_limit(f"resend-verification:{user.id}")
     sent = await resend_verification(session, user)
     if not sent:
         return VerificationResponse(
@@ -642,9 +677,7 @@ async def post_resend_verification(
 async def post_forgot_password(
     payload: ForgotPasswordRequest, session: SessionDep, request: Request
 ) -> MessageResponse:
-    check_rate_limit(
-        f"forgot-password:{request.client.host if request.client else 'unknown'}:{payload.email}"
-    )
+    await check_rate_limit(rate_limit_key(request, "forgot-password", str(payload.email)))
     await forgot_password(session, str(payload.email), request)
     return MessageResponse(
         message="Wenn ein Konto mit dieser E-Mail-Adresse existiert, wurde eine E-Mail zum Zurücksetzen des Passworts versendet."
@@ -653,9 +686,11 @@ async def post_forgot_password(
 
 @router.post("/reset-password", response_model=MessageResponse)
 async def post_reset_password(
-    payload: ResetPasswordRequest, session: SessionDep
+    payload: ResetPasswordRequest, session: SessionDep, request: Request
 ) -> MessageResponse:
-    check_rate_limit(f"reset-password:{payload.token[:16]}")
+    await check_rate_limit(
+        rate_limit_key(request, "reset-password", hash_token(payload.token)[:24])
+    )
     await reset_password(session, payload.token, payload.password)
     return MessageResponse(message="Passwort wurde zurückgesetzt.")
 
@@ -664,16 +699,20 @@ async def post_reset_password(
 async def post_change_password(
     payload: ChangePasswordRequest,
     session: SessionDep,
+    response: Response,
     request: Request,
     user: Annotated[User, Depends(get_current_active_user)],
 ) -> MessageResponse:
     validate_csrf(request)
     await change_password(session, user, payload.current_password, payload.new_password)
-    return MessageResponse(message="Passwort wurde geändert.")
+    clear_auth_cookies(response)
+    return MessageResponse(message="Passwort wurde geändert. Bitte melden Sie sich erneut an.")
 
 
 @router.get("/oauth/{provider}/login")
-async def oauth_login(provider: str, redirect: str | None = None) -> RedirectResponse:
+async def oauth_login(
+    provider: str, request: Request, redirect: str | None = None
+) -> RedirectResponse:
     provider = normalize_provider(provider)
     if not provider_is_configured(provider):
         raise HTTPException(
@@ -685,6 +724,7 @@ async def oauth_login(provider: str, redirect: str | None = None) -> RedirectRes
                 }
             },
         )
+    await check_rate_limit(rate_limit_key(request, f"oauth-start:{provider}"))
     state = create_oauth_state()
     response = RedirectResponse(authorization_url(provider, state), status_code=302)
     settings = get_settings()
@@ -887,15 +927,21 @@ async def oauth_callback(
             redirect_path=redirect_path,
         )
         mfa_query = urllib.parse.urlencode(
-            {
-                "challenge": challenge.token,
-                "redirect": redirect_path,
-                "methods": ",".join(methods),
-            }
+            {"redirect": redirect_path, "methods": ",".join(methods)}
         )
         redirect_response = RedirectResponse(
             f"{settings.app_base_url.rstrip('/')}/auth/mfa?{mfa_query}",
             status_code=302,
+        )
+        redirect_response.set_cookie(
+            settings.auth_mfa_cookie_name,
+            challenge.token,
+            httponly=True,
+            secure=settings.auth_cookie_secure,
+            samesite="lax",
+            max_age=settings.mfa_challenge_expire_seconds,
+            path="/api/v1/auth/mfa",
+            domain=settings.auth_cookie_domain,
         )
         clear_oauth_cookie(redirect_response, provider)
         return redirect_response

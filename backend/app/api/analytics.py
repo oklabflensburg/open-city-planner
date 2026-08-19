@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_verwaltung_user
@@ -25,6 +25,7 @@ from app.services.city_metrics import (
     get_verwaltung_city_metrics,
     update_city_metrics,
 )
+from app.services.public_query_security import guard_public_query
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -59,10 +60,12 @@ async def patch_fast_facts(
 @router.get("/overview", response_model=AnalyticsOverview)
 async def get_analytics_overview(
     session: SessionDep,
+    request: Request,
     response: Response,
     filters: Annotated[PolygonFilterParams, Depends(polygon_filter_query)],
     area_id: uuid.UUID | None = None,
 ) -> AnalyticsOverview:
+    await guard_public_query(request, session, "analytics-overview")
     result = await analytics_overview(
         session,
         categories=filters.categories,
@@ -81,10 +84,12 @@ async def get_analytics_overview(
 @router.get("/benchmarks", response_model=MarketBenchmarkResult)
 async def get_market_benchmarks(
     session: SessionDep,
+    request: Request,
     response: Response,
     filters: Annotated[PolygonFilterParams, Depends(polygon_filter_query)],
     area_id: uuid.UUID | None = None,
 ) -> MarketBenchmarkResult:
+    await guard_public_query(request, session, "market-benchmarks")
     result = await market_benchmarks(
         session,
         categories=filters.categories,
@@ -112,8 +117,10 @@ async def get_market_benchmarks(
 async def post_area_comparison(
     payload: AreaCompareRequest,
     session: SessionDep,
+    request: Request,
     response: Response,
 ) -> AreaCompareResult:
+    await guard_public_query(request, session, "area-compare")
     result = await compare_areas(session, payload)
     if get_settings().cache_debug_headers and (status := last_cache_status()):
         response.headers["X-Cache"] = status

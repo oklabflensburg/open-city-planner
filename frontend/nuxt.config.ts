@@ -3,6 +3,38 @@ import tailwindcss from '@tailwindcss/vite'
 const configuredSiteUrl = process.env.NUXT_PUBLIC_SITE_URL
 const configuredMapStyleUrl = process.env.NUXT_PUBLIC_MAP_STYLE_URL || process.env.NUXT_PUBLIC_VERSATILES_STYLE_URL || ''
 const effectiveMapStyleUrl = configuredMapStyleUrl.includes('/assets/styles/colorful/style.json') ? '' : configuredMapStyleUrl
+const apiOrigin = (() => {
+  try { return new URL(process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1').origin } catch { return '' }
+})()
+const mapOrigin = (() => {
+  try { return effectiveMapStyleUrl ? new URL(effectiveMapStyleUrl).origin : 'https://tiles.versatiles.org' } catch { return '' }
+})()
+const securityHeaders = {
+  'content-security-policy': [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    // ws:/wss: are needed by Nuxt HMR and deployments that expose realtime transports.
+    `connect-src 'self' ws: wss: ${apiOrigin} ${mapOrigin}`.trim(),
+    `font-src 'self' data: ${mapOrigin}`.trim(),
+    "worker-src 'self' blob:",
+    "frame-src https://challenges.cloudflare.com"
+  ].join('; '),
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  'permissions-policy': 'geolocation=(), microphone=(), camera=(), publickey-credentials-create=(self), publickey-credentials-get=(self)',
+  'cross-origin-opener-policy': 'same-origin',
+  'cross-origin-resource-policy': 'same-site',
+  ...(process.env.NODE_ENV === 'production'
+    ? { 'strict-transport-security': 'max-age=31536000; includeSubDomains' }
+    : {})
+}
 if (process.env.NODE_ENV === 'production' && !configuredSiteUrl) {
   console.warn('NUXT_PUBLIC_SITE_URL is not set; canonical URLs will use the local fallback.')
 }
@@ -66,6 +98,7 @@ export default defineNuxtConfig({
   nitro: {
     compressPublicAssets: true,
     routeRules: {
+      '/**': { headers: securityHeaders },
       '/_nuxt/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
       '/branding/**': { headers: { 'cache-control': 'public, max-age=86400' } },
       '/map-styles/**': { headers: { 'cache-control': 'public, max-age=86400' } }

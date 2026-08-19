@@ -36,7 +36,8 @@ def send_email(
 ) -> None:
     settings = get_settings()
     if settings.email_backend == "console":
-        logger.info("Console email to=%s subject=%s\n%s", to_email, subject, text)
+        # Email bodies can contain password-reset, verification, or MFA material.
+        logger.info("Console email prepared subject=%s body_bytes=%d", subject, len(text.encode()))
         return
     if settings.email_backend != "smtp":
         raise RuntimeError("Unsupported EMAIL_BACKEND")

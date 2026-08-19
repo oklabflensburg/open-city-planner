@@ -41,4 +41,4 @@ class UserUpdate(BaseModel):
 
 class AccountDeletionRequest(BaseModel):
     confirmation_text: str = Field(min_length=1, max_length=32)
-    current_password: str | None = Field(default=None, max_length=512)
+    current_password: str | None = Field(default=None, max_length=256)

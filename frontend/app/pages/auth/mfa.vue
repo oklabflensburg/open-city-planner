@@ -47,12 +47,11 @@ const hasTotpMethod = computed(() => authStore.mfaChallenge?.methods.includes('t
 
 onMounted(async () => {
   passkeySupported.value = isPasskeySupported()
-  const challenge = typeof route.query.challenge === 'string' ? route.query.challenge : ''
-  if (!challenge) return
   const requestedMethods = typeof route.query.methods === 'string'
     ? route.query.methods.split(',').filter((value): value is 'passkey' | 'totp' | 'recovery_code' => ['passkey', 'totp', 'recovery_code'].includes(value))
     : ['totp', 'recovery_code'] as const
-  authStore.setMfaChallenge(challenge, 300, [...requestedMethods])
+  // OAuth MFA uses a short-lived HttpOnly cookie; no secret enters the URL or Pinia.
+  authStore.setMfaChallenge('', 300, [...requestedMethods])
   ready.value = true
   await router.replace({ path: '/auth/mfa' })
   await nextTick(() => otpInput.value?.focus())

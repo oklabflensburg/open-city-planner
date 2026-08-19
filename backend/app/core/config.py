@@ -8,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 DEVELOPMENT_JWT_SECRET = "development-only-change-me-32-bytes-minimum"
+DEVELOPMENT_OAUTH_STATE_SECRET = "development-oauth-state-change-me-32-bytes"
+DEVELOPMENT_MFA_RECOVERY_PEPPER = "development-recovery-pepper-change-me-32-bytes"
 MINIMUM_JWT_SECRET_LENGTH = 32
 
 
@@ -24,17 +26,23 @@ class Settings(BaseSettings):
     api_base_url: str = "http://localhost:8000"
     jwt_secret_key: str = DEVELOPMENT_JWT_SECRET
     jwt_algorithm: str = "HS256"
+    jwt_issuer: str = "http://localhost:8000"
+    jwt_audience: str = "stadtplaner"
+    oauth_state_secret: str = DEVELOPMENT_OAUTH_STATE_SECRET
+    mfa_recovery_pepper: str = DEVELOPMENT_MFA_RECOVERY_PEPPER
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
     refresh_token_reuse_grace_seconds: int = 5
     account_deletion_recent_auth_seconds: int = 600
     refresh_rate_limit_attempts: int = 30
     refresh_rate_limit_window_seconds: int = 60
+    refresh_require_origin: bool = False
     email_verification_expire_hours: int = 24
     password_reset_expire_minutes: int = 60
     auth_access_cookie_name: str = "ocm_access_token"
     auth_refresh_cookie_name: str = "ocm_refresh_token"
     auth_csrf_cookie_name: str = "ocm_csrf_token"
+    auth_mfa_cookie_name: str = "ocm_mfa_challenge"
     auth_cookie_secure: bool = False
     auth_cookie_samesite: str = "lax"
     auth_cookie_domain: str | None = None
@@ -72,6 +80,10 @@ class Settings(BaseSettings):
     mastodon_sso_registration_backoff_seconds: int = 300
     auth_rate_limit_attempts: int = 8
     auth_rate_limit_window_seconds: int = 300
+    auth_rate_limit_backend: str = "memory"
+    rate_limit_fail_closed: bool = False
+    rate_limit_memory_max_keys: int = Field(default=10_000, ge=100, le=100_000)
+    trusted_proxies: str = ""
     mfa_encryption_key: str | None = None
     mfa_challenge_expire_seconds: int = Field(default=300, ge=60, le=900)
     mfa_max_attempts: int = Field(default=5, ge=3, le=10)
@@ -88,6 +100,12 @@ class Settings(BaseSettings):
     webauthn_timeout_ms: int = Field(default=60_000, ge=15_000, le=300_000)
     avatar_upload_dir: str = "data/uploads"
     avatar_max_file_size: int = 5_242_880
+    upload_body_overhead_bytes: int = Field(default=65_536, ge=16_384, le=1_048_576)
+    max_json_body_bytes: int = Field(default=2_097_152, ge=65_536, le=10_485_760)
+    polygon_properties_max_bytes: int = Field(default=65_536, ge=1_024, le=1_048_576)
+    public_query_timeout_ms: int = Field(default=8_000, ge=1_000, le=30_000)
+    public_query_rate_limit_attempts: int = Field(default=120, ge=10, le=10_000)
+    public_query_rate_limit_window_seconds: int = Field(default=60, ge=10, le=3_600)
     avatar_output_size: int = 512
     avatar_webp_quality: int = 85
     media_base_url: str = ""
@@ -171,6 +189,10 @@ class Settings(BaseSettings):
     def production(self) -> bool:
         return self.app_environment.lower() == "production"
 
+    @property
+    def trusted_proxy_list(self) -> list[str]:
+        return [value.strip() for value in self.trusted_proxies.split(",") if value.strip()]
+
     def validate_security(self) -> None:
         if self.production and (
             self.jwt_secret_key == DEVELOPMENT_JWT_SECRET
@@ -180,8 +202,37 @@ class Settings(BaseSettings):
                 f"JWT_SECRET_KEY must be configured with at least "
                 f"{MINIMUM_JWT_SECRET_LENGTH} characters in production"
             )
+        if self.production and self.jwt_algorithm != "HS256":
+            raise RuntimeError("JWT_ALGORITHM must be HS256")
+        separated_secrets = {
+            self.jwt_secret_key,
+            self.oauth_state_secret,
+            self.mfa_recovery_pepper,
+        }
+        if self.production and (
+            len(self.oauth_state_secret.strip()) < MINIMUM_JWT_SECRET_LENGTH
+            or self.oauth_state_secret == DEVELOPMENT_OAUTH_STATE_SECRET
+        ):
+            raise RuntimeError("OAUTH_STATE_SECRET must be configured securely in production")
+        if self.production and (
+            len(self.mfa_recovery_pepper.strip()) < MINIMUM_JWT_SECRET_LENGTH
+            or self.mfa_recovery_pepper == DEVELOPMENT_MFA_RECOVERY_PEPPER
+        ):
+            raise RuntimeError("MFA_RECOVERY_PEPPER must be configured securely in production")
+        if self.production and len(separated_secrets) != 3:
+            raise RuntimeError("JWT, OAuth state and MFA recovery secrets must be distinct")
         if self.production and not self.auth_cookie_secure:
             raise RuntimeError("AUTH_COOKIE_SECURE must be true in production")
+        if self.production and not self.refresh_require_origin:
+            raise RuntimeError("REFRESH_REQUIRE_ORIGIN must be true in production")
+        if self.auth_rate_limit_backend not in {"memory", "redis"}:
+            raise RuntimeError("AUTH_RATE_LIMIT_BACKEND must be memory or redis")
+        if self.production and self.auth_rate_limit_backend != "redis":
+            raise RuntimeError("AUTH_RATE_LIMIT_BACKEND must be redis in production")
+        if self.production and not self.redis_enabled:
+            raise RuntimeError("REDIS_ENABLED must be true in production")
+        if self.production and not self.rate_limit_fail_closed:
+            raise RuntimeError("RATE_LIMIT_FAIL_CLOSED must be true in production")
         if self.contact_turnstile_enabled and (
             not self.turnstile_site_key or not self.turnstile_secret_key
         ):

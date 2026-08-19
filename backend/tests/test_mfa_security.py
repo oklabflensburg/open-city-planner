@@ -111,7 +111,7 @@ async def test_password_login_with_mfa_does_not_issue_a_session(
 ) -> None:
     account = user()
     issue = AsyncMock()
-    monkeypatch.setattr(auth_api, "check_rate_limit", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(auth_api, "check_rate_limit", AsyncMock())
     monkeypatch.setattr(auth_api, "authenticate", AsyncMock(return_value=account))
     monkeypatch.setattr(auth_api, "user_requires_mfa", AsyncMock(return_value=True))
     monkeypatch.setattr(

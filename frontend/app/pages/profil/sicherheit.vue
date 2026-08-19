@@ -47,10 +47,7 @@ async function submit() {
   error.value = ''
   try {
     await authStore.changePassword(currentPassword.value, newPassword.value, newPasswordConfirm.value)
-    message.value = 'Passwort geändert.'
-    currentPassword.value = ''
-    newPassword.value = ''
-    newPasswordConfirm.value = ''
+    await router.push('/login?password=changed')
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Passwort konnte nicht geändert werden.'
   }

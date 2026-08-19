@@ -13,7 +13,7 @@ def normalize_email(email: str) -> str:
 
 class SignupRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=12)
+    password: str = Field(min_length=12, max_length=256)
     first_name: str = Field(default="", max_length=120)
     last_name: str = Field(default="", max_length=120)
 
@@ -30,7 +30,7 @@ class SignupRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(max_length=256)
     remember: bool = True
 
     @field_validator("email", mode="before")
@@ -59,7 +59,7 @@ LoginResponse = Annotated[AuthResponse | MfaChallengeResponse, Field(discriminat
 
 
 class MfaVerifyRequest(BaseModel):
-    challenge_token: str = Field(min_length=32, max_length=512)
+    challenge_token: str | None = Field(default=None, min_length=32, max_length=512)
     code: str | None = Field(default=None, min_length=6, max_length=8)
     recovery_code: str | None = Field(default=None, min_length=12, max_length=32)
 
@@ -87,7 +87,7 @@ class RecoveryCodesResponse(BaseModel):
 
 
 class MfaDisableRequest(BaseModel):
-    current_password: str | None = Field(default=None, max_length=512)
+    current_password: str | None = Field(default=None, max_length=256)
     code: str | None = Field(default=None, min_length=6, max_length=8)
     recovery_code: str | None = Field(default=None, min_length=12, max_length=32)
 
@@ -137,11 +137,11 @@ class PasskeyAuthenticationVerifyRequest(BaseModel):
 
 
 class PasskeyMfaOptionsRequest(BaseModel):
-    challenge_token: str = Field(min_length=32, max_length=512)
+    challenge_token: str | None = Field(default=None, min_length=32, max_length=512)
 
 
 class PasskeyMfaVerifyRequest(PasskeyAuthenticationVerifyRequest):
-    challenge_token: str = Field(min_length=32, max_length=512)
+    challenge_token: str | None = Field(default=None, min_length=32, max_length=512)
 
 
 class PasskeyRead(BaseModel):
@@ -193,9 +193,9 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    token: str = Field(min_length=20)
-    password: str = Field(min_length=12)
-    password_confirm: str = Field(min_length=12)
+    token: str = Field(min_length=20, max_length=512)
+    password: str = Field(min_length=12, max_length=256)
+    password_confirm: str = Field(min_length=12, max_length=256)
 
     @model_validator(mode="after")
     def passwords_match(self) -> "ResetPasswordRequest":
@@ -205,9 +205,9 @@ class ResetPasswordRequest(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str = Field(min_length=12)
-    new_password_confirm: str = Field(min_length=12)
+    current_password: str = Field(max_length=256)
+    new_password: str = Field(min_length=12, max_length=256)
+    new_password_confirm: str = Field(min_length=12, max_length=256)
 
     @model_validator(mode="after")
     def passwords_match(self) -> "ChangePasswordRequest":

@@ -62,11 +62,11 @@ export const useAuthStore = defineStore('auth', {
         const { request } = useApi()
         this.oauthProviders = await request<OAuthProvider[]>('/auth/oauth/providers', { retryOnUnauthorized: false })
         this.oauthProvidersLoaded = true
-      } catch (error) {
+      } catch {
         this.oauthProviders = []
         this.oauthError = 'OAuth-Anbieter konnten nicht geladen werden.'
         if (import.meta.dev) {
-          console.warn('Failed to load OAuth providers', error)
+          console.warn('Failed to load OAuth providers')
         }
       } finally {
         this.oauthProvidersLoading = false
@@ -211,7 +211,7 @@ export const useAuthStore = defineStore('auth', {
       const result = await request<AuthResponse>('/auth/mfa/verify', {
         method: 'POST',
         body: JSON.stringify({
-          challenge_token: this.mfaChallenge.token,
+          ...(this.mfaChallenge.token ? { challenge_token: this.mfaChallenge.token } : {}),
           ...(recovery ? { recovery_code: factor } : { code: factor })
         }),
         retryOnUnauthorized: false
@@ -263,7 +263,9 @@ export const useAuthStore = defineStore('auth', {
       }
       return await useApi().request<WebAuthnOptionsResponse>('/auth/mfa/passkey/options', {
         method: 'POST',
-        body: JSON.stringify({ challenge_token: this.mfaChallenge.token }),
+        body: JSON.stringify(this.mfaChallenge.token
+          ? { challenge_token: this.mfaChallenge.token }
+          : {}),
         retryOnUnauthorized: false
       })
     },
@@ -272,7 +274,7 @@ export const useAuthStore = defineStore('auth', {
       const result = await useApi().request<AuthResponse>('/auth/mfa/passkey/verify', {
         method: 'POST',
         body: JSON.stringify({
-          challenge_token: this.mfaChallenge.token,
+          ...(this.mfaChallenge.token ? { challenge_token: this.mfaChallenge.token } : {}),
           ceremony_token: ceremonyToken,
           credential
         }),
@@ -436,6 +438,7 @@ export const useAuthStore = defineStore('auth', {
           new_password_confirm: newPasswordConfirm
         })
       })
+      this.clearAuthSession()
     },
     async loadMfaSecurity() {
       return await useApi().request<MfaSecurityStatus>('/auth/mfa/security')

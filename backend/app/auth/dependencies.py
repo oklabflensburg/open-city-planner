@@ -126,7 +126,8 @@ async def require_superuser(
                 }
             },
         )
-    if get_settings().require_mfa_for_superusers:
+    settings = get_settings()
+    if settings.require_mfa_for_superusers or settings.production:
         totp_method = await session.scalar(
             select(UserMfaMethod.id).where(
                 UserMfaMethod.user_id == user.id,
@@ -137,20 +138,30 @@ async def require_superuser(
         passkey = await session.scalar(
             select(UserWebAuthnCredential.id).where(UserWebAuthnCredential.user_id == user.id)
         )
-        token = request.cookies.get(get_settings().auth_access_cookie_name)
+        token = request.cookies.get(settings.auth_access_cookie_name)
         try:
             amr = decode_jwt(token or "", "access").get("amr", [])
         except jwt.PyJWTError:
             amr = []
         configured = bool(totp_method or passkey)
         strong_amr = {"otp", "recovery", "webauthn"}
-        if not configured or not isinstance(amr, list) or not (strong_amr & set(amr)):
+        if not configured:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
                     "error": {
                         "code": "MFA_SETUP_REQUIRED",
                         "message": "Für administrative Funktionen ist eine bestätigte Zwei-Faktor-Anmeldung erforderlich.",
+                    }
+                },
+            )
+        if not isinstance(amr, list) or not (strong_amr & set(amr)):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": {
+                        "code": "MFA_REAUTH_REQUIRED",
+                        "message": "Bitte melden Sie sich für administrative Funktionen mit Zwei-Faktor-Authentifizierung erneut an.",
                     }
                 },
             )

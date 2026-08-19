@@ -62,7 +62,7 @@ def normalize_recovery_code(code: str) -> str:
 
 def recovery_code_hash(code: str) -> str:
     normalized = normalize_recovery_code(code)
-    key = get_settings().jwt_secret_key.encode()
+    key = get_settings().mfa_recovery_pepper.encode()
     return hmac.new(key, normalized.encode(), hashlib.sha256).hexdigest()
 
 

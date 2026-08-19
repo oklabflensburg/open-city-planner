@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.cache.redis import close_redis, initialize_redis, redis_health
 from app.core.config import get_settings
+from app.security.request_limits import RequestBodyLimitMiddleware
 
 settings = get_settings()
 logging.basicConfig(level=settings.log_level)
@@ -33,16 +34,34 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 OPENAPI_TAGS = [
-    {"name": "Analysis Areas", "description": "Öffentliche Gemeinde-, Stadtteil- und Quartiersdaten mit räumlichen Aggregationen."},
+    {
+        "name": "Analysis Areas",
+        "description": "Öffentliche Gemeinde-, Stadtteil- und Quartiersdaten mit räumlichen Aggregationen.",
+    },
     {"name": "Analytics", "description": "Kennzahlen, Benchmarks und Zeitreihen des Stadtplaners."},
-    {"name": "Polygons", "description": "Öffentliche Verkaufsflächen sowie berechtigungsgeschützte Pflegeoperationen."},
-    {"name": "OpenStreetMap", "description": "Lokale OSM-Referenzdaten für Viewports, POIs und Flächenobjekte."},
-    {"name": "Authentication", "description": "Cookie-basierte Anmeldung, Sitzungen, OAuth und CSRF-geschützte Änderungen."},
+    {
+        "name": "Polygons",
+        "description": "Öffentliche Verkaufsflächen sowie berechtigungsgeschützte Pflegeoperationen.",
+    },
+    {
+        "name": "OpenStreetMap",
+        "description": "Lokale OSM-Referenzdaten für Viewports, POIs und Flächenobjekte.",
+    },
+    {
+        "name": "Authentication",
+        "description": "Cookie-basierte Anmeldung, Sitzungen, OAuth und CSRF-geschützte Änderungen.",
+    },
     {"name": "Users", "description": "Profil und benutzerbezogene Ressourcen."},
-    {"name": "Administration", "description": "Rollen- und Verwaltungsfunktionen für berechtigte Konten."},
+    {
+        "name": "Administration",
+        "description": "Rollen- und Verwaltungsfunktionen für berechtigte Konten.",
+    },
     {"name": "Contact", "description": "Öffentliches, rate-limitiertes Kontaktformular."},
     {"name": "Media", "description": "Öffentlich abrufbare, serverseitig normalisierte Medien."},
-    {"name": "Notifications", "description": "Persönliche, persistente Benachrichtigungen, Präferenzen, Abonnements und Realtime-Auslieferung."},
+    {
+        "name": "Notifications",
+        "description": "Persönliche, persistente Benachrichtigungen, Präferenzen, Abonnements und Realtime-Auslieferung.",
+    },
 ]
 
 app = FastAPI(
@@ -58,6 +77,7 @@ app = FastAPI(
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=1_000, compresslevel=5)
+app.add_middleware(RequestBodyLimitMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -96,11 +116,31 @@ async def security_headers(request: Request, call_next) -> Response:
     response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    response.headers.setdefault("Cross-Origin-Resource-Policy", "same-site")
+    csp = "default-src 'none'; frame-ancestors 'none'"
+    if request.url.path in {"/docs", "/redoc"}:
+        csp = (
+            "default-src 'none'; frame-ancestors 'none'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "img-src 'self' data: https://fastapi.tiangolo.com"
+        )
+    response.headers.setdefault("Content-Security-Policy", csp)
     response.headers.setdefault(
         "Permissions-Policy",
         "geolocation=(), microphone=(), camera=(), "
         "publickey-credentials-create=(self), publickey-credentials-get=(self)",
     )
+    if settings.production:
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    if request.url.path.startswith(
+        ("/api/v1/auth", "/api/v1/users", "/api/v1/admin", "/api/v1/notifications")
+    ):
+        response.headers.setdefault("Cache-Control", "private, no-store")
     return response
 
 

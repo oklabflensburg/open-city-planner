@@ -460,7 +460,7 @@ async def test_active_user_can_create_polygon_with_server_ownership(
     roles: list[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    user = active_user(roles=roles, verified=False)
+    user = active_user(roles=roles, verified=True)
     response, captured = await create_polygon_as(user, monkeypatch)
 
     assert response.status_code == 201
@@ -517,7 +517,7 @@ async def test_anonymous_user_cannot_delete_polygon(monkeypatch: pytest.MonkeyPa
 
 @pytest.mark.asyncio
 async def test_owner_can_delete_own_polygon(monkeypatch: pytest.MonkeyPatch) -> None:
-    owner = active_user(verified=False)
+    owner = active_user(verified=True)
     response, deleted = await delete_polygon_as(owner, owner.id, monkeypatch)
     assert response.status_code == 204
     assert deleted and deleted[0][1] == owner.id
@@ -533,7 +533,7 @@ async def test_non_owner_cannot_delete_polygon(monkeypatch: pytest.MonkeyPatch) 
 
 @pytest.mark.asyncio
 async def test_verwaltung_can_delete_any_polygon(monkeypatch: pytest.MonkeyPatch) -> None:
-    verwaltung = active_user(roles=["VERWALTUNG"], verified=False)
+    verwaltung = active_user(roles=["VERWALTUNG"], verified=True)
     response, deleted = await delete_polygon_as(verwaltung, uuid.uuid4(), monkeypatch)
     assert response.status_code == 204
     assert deleted and deleted[0][1] == verwaltung.id
@@ -541,7 +541,7 @@ async def test_verwaltung_can_delete_any_polygon(monkeypatch: pytest.MonkeyPatch
 
 @pytest.mark.asyncio
 async def test_deleted_polygon_slug_returns_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
-    owner = active_user(verified=False)
+    owner = active_user(verified=True)
     polygon_id = uuid.uuid4()
     exists = True
 

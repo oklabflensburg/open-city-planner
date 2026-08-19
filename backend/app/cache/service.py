@@ -153,8 +153,9 @@ class CacheService:
                 except Exception:  # noqa: BLE001
                     acquired = False
                 if not acquired:
-                    for _ in range(5):
-                        await asyncio.sleep(0.05)
+                    deadline = time.monotonic() + get_settings().cache_lock_ttl_seconds
+                    while time.monotonic() < deadline:
+                        await asyncio.sleep(0.1)
                         cached = await self.get_json(key)
                         if cached is not None:
                             _last_cache_status.set("HIT")

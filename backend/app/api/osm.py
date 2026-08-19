@@ -28,7 +28,7 @@ async def get_osm_viewport_features(
     filters: Annotated[PolygonFilterParams, Depends(polygon_filter_query)],
 ):
     settings = get_settings()
-    check_rate_limit(
+    await check_rate_limit(
         f"osm-viewport:{request.client.host if request.client else 'unknown'}",
         attempts=settings.osm_viewport_rate_limit_attempts,
         window_seconds=settings.osm_viewport_rate_limit_window_seconds,
@@ -42,7 +42,9 @@ async def get_osm_viewport_features(
     payload = await viewport_features_json(session, query, filters)
     etag = f'"{hashlib.sha256(payload).hexdigest()[:20]}"'
     if request.headers.get("if-none-match") == etag:
-        return Response(status_code=304, headers={"ETag": etag, "Cache-Control": "public, max-age=20"})
+        return Response(
+            status_code=304, headers={"ETag": etag, "Cache-Control": "public, max-age=20"}
+        )
     headers = {
         "ETag": etag,
         "Cache-Control": "public, max-age=20, stale-while-revalidate=40",

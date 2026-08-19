@@ -13,7 +13,12 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-def create_jwt(subject: str, token_type: TokenType, expires_delta: timedelta, extra: dict[str, Any] | None = None) -> tuple[str, str]:
+def create_jwt(
+    subject: str,
+    token_type: TokenType,
+    expires_delta: timedelta,
+    extra: dict[str, Any] | None = None,
+) -> tuple[str, str]:
     settings = get_settings()
     now = utcnow()
     jti = str(uuid.uuid4())
@@ -23,6 +28,8 @@ def create_jwt(subject: str, token_type: TokenType, expires_delta: timedelta, ex
         "iat": int(now.timestamp()),
         "exp": int((now + expires_delta).timestamp()),
         "jti": jti,
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
     }
     if extra:
         payload.update(extra)
@@ -31,7 +38,14 @@ def create_jwt(subject: str, token_type: TokenType, expires_delta: timedelta, ex
 
 def decode_jwt(token: str, expected_type: TokenType) -> dict[str, Any]:
     settings = get_settings()
-    payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+    payload = jwt.decode(
+        token,
+        settings.jwt_secret_key,
+        algorithms=[settings.jwt_algorithm],
+        issuer=settings.jwt_issuer,
+        audience=settings.jwt_audience,
+        options={"require": ["exp", "iat", "jti", "sub", "type", "iss", "aud"]},
+    )
     if payload.get("type") != expected_type:
         raise jwt.InvalidTokenError("Invalid token type")
     return payload

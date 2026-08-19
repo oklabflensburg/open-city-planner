@@ -438,14 +438,21 @@ async def revoke_current_session(session: AsyncSession, refresh_token: str | Non
         logger.info("SESSION_REVOKED reason=logout family_id=%s", record.family_id)
 
 
-async def revoke_all_sessions(session: AsyncSession, user_id: uuid.UUID) -> None:
+async def revoke_all_sessions(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    commit: bool = True,
+    reason: str = "logout_all",
+) -> None:
     await session.execute(
         update(UserSession)
         .where(UserSession.user_id == user_id, UserSession.revoked_at.is_(None))
-        .values(revoked_at=utcnow(), revocation_reason="logout_all")
+        .values(revoked_at=utcnow(), revocation_reason=reason)
     )
-    await session.commit()
-    logger.info("SESSION_REVOKED reason=logout_all user_id=%s", user_id)
+    if commit:
+        await session.commit()
+    logger.info("SESSION_REVOKED reason=%s user_id=%s", reason, user_id)
 
 
 async def verify_email(session: AsyncSession, token: str) -> VerificationResult:
@@ -529,11 +536,24 @@ async def forgot_password(session: AsyncSession, email: str, request: Request) -
     if not user or not user.is_active:
         return
     settings = get_settings()
+    user = await session.scalar(select(User).where(User.id == user.id).with_for_update())
+    if not user or not user.is_active:
+        return
+    now = utcnow()
+    await session.execute(
+        update(PasswordResetToken)
+        .where(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.invalidated_at.is_(None),
+        )
+        .values(invalidated_at=now)
+    )
     token = generate_token()
     record = PasswordResetToken(
         user_id=user.id,
         token_hash=hash_token(token),
-        expires_at=utcnow() + timedelta(minutes=settings.password_reset_expire_minutes),
+        expires_at=now + timedelta(minutes=settings.password_reset_expire_minutes),
         requested_ip=request.client.host if request.client else None,
     )
     session.add(record)
@@ -549,10 +569,13 @@ async def reset_password(session: AsyncSession, token: str, password: str) -> Us
             "INVALID_PASSWORD", str(exc), status.HTTP_422_UNPROCESSABLE_ENTITY
         ) from exc
     record = await session.scalar(
-        select(PasswordResetToken).where(PasswordResetToken.token_hash == hash_token(token))
+        select(PasswordResetToken)
+        .where(PasswordResetToken.token_hash == hash_token(token))
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
     now = utcnow()
-    if not record or record.used_at:
+    if not record or record.used_at or record.invalidated_at:
         raise auth_error(
             "INVALID_RESET_TOKEN", "Der Reset-Link ist ungültig.", status.HTTP_400_BAD_REQUEST
         )
@@ -560,7 +583,7 @@ async def reset_password(session: AsyncSession, token: str, password: str) -> Us
         raise auth_error(
             "RESET_TOKEN_EXPIRED", "Der Reset-Link ist abgelaufen.", status.HTTP_400_BAD_REQUEST
         )
-    user = await session.get(User, record.user_id)
+    user = await session.scalar(select(User).where(User.id == record.user_id).with_for_update())
     if not user:
         raise auth_error(
             "INVALID_RESET_TOKEN", "Der Reset-Link ist ungültig.", status.HTTP_400_BAD_REQUEST
@@ -568,7 +591,17 @@ async def reset_password(session: AsyncSession, token: str, password: str) -> Us
     user.password_hash = hash_password(password)
     user.updated_at = now
     record.used_at = now
-    await revoke_all_sessions(session, user.id)
+    await session.execute(
+        update(PasswordResetToken)
+        .where(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.id != record.id,
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.invalidated_at.is_(None),
+        )
+        .values(invalidated_at=now)
+    )
+    await revoke_all_sessions(session, user.id, commit=False, reason="password_reset")
     await session.commit()
     send_password_changed_email(user)
     return user
@@ -585,5 +618,6 @@ async def change_password(
         )
     user.password_hash = hash_password(new_password)
     user.updated_at = utcnow()
+    await revoke_all_sessions(session, user.id, commit=False, reason="password_changed")
     await session.commit()
     send_password_changed_email(user)
