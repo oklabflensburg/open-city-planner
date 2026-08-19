@@ -71,7 +71,7 @@ export interface EmailTemplateListItem {
   key: string
   name: string
   description: string
-  category: 'Sicherheit' | 'Konto' | 'Kontakt'
+  category: 'Sicherheit' | 'Konto' | 'Kontakt' | 'Kommunikation / System'
   customized: boolean
   active: boolean
   security_sensitive: boolean
@@ -93,6 +93,42 @@ export interface EmailTemplatePreview {
   html: string
   text: string
 }
+
+export interface EmailCampaignPreview extends EmailTemplatePreview {}
+
+export type EmailCampaignType = 'LEGAL' | 'SERVICE' | 'NEWSLETTER' | 'SYSTEM'
+export type EmailCampaignStatus = 'DRAFT' | 'SCHEDULED' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED'
+export type EmailRecipientScope = 'ALL_ACTIVE_USERS' | 'VERIFIED_USERS' | 'SUPERUSERS'
+
+export interface EmailCampaign {
+  id: string
+  internal_name: string
+  subject: string
+  title: string
+  intro: string | null
+  content_html: string
+  content_text: string
+  action_url: string | null
+  action_label: string | null
+  campaign_type: EmailCampaignType
+  status: EmailCampaignStatus
+  recipient_scope: EmailRecipientScope
+  created_at: string
+  updated_at: string
+  scheduled_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  recipient_count: number
+  sent_count: number
+  failed_count: number
+  skipped_count: number
+  version: number
+}
+
+export type EmailCampaignWrite = Pick<EmailCampaign,
+  'internal_name' | 'subject' | 'title' | 'intro' | 'content_html' | 'content_text' |
+  'action_url' | 'action_label' | 'campaign_type' | 'recipient_scope' | 'scheduled_at' | 'version'
+>
 
 export interface MastodonAdminStatus {
   enabled: boolean

@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     contact_rate_limit_window_seconds: int = 3600
     contact_turnstile_enabled: bool = False
     notification_retention_days: int = Field(default=90, ge=1)
+    email_outbox_max_attempts: int = Field(default=8, ge=1, le=20)
     turnstile_site_key: str | None = None
     turnstile_secret_key: str | None = None
     github_client_id: str | None = None

@@ -19,6 +19,10 @@ from app.schemas.admin import (
     AdminUserRead,
     AdminUserStatusUpdate,
     AuditLogListRead,
+    EmailCampaignCountRead,
+    EmailCampaignRead,
+    EmailCampaignStart,
+    EmailCampaignWrite,
     EmailTemplateDetailRead,
     EmailTemplateListItemRead,
     EmailTemplatePreviewRead,
@@ -35,6 +39,18 @@ from app.schemas.social import (
     SocialPublicationPreviewRead,
     SocialPublishingSettingsRead,
     SocialPublishingSettingsUpdate,
+)
+from app.services.admin_email_campaigns import (
+    CampaignConflict,
+    campaign_recipient_count,
+    cancel_campaign,
+    create_campaign,
+    get_campaign,
+    list_campaigns,
+    preview_campaign,
+    start_campaign,
+    test_campaign,
+    update_campaign,
 )
 from app.services.admin_email_templates import (
     EmailTemplateVersionConflict,
@@ -68,6 +84,7 @@ from app.services.admin_users import (
 from app.services.audit_logs import list_audit_logs
 from app.services.cache_versions import bump_cache_versions
 from app.services.email_service import EmailTemplateValidationError
+from app.services.mfa_service import require_recent_auth
 from app.services.rate_limit import check_rate_limit, rate_limit_key
 from app.services.social_screenshots import ScreenshotService
 
@@ -107,7 +124,10 @@ async def get_email_templates_admin(
     _actor: Annotated[User, Depends(require_superuser)],
 ) -> list[EmailTemplateListItemRead]:
     private_no_store(response)
-    return [EmailTemplateListItemRead.model_validate(item) for item in await list_email_templates(session)]
+    return [
+        EmailTemplateListItemRead.model_validate(item)
+        for item in await list_email_templates(session)
+    ]
 
 
 @router.get("/email-templates/{key}", response_model=EmailTemplateDetailRead)
@@ -233,6 +253,159 @@ async def test_send_email_template_admin(
         raise email_template_error(exc) from exc
 
 
+@router.get("/email-campaigns", response_model=list[EmailCampaignRead])
+async def get_email_campaigns_admin(
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_superuser)],
+) -> list[EmailCampaignRead]:
+    private_no_store(response)
+    return [EmailCampaignRead.model_validate(item) for item in await list_campaigns(session)]
+
+
+@router.post("/email-campaigns", response_model=EmailCampaignRead, status_code=201)
+async def post_email_campaign_admin(
+    payload: EmailCampaignWrite,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> EmailCampaignRead:
+    private_no_store(response)
+    try:
+        item = await create_campaign(session, payload.model_dump(), actor)
+        return EmailCampaignRead.model_validate(item)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@router.get("/email-campaigns/{campaign_id}", response_model=EmailCampaignRead)
+async def get_email_campaign_admin(
+    campaign_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_superuser)],
+) -> EmailCampaignRead:
+    private_no_store(response)
+    try:
+        return EmailCampaignRead.model_validate(await get_campaign(session, campaign_id))
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.patch("/email-campaigns/{campaign_id}", response_model=EmailCampaignRead)
+async def patch_email_campaign_admin(
+    campaign_id: uuid.UUID,
+    payload: EmailCampaignWrite,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> EmailCampaignRead:
+    private_no_store(response)
+    try:
+        return EmailCampaignRead.model_validate(
+            await update_campaign(session, campaign_id, payload.model_dump(), actor)
+        )
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except CampaignConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@router.post("/email-campaigns/{campaign_id}/preview", response_model=EmailTemplatePreviewRead)
+async def preview_email_campaign_admin(
+    campaign_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> EmailTemplatePreviewRead:
+    private_no_store(response)
+    try:
+        rendered = await preview_campaign(session, await get_campaign(session, campaign_id))
+        return EmailTemplatePreviewRead(
+            subject=rendered.subject, html=rendered.html, text=rendered.text
+        )
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.post("/email-campaigns/{campaign_id}/test-send", response_model=EmailTemplateTestSendRead)
+async def test_email_campaign_admin(
+    campaign_id: uuid.UUID,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> EmailTemplateTestSendRead:
+    private_no_store(response)
+    await check_rate_limit(
+        rate_limit_key(request, "admin-email-campaign-test", str(actor.id)),
+        attempts=5,
+        window_seconds=600,
+    )
+    try:
+        await test_campaign(session, await get_campaign(session, campaign_id), actor)
+        return EmailTemplateTestSendRead(
+            message=f"Die Test-E-Mail wurde an {actor.email} gesendet."
+        )
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/email-campaigns/{campaign_id}/recipient-count", response_model=EmailCampaignCountRead)
+async def get_email_campaign_recipient_count_admin(
+    campaign_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    _actor: Annotated[User, Depends(require_superuser)],
+) -> EmailCampaignCountRead:
+    private_no_store(response)
+    try:
+        count = await campaign_recipient_count(session, await get_campaign(session, campaign_id))
+        return EmailCampaignCountRead(recipient_count=count)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.post("/email-campaigns/{campaign_id}/start", response_model=EmailCampaignRead)
+async def start_email_campaign_admin(
+    campaign_id: uuid.UUID,
+    payload: EmailCampaignStart,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> EmailCampaignRead:
+    private_no_store(response)
+    require_recent_auth(request)
+    try:
+        item = await start_campaign(
+            session, campaign_id, actor, legal_confirmed=payload.legal_confirmed
+        )
+        return EmailCampaignRead.model_validate(item)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except CampaignConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post("/email-campaigns/{campaign_id}/cancel", response_model=EmailCampaignRead)
+async def cancel_email_campaign_admin(
+    campaign_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    actor: Annotated[User, Depends(require_csrf_superuser)],
+) -> EmailCampaignRead:
+    private_no_store(response)
+    try:
+        return EmailCampaignRead.model_validate(await cancel_campaign(session, campaign_id, actor))
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except CampaignConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
 @router.get("/social/mastodon/status", response_model=MastodonAdminStatusRead)
 async def get_mastodon_status(
     response: Response,
@@ -250,10 +423,16 @@ async def get_social_publications(
     _actor: Annotated[User, Depends(require_superuser)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=100),
-    publication_status: str | None = Query(default=None, alias="status", pattern="^(PENDING_APPROVAL|PENDING|PROCESSING|PUBLISHED|FAILED|CANCELLED|DRY_RUN)$"),
+    publication_status: str | None = Query(
+        default=None,
+        alias="status",
+        pattern="^(PENDING_APPROVAL|PENDING|PROCESSING|PUBLISHED|FAILED|CANCELLED|DRY_RUN)$",
+    ),
 ) -> SocialPublicationListRead:
     private_no_store(response)
-    return await list_social_publications(session, page=page, page_size=page_size, status=publication_status)
+    return await list_social_publications(
+        session, page=page, page_size=page_size, status=publication_status
+    )
 
 
 @router.post("/social/publications/{event_id}/retry", response_model=SocialPublicationItemRead)
@@ -469,9 +648,16 @@ async def get_audit_logs(
     if date_from and date_to and date_from > date_to:
         raise HTTPException(status_code=422, detail="date_from must not be after date_to")
     return await list_audit_logs(
-        session, page=page, page_size=page_size, action=action, user_id=user_id,
-        resource_type=resource_type, resource_id=resource_id,
-        date_from=date_from, date_to=date_to, search=search,
+        session,
+        page=page,
+        page_size=page_size,
+        action=action,
+        user_id=user_id,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
     )
 
 

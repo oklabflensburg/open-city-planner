@@ -11,7 +11,7 @@ describe('administrierbare E-Mail-Vorlagen', () => {
   it('shows the menu only in the existing superuser navigation', () => {
     const header = appFile('components/layout/AppHeader.vue')
     expect(header).toContain("authStore.user?.is_superuser ?")
-    expect(header).toContain("{ label: 'E-Mail-Vorlagen', to: '/admin/email-vorlagen' }")
+    expect(header).toContain("{ label: 'E-Mail-Zentrale', to: '/admin/email-vorlagen' }")
   })
 
   it('protects list and editor with the superuser middleware', () => {

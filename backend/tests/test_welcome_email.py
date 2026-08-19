@@ -22,9 +22,7 @@ async def test_signup_sends_no_welcome_email(monkeypatch: pytest.MonkeyPatch) ->
     session.add = MagicMock()
     monkeypatch.setattr(auth_service, "get_user_by_email", AsyncMock(return_value=None))
     monkeypatch.setattr(auth_service, "hash_password", lambda _password: "password-hash")
-    monkeypatch.setattr(
-        auth_service, "create_verification_token", AsyncMock(return_value="token")
-    )
+    monkeypatch.setattr(auth_service, "create_verification_token", AsyncMock(return_value="token"))
     verification = AsyncMock()
     monkeypatch.setattr(auth_service, "send_verification_email", verification)
 
@@ -39,9 +37,7 @@ async def test_signup_sends_no_welcome_email(monkeypatch: pytest.MonkeyPatch) ->
     )
 
     assert user.is_verified is False
-    assert not any(
-        isinstance(call.args[0], EmailOutbox) for call in session.add.call_args_list
-    )
+    assert not any(isinstance(call.args[0], EmailOutbox) for call in session.add.call_args_list)
     verification.assert_awaited_once()
 
 
@@ -112,9 +108,7 @@ async def test_pending_oauth_user_is_enqueued_after_later_email_verification() -
 
     assert result.changed_user_state is True
     assert user.is_verified is True
-    assert sum(
-        isinstance(call.args[0], EmailOutbox) for call in session.add.call_args_list
-    ) == 1
+    assert sum(isinstance(call.args[0], EmailOutbox) for call in session.add.call_args_list) == 1
 
 
 @pytest.mark.asyncio
@@ -189,9 +183,7 @@ async def test_welcome_template_is_active_and_uses_database_override() -> None:
             '<p>Hallo {{ name }}</p><p><a href="{{ app_url }}">Start</a></p>'
             '<p><a href="{{ documentation_url }}">Hilfe</a></p>'
         ),
-        text_body=(
-            "Hallo {{ name }}\n{{ app_url }}\n{{ documentation_url }}"
-        ),
+        text_body=("Hallo {{ name }}\n{{ app_url }}\n{{ documentation_url }}"),
         is_customized=True,
         version=2,
     )
@@ -267,7 +259,5 @@ def verified_user() -> User:
     )
 
 
-def test_outbox_has_database_uniqueness_for_user_and_template() -> None:
-    constraint_names = {constraint.name for constraint in EmailOutbox.__table__.constraints}
-
-    assert "uq_email_outbox_template_user" in constraint_names
+def test_outbox_uses_generic_unique_idempotency_key() -> None:
+    assert EmailOutbox.__table__.c.idempotency_key.unique is True

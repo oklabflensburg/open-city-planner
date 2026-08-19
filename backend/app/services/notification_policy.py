@@ -41,6 +41,7 @@ class NotificationSpec:
     action_url: str | None
     action_label: str | None
     dedupe_scope: str
+    email_eligible: bool = False
 
 
 class NotificationPolicy:
@@ -68,6 +69,7 @@ class NotificationPolicy:
                 polygon_url,
                 "Fläche ansehen",
                 "area-status",
+                email_eligible=True,
             ),
             NotificationEventType.GIS_AREA_DELETED: NotificationSpec(
                 "GIS",
@@ -77,6 +79,7 @@ class NotificationPolicy:
                 "/",
                 "Karte öffnen",
                 "area-delete",
+                email_eligible=True,
             ),
             NotificationEventType.GIS_AREA_ADOPTED_FROM_OSM: NotificationSpec(
                 "OSM",
@@ -95,6 +98,7 @@ class NotificationPolicy:
                 polygon_url,
                 "Änderungen prüfen",
                 "osm-major-change",
+                email_eligible=True,
             ),
             NotificationEventType.AREA_STATISTICS_UPDATED: NotificationSpec(
                 "DATA",
@@ -104,6 +108,7 @@ class NotificationPolicy:
                 f"/gebiete/{event.resource_slug}" if event.resource_slug else "/gebiete",
                 "Gebiet ansehen",
                 "area-statistics",
+                email_eligible=True,
             ),
             NotificationEventType.SOCIAL_PUBLICATION_PUBLISHED: NotificationSpec(
                 "SOCIAL",
@@ -122,6 +127,7 @@ class NotificationPolicy:
                 "/admin/social",
                 "Fehler prüfen",
                 "social-failed",
+                email_eligible=True,
             ),
             NotificationEventType.SOCIAL_PUBLICATION_APPROVAL_REQUIRED: NotificationSpec(
                 "SOCIAL",
@@ -131,6 +137,7 @@ class NotificationPolicy:
                 "/admin/social",
                 "Jetzt prüfen",
                 "social-approval",
+                email_eligible=True,
             ),
             NotificationEventType.ROLE_ASSIGNED: NotificationSpec(
                 "ACCOUNT",
@@ -185,6 +192,7 @@ class NotificationPolicy:
                 None,
                 None,
                 "import-failed",
+                email_eligible=True,
             ),
         }
         return policies[event.event_type]

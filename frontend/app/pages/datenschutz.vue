@@ -98,6 +98,9 @@
       <p class="mt-3 text-sm leading-6 text-[#4f575c]">
         E-Mails zur Bestätigung der E-Mail-Adresse, zum Passwort-Reset und als Sicherheitshinweis werden serverseitig erzeugt. Im Entwicklungsmodus werden E-Mails in der Backend-Konsole ausgegeben. Im Produktivbetrieb hängt der konkrete E-Mail-Dienstleister von der SMTP-Konfiguration des Betreibers ab und muss dort ergänzt werden.
       </p>
+      <p class="mt-3 text-sm leading-6 text-[#4f575c]">
+        Angemeldete Nutzerinnen und Nutzer können optionale E-Mail-Benachrichtigungen nach Themen sowie einen freiwilligen Newsletter getrennt aktivieren und deaktivieren. Newsletter enthalten einen Abmeldelink, dessen zufälliger Token serverseitig nur gehasht gespeichert wird. Notwendige Konto-, Sicherheits- und ausdrücklich als erforderlich klassifizierte Service-Mitteilungen sind von diesen freiwilligen Einstellungen getrennt. Für Rundmails werden Empfänger und Versandstatus als technische Versandhistorie gespeichert; die konkrete Einordnung und Aufbewahrungsdauer muss der Betreiber für den Produktivbetrieb festlegen und rechtlich prüfen.
+      </p>
     </section>
 
     <section>

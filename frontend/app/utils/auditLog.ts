@@ -21,7 +21,22 @@ const ACTION_LABELS: Record<string, string> = {
   OAUTH_LOGIN_FAILED: 'Externe Anmeldung fehlgeschlagen',
   OAUTH_ACCOUNT_LINKED: 'Externes Konto verknüpft',
   OAUTH_ACCOUNT_LINK_FAILED: 'Kontoverknüpfung fehlgeschlagen',
-  OAUTH_ACCOUNT_UNLINKED: 'Externes Konto getrennt'
+  OAUTH_ACCOUNT_UNLINKED: 'Externes Konto getrennt',
+  EMAIL_CAMPAIGN_CREATED: 'Rundmail angelegt',
+  EMAIL_CAMPAIGN_UPDATED: 'Rundmail geändert',
+  EMAIL_CAMPAIGN_SCHEDULED: 'Rundmail geplant',
+  EMAIL_CAMPAIGN_STARTED: 'Rundmail-Versand gestartet',
+  EMAIL_CAMPAIGN_CANCELLED: 'Rundmail-Versand abgebrochen',
+  EMAIL_CAMPAIGN_COMPLETED: 'Rundmail-Versand abgeschlossen',
+  EMAIL_CAMPAIGN_LEGAL_CONFIRMED: 'Notwendige Mitteilung bestätigt',
+  EMAIL_CAMPAIGN_TEST_SENT: 'Rundmail-Test versendet',
+  EMAIL_PREFERENCE_UPDATED: 'E-Mail-Einstellungen geändert',
+  NEWSLETTER_UNSUBSCRIBED: 'Newsletter abbestellt',
+  NEWSLETTER_RESUBSCRIBED: 'Newsletter wieder aktiviert',
+  EMAIL_DELIVERY_SENT: 'E-Mail versendet',
+  EMAIL_DELIVERY_FAILED: 'E-Mail-Versand fehlgeschlagen',
+  WELCOME_EMAIL_SENT: 'Willkommensmail versendet',
+  WELCOME_EMAIL_FAILED: 'Willkommensmail fehlgeschlagen'
 }
 
 export function auditActionLabel(action: string) {

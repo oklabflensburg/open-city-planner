@@ -36,6 +36,13 @@ export interface NotificationPreferences {
   notify_social: boolean
   notify_account: boolean
   notify_system: boolean
+  email_enabled: boolean
+  email_notify_gis: boolean
+  email_notify_osm: boolean
+  email_notify_area_updates: boolean
+  email_notify_social: boolean
+  email_notify_system: boolean
+  newsletter_enabled: boolean
   updated_at: string | null
 }
 

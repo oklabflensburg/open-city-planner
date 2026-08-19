@@ -1,13 +1,14 @@
 <template>
   <ContentPageShell
     v-if="authorized"
-    title="E-Mail-Vorlagen"
+    title="E-Mail-Zentrale"
     description="Systemmails zentral verwalten, ihren Einsatz prüfen und sichere Standardinhalte wiederherstellen."
     eyebrow="Administration"
     :breadcrumbs="[{ label: 'Startseite', to: '/' }, { label: 'Administration', to: '/admin/benutzer' }, { label: 'E-Mail-Vorlagen' }]"
     max-width="wide"
   >
     <template #badge><StatusBadge tone="warning">SUPERUSER</StatusBadge></template>
+    <EmailCenterTabs />
 
     <p v-if="error" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800" role="alert">{{ error }}</p>
     <div v-if="loading" class="grid gap-4 md:grid-cols-2" role="status" aria-label="E-Mail-Vorlagen werden geladen">
@@ -43,7 +44,7 @@ const templates = ref<EmailTemplateListItem[]>([])
 const loading = ref(true)
 const error = ref('')
 const authorized = ref(false)
-const categories = ['Sicherheit', 'Konto', 'Kontakt'] as const
+const categories = ['Sicherheit', 'Konto', 'Kontakt', 'Kommunikation / System'] as const
 const grouped = computed(() => Object.fromEntries(
   categories.map(category => [category, templates.value.filter(item => item.category === category)])
 ) as Record<(typeof categories)[number], EmailTemplateListItem[]>)

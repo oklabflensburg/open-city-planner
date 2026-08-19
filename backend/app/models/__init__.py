@@ -2,8 +2,10 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.analysis_area import AnalysisArea, PolygonAnalysisArea
 from app.models.cache_version import CacheVersion
 from app.models.city_metrics import CityMetrics
+from app.models.email_campaign import EmailCampaign, EmailCampaignDelivery
 from app.models.email_outbox import EmailOutbox
 from app.models.email_template import EmailTemplate
+from app.models.email_unsubscribe import EmailUnsubscribeToken
 from app.models.mfa import (
     AuthMfaChallenge,
     UserMfaMethod,
@@ -39,8 +41,11 @@ __all__ = [
     "AuthMfaChallenge",
     "CacheVersion",
     "CityMetrics",
+    "EmailCampaign",
+    "EmailCampaignDelivery",
     "EmailOutbox",
     "EmailTemplate",
+    "EmailUnsubscribeToken",
     "EmailVerificationToken",
     "ExternalAreaMapping",
     "MastodonOAuthInstance",

@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates" / "email"
 SUBJECT_MAX_LENGTH = 200
 BODY_MAX_LENGTH = 50_000
-TemplateCategory = Literal["Sicherheit", "Konto", "Kontakt"]
+TemplateCategory = Literal["Sicherheit", "Konto", "Kontakt", "Kommunikation / System"]
 
 
 @dataclass(frozen=True)
@@ -144,6 +144,37 @@ EMAIL_TEMPLATE_REGISTRY: dict[str, EmailTemplateDefinition] = {
         frozenset({"name", "app_url", "documentation_url", "profile_url"}),
         frozenset({"app_url", "documentation_url"}),
     ),
+    "system_announcement": EmailTemplateDefinition(
+        "system_announcement",
+        "System- und Rundmitteilung",
+        "Grundstruktur für rechtliche, betriebliche und redaktionelle Rundmails.",
+        "Kommunikation / System",
+        "{{ title }} – Stadtplaner",
+        """<p>Hallo {{ name }},</p><h1>{{ title }}</h1><p>{{ intro }}</p><div>{{ content }}</div><p><a class="email-button" href="{{ action_url }}">{{ action_label }}</a></p>""",
+        """Hallo {{ name }},\n\n{{ title }}\n\n{{ intro }}\n\n{{ content }}\n\n{{ action_label }}:\n{{ action_url }}""",
+        frozenset({"name", "title", "intro", "content", "action_url", "action_label", "app_url"}),
+        frozenset({"title", "content"}),
+    ),
+    "notification_email": EmailTemplateDefinition(
+        "notification_email",
+        "E-Mail-Benachrichtigung",
+        "Optionale E-Mail-Ausgabe geeigneter Notification-Center-Ereignisse.",
+        "Kommunikation / System",
+        "{{ notification_title }} – Stadtplaner",
+        """<p>Hallo {{ name }},</p><h1>{{ notification_title }}</h1><p>{{ notification_message }}</p><p><a class="email-button" href="{{ action_url }}">{{ action_label }}</a></p>""",
+        """Hallo {{ name }},\n\n{{ notification_title }}\n\n{{ notification_message }}\n\n{{ action_label }}:\n{{ action_url }}\n\nKategorie: {{ category }}""",
+        frozenset(
+            {
+                "name",
+                "notification_title",
+                "notification_message",
+                "action_url",
+                "action_label",
+                "category",
+            }
+        ),
+        frozenset({"notification_title", "notification_message"}),
+    ),
 }
 
 _sandbox = SandboxedEnvironment(autoescape=True, undefined=StrictUndefined)
@@ -249,7 +280,7 @@ def sanitize_email_html(value: str) -> str:
     return sanitizer.result()
 
 
-def global_email_context() -> dict[str, str]:
+def global_email_context() -> dict[str, str | None]:
     settings = get_settings()
     base_url = settings.app_base_url.rstrip("/")
     return {
@@ -259,6 +290,8 @@ def global_email_context() -> dict[str, str]:
         "imprint_url": f"{base_url}/impressum",
         "privacy_url": f"{base_url}/datenschutz",
         "support_email": settings.contact_to_email or settings.smtp_from_email,
+        "preferences_url": None,
+        "unsubscribe_url": None,
     }
 
 
@@ -355,7 +388,7 @@ async def get_template_content(session: AsyncSession | None, key: str) -> EmailT
 
 
 def _render_string(
-    source: str, variables: dict[str, str], field: str, *, html: bool = False
+    source: str, variables: dict[str, str | Markup], field: str, *, html: bool = False
 ) -> str:
     try:
         environment = _sandbox if html else _text_sandbox
@@ -372,6 +405,10 @@ async def render_email_template(
     variables: dict[str, object],
     *,
     content_override: EmailTemplateContent | None = None,
+    trusted_html_variables: frozenset[str] = frozenset(),
+    text_variables: dict[str, object] | None = None,
+    preferences_url: str | None = None,
+    unsubscribe_url: str | None = None,
 ) -> RenderedEmail:
     definition = template_definition(key)
     unknown = sorted(set(variables) - definition.allowed_variables)
@@ -381,7 +418,26 @@ async def render_email_template(
             f"Die Variable {unknown[0]} ist für diese Vorlage nicht erlaubt.",
             variable=unknown[0],
         )
-    safe_variables = {name: str(value) for name, value in variables.items()}
+    safe_variables: dict[str, str | Markup] = {
+        name: Markup(sanitize_email_html(str(value)))
+        if name in trusted_html_variables
+        else str(value)
+        for name, value in variables.items()
+    }
+    if text_variables is not None:
+        unknown_text = sorted(set(text_variables) - definition.allowed_variables)
+        if unknown_text:
+            raise EmailTemplateValidationError(
+                "EMAIL_TEMPLATE_VARIABLE_NOT_ALLOWED",
+                f"Die Variable {unknown_text[0]} ist für diese Vorlage nicht erlaubt.",
+                variable=unknown_text[0],
+            )
+        safe_text_variables = {
+            **safe_variables,
+            **{name: str(value) for name, value in text_variables.items()},
+        }
+    else:
+        safe_text_variables = safe_variables
     content = content_override or await get_template_content(session, key)
     subject_source, html_source, text_source = validate_template_content(
         definition, content.subject, content.html_body, content.text_body
@@ -395,12 +451,18 @@ async def render_email_template(
         _render_string(html_source, safe_variables, "Der HTML-Inhalt", html=True)
     )
     context = global_email_context()
+    context["preferences_url"] = preferences_url
+    context["unsubscribe_url"] = unsubscribe_url
     html = _layout_env.get_template("base.html").render(content=Markup(body), **context)
-    text_content = _render_string(text_source, safe_variables, "Der Text-Inhalt").rstrip()
+    text_content = _render_string(text_source, safe_text_variables, "Der Text-Inhalt").rstrip()
     text = (
         f"{text_content}\n\n--\nOK Lab Flensburg · {context['site_name']}\n\n"
         f"Impressum:\n{context['imprint_url']}\n\nDatenschutz:\n{context['privacy_url']}"
     )
+    if preferences_url:
+        text += f"\n\nE-Mail-Einstellungen ändern:\n{preferences_url}"
+    if unsubscribe_url:
+        text += f"\n\nNewsletter abbestellen:\n{unsubscribe_url}"
     return RenderedEmail(subject, html, text)
 
 
@@ -426,6 +488,7 @@ def send_email(
     *,
     to_name: str | None = None,
     reply_to: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> None:
     settings = get_settings()
     if settings.email_backend == "console":
@@ -441,6 +504,8 @@ def send_email(
     message["To"] = Address(to_name or "", addr_spec=to_email)
     if reply_to:
         message["Reply-To"] = Address(addr_spec=reply_to)
+    for name, value in (headers or {}).items():
+        message[name] = value
     message.set_content(text)
     message.add_alternative(html, subtype="html")
     with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as smtp:
@@ -457,6 +522,7 @@ async def send_rendered_email(
     *,
     to_name: str | None = None,
     reply_to: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> None:
     await asyncio.to_thread(
         send_email,
@@ -466,6 +532,7 @@ async def send_rendered_email(
         rendered.text,
         to_name=to_name,
         reply_to=reply_to,
+        headers=headers,
     )
 
 

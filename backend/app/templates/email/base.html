@@ -30,6 +30,8 @@
                 OK Lab Flensburg · {{ site_name }}<br>
                 <a href="{{ imprint_url }}" style="color:#154d73;">Impressum</a> ·
                 <a href="{{ privacy_url }}" style="color:#154d73;">Datenschutz</a>
+                {% if preferences_url %}<br><a href="{{ preferences_url }}" style="color:#154d73;">E-Mail-Einstellungen ändern</a>{% endif %}
+                {% if unsubscribe_url %}<br><a href="{{ unsubscribe_url }}" style="color:#154d73;">Newsletter abbestellen</a>{% endif %}
               </td>
             </tr>
           </table>

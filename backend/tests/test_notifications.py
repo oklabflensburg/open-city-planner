@@ -4,13 +4,17 @@ from datetime import UTC, datetime
 
 import pytest
 
+from app.models.email_outbox import EmailOutbox
 from app.models.notification import Notification, NotificationPreference
+from app.models.user import User
 from app.schemas.notification import NotificationRead
 from app.services.notification_policy import DomainEvent, NotificationEventType, notification_policy
 from app.services.notifications import (
     cleanup_notifications,
     create_notification,
     notification_broker,
+    should_deliver_email,
+    should_deliver_in_app,
     subscription_recipient_ids,
 )
 
@@ -28,9 +32,19 @@ class NotificationSession:
         )
         self.notification: Notification | None = None
         self.added: list[object] = []
+        self.user = User(
+            id=self.preferences.user_id,
+            email="notify@example.org",
+            is_active=True,
+            is_verified=True,
+        )
 
     async def get(self, model: object, _key: object):
-        return self.preferences if model is NotificationPreference else None
+        if model is NotificationPreference:
+            return self.preferences
+        if model is User:
+            return self.user
+        return None
 
     async def scalar(self, _statement: object):
         return self.notification
@@ -49,6 +63,17 @@ class NotificationSession:
 def polygon_event(actor_id: uuid.UUID) -> DomainEvent:
     return DomainEvent(
         event_type=NotificationEventType.GIS_AREA_UPDATED,
+        actor_user_id=actor_id,
+        resource_type="POLYGON",
+        resource_id="polygon-1",
+        resource_slug="testflaeche",
+        resource_title="Testfläche",
+    )
+
+
+def email_eligible_event(actor_id: uuid.UUID) -> DomainEvent:
+    return DomainEvent(
+        event_type=NotificationEventType.GIS_AREA_STATUS_CHANGED,
         actor_user_id=actor_id,
         resource_type="POLYGON",
         resource_id="polygon-1",
@@ -119,6 +144,53 @@ async def test_other_user_gets_exactly_one_notification_while_actor_is_suppresse
     assert own is None
     assert other is not None
     assert len([item for item in session.added if isinstance(item, Notification)]) == 1
+
+
+@pytest.mark.asyncio
+async def test_email_only_notification_is_queued_without_in_app_visibility() -> None:
+    session = NotificationSession()
+    session.preferences.in_app_enabled = False
+    session.preferences.email_enabled = True
+    session.preferences.email_notify_gis = True
+
+    item = await create_notification(
+        session,
+        recipient_user_id=session.preferences.user_id,
+        event=email_eligible_event(uuid.uuid4()),
+    )
+
+    assert item is not None and item.in_app_visible is False
+    assert len([value for value in session.added if isinstance(value, EmailOutbox)]) == 1
+
+
+@pytest.mark.asyncio
+async def test_in_app_only_notification_creates_no_email_delivery() -> None:
+    session = NotificationSession()
+    session.preferences.email_enabled = False
+
+    item = await create_notification(
+        session,
+        recipient_user_id=session.preferences.user_id,
+        event=email_eligible_event(uuid.uuid4()),
+    )
+
+    assert item is not None and item.in_app_visible is True
+    assert not any(isinstance(value, EmailOutbox) for value in session.added)
+
+
+def test_email_category_and_global_switch_are_independent_from_in_app() -> None:
+    preferences = NotificationPreference(
+        user_id=uuid.uuid4(),
+        in_app_enabled=False,
+        notify_gis=False,
+        email_enabled=True,
+        email_notify_gis=True,
+    )
+    assert should_deliver_in_app(preferences, "GIS") is False
+    assert should_deliver_email(preferences, "GIS", email_eligible=True) is True
+    preferences.email_notify_gis = False
+    assert should_deliver_email(preferences, "GIS", email_eligible=True) is False
+    assert should_deliver_email(preferences, "ACCOUNT", email_eligible=True) is False
 
 
 @pytest.mark.asyncio

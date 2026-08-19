@@ -51,6 +51,13 @@ class NotificationPreferencesRead(BaseModel):
     notify_social: bool = True
     notify_account: bool = True
     notify_system: bool = True
+    email_enabled: bool = False
+    email_notify_gis: bool = False
+    email_notify_osm: bool = False
+    email_notify_area_updates: bool = False
+    email_notify_social: bool = False
+    email_notify_system: bool = False
+    newsletter_enabled: bool = False
     updated_at: datetime | None = None
 
 
@@ -62,6 +69,13 @@ class NotificationPreferencesUpdate(BaseModel):
     notify_social: bool | None = None
     notify_account: bool | None = None
     notify_system: bool | None = None
+    email_enabled: bool | None = None
+    email_notify_gis: bool | None = None
+    email_notify_osm: bool | None = None
+    email_notify_area_updates: bool | None = None
+    email_notify_social: bool | None = None
+    email_notify_system: bool | None = None
+    newsletter_enabled: bool | None = None
 
 
 class NotificationSubscriptionRead(BaseModel):

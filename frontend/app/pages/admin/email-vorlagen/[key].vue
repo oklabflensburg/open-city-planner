@@ -8,6 +8,7 @@
     max-width="wide"
   >
     <template #badge><StatusBadge tone="warning">SUPERUSER</StatusBadge></template>
+    <EmailCenterTabs />
 
     <p v-if="success" class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900" role="status">{{ success }}</p>
     <p v-if="error" class="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800" role="alert">{{ error }}</p>

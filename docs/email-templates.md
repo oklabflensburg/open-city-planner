@@ -13,6 +13,8 @@ Das E-Mail-System verwendet ein zentrales Register in `backend/app/services/emai
 | `contact_notification` | interne Kontaktbenachrichtigung | aktiv |
 | `contact_copy` | Kopie an den Absender | aktiv |
 | `welcome` | Willkommensmail nach bestätigter Konto-E-Mail | aktiv |
+| `system_announcement` | Layout für System- und Rundmitteilungen | aktiv |
+| `notification_email` | optionale E-Mail zu einer Benachrichtigung | aktiv |
 
 Unbekannte Schlüssel werden abgelehnt. Neue Mailarten müssen zuerst im Register angelegt und anschließend über den zentralen Renderer versendet werden.
 
@@ -67,13 +69,31 @@ Die Vorschau wird im Frontend in einem leeren `sandbox`-Iframe angezeigt und nic
 
 SMTP bleibt intern synchron, wird aus der asynchronen Renderpipeline aber über `asyncio.to_thread` aufgerufen und blockiert daher keine FastAPI-Request-Schleife. Das Console-Backend protokolliert weder Empfänger noch Mailinhalt.
 
-## Willkommensmail und E-Mail-Outbox
+## E-Mail-Zentrale und Rundmails
+
+Der Adminbereich bündelt unter „E-Mail-Zentrale“ die bestehenden Vorlagen, Rundmail-Entwürfe und den Versandstatus. Eine Rundmail ist ein eigener, versionierter Datensatz und verändert die globale Vorlage `system_announcement` nicht. Speichern, Vorschau und Testmail starten keinen Massenversand. Erst der ausdrücklich bestätigte Start legt die Empfänger fest und erzeugt pro Empfänger eine Zustellung.
+
+Die Migration `20260819_0031` ergänzt `email_campaigns`, `email_campaign_deliveries` und `email_unsubscribe_tokens`. Nach dem Start ist der Inhalt einer Kampagne unveränderlich. Die Zustellungstabelle hält E-Mail-Adresse und Anzeigename als Versand-Snapshot fest; gelöschte Konten können per `SET NULL` von ihrer Zustellung getrennt werden. Eine geplante Kampagne wird erst beim ersten fälligen Worker-Claim auf `PROCESSING` gesetzt.
+
+Zielgruppen sind alle aktiven Konten, bestätigte Konten oder Superuser. Für `NEWSLETTER` werden ausschließlich Konten mit ausdrücklichem Opt-in berücksichtigt. `LEGAL` ignoriert den Newsletter-Schalter, benötigt aber eine zusätzliche Bestätigung und ein eigenes Auditereignis. `SERVICE` und `SYSTEM` sind in dieser ersten Fassung als notwendige betriebliche Kommunikation klassifiziert und berücksichtigen den Newsletter-Schalter ebenfalls nicht. Diese technische Einordnung ersetzt nicht die rechtliche Prüfung des konkreten Inhalts; freiwillige redaktionelle Inhalte müssen als `NEWSLETTER` versendet werden.
+
+## Mehrkanal-Benachrichtigungen
+
+Die vorhandenen Kategorien GIS, OpenStreetMap, Gebiete/Daten, Social und System steuern nun getrennt den In-App- und den optionalen E-Mail-Kanal. `email_enabled` ist der globale E-Mail-Schalter; die Felder `email_notify_gis`, `email_notify_osm`, `email_notify_area_updates`, `email_notify_social` und `email_notify_system` steuern die Kategorien. `newsletter_enabled` bleibt davon unabhängig. Alle neuen E-Mail-Schalter sind für bestehende und neue Konten standardmäßig deaktiviert, damit ein Deployment keine unerwartete Mailflut auslöst.
+
+Die Notification Policy entscheidet mit `email_eligible`, welche Ereignisse überhaupt als E-Mail geeignet sind. Derzeit sind wesentliche GIS-Statusänderungen und Löschungen, wesentliche OSM-Änderungen, aktualisierte Gebietsstatistiken, fehlgeschlagene oder freizugebende Social-Veröffentlichungen sowie fehlgeschlagene Importe zugelassen. Kleine GIS-Aktualisierungen bleiben In-App. Persistente Notification-ID und eindeutiger Outbox-Schlüssel begrenzen die Zustellung auf höchstens eine E-Mail je Benachrichtigung.
+
+Konto- und Sicherheitsmails wie Verifikation, Passwort-Reset sowie MFA- und Passkey-Hinweise verwenden weiterhin ihre bestehende, verpflichtende Zustelllogik. Sie sind weder vom Newsletter- noch vom optionalen Benachrichtigungsschalter abhängig.
+
+## Allgemeine E-Mail-Outbox
 
 Die Willkommensmail wird nicht bei der Registrierung versendet. Die erfolgreiche E-Mail-Bestätigung setzt `users.is_verified` und legt in derselben Datenbanktransaktion genau einen Outbox-Eintrag für den Benutzer an. Erst nach diesem Commit wird ein unmittelbarer Versandversuch gestartet. Ein SMTP-Fehler kann den bestätigten Kontostatus deshalb nicht zurückrollen.
 
-Neue OAuth-Konten werden nur dann unmittelbar eingereiht, wenn der Provider sowohl eine E-Mail-Adresse als auch deren bestätigten Status liefert. Konten mit ausstehender E-Mail-Adresse erhalten die Nachricht erst nach der späteren Bestätigung. `email_outbox` erzwingt für `template_key + user_id` Datenbank-Eindeutigkeit; `users.welcome_email_sent_at` hält den erfolgreichen Versand dauerhaft fest. Parallele Bestätigungsanfragen und Worker können dadurch nicht gleichzeitig dieselbe Nachricht beanspruchen.
+Neue OAuth-Konten werden nur dann unmittelbar eingereiht, wenn der Provider sowohl eine E-Mail-Adresse als auch deren bestätigten Status liefert. Konten mit ausstehender E-Mail-Adresse erhalten die Nachricht erst nach der späteren Bestätigung. `email_outbox` besitzt nun einen eindeutigen `idempotency_key`: `welcome:{user_id}`, `campaign:{campaign_id}:{user_id}` oder `notification:{notification_id}:email`. Zusammen mit `users.welcome_email_sent_at` bleibt die Willkommensmail genau einmal eingeplant und nach erfolgreicher Zustellung dauerhaft markiert. Worker beanspruchen fällige Einträge mit einer Zeilensperre und `SKIP LOCKED`.
 
-Fehlgeschlagene Versuche bleiben mit begrenztem exponentiellem Abstand retryfähig. Die Outbox speichert weder Verifikations- noch Passwort-Reset-Token und rendert den jeweils aktuellen, im Adminbereich gepflegten `welcome`-Inhalt erst beim Versand. Zulässige Variablen sind `name`, `app_url`, `documentation_url` und optional `profile_url`.
+Fehlgeschlagene temporäre Versuche bleiben mit begrenztem exponentiellem Abstand retryfähig; die maximale Versuchszahl wird über `EMAIL_OUTBOX_MAX_ATTEMPTS` konfiguriert. Permanente Empfängerfehler enden als `FAILED`. Die Outbox speichert weder Verifikations- noch Passwort-Reset-Token, TOTP-Geheimnisse oder Wiederherstellungscodes. Noch nicht versendete Kampagneneinträge können auf `CANCELLED` gesetzt werden.
+
+Newsletter enthalten einen zufälligen, nur gehasht gespeicherten Abmeldetoken sowie `List-Unsubscribe` und `List-Unsubscribe-Post`. Die öffentliche Route `/email-abmelden` deaktiviert ausschließlich `newsletter_enabled`, funktioniert ohne Anmeldung idempotent und zeigt keine Kontodaten. Ein erneutes Opt-in erfolgt nur im eingeloggten Profil. Optionale Notification-Mails verlinken stattdessen auf die Einstellungen nach Anmeldung.
 
 Der periodische One-shot-Worker verarbeitet fällige Einträge unabhängig vom ursprünglichen Request:
 
@@ -88,8 +108,8 @@ Vor dem Deployment:
 
 1. `APP_BASE_URL` auf die öffentliche Frontend-Origin setzen, produktiv beispielsweise `https://stadtplaner.oklabflensburg.de`.
 2. `alembic upgrade head` im Backend ausführen.
-3. Die Units `stadtplaner-email-outbox.service` und `.timer` installieren und den Timer aktivieren.
+3. Die unveränderten Units `stadtplaner-email-outbox.service` und `.timer` installieren und den Timer aktivieren. Derselbe Worker verarbeitet Welcome-, Notification- und Kampagnenmails.
 4. Backend und Frontend neu bauen und neu starten.
 5. Erreichbarkeit von Logo, Impressum und Datenschutz über die öffentliche Domain prüfen.
 
-Ein Rollback der Anpassungen erfolgt pro Vorlage über „Standard wiederherstellen“. `alembic downgrade 20260819_0029` entfernt die Welcome-Outbox und den Versandzeitpunkt; ein weiterer Downgrade auf `20260819_0028` entfernt sämtliche gespeicherten Overrides.
+Ein Rollback der Anpassungen erfolgt pro Vorlage über „Standard wiederherstellen“. `alembic downgrade 20260819_0030` entfernt Kampagnen, Mehrkanal-Präferenzen und die generische Outbox-Erweiterung; dabei werden nicht im alten Schema darstellbare Kampagnen- und Notification-Outbox-Einträge entfernt. Weitere Downgrades entfernen anschließend Welcome-Outbox und gespeicherte Template-Overrides.

@@ -48,6 +48,14 @@ def preview_variables(key: str) -> dict[str, str]:
         "app_url": "https://example.invalid",
         "documentation_url": "https://example.invalid/dokumentation",
         "profile_url": "https://example.invalid/profil",
+        "title": "Wichtige Mitteilung",
+        "intro": "Das Wichtigste vorab.",
+        "content": "Dies ist ein sicherer Beispielinhalt.",
+        "action_url": "https://example.invalid/dokumentation",
+        "action_label": "Weitere Informationen",
+        "notification_title": "Fläche aktualisiert",
+        "notification_message": "Eine beobachtete Fläche wurde geändert.",
+        "category": "GIS",
         "verification_url": "https://example.invalid/email-bestaetigen?token=vorschau",
         "reset_url": "https://example.invalid/passwort-zuruecksetzen?token=vorschau",
         "expires_minutes": "60",
@@ -108,10 +116,7 @@ async def _effective(
 
 async def list_email_templates(session: AsyncSession) -> list[EffectiveEmailTemplate]:
     records = await _records(session)
-    return [
-        await _effective(session, key, records)
-        for key in EMAIL_TEMPLATE_REGISTRY
-    ]
+    return [await _effective(session, key, records) for key in EMAIL_TEMPLATE_REGISTRY]
 
 
 async def get_email_template(session: AsyncSession, key: str) -> EffectiveEmailTemplate:
@@ -144,7 +149,8 @@ async def update_email_template(
         raise EmailTemplateVersionConflict
     customized = (
         subject != definition.default_subject
-        or html_body != validate_template_content(
+        or html_body
+        != validate_template_content(
             definition,
             definition.default_subject,
             definition.default_html,
@@ -243,9 +249,7 @@ async def preview_email_template(
         session,
         key,
         preview_variables(key),
-        content_override=EmailTemplateContent(
-            subject, html_body, text_body, True, version
-        ),
+        content_override=EmailTemplateContent(subject, html_body, text_body, True, version),
     )
 
 

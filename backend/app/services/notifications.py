@@ -11,6 +11,8 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.admin_audit_log import AdminAuditLog
+from app.models.email_outbox import EmailOutbox
 from app.models.notification import Notification, NotificationPreference, NotificationSubscription
 from app.models.user import User
 from app.schemas.notification import (
@@ -18,6 +20,7 @@ from app.schemas.notification import (
     NotificationPreferencesUpdate,
     NotificationRead,
 )
+from app.services.email_outbox import enqueue_notification_email
 from app.services.notification_policy import DomainEvent, NotificationEventType, notification_policy
 
 logger = logging.getLogger(__name__)
@@ -84,7 +87,7 @@ async def get_preferences(session: AsyncSession, user_id: uuid.UUID) -> Notifica
     return preferences
 
 
-def _category_enabled(preferences: NotificationPreference, category: str) -> bool:
+def should_deliver_in_app(preferences: NotificationPreference, category: str) -> bool:
     if category in SECURITY_CATEGORIES:
         return True
     if not preferences.in_app_enabled:
@@ -99,6 +102,21 @@ def _category_enabled(preferences: NotificationPreference, category: str) -> boo
     }.get(category, True)
 
 
+def should_deliver_email(
+    preferences: NotificationPreference, category: str, *, email_eligible: bool
+) -> bool:
+    if not email_eligible or category in SECURITY_CATEGORIES or not preferences.email_enabled:
+        return False
+    return {
+        "GIS": preferences.email_notify_gis,
+        "OSM": preferences.email_notify_osm,
+        "DATA": preferences.email_notify_area_updates,
+        "SOCIAL": preferences.email_notify_social,
+        "SYSTEM": preferences.email_notify_system,
+        "ADMIN": preferences.email_notify_system,
+    }.get(category, False)
+
+
 async def create_notification(
     session: AsyncSession,
     *,
@@ -111,7 +129,9 @@ async def create_notification(
         return None
     spec = notification_policy.render(event)
     preferences = await get_preferences(session, recipient_user_id)
-    if not _category_enabled(preferences, spec.category):
+    in_app = should_deliver_in_app(preferences, spec.category)
+    email = should_deliver_email(preferences, spec.category, email_eligible=spec.email_eligible)
+    if not in_app and not email:
         return None
 
     resource_key = event.resource_id or event.resource_slug or "global"
@@ -139,7 +159,16 @@ async def create_notification(
         existing.is_read = False
         existing.read_at = None
         existing.event_metadata = {**(event.metadata or {}), "occurrence_count": occurrence_count}
+        existing.in_app_visible = bool(existing.in_app_visible or in_app)
         await session.flush()
+        if email:
+            queued = await session.scalar(
+                select(EmailOutbox.id).where(EmailOutbox.notification_id == existing.id)
+            )
+            if queued is None:
+                user = await session.get(User, recipient_user_id)
+                if user and user.is_active and user.is_verified:
+                    enqueue_notification_email(session, existing, user)
         return existing
 
     item = Notification(
@@ -156,11 +185,16 @@ async def create_notification(
         resource_slug=event.resource_slug,
         action_url=spec.action_url,
         action_label=spec.action_label,
+        in_app_visible=in_app,
         dedupe_key=dedupe_key,
         event_metadata=dict(event.metadata or {}),
     )
     session.add(item)
     await session.flush()
+    if email:
+        user = await session.get(User, recipient_user_id)
+        if user and user.is_active and user.is_verified:
+            enqueue_notification_email(session, item, user)
     return item
 
 
@@ -217,6 +251,8 @@ async def subscription_recipient_ids(
 def publish_notifications(items: Iterable[Notification]) -> None:
     delivered = 0
     for item in items:
+        if not item.in_app_visible:
+            continue
         notification_broker.publish(item.recipient_user_id, notification_read(item))
         delivered += 1
     if delivered:
@@ -232,7 +268,10 @@ async def list_notifications(
     category: str | None = None,
     unread_only: bool = False,
 ) -> NotificationPage:
-    filters = [Notification.recipient_user_id == user_id]
+    filters = [
+        Notification.recipient_user_id == user_id,
+        Notification.in_app_visible.is_(True),
+    ]
     if category:
         filters.append(Notification.category == category)
     if unread_only:
@@ -264,6 +303,7 @@ async def unread_count(session: AsyncSession, user_id: uuid.UUID) -> int:
         await session.scalar(
             select(func.count(Notification.id)).where(
                 Notification.recipient_user_id == user_id,
+                Notification.in_app_visible.is_(True),
                 Notification.is_read.is_(False),
                 or_(Notification.expires_at.is_(None), Notification.expires_at > datetime.now(UTC)),
             )
@@ -277,6 +317,7 @@ async def mark_read(session: AsyncSession, user_id: uuid.UUID, notification_id: 
         select(Notification).where(
             Notification.id == notification_id,
             Notification.recipient_user_id == user_id,
+            Notification.in_app_visible.is_(True),
         )
     )
     if item is None:
@@ -291,7 +332,11 @@ async def mark_read(session: AsyncSession, user_id: uuid.UUID, notification_id: 
 async def mark_all_read(session: AsyncSession, user_id: uuid.UUID) -> int:
     result = await session.execute(
         update(Notification)
-        .where(Notification.recipient_user_id == user_id, Notification.is_read.is_(False))
+        .where(
+            Notification.recipient_user_id == user_id,
+            Notification.in_app_visible.is_(True),
+            Notification.is_read.is_(False),
+        )
         .values(is_read=True, read_at=datetime.now(UTC))
     )
     await session.commit()
@@ -304,8 +349,26 @@ async def update_preferences(
     payload: NotificationPreferencesUpdate,
 ) -> NotificationPreference:
     preferences = await get_preferences(session, user_id)
-    for key, value in payload.model_dump(exclude_none=True).items():
+    changes = payload.model_dump(exclude_none=True)
+    newsletter_before = bool(preferences.newsletter_enabled)
+    for key, value in changes.items():
         setattr(preferences, key, value)
+    if changes:
+        action = (
+            "NEWSLETTER_RESUBSCRIBED"
+            if not newsletter_before and changes.get("newsletter_enabled") is True
+            else "EMAIL_PREFERENCE_UPDATED"
+        )
+        session.add(
+            AdminAuditLog(
+                actor_user_id=user_id,
+                target_user_id=user_id,
+                action=action,
+                resource_type="USER",
+                resource_id=user_id,
+                event_metadata={"changed_fields": sorted(changes)},
+            )
+        )
     await session.commit()
     await session.refresh(preferences)
     return preferences

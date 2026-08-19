@@ -39,6 +39,7 @@ class Notification(Base):
     action_url: Mapped[str | None] = mapped_column(String(500))
     action_label: Mapped[str | None] = mapped_column(String(80))
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    in_app_visible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -81,6 +82,13 @@ class NotificationPreference(Base):
     notify_social: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notify_account: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notify_system: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    email_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    email_notify_gis: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    email_notify_osm: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    email_notify_area_updates: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    email_notify_social: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    email_notify_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    newsletter_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
