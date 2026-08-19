@@ -1,5 +1,5 @@
 <template>
-  <MultiSelectFilterGroup v-model="filter.selectedSizes" title="Verkaufsfläche" :options="SALES_AREA_SIZE_OPTIONS" :columns="4" />
+  <MultiSelectFilterGroup :model-value="filter.selectedSizes" title="Verkaufsfläche" :options="SALES_AREA_SIZE_OPTIONS" :columns="4" @update:model-value="filter.setSizes" />
 </template>
 
 <script setup lang="ts">

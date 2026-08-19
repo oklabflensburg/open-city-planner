@@ -17,6 +17,7 @@
           <button v-if="filter.canReset" class="ml-auto min-h-8 cursor-pointer rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="filter.reset()">Zurücksetzen</button>
         </div>
         <p :class="embedded ? '' : 'mt-2'" class="text-[11px] font-semibold leading-4 text-slate-600">{{ filterStatus }}</p>
+        <p v-if="!filter.selectedSources.length" class="mt-1 text-[11px] font-semibold leading-4 text-amber-700">Keine Fachdatenquelle ausgewählt. Die Basiskarte bleibt sichtbar.</p>
         <p class="mt-1 text-[11px] leading-4 text-slate-500">Gilt für Stadtplaner-Flächen und passende lokale OpenStreetMap-Objekte. Fehlende Angaben sind in der vollständigen Auswahl enthalten und werden bei Teilfiltern nicht geschätzt.</p>
         <p class="mt-1 text-[11px] font-semibold text-slate-600">{{ resultSummary }}</p>
       </header>
@@ -83,11 +84,9 @@ const analysisAreasStore = useAnalysisAreasStore()
 const polygonStore = usePolygonStore()
 const osmStore = useOsmViewportStore()
 const filterStatus = computed(() => {
-  if (!filter.selectedSources.length) return 'Keine Datenquelle ausgewählt.'
-  if (!filter.occupancyStatuses.length) return 'Kein Status ausgewählt.'
-  if (!filter.activeCategories.length) return 'Keine Branche ausgewählt.'
-  return filter.activeFilterCount
-    ? `Die Karte ist durch ${filter.activeFilterCount} Filtergruppe${filter.activeFilterCount === 1 ? '' : 'n'} eingeschränkt.`
+  const descriptions = filter.activeFilterDescriptions
+  return descriptions.length
+    ? `${descriptions.length} Filter aktiv · ${descriptions.join(' · ')}`
     : 'Alle passenden Objekte werden angezeigt.'
 })
 const resultSummary = computed(() => {

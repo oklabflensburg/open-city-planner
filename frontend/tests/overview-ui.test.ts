@@ -28,9 +28,11 @@ describe('read-only overview UI', () => {
     expect(industryToggle).toContain(':active-color="color"')
     expect(industryToggle).not.toContain(':color="color"')
     const statusToggle = appFile('components/filters/MarketStatusFilter.vue')
-    expect(statusToggle).toContain("OCCUPIED: '#10b981'")
-    expect(statusToggle).toContain("VACANT: '#f43f5e'")
-    expect(statusToggle).toContain("UNKNOWN: '#94a3b8'")
+    const themes = appFile('utils/mapThemes.ts')
+    expect(statusToggle).toContain('activeColor: item.color')
+    expect(themes).toContain("{ value: 'OCCUPIED', label: 'Belegt', color: '#10b981' }")
+    expect(themes).toContain("{ value: 'VACANT', label: 'Leerstehend', color: '#f43f5e' }")
+    expect(themes).toContain("{ value: 'UNKNOWN', label: 'Unbekannt', color: '#94a3b8' }")
   })
 
   it('does not initialize drawing or editing tools on the overview map', () => {

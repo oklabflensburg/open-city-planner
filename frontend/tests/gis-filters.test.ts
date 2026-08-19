@@ -6,7 +6,7 @@ const selection = {
   floors: ['EG', 'OG'] as const,
   categories: ['fashion', 'gastronomy'] as const,
   statuses: ['VACANT'] as const,
-  businessStructures: [],
+  businessStructures: ['CHAIN'] as const,
   sources: ['STADTPLANNER', 'OSM'] as const
 }
 
@@ -14,14 +14,14 @@ describe('GIS filter serialization', () => {
   it('serializes every group consistently and restores it from the URL', () => {
     const query = gisFilterUrlQuery({
       sizes: [...selection.sizes], floors: [...selection.floors], categories: [...selection.categories],
-      statuses: [...selection.statuses], businessStructures: [], sources: [...selection.sources]
+      statuses: [...selection.statuses], businessStructures: [...selection.businessStructures], sources: [...selection.sources]
     })
     const restored = gisFiltersFromQuery(Object.fromEntries(query))
 
-    expect(query.toString()).toBe('area_sizes=S%2CM&floors=EG%2COG&categories=fashion%2Cgastronomy&occupancy_statuses=VACANT&business_structures=NONE')
+    expect(query.toString()).toBe('area_sizes=S%2CM&floors=EG%2COG&categories=fashion%2Cgastronomy&occupancy_statuses=VACANT&business_structures=CHAIN')
     expect(restored).toEqual({
       sizes: ['S', 'M'], floors: ['EG', 'OG'], categories: ['fashion', 'gastronomy'],
-      statuses: ['VACANT'], businessStructures: [], sources: ['STADTPLANNER', 'OSM']
+      statuses: ['VACANT'], businessStructures: ['CHAIN'], sources: ['STADTPLANNER', 'OSM']
     })
     expect(gisFilterStateKey(restored)).toBe(query.toString())
   })
@@ -33,15 +33,16 @@ describe('GIS filter serialization', () => {
     expect(effectiveGisFilters(allSizes).sizes).toEqual([])
   })
 
-  it('ignores invalid URL values instead of leaking them into API requests', () => {
+  it('normalisiert ungültige oder leere Fachfacetten auf uneingeschränkt', () => {
     expect(gisFiltersFromQuery({ area_sizes: 'S,XXL', floors: 'basement' })).toEqual({
-      sizes: ['S'], floors: [], categories: expect.any(Array), statuses: expect.any(Array), businessStructures: expect.any(Array), sources: ['STADTPLANNER', 'OSM']
+      sizes: ['S'], floors: ['UG', 'EG', 'OG'], categories: expect.any(Array), statuses: expect.any(Array), businessStructures: expect.any(Array), sources: ['STADTPLANNER', 'OSM']
     })
+    expect(gisFiltersFromQuery({ floors: 'NONE' }).floors).toEqual(['UG', 'EG', 'OG'])
   })
 
   it('represents an explicitly empty data-source selection without confusing it with the default', () => {
-    const filters = { sizes: [], floors: [], categories: [], statuses: [], businessStructures: [], sources: [] }
-    expect(gisFilterQuery(filters).get('categories')).toBe('NONE')
+    const filters = gisFiltersFromQuery({ sources: 'NONE' })
+    expect(gisFilterQuery(filters).get('categories')).toBeNull()
     expect(gisFilterQuery(filters).get('sources')).toBe('NONE')
     expect(gisFiltersFromQuery({ sources: 'NONE' }).sources).toEqual([])
     expect(gisFiltersFromQuery({}).sources).toEqual(['STADTPLANNER', 'OSM'])

@@ -34,7 +34,7 @@ const chartData = computed(() => ({ labels: items.value.map(item => item.label),
 const chartOptions = computed<ChartOptions<'bar'>>(() => ({
   ...barChartOptions(true),
   onHover: (_event: ChartEvent, elements: ActiveElement[]) => { mapStore.categoryHighlight = elements[0] ? items.value[elements[0].index]?.key || null : null },
-  onClick: (_event: ChartEvent, elements: ActiveElement[]) => { const key = elements[0] ? items.value[elements[0].index]?.key : undefined; if (key) filter.activeCategories = [key as IndustryKey] },
+  onClick: (_event: ChartEvent, elements: ActiveElement[]) => { const key = elements[0] ? items.value[elements[0].index]?.key : undefined; if (key) filter.setCategories([key as IndustryKey]) },
 }))
 const accessibleLabel = computed(() => items.value.map(item => `${item.label}: ${item.value}`).join(', '))
 onBeforeUnmount(() => { mapStore.categoryHighlight = null })

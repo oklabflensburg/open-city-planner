@@ -29,7 +29,16 @@ export function useGisFilterHistory() {
       await nextTick()
       applyingLocation = false
     }
+    canonicalizeLocation(next)
     ready = true
+  }
+
+  function canonicalizeLocation(next: ReturnType<typeof gisFiltersFromQuery>) {
+    const url = new URL(window.location.href)
+    const previous = url.search
+    for (const key of GIS_FILTER_QUERY_KEYS) url.searchParams.delete(key)
+    for (const [key, value] of gisFilterUrlQuery(next)) url.searchParams.set(key, value)
+    if (url.search !== previous) window.history.replaceState({ ...window.history.state }, '', url)
   }
 
   onMounted(() => {

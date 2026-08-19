@@ -27,7 +27,7 @@
         <details class="mt-6 border-t border-slate-200 pt-5">
           <summary class="min-h-11 cursor-pointer text-sm font-black text-[#154d73]">Vergleich einschränken</summary>
           <p class="mb-5 text-xs leading-5 text-slate-500">Diese Filter gelten fair und identisch für alle Vergleichsgebiete.</p>
-          <div class="space-y-6"><AreaFilter /><FloorFilter /><IndustryFilter /><MarketStatusFilter /><MultiSelectFilterGroup v-model="filter.businessStructures" title="Betriebsform" :options="BUSINESS_STRUCTURE_OPTIONS" variant="switches" /><DataSourceFilter /></div>
+          <div class="space-y-6"><AreaFilter /><FloorFilter /><IndustryFilter /><MarketStatusFilter /><DataSourceFilter /></div>
         </details>
       </Card>
 
@@ -78,7 +78,6 @@
 
 <script setup lang="ts">
 import { MapPinned } from 'lucide-vue-next'
-import { BUSINESS_STRUCTURE_OPTIONS } from '~/utils/gisFilters'
 import type { AnalysisAreaType } from '~/types/analysisArea'
 
 const route = useRoute()

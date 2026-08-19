@@ -1,13 +1,15 @@
 <template>
   <button
     class="group flex min-h-[44px] w-full min-w-0 cursor-pointer items-start gap-[6px] rounded-lg px-[2px] py-[8px] text-left text-xs text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] disabled:cursor-not-allowed disabled:opacity-50"
+    :class="{ '!cursor-not-allowed': locked }"
     type="button"
     role="switch"
     :aria-checked="modelValue"
     :aria-label="accessibleLabel"
     :aria-describedby="description ? descriptionId : undefined"
+    :aria-disabled="locked || disabled"
     :disabled="disabled"
-    @click="$emit('update:modelValue', !modelValue)"
+    @click="handleClick"
   >
     <span
       class="relative mt-[3px] h-[18px] w-[34px] shrink-0 rounded-full transition-colors"
@@ -49,6 +51,7 @@ const props = withDefaults(defineProps<{
   colorBorder?: string
   squareIndicator?: boolean
   disabled?: boolean
+  locked?: boolean
   description?: string
   context?: string
 }>(), {
@@ -60,11 +63,12 @@ const props = withDefaults(defineProps<{
   colorBorder: undefined,
   squareIndicator: false,
   disabled: false,
+  locked: false,
   description: undefined,
   context: undefined
 })
 
-defineEmits<{ 'update:modelValue': [value: boolean] }>()
+const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
 const descriptionId = useId()
 const formattedCount = computed(() => props.count?.toLocaleString('de-DE'))
@@ -72,6 +76,11 @@ const accessibleLabel = computed(() => {
   const prefix = props.ariaLabel || (props.context ? `${props.context} ${props.label}` : props.label)
   const state = props.modelValue ? 'eingeschaltet' : 'ausgeschaltet'
   const count = props.count === undefined ? '' : `, ${formattedCount.value} Treffer`
-  return `${prefix}: ${state}${count}`
+  const locked = props.locked ? '. Diese letzte Auswahl muss aktiv bleiben' : ''
+  return `${prefix}: ${state}${count}${locked}`
 })
+
+function handleClick() {
+  if (!props.locked) emit('update:modelValue', !props.modelValue)
+}
 </script>

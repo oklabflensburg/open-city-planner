@@ -57,10 +57,12 @@ describe('market and location analytics UI', () => {
     const themes = appFile('utils/mapThemes.ts')
     expect(layer).toContain('v-model="mapStore.thematicStyle"')
     expect(layer).toContain('type="radio"')
-    expect(map).toContain("mapStore.thematicStyle === 'occupancy'")
+    expect(map).toContain('thematicColorExpression(mapStore.thematicStyle)')
+    expect(map).toContain("setPaintProperty('overview-polygons-line', 'line-color', color)")
     expect(map).not.toContain('<MapLegend')
     expect(sidebar).toContain('<MapLegend')
     expect(themes).toContain("{ key: 'occupancy', label: 'Leerstand' }")
+    expect(themes).toContain("{ value: 'VACANT', label: 'Leerstehend', color: '#f43f5e' }")
   })
 
   it('keeps management-only fields out of public analytics types', () => {

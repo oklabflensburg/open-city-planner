@@ -2,8 +2,8 @@
   <div>
     <div class="mb-2 flex min-h-8 min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1">
       <h3 class="min-w-0 flex-1 pt-2 text-xs font-bold uppercase tracking-wide text-slate-600">Branchen</h3>
-      <button class="min-h-8 shrink-0 cursor-pointer rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="filter.toggleAll()">
-        {{ filter.allCategoriesActive ? 'Alle abwählen' : 'Alle auswählen' }}
+      <button v-if="!filter.allCategoriesActive" class="min-h-8 shrink-0 cursor-pointer rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="filter.resetCategories()">
+        Filter aufheben
       </button>
     </div>
     <div class="space-y-1">
@@ -15,6 +15,7 @@
         :active="filter.activeCategories.includes(industry.key)"
         :count="combinedCount(industry.key)"
         :count-description="countDescription(industry.key)"
+        :locked="filter.activeCategories.length === 1 && filter.activeCategories.includes(industry.key)"
         @toggle="filter.toggleCategory(industry.key)"
       />
     </div>

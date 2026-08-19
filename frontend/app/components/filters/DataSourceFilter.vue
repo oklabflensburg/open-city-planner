@@ -1,9 +1,11 @@
 <template>
   <MultiSelectFilterGroup
-    v-model="filter.selectedSources"
+    :model-value="filter.selectedSources"
     title="Datenquellen"
     :options="DATA_SOURCE_OPTIONS"
     variant="switches"
+    allow-empty
+    @update:model-value="filter.setSources"
   />
 </template>
 

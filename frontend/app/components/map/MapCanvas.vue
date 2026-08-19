@@ -25,10 +25,9 @@
     <div v-else-if="polygonStore.error" class="absolute bottom-24 left-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg bg-white px-3 py-2 text-xs text-red-700 shadow lg:bottom-16 lg:max-w-[320px]">
       {{ polygonStore.error }}
     </div>
-    <div v-else-if="showEmptyState" class="absolute left-1/2 top-1/2 z-20 w-[min(22rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white/95 p-4 text-center shadow-xl" role="status">
-      <p class="text-sm font-bold text-slate-800">Keine Objekte für diese Filter</p>
-      <p class="mt-1 text-xs leading-5 text-slate-600">Die Kartenbasis bleibt sichtbar. Setzen Sie die Filter zurück, um wieder alle passenden Objekte anzuzeigen.</p>
-      <button class="mt-3 min-h-11 cursor-pointer rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white hover:bg-[#0f3f61]" type="button" @click="filterStore.reset()">Alle Filter zurücksetzen</button>
+    <div v-else-if="showEmptyState" class="absolute bottom-3 left-3 z-10 flex max-w-[calc(100%-1.5rem)] items-center gap-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-700 shadow lg:bottom-4 lg:max-w-[360px]" role="status" aria-live="polite">
+      <span class="font-semibold">0 Treffer für die aktuelle Auswahl</span>
+      <button class="min-h-8 shrink-0 cursor-pointer rounded-md px-2 font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="filterStore.reset()">Filter aufheben</button>
     </div>
   </div>
 </template>
@@ -39,6 +38,7 @@ import type { FillLayerSpecification, GeoJSONSource, Map, MapMouseEvent } from '
 import { LoaderCircle, RefreshCw } from 'lucide-vue-next'
 import type { OsmViewportResult } from '~/types/osm'
 import { getIndustryColor, industryColorExpression } from '~/utils/industries'
+import { thematicColor, thematicColorExpression } from '~/utils/mapThemes'
 import { osmCategoryColors, osmColorExpression } from '~/utils/osmCategories'
 import { shouldExcludeOsmFeature } from '~/utils/osmExclusions'
 import { pickMapEntityAtPoint, type InteractivePolygonFeature } from '~/utils/mapFeaturePicking'
@@ -81,7 +81,7 @@ const performanceCounters = {
 const performanceDebugEnabled = import.meta.dev || config.public.mapPerformanceDebug
 
 const visibleFeatureCollection = computed<FeatureCollection>(() => polygonStore.featureCollection as FeatureCollection)
-const showEmptyState = computed(() => filterStore.activeFilterCount > 0
+const showEmptyState = computed(() => filterStore.activeFilterCount > 0 && filterStore.selectedSources.length > 0
   && !polygonStore.loading && !osmStore.loading
   && polygonStore.polygons.length === 0 && (osmStore.data?.meta.business_count || 0) === 0)
 
@@ -479,13 +479,13 @@ function ensurePolygonInfrastructure(instance: Map) {
     id: 'overview-polygons-fill',
     type: 'fill',
     source: 'overview-polygons',
-    paint: { 'fill-color': thematicColorExpression(), 'fill-opacity': 0.3 }
+    paint: { 'fill-color': activeThemeColorExpression(), 'fill-opacity': 0.3 }
   })
   if (!instance.getLayer('overview-polygons-line')) instance.addLayer({
     id: 'overview-polygons-line',
     type: 'line',
     source: 'overview-polygons',
-    paint: { 'line-color': categoryColorExpression(), 'line-width': 2 }
+    paint: { 'line-color': activeThemeColorExpression(), 'line-width': 2 }
   })
   applyFeatureStyles()
   setPolygonVisibility(mapStore.polygonsVisible)
@@ -611,10 +611,7 @@ function interactivePolygonColor(polygon: InteractivePolygonFeature) {
   if (typeof canonicalCategory === 'string') return getIndustryColor(canonicalCategory)
   const category = polygon.properties?.category
   if (polygon.source === 'overview-polygons' && typeof category === 'string') {
-    if (mapStore.thematicStyle === 'occupancy') return polygon.properties?.occupancy_status === 'OCCUPIED' ? '#10b981' : polygon.properties?.occupancy_status === 'VACANT' ? '#f43f5e' : '#94a3b8'
-    if (mapStore.thematicStyle === 'size') return ({ S: '#dbeafe', M: '#93c5fd', L: '#3b82f6', XL: '#1e3a8a' } as Record<string, string>)[String(polygon.properties?.size)] || '#94a3b8'
-    if (mapStore.thematicStyle === 'business') return polygon.properties?.business_structure === 'CHAIN' ? '#7c3aed' : polygon.properties?.business_structure === 'INDEPENDENT' ? '#f59e0b' : '#94a3b8'
-    return getIndustryColor(category)
+    return thematicColor(mapStore.thematicStyle, polygon.properties || {})
   }
   return typeof category === 'string' ? osmCategoryColors[category] || '#64748b' : '#64748b'
 }
@@ -681,8 +678,9 @@ function applyFeatureStyles() {
     ['==', ['get', 'category'], highlighted], 0.5,
     0.3
   ])
-  map.value.setPaintProperty('overview-polygons-fill', 'fill-color', thematicColorExpression())
-  map.value.setPaintProperty('overview-polygons-line', 'line-color', categoryColorExpression())
+  const color = activeThemeColorExpression()
+  map.value.setPaintProperty('overview-polygons-fill', 'fill-color', color)
+  map.value.setPaintProperty('overview-polygons-line', 'line-color', color)
   map.value.setPaintProperty('overview-polygons-line', 'line-width', [
     'case', ['boolean', ['feature-state', 'hovered'], false], 3, 2
   ])
@@ -703,8 +701,6 @@ function clearSelectionRendering() {
 
 type ColorExpression = NonNullable<NonNullable<FillLayerSpecification['paint']>['fill-color']>
 
-function categoryColorExpression() { return industryColorExpression() as ColorExpression }
-
 function osmBusinessColorExpression() {
   return [
     'case',
@@ -714,17 +710,8 @@ function osmBusinessColorExpression() {
   ] as unknown as ColorExpression
 }
 
-function thematicColorExpression() {
-  if (mapStore.thematicStyle === 'occupancy') {
-    return ['match', ['get', 'occupancy_status'], 'OCCUPIED', '#10b981', 'VACANT', '#f43f5e', '#94a3b8'] as ColorExpression
-  }
-  if (mapStore.thematicStyle === 'size') {
-    return ['match', ['get', 'size'], 'S', '#dbeafe', 'M', '#93c5fd', 'L', '#3b82f6', 'XL', '#1e3a8a', '#94a3b8'] as ColorExpression
-  }
-  if (mapStore.thematicStyle === 'business') {
-    return ['match', ['get', 'business_structure'], 'CHAIN', '#7c3aed', 'INDEPENDENT', '#f59e0b', '#94a3b8'] as ColorExpression
-  }
-  return categoryColorExpression()
+function activeThemeColorExpression() {
+  return thematicColorExpression(mapStore.thematicStyle) as ColorExpression
 }
 
 function updateSource(data: FeatureCollection) {

@@ -1,5 +1,6 @@
 import { industries, type IndustryKey } from '~/utils/industries'
 import type { BusinessStructure, OccupancyStatus } from '~/types/geo'
+import { occupancyLegend } from '~/utils/mapThemes'
 
 export type SalesAreaSize = 'S' | 'M' | 'L' | 'XL'
 export type FloorGroup = 'UG' | 'EG' | 'OG'
@@ -18,11 +19,7 @@ export const FLOOR_OPTIONS = [
   { value: 'OG', label: 'OG', description: 'Alle Ober- und Dachgeschosse' }
 ] as const
 
-export const OCCUPANCY_OPTIONS: ReadonlyArray<{ value: OccupancyStatus, label: string, color: string }> = [
-  { value: 'OCCUPIED', label: 'Belegt', color: 'bg-emerald-500' },
-  { value: 'VACANT', label: 'Leerstehend', color: 'bg-rose-500' },
-  { value: 'UNKNOWN', label: 'Unbekannt', color: 'bg-slate-400' }
-]
+export const OCCUPANCY_OPTIONS = occupancyLegend
 
 export const BUSINESS_STRUCTURE_OPTIONS: ReadonlyArray<{ value: BusinessStructure, label: string }> = [
   { value: 'CHAIN', label: 'Filialist', },
@@ -62,6 +59,17 @@ export function defaultGisFilters(): GisFilterState {
 function ordered<T extends string>(selected: T[], options: readonly T[]): T[] {
   const valid = new Set(selected)
   return options.filter(value => valid.has(value))
+}
+
+export function requiredFacetSelection<T extends string>(
+  current: T[],
+  next: T[],
+  options: readonly T[]
+): T[] {
+  const selected = ordered(next, options)
+  if (selected.length) return selected
+  const previous = ordered(current, options)
+  return previous.length ? previous : [...options]
 }
 
 function canonical<T extends string>(selected: T[], options: readonly T[]): T[] {
@@ -122,13 +130,18 @@ function queryDimension<T extends string>(query: Record<string, unknown>, key: s
   return queryValues(raw, allowed)
 }
 
+function requiredQueryDimension<T extends string>(query: Record<string, unknown>, key: string, allowed: readonly T[]): T[] {
+  const selected = queryDimension(query, key, allowed)
+  return selected.length ? selected : [...allowed]
+}
+
 export function gisFiltersFromQuery(query: Record<string, unknown>): GisFilterState {
   return {
-    sizes: queryDimension(query, 'area_sizes', SALES_AREA_SIZE_OPTIONS.map(item => item.value)),
-    floors: queryDimension(query, 'floors', FLOOR_OPTIONS.map(item => item.value)),
-    categories: queryDimension(query, 'categories', industries.map(item => item.key)),
-    statuses: queryDimension(query, 'occupancy_statuses', OCCUPANCY_OPTIONS.map(item => item.value)),
-    businessStructures: queryDimension(query, 'business_structures', BUSINESS_STRUCTURE_OPTIONS.map(item => item.value)),
+    sizes: requiredQueryDimension(query, 'area_sizes', SALES_AREA_SIZE_OPTIONS.map(item => item.value)),
+    floors: requiredQueryDimension(query, 'floors', FLOOR_OPTIONS.map(item => item.value)),
+    categories: requiredQueryDimension(query, 'categories', industries.map(item => item.key)),
+    statuses: requiredQueryDimension(query, 'occupancy_statuses', OCCUPANCY_OPTIONS.map(item => item.value)),
+    businessStructures: requiredQueryDimension(query, 'business_structures', BUSINESS_STRUCTURE_OPTIONS.map(item => item.value)),
     sources: queryDimension(query, 'sources', DATA_SOURCE_OPTIONS.map(item => item.value))
   }
 }

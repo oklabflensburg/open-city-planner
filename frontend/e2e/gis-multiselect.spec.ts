@@ -17,6 +17,14 @@ const polygon = {
   updated_at: '2026-08-17T08:00:00Z'
 }
 
+const vacantPolygon = {
+  ...polygon,
+  id: '55555555-5555-4555-8555-555555555555',
+  slug: 'leerstand-testflaeche',
+  name: 'Leerstehende Testfläche',
+  occupancy_status: 'VACANT'
+}
+
 const osmFeature = {
   type: 'Feature', id: 'node/123', geometry: { type: 'Point', coordinates: [9.432, 54.784] },
   properties: {
@@ -57,12 +65,21 @@ async function mockGis(page: Page) {
   await page.route('**/api/v1/auth/session', route => route.fulfill({ status: 401, json: { detail: 'anonymous' } }))
   await page.route('**/api/v1/auth/oauth/providers', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/polygons/overview**', (route) => {
-    const vacant = new URL(route.request().url()).searchParams.get('occupancy_statuses') === 'VACANT'
-    return route.fulfill({ json: vacant ? [] : [polygon] })
+    const params = new URL(route.request().url()).searchParams
+    const categories = params.get('categories')?.split(',')
+    const statuses = params.get('occupancy_statuses')?.split(',')
+    const categoryMatches = !categories || categories.includes('fashion')
+    const result = !categoryMatches
+      ? []
+      : statuses?.length === 1 && statuses[0] === 'VACANT'
+        ? [vacantPolygon]
+        : !statuses || statuses.includes('OCCUPIED') ? [polygon] : []
+    return route.fulfill({ json: result })
   })
   await page.route('**/api/v1/analytics/overview**', (route) => {
-    const vacant = new URL(route.request().url()).searchParams.get('occupancy_statuses') === 'VACANT'
-    return route.fulfill({ json: analytics(vacant ? 0 : 1) })
+    const params = new URL(route.request().url()).searchParams
+    const categories = params.get('categories')?.split(',')
+    return route.fulfill({ json: analytics(!categories || categories.includes('fashion') ? 1 : 0) })
   })
   await page.route('**/api/v1/osm/features?**', (route) => {
     const params = new URL(route.request().url()).searchParams
@@ -93,6 +110,17 @@ async function openGis(page: Page) {
   await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 20_000 })
 }
 
+async function keepOnlyIndustries(page: Page, selected: string[]) {
+  const labels = [
+    'Warenhaus', 'Mode / Bekleidung', 'Nahrungsmittel / Drogerie', 'Elektro / Technik',
+    'Einrichtungsbedarf', 'Garten / Freizeit', 'Sonstige Waren', 'Gastronomie',
+    'Einzelhandelsnahe Dienstleister', 'Sonstige Flächen'
+  ]
+  for (const label of labels.filter(item => !selected.includes(item))) {
+    await page.getByRole('switch', { name: label }).click()
+  }
+}
+
 test('desktop combines filters, persists URL history and resets globally', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await mockGis(page)
@@ -101,26 +129,33 @@ test('desktop combines filters, persists URL history and resets globally', async
 
   const size = group(page, 'Verkaufsfläche')
   const floor = group(page, 'Etagen')
-  await size.getByRole('button', { name: 'Alle abwählen' }).click()
-  await size.getByRole('button', { name: /Verkaufsfläche S:/ }).click()
-  await expect(page).toHaveURL(/area_sizes=S/)
-  await size.getByRole('button', { name: /Verkaufsfläche M:/ }).click()
+  await size.getByRole('button', { name: /Verkaufsfläche L:/ }).click()
+  await expect(page).toHaveURL(/area_sizes=S(?:%2C|,)M(?:%2C|,)XL/)
+  await page.waitForTimeout(250)
+  await size.getByRole('button', { name: /Verkaufsfläche XL:/ }).click()
   await expect(page).toHaveURL(/area_sizes=S(?:%2C|,)M/)
+  await page.waitForTimeout(250)
 
   await page.goBack()
-  await expect.poll(() => new URL(page.url()).searchParams.get('area_sizes')).toBe('S')
-  await expect(size.getByRole('button', { name: /Verkaufsfläche M:/ })).toHaveAttribute('aria-pressed', 'false')
-
-  await size.getByRole('button', { name: /Verkaufsfläche M:/ }).click()
-  await floor.getByRole('button', { name: 'Alle abwählen' }).click()
-  await floor.getByRole('button', { name: /Etagen EG:/ }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.get('area_sizes')).toBe('S,M,XL')
+  await expect(size.getByRole('button', { name: /Verkaufsfläche L:/ })).toHaveAttribute('aria-pressed', 'false')
+  await page.goForward()
+  await expect.poll(() => new URL(page.url()).searchParams.get('area_sizes')).toBe('S,M')
+  await expect(size.getByRole('button', { name: /Verkaufsfläche XL:/ })).toHaveAttribute('aria-pressed', 'false')
+  await floor.getByRole('button', { name: /Etagen UG:/ }).click()
   await floor.getByRole('button', { name: /Etagen OG:/ }).click()
-  await page.getByRole('heading', { name: 'Branchen' }).locator('..').getByRole('button', { name: 'Alle abwählen' }).click()
-  await page.getByRole('switch', { name: 'Mode / Bekleidung' }).click()
-  await page.getByRole('switch', { name: 'Gastronomie' }).click()
+  await expect(floor.getByRole('button', { name: /Etagen EG:/ })).toHaveAttribute('aria-disabled', 'true')
+  await floor.getByRole('button', { name: /Etagen EG:/ }).dispatchEvent('click')
+  await expect(floor.getByRole('button', { name: /Etagen EG:/ })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page).not.toHaveURL(/floors=NONE/)
+  await floor.getByRole('button', { name: 'Filter aufheben' }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.get('floors')).toBeNull()
+  await floor.getByRole('button', { name: /Etagen UG:/ }).click()
+  await keepOnlyIndustries(page, ['Mode / Bekleidung', 'Gastronomie'])
   const status = group(page, 'Status')
-  await status.getByRole('button', { name: 'Alle abwählen' }).click()
-  await status.getByRole('switch', { name: /Status Leerstehend:/ }).click()
+  await status.getByRole('switch', { name: /Status Belegt:/ }).click()
+  await status.getByRole('switch', { name: /Status Unbekannt:/ }).click()
+  await expect(status.getByRole('switch', { name: /Status Leerstehend:/ })).toHaveAttribute('aria-disabled', 'true')
 
   await expect(size.getByRole('button', { name: /Verkaufsfläche S:/ })).toHaveAttribute('aria-pressed', 'true')
   await expect(size.getByRole('button', { name: /Verkaufsfläche M:/ })).toHaveAttribute('aria-pressed', 'true')
@@ -129,6 +164,23 @@ test('desktop combines filters, persists URL history and resets globally', async
   await expect(page).toHaveURL(/categories=fashion(?:%2C|,)gastronomy/)
   await expect(page).toHaveURL(/occupancy_statuses=VACANT/)
   await expect(page.getByText('4 aktiv', { exact: true })).toBeVisible()
+  await expect(page.getByRole('radio', { name: 'Leerstand' })).toBeChecked()
+  const themeColors = await page.evaluate(() => {
+    const map = (window as typeof window & { __stadtplanerMapPerformance?: { map: import('maplibre-gl').Map } }).__stadtplanerMapPerformance?.map
+    return {
+      fill: map?.getPaintProperty('overview-polygons-fill', 'fill-color'),
+      line: map?.getPaintProperty('overview-polygons-line', 'line-color')
+    }
+  })
+  expect(themeColors.line).toEqual(themeColors.fill)
+  expect(JSON.stringify(themeColors.fill)).toContain('#10b981')
+  expect(JSON.stringify(themeColors.fill)).toContain('#f43f5e')
+  expect(JSON.stringify(themeColors.fill)).toContain('#94a3b8')
+
+  await page.getByRole('switch', { name: 'Mode / Bekleidung' }).click()
+  await expect(page.getByText('0 Treffer für die aktuelle Auswahl')).toBeVisible()
+  await expect(page.getByText('Keine Objekte für diese Filter')).toHaveCount(0)
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible()
   await expect(page.getByText('Keine gepflegten Stadtplaner-Flächen entsprechen der aktuellen Auswahl.')).toBeVisible()
 
   await page.getByRole('button', { name: 'Zurücksetzen', exact: true }).first().click()
@@ -143,7 +195,9 @@ test('desktop combines filters, persists URL history and resets globally', async
   await expect(page.getByText(/0 passende OSM-Objekte im Ausschnitt/)).toBeVisible()
   await sources.getByRole('switch', { name: /Datenquellen Stadtplaner:/ }).click()
   await expect(page).toHaveURL(/sources=NONE/)
-  await expect(page.getByText('Keine Datenquelle ausgewählt.')).toBeVisible()
+  await expect(page.getByText('Keine Fachdatenquelle ausgewählt. Die Basiskarte bleibt sichtbar.')).toBeVisible()
+  await expect(page.getByText('0 Treffer für die aktuelle Auswahl')).toHaveCount(0)
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible()
   await expect(sources.getByRole('button', { name: 'Alle auswählen' })).toBeVisible()
   await sources.getByRole('switch', { name: /Datenquellen Stadtplaner:/ }).click()
   await sources.getByRole('switch', { name: /Datenquellen OpenStreetMap:/ }).click()
@@ -164,13 +218,13 @@ test('all-select remains visually selected while API semantics stay unrestricted
   for (const value of ['S', 'M', 'L', 'XL']) {
     await expect(size.getByRole('button', { name: new RegExp(`Verkaufsfläche ${value}:`) })).toHaveAttribute('aria-pressed', 'true')
   }
-  await expect(size.getByRole('button', { name: 'Alle abwählen' })).toBeVisible()
-  await expect(floor.getByRole('button', { name: 'Alle abwählen' })).toBeVisible()
-  await expect(status.getByRole('button', { name: 'Alle abwählen' })).toBeVisible()
-  await expect(structure.getByRole('button', { name: 'Alle abwählen' })).toBeVisible()
+  await expect(size.getByRole('button', { name: 'Alle abwählen' })).toHaveCount(0)
+  await expect(floor.getByRole('button', { name: 'Alle abwählen' })).toHaveCount(0)
+  await expect(status.getByRole('button', { name: 'Alle abwählen' })).toHaveCount(0)
+  await expect(structure.getByRole('button', { name: 'Alle abwählen' })).toHaveCount(0)
   await expect(status.getByRole('switch', { checked: true })).toHaveCount(3)
   await expect(structure.getByRole('switch', { checked: true })).toHaveCount(3)
-  await expect(industryHeader.getByRole('button', { name: 'Alle abwählen' })).toBeVisible()
+  await expect(industryHeader.getByRole('button', { name: 'Alle abwählen' })).toHaveCount(0)
   await expect(industries.locator('[role="switch"][aria-checked="true"]')).toHaveCount(10)
   const sources = group(page, 'Datenquellen')
   await expect(sources.getByRole('switch', { name: /Datenquellen Stadtplaner:/ })).toHaveAttribute('aria-checked', 'true')
@@ -178,6 +232,23 @@ test('all-select remains visually selected while API semantics stay unrestricted
   await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3010\/$/)
   await expect(page.getByText('Alle passenden Objekte werden angezeigt.')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Analyse', exact: true })).toBeVisible()
+})
+
+test('legacy NONE deep links reopen Fachfacetten and preserve an empty source selection', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await mockGis(page)
+  await page.goto('/?floors=NONE&categories=NONE&sources=NONE')
+  await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 20_000 })
+
+  const floor = group(page, 'Etagen')
+  const industries = page.getByRole('heading', { name: 'Branchen' }).locator('../..')
+  await expect(floor.getByRole('button', { pressed: true })).toHaveCount(3)
+  await expect(industries.getByRole('switch', { checked: true })).toHaveCount(10)
+  await expect.poll(() => new URL(page.url()).searchParams.get('floors')).toBeNull()
+  await expect.poll(() => new URL(page.url()).searchParams.get('categories')).toBeNull()
+  await expect.poll(() => new URL(page.url()).searchParams.get('sources')).toBe('NONE')
+  await expect(page.getByText('Keine Fachdatenquelle ausgewählt. Die Basiskarte bleibt sichtbar.')).toBeVisible()
+  await expect(page.getByText('0 Treffer für die aktuelle Auswahl')).toHaveCount(0)
 })
 
 test('binary layer switches stay independent and the OSM master preserves its child selection', async ({ page }) => {
@@ -259,8 +330,8 @@ test('a settled filter change performs one request and one swap per overlay', as
   await openGis(page)
   await expect(page.getByText(/1 passende OSM-Objekte im Ausschnitt/)).toBeVisible({ timeout: 20_000 })
   const industryHeader = page.getByRole('heading', { name: 'Branchen' }).locator('..')
-  await industryHeader.getByRole('button', { name: 'Alle abwählen' }).click()
-  await expect(page).toHaveURL(/categories=NONE/)
+  await keepOnlyIndustries(page, ['Mode / Bekleidung', 'Gastronomie'])
+  await expect(page).toHaveURL(/categories=fashion(?:%2C|,)gastronomy/)
   await page.waitForTimeout(300)
 
   const requests = { polygons: 0, osm: 0, analytics: 0 }
@@ -274,7 +345,7 @@ test('a settled filter change performs one request and one swap per overlay', as
     __stadtplanerMapPerformance?: { reset: () => void }
   }).__stadtplanerMapPerformance?.reset())
 
-  await page.getByRole('switch', { name: 'Mode / Bekleidung' }).click()
+  await page.getByRole('switch', { name: 'Gastronomie' }).click()
   await expect(page).toHaveURL(/categories=fashion/)
   await expect.poll(() => page.evaluate(() => (window as typeof window & {
     __stadtplanerMapPerformance?: { snapshot: () => Record<string, number> }
@@ -294,15 +365,15 @@ test('mobile multi-select, zero-result recovery and analysis share one responsiv
   await page.getByRole('button', { name: 'Filter öffnen' }).click()
 
   const size = group(page, 'Verkaufsfläche')
-  await size.getByRole('button', { name: 'Alle abwählen' }).click()
-  await size.getByRole('button', { name: /Verkaufsfläche S:/ }).click()
-  await size.getByRole('button', { name: /Verkaufsfläche M:/ }).click()
+  await size.getByRole('button', { name: /Verkaufsfläche L:/ }).click()
+  await size.getByRole('button', { name: /Verkaufsfläche XL:/ }).click()
   const status = group(page, 'Status')
-  await status.getByRole('button', { name: 'Alle abwählen' }).click()
-  await status.getByRole('switch', { name: /Status Leerstehend:/ }).click()
+  await status.getByRole('switch', { name: /Status Belegt:/ }).click()
+  await status.getByRole('switch', { name: /Status Unbekannt:/ }).click()
+  await keepOnlyIndustries(page, ['Gastronomie'])
   await page.getByRole('button', { name: /Ergebnisse anzeigen|Keine Ergebnisse/ }).click()
 
-  await expect(page.getByRole('button', { name: 'Filter öffnen' })).toContainText('2')
+  await expect(page.getByRole('button', { name: 'Filter öffnen' })).toContainText('3')
   await page.getByRole('button', { name: 'Analyse öffnen' }).click()
   await expect(page.getByText('Keine gepflegten Stadtplaner-Flächen entsprechen der aktuellen Auswahl.')).toBeVisible()
   await page.getByRole('button', { name: 'Filter zurücksetzen', exact: true }).click()
