@@ -2,6 +2,7 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.analysis_area import AnalysisArea, PolygonAnalysisArea
 from app.models.cache_version import CacheVersion
 from app.models.city_metrics import CityMetrics
+from app.models.email_outbox import EmailOutbox
 from app.models.email_template import EmailTemplate
 from app.models.mfa import (
     AuthMfaChallenge,
@@ -38,6 +39,7 @@ __all__ = [
     "AuthMfaChallenge",
     "CacheVersion",
     "CityMetrics",
+    "EmailOutbox",
     "EmailTemplate",
     "EmailVerificationToken",
     "ExternalAreaMapping",

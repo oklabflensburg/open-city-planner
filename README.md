@@ -125,6 +125,15 @@ sudo systemctl enable --now stadtplaner-social-publisher.timer
 systemctl list-timers stadtplaner-social-publisher.timer
 ```
 
+Retryfähige Willkommensmails verwenden eine separate E-Mail-Outbox. Der zugehörige
+One-shot-Worker wird ebenfalls minütlich gestartet:
+
+```bash
+sudo cp deploy/systemd/stadtplaner-email-outbox.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now stadtplaner-email-outbox.timer
+```
+
 Die `.service`-Unit ist bewusst nicht direkt aktivierbar; der Timer startet sie minütlich. Manuell kann ein sicher begrenzter Lauf mit `python -m app.cli.publish_social_outbox --limit 20` ausgeführt werden. Temporäre Netzwerk-, Screenshot-, HTTP-429- und 5xx-Fehler werden mit Backoff erneut versucht; `Retry-After` wird berücksichtigt. Jeder Outbox-Eintrag besitzt einen stabilen Idempotency-Key und erfolgreiche Posts werden samt Remote-, Media-ID und URL persistiert.
 
 Fachliche Einstellungen liegen in `social_publishing_settings` und werden ausschließlich durch Superuser unter `/admin/social` geändert: Master-Switch, automatische oder manuelle Freigabe, Dry Run, Eventthemen, Debounce, Hashtags, Sichtbarkeit und eines der begrenzten Screenshotformate. Für künftig bewusst aus OpenStreetMap übernommene Flächen gibt es den standardmäßig ausgeschalteten Registry-Eintrag `POLYGON_ADOPTED_FROM_OSM` in `enabled_events` und das validierte Linkziel `DETAIL_PAGE` (Default) oder `GIS`. Änderungen werden automatisch als partielle PATCH-Anfragen gespeichert; ein dezenter Status zeigt laufende, erfolgreiche oder fehlgeschlagene Speicherung an. Das Aktivieren erzeugt keinen historischen Backfill. Secrets und Instanz-URL bleiben im Environment. `OFF` pausiert die Queue, ohne Historie oder wartende Ereignisse zu löschen.

@@ -1,12 +1,13 @@
 import asyncio
 import uuid
 from datetime import timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
 
 import app.services.auth_service as service
+from app.models.email_outbox import EmailOutbox
 from app.models.user import User
 from app.models.verification_token import EmailVerificationToken
 
@@ -28,6 +29,7 @@ def verification_state(
 
 def session_for(token: EmailVerificationToken | None, user: User | None) -> AsyncMock:
     session = AsyncMock()
+    session.add = MagicMock()
     session.scalar.side_effect = [token] if token is None else [token, user]
     return session
 
@@ -160,6 +162,10 @@ class LockedSession:
         self.token = token
         self.user = user
         self.has_lock = False
+        self.added: list[object] = []
+
+    def add(self, item: object) -> None:
+        self.added.append(item)
 
     async def scalar(self, statement: object) -> object:
         if "email_verification_tokens" in str(statement):
@@ -189,3 +195,6 @@ async def test_parallel_requests_only_change_user_state_once() -> None:
     assert sum(result.changed_user_state for result in results) == 1
     assert user.is_verified is True
     assert token.used_at is not None
+    assert sum(
+        isinstance(item, EmailOutbox) for session in sessions for item in session.added
+    ) == 1

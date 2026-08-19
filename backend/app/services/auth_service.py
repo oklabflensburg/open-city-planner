@@ -20,6 +20,7 @@ from app.models.user import AccountDeactivationReason, User
 from app.models.user_session import UserSession
 from app.models.verification_token import EmailVerificationToken
 from app.schemas.auth import LoginRequest, SignupRequest
+from app.services.email_outbox import enqueue_welcome_email
 from app.services.email_service import (
     send_password_changed_email,
     send_password_reset_email,
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 class VerificationResult:
     status: Literal["verified", "already_verified"]
     changed_user_state: bool
+    user_id: uuid.UUID
 
 
 def utcnow() -> datetime:
@@ -128,6 +130,8 @@ async def signup(session: AsyncSession, payload: SignupRequest) -> User:
         password_hash=password_hash,
         first_name=payload.first_name,
         last_name=payload.last_name,
+        is_verified=False,
+        email_pending=False,
     )
     session.add(user)
     await session.commit()
@@ -482,7 +486,9 @@ async def verify_email(session: AsyncSession, token: str) -> VerificationResult:
         )
     if user.is_verified:
         await session.commit()
-        return VerificationResult(status="already_verified", changed_user_state=False)
+        return VerificationResult(
+            status="already_verified", changed_user_state=False, user_id=user.id
+        )
     if record.used_at:
         logger.error(
             "Email verification state is inconsistent for token_id=%s user_id=%s",
@@ -502,8 +508,9 @@ async def verify_email(session: AsyncSession, token: str) -> VerificationResult:
         )
     user.is_verified = True
     record.used_at = now
+    enqueue_welcome_email(session, user)
     await session.commit()
-    return VerificationResult(status="verified", changed_user_state=True)
+    return VerificationResult(status="verified", changed_user_state=True, user_id=user.id)
 
 
 async def resend_verification(session: AsyncSession, user: User) -> bool:

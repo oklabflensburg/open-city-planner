@@ -1,0 +1,12 @@
+[Unit]
+Description=Fällige Stadtplaner-E-Mails regelmäßig versenden
+
+[Timer]
+OnBootSec=1m
+OnUnitActiveSec=1m
+AccuracySec=10s
+Persistent=true
+Unit=stadtplaner-email-outbox.service
+
+[Install]
+WantedBy=timers.target

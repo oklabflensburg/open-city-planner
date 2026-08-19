@@ -12,6 +12,7 @@ from app.models.oauth_account import UserOAuthAccount
 from app.models.user import User
 from app.schemas.oauth import OAuthIdentity
 from app.services.auth_service import ensure_user_can_authenticate, get_user_by_email
+from app.services.email_outbox import enqueue_welcome_email
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,9 @@ def utcnow() -> datetime:
 
 
 def oauth_error(code: str, message: str, status_code: int) -> HTTPException:
-    return HTTPException(status_code=status_code, detail={"error": {"code": code, "message": message}})
+    return HTTPException(
+        status_code=status_code, detail={"error": {"code": code, "message": message}}
+    )
 
 
 def normalize_provider(provider: str) -> str:
@@ -57,7 +60,9 @@ async def get_for_user(session: AsyncSession, user_id: object) -> list[UserOAuth
     return list(rows)
 
 
-async def get_for_user_provider(session: AsyncSession, user_id: object, provider: str) -> UserOAuthAccount | None:
+async def get_for_user_provider(
+    session: AsyncSession, user_id: object, provider: str
+) -> UserOAuthAccount | None:
     return await session.scalar(
         select(UserOAuthAccount).where(
             UserOAuthAccount.user_id == user_id,
@@ -66,7 +71,9 @@ async def get_for_user_provider(session: AsyncSession, user_id: object, provider
     )
 
 
-async def create_oauth_account(session: AsyncSession, user: User, identity: OAuthIdentity) -> UserOAuthAccount:
+async def create_oauth_account(
+    session: AsyncSession, user: User, identity: OAuthIdentity
+) -> UserOAuthAccount:
     account = UserOAuthAccount(
         user_id=user.id,
         provider=normalize_provider(identity.provider),
@@ -116,15 +123,20 @@ async def authenticate_oauth_identity(session: AsyncSession, identity: OAuthIden
     if account:
         user = await session.get(User, account.user_id)
         if not user:
-            raise oauth_error("ACCOUNT_DISABLED", "Dieses Konto ist deaktiviert.", status.HTTP_403_FORBIDDEN)
+            raise oauth_error(
+                "ACCOUNT_DISABLED", "Dieses Konto ist deaktiviert.", status.HTTP_403_FORBIDDEN
+            )
         await ensure_user_can_authenticate(
             session,
             user,
             provider=provider,
             audit_interactive_attempt=True,
         )
+        was_verified = user.is_verified
         update_oauth_account(account, identity)
         verify_matching_provider_email(user, identity)
+        if not was_verified and user.is_verified:
+            enqueue_welcome_email(session, user)
         touch_last_login(account, user)
         session.add(
             AdminAuditLog(
@@ -164,11 +176,13 @@ async def authenticate_oauth_identity(session: AsyncSession, identity: OAuthIden
         ),
         email_pending=not bool(identity.email),
         display_name=identity.display_name or identity.username or "",
-        is_verified=identity.email_verified,
+        is_verified=bool(identity.email and identity.email_verified),
     )
     session.add(user)
     await session.flush()
     await create_oauth_account(session, user, identity)
+    if user.is_verified:
+        enqueue_welcome_email(session, user)
     user.last_login_at = utcnow()
     session.add(
         AdminAuditLog(
@@ -203,19 +217,26 @@ async def authenticate_oauth_identity(session: AsyncSession, identity: OAuthIden
                     provider=provider,
                     audit_interactive_attempt=True,
                 )
+                was_verified = linked_user.is_verified
                 update_oauth_account(existing, identity)
                 verify_matching_provider_email(linked_user, identity)
+                if not was_verified and linked_user.is_verified:
+                    enqueue_welcome_email(session, linked_user)
                 touch_last_login(existing, linked_user)
                 await session.commit()
                 await session.refresh(linked_user)
                 return linked_user
-        raise oauth_error("OAUTH_LOGIN_FAILED", "OAuth-Anmeldung fehlgeschlagen.", status.HTTP_409_CONFLICT) from exc
+        raise oauth_error(
+            "OAUTH_LOGIN_FAILED", "OAuth-Anmeldung fehlgeschlagen.", status.HTTP_409_CONFLICT
+        ) from exc
     await session.refresh(user)
     logger.info("OAuth user created for user %s via %s", user.id, provider)
     return user
 
 
-async def link_oauth_account(session: AsyncSession, user: User, identity: OAuthIdentity) -> UserOAuthAccount:
+async def link_oauth_account(
+    session: AsyncSession, user: User, identity: OAuthIdentity
+) -> UserOAuthAccount:
     provider = normalize_provider(identity.provider)
     existing_identity = await get_by_provider_subject(
         session,
@@ -224,13 +245,26 @@ async def link_oauth_account(session: AsyncSession, user: User, identity: OAuthI
         identity.provider_instance,
     )
     if existing_identity and existing_identity.user_id != user.id:
-        raise oauth_error("OAUTH_ACCOUNT_ALREADY_LINKED", f"Dieses {provider_label(provider)}-Konto ist bereits mit einem anderen Benutzerkonto verbunden.", status.HTTP_409_CONFLICT)
+        raise oauth_error(
+            "OAUTH_ACCOUNT_ALREADY_LINKED",
+            f"Dieses {provider_label(provider)}-Konto ist bereits mit einem anderen Benutzerkonto verbunden.",
+            status.HTTP_409_CONFLICT,
+        )
     existing_provider = await get_for_user_provider(session, user.id, provider)
-    if existing_provider and (not existing_identity or existing_provider.id != existing_identity.id):
-        raise oauth_error("OAUTH_ACCOUNT_ALREADY_LINKED", f"Ihr Konto ist bereits mit {provider_label(provider)} verbunden.", status.HTTP_409_CONFLICT)
+    if existing_provider and (
+        not existing_identity or existing_provider.id != existing_identity.id
+    ):
+        raise oauth_error(
+            "OAUTH_ACCOUNT_ALREADY_LINKED",
+            f"Ihr Konto ist bereits mit {provider_label(provider)} verbunden.",
+            status.HTTP_409_CONFLICT,
+        )
     account = existing_identity or await create_oauth_account(session, user, identity)
+    was_verified = user.is_verified
     update_oauth_account(account, identity)
     verify_matching_provider_email(user, identity)
+    if not was_verified and user.is_verified:
+        enqueue_welcome_email(session, user)
     touch_last_login(account, user)
     session.add(
         AdminAuditLog(
@@ -249,7 +283,11 @@ async def link_oauth_account(session: AsyncSession, user: User, identity: OAuthI
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        raise oauth_error("OAUTH_ACCOUNT_ALREADY_LINKED", f"Dieses {provider_label(provider)}-Konto ist bereits verbunden.", status.HTTP_409_CONFLICT) from exc
+        raise oauth_error(
+            "OAUTH_ACCOUNT_ALREADY_LINKED",
+            f"Dieses {provider_label(provider)}-Konto ist bereits verbunden.",
+            status.HTTP_409_CONFLICT,
+        ) from exc
     await session.refresh(account)
     logger.info("OAuth account linked for user %s via %s", user.id, provider)
     return account
@@ -259,7 +297,11 @@ async def unlink_oauth_account(session: AsyncSession, user: User, provider: str)
     normalized = normalize_provider(provider)
     account = await get_for_user_provider(session, user.id, normalized)
     if not account:
-        raise oauth_error("OAUTH_ACCOUNT_NOT_LINKED", "Dieses externe Konto ist nicht verknüpft.", status.HTTP_404_NOT_FOUND)
+        raise oauth_error(
+            "OAUTH_ACCOUNT_NOT_LINKED",
+            "Dieses externe Konto ist nicht verknüpft.",
+            status.HTTP_404_NOT_FOUND,
+        )
 
     other_count = await session.scalar(
         select(func.count(UserOAuthAccount.id)).where(
@@ -269,7 +311,11 @@ async def unlink_oauth_account(session: AsyncSession, user: User, provider: str)
     )
     has_password = bool(user.password_hash)
     if not has_password and int(other_count or 0) == 0:
-        raise oauth_error("LAST_AUTH_METHOD", "Diese Verbindung kann nicht entfernt werden, da sie derzeit Ihre einzige Anmeldemethode ist.", status.HTTP_409_CONFLICT)
+        raise oauth_error(
+            "LAST_AUTH_METHOD",
+            "Diese Verbindung kann nicht entfernt werden, da sie derzeit Ihre einzige Anmeldemethode ist.",
+            status.HTTP_409_CONFLICT,
+        )
 
     provider_instance = account.provider_instance
     await session.delete(account)

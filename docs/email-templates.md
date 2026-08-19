@@ -12,7 +12,7 @@ Das E-Mail-System verwendet ein zentrales Register in `backend/app/services/emai
 | `mfa_security` | MFA-, Wiederherstellungs- und Passkey-Ereignisse | aktiv |
 | `contact_notification` | interne Kontaktbenachrichtigung | aktiv |
 | `contact_copy` | Kopie an den Absender | aktiv |
-| `welcome` | vorbereitete Willkommensmail | derzeit ohne Versandstelle |
+| `welcome` | Willkommensmail nach bestätigter Konto-E-Mail | aktiv |
 
 Unbekannte Schlüssel werden abgelehnt. Neue Mailarten müssen zuerst im Register angelegt und anschließend über den zentralen Renderer versendet werden.
 
@@ -67,11 +67,29 @@ Die Vorschau wird im Frontend in einem leeren `sandbox`-Iframe angezeigt und nic
 
 SMTP bleibt intern synchron, wird aus der asynchronen Renderpipeline aber über `asyncio.to_thread` aufgerufen und blockiert daher keine FastAPI-Request-Schleife. Das Console-Backend protokolliert weder Empfänger noch Mailinhalt.
 
+## Willkommensmail und E-Mail-Outbox
+
+Die Willkommensmail wird nicht bei der Registrierung versendet. Die erfolgreiche E-Mail-Bestätigung setzt `users.is_verified` und legt in derselben Datenbanktransaktion genau einen Outbox-Eintrag für den Benutzer an. Erst nach diesem Commit wird ein unmittelbarer Versandversuch gestartet. Ein SMTP-Fehler kann den bestätigten Kontostatus deshalb nicht zurückrollen.
+
+Neue OAuth-Konten werden nur dann unmittelbar eingereiht, wenn der Provider sowohl eine E-Mail-Adresse als auch deren bestätigten Status liefert. Konten mit ausstehender E-Mail-Adresse erhalten die Nachricht erst nach der späteren Bestätigung. `email_outbox` erzwingt für `template_key + user_id` Datenbank-Eindeutigkeit; `users.welcome_email_sent_at` hält den erfolgreichen Versand dauerhaft fest. Parallele Bestätigungsanfragen und Worker können dadurch nicht gleichzeitig dieselbe Nachricht beanspruchen.
+
+Fehlgeschlagene Versuche bleiben mit begrenztem exponentiellem Abstand retryfähig. Die Outbox speichert weder Verifikations- noch Passwort-Reset-Token und rendert den jeweils aktuellen, im Adminbereich gepflegten `welcome`-Inhalt erst beim Versand. Zulässige Variablen sind `name`, `app_url`, `documentation_url` und optional `profile_url`.
+
+Der periodische One-shot-Worker verarbeitet fällige Einträge unabhängig vom ursprünglichen Request:
+
+```bash
+cd backend
+.venv/bin/python -m app.cli.process_email_outbox --limit 20
+```
+
+Für systemd stehen `deploy/systemd/stadtplaner-email-outbox.service` und `.timer` bereit. Auditereignisse enthalten nur Outbox-ID und Versuchszahl, niemals Empfänger, Mailinhalt oder Template-Kontext.
+
 Vor dem Deployment:
 
 1. `APP_BASE_URL` auf die öffentliche Frontend-Origin setzen, produktiv beispielsweise `https://stadtplaner.oklabflensburg.de`.
 2. `alembic upgrade head` im Backend ausführen.
-3. Backend und Frontend neu bauen und neu starten.
-4. Erreichbarkeit von Logo, Impressum und Datenschutz über die öffentliche Domain prüfen.
+3. Die Units `stadtplaner-email-outbox.service` und `.timer` installieren und den Timer aktivieren.
+4. Backend und Frontend neu bauen und neu starten.
+5. Erreichbarkeit von Logo, Impressum und Datenschutz über die öffentliche Domain prüfen.
 
-Ein Rollback der Anpassungen erfolgt pro Vorlage über „Standard wiederherstellen“. Ein Schema-Rollback ist mit `alembic downgrade 20260819_0028` möglich und entfernt sämtliche gespeicherten Overrides.
+Ein Rollback der Anpassungen erfolgt pro Vorlage über „Standard wiederherstellen“. `alembic downgrade 20260819_0029` entfernt die Welcome-Outbox und den Versandzeitpunkt; ein weiterer Downgrade auf `20260819_0028` entfernt sämtliche gespeicherten Overrides.

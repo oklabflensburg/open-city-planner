@@ -68,32 +68,45 @@ class EmailTemplateValidationError(ValueError):
 
 EMAIL_TEMPLATE_REGISTRY: dict[str, EmailTemplateDefinition] = {
     "verify_email": EmailTemplateDefinition(
-        "verify_email", "E-Mail-Adresse bestätigen",
-        "Bestätigung einer neu hinterlegten E-Mail-Adresse.", "Sicherheit",
+        "verify_email",
+        "E-Mail-Adresse bestätigen",
+        "Bestätigung einer neu hinterlegten E-Mail-Adresse.",
+        "Sicherheit",
         "E-Mail-Adresse bestätigen – OK Lab Flensburg",
         """<p>Hallo {{ name }},</p><p>Vielen Dank für Ihre Registrierung. Bitte bestätigen Sie Ihre E-Mail-Adresse:</p><p><a class="email-button" href="{{ verification_url }}">E-Mail-Adresse bestätigen</a></p><p>Der Link ist nur begrenzt gültig. Wenn Sie kein Konto erstellt haben, können Sie diese Nachricht ignorieren.</p>""",
         """Hallo {{ name }},\n\nvielen Dank für Ihre Registrierung.\n\nBitte bestätigen Sie Ihre E-Mail-Adresse:\n{{ verification_url }}\n\nDer Link ist nur begrenzt gültig. Wenn Sie kein Konto erstellt haben, können Sie diese Nachricht ignorieren.""",
-        frozenset({"name", "verification_url"}), frozenset({"verification_url"}), True,
+        frozenset({"name", "verification_url"}),
+        frozenset({"verification_url"}),
+        True,
     ),
     "password_reset": EmailTemplateDefinition(
-        "password_reset", "Passwort zurücksetzen",
-        "Sicherer Link zum Zurücksetzen eines Passworts.", "Sicherheit",
+        "password_reset",
+        "Passwort zurücksetzen",
+        "Sicherer Link zum Zurücksetzen eines Passworts.",
+        "Sicherheit",
         "Passwort zurücksetzen – OK Lab Flensburg",
         """<p>Hallo {{ name }},</p><p>Für Ihr Stadtplaner-Konto wurde das Zurücksetzen des Passworts angefordert.</p><p><a class="email-button" href="{{ reset_url }}">Passwort zurücksetzen</a></p><p>Der Link ist {{ expires_minutes }} Minuten gültig. Wenn Sie die Anfrage nicht gestellt haben, ist keine Aktion erforderlich.</p>""",
         """Hallo {{ name }},\n\nfür Ihr Stadtplaner-Konto wurde das Zurücksetzen des Passworts angefordert.\n\nPasswort zurücksetzen:\n{{ reset_url }}\n\nDer Link ist {{ expires_minutes }} Minuten gültig. Wenn Sie die Anfrage nicht gestellt haben, ist keine Aktion erforderlich.""",
-        frozenset({"name", "reset_url", "expires_minutes"}), frozenset({"reset_url"}), True,
+        frozenset({"name", "reset_url", "expires_minutes"}),
+        frozenset({"reset_url"}),
+        True,
     ),
     "password_changed": EmailTemplateDefinition(
-        "password_changed", "Passwort geändert",
-        "Sicherheitshinweis nach einer Passwortänderung.", "Sicherheit",
+        "password_changed",
+        "Passwort geändert",
+        "Sicherheitshinweis nach einer Passwortänderung.",
+        "Sicherheit",
         "Passwort geändert – OK Lab Flensburg",
         """<p>Hallo {{ name }},</p><p>Ihr Passwort wurde geändert.</p><p>Wenn Sie diese Änderung nicht ausgelöst haben, kontaktieren Sie bitte das OK Lab Flensburg.</p>""",
         """Hallo {{ name }},\n\nIhr Passwort wurde geändert.\n\nWenn Sie diese Änderung nicht ausgelöst haben, kontaktieren Sie bitte das OK Lab Flensburg.""",
-        frozenset({"name"}), is_security_sensitive=True,
+        frozenset({"name"}),
+        is_security_sensitive=True,
     ),
     "mfa_security": EmailTemplateDefinition(
-        "mfa_security", "MFA- und Passkey-Sicherheit",
-        "Hinweise zu MFA, Wiederherstellungscodes und Passkeys.", "Sicherheit",
+        "mfa_security",
+        "MFA- und Passkey-Sicherheit",
+        "Hinweise zu MFA, Wiederherstellungscodes und Passkeys.",
+        "Sicherheit",
         "{{ security_event_title }} – OK Lab Flensburg",
         """<p>Hallo {{ name }},</p><h1>{{ security_event_title }}</h1><p>{{ security_event_message }}</p><p>Falls Sie diese Änderung nicht selbst vorgenommen haben, ändern Sie bitte umgehend Ihr Passwort und wenden Sie sich an den Support.</p>""",
         """Hallo {{ name }},\n\n{{ security_event_title }}\n\n{{ security_event_message }}\n\nFalls Sie diese Änderung nicht selbst vorgenommen haben, ändern Sie bitte umgehend Ihr Passwort und wenden Sie sich an den Support.""",
@@ -101,28 +114,35 @@ EMAIL_TEMPLATE_REGISTRY: dict[str, EmailTemplateDefinition] = {
         is_security_sensitive=True,
     ),
     "contact_notification": EmailTemplateDefinition(
-        "contact_notification", "Kontaktformular – interne Benachrichtigung",
-        "Interne Nachricht über eine neue Kontaktanfrage.", "Kontakt",
+        "contact_notification",
+        "Kontaktformular – interne Benachrichtigung",
+        "Interne Nachricht über eine neue Kontaktanfrage.",
+        "Kontakt",
         "[Stadtplaner Kontakt] {{ subject }}",
         """<h1>Neue Kontaktanfrage über Stadtplaner</h1><p><strong>Name:</strong><br>{{ name }}</p><p><strong>E-Mail:</strong><br>{{ email }}</p><p><strong>Betreff:</strong><br>{{ subject }}</p><p><strong>Nachricht:</strong></p><blockquote>{{ message }}</blockquote><p><strong>Eingegangen:</strong> {{ received_at }}</p>""",
         """Neue Kontaktanfrage über Stadtplaner\n\nName: {{ name }}\nE-Mail: {{ email }}\nBetreff: {{ subject }}\n\nNachricht:\n{{ message }}\n\nEingegangen: {{ received_at }}""",
         frozenset({"name", "email", "subject", "message", "received_at"}),
     ),
     "contact_copy": EmailTemplateDefinition(
-        "contact_copy", "Kontaktformular – Kopie an Absender",
-        "Bestätigung und Kopie einer Kontaktanfrage.", "Kontakt",
+        "contact_copy",
+        "Kontaktformular – Kopie an Absender",
+        "Bestätigung und Kopie einer Kontaktanfrage.",
+        "Kontakt",
         "Kopie Ihrer Nachricht an Stadtplaner",
         """<p>Hallo {{ name }},</p><p>Vielen Dank für Ihre Nachricht. Dies ist eine Kopie Ihrer Anfrage:</p><p><strong>Betreff:</strong><br>{{ subject }}</p><p><strong>Nachricht:</strong></p><blockquote>{{ message }}</blockquote><p>Ihre Nachricht wurde an das Stadtplaner-Team übermittelt.</p>""",
         """Hallo {{ name }},\n\nvielen Dank für Ihre Nachricht. Dies ist eine Kopie Ihrer Anfrage:\n\nBetreff: {{ subject }}\n\nNachricht:\n{{ message }}\n\nIhre Nachricht wurde an das Stadtplaner-Team übermittelt.""",
         frozenset({"name", "subject", "message"}),
     ),
     "welcome": EmailTemplateDefinition(
-        "welcome", "Willkommen",
-        "Vorbereitete Willkommensmail; derzeit ohne aktive Versandstelle.", "Konto",
+        "welcome",
+        "Willkommensmail",
+        "Willkommensmail nach der erstmaligen Bestätigung eines Kontos.",
+        "Konto",
         "Willkommen beim Stadtplaner – OK Lab Flensburg",
-        "<p>Hallo {{ name }},</p><p>Willkommen beim Stadtplaner des OK Lab Flensburg.</p>",
-        "Hallo {{ name }},\n\nwillkommen beim Stadtplaner des OK Lab Flensburg.",
-        frozenset({"name"}), is_active=False,
+        """<p>Hallo {{ name }},</p><p>willkommen beim Stadtplaner des OK Lab Flensburg.</p><p>Mit dem Stadtplaner können Sie Flächen erfassen, offene Geodaten nutzen und gemeinsam an einem besseren Überblick über Flensburg arbeiten.</p><p><a class="email-button" href="{{ app_url }}">Zum Stadtplaner</a></p><p><a href="{{ documentation_url }}">Dokumentation öffnen</a></p><p>Bei Fragen oder wenn Sie mitmachen möchten, finden Sie weitere Informationen in der Dokumentation.</p><p>Viele Grüße<br>OK Lab Flensburg</p>""",
+        """Hallo {{ name }},\n\nwillkommen beim Stadtplaner des OK Lab Flensburg.\n\nMit dem Stadtplaner können Sie Flächen erfassen, offene Geodaten nutzen und gemeinsam an einem besseren Überblick über Flensburg arbeiten.\n\nZum Stadtplaner:\n{{ app_url }}\n\nDokumentation:\n{{ documentation_url }}\n\nBei Fragen oder wenn Sie mitmachen möchten, finden Sie weitere Informationen in der Dokumentation.\n\nViele Grüße\nOK Lab Flensburg""",
+        frozenset({"name", "app_url", "documentation_url", "profile_url"}),
+        frozenset({"app_url", "documentation_url"}),
     ),
 }
 
@@ -133,16 +153,25 @@ _text_sandbox = SandboxedEnvironment(autoescape=False, undefined=StrictUndefined
 _text_sandbox.filters.clear()
 _text_sandbox.tests.clear()
 _layout_env = Environment(
-    loader=FileSystemLoader(TEMPLATE_DIR), autoescape=select_autoescape(["html", "xml"]),
+    loader=FileSystemLoader(TEMPLATE_DIR),
+    autoescape=select_autoescape(["html", "xml"]),
     undefined=StrictUndefined,
 )
 _DISALLOWED_NODES = (
-    nodes.Call, nodes.Getattr, nodes.Getitem, nodes.Filter, nodes.Test, nodes.Include,
-    nodes.Import, nodes.FromImport, nodes.Extends, nodes.Macro, nodes.Assign, nodes.For,
+    nodes.Call,
+    nodes.Getattr,
+    nodes.Getitem,
+    nodes.Filter,
+    nodes.Test,
+    nodes.Include,
+    nodes.Import,
+    nodes.FromImport,
+    nodes.Extends,
+    nodes.Macro,
+    nodes.Assign,
+    nodes.For,
 )
-_ALLOWED_TAGS = {
-    "p", "br", "strong", "em", "ul", "ol", "li", "h1", "h2", "h3", "a", "blockquote"
-}
+_ALLOWED_TAGS = {"p", "br", "strong", "em", "ul", "ol", "li", "h1", "h2", "h3", "a", "blockquote"}
 _BUTTON_STYLE = (
     "background:#154d73;color:#ffffff;text-decoration:none;padding:12px 18px;"
     "border-radius:6px;font-weight:bold;display:inline-block;"
@@ -182,10 +211,7 @@ class _Sanitizer(HTMLParser):
             href = values.get("href", "")
             if _safe_href(href):
                 rendered_attrs.append(f'href="{escape(href, quote=True)}"')
-            if (
-                values.get("class") == "email-button"
-                or values.get("style") == _BUTTON_STYLE
-            ):
+            if values.get("class") == "email-button" or values.get("style") == _BUTTON_STYLE:
                 rendered_attrs.append(f'style="{_BUTTON_STYLE}"')
         suffix = f" {' '.join(rendered_attrs)}" if rendered_attrs else ""
         self.parts.append(f"<{tag}{suffix}>")
@@ -291,15 +317,12 @@ def validate_template_content(
     if missing:
         raise EmailTemplateValidationError(
             "EMAIL_TEMPLATE_REQUIRED_VARIABLE_MISSING",
-            f"Die erforderliche Variable {missing[0]} fehlt.", variable=missing[0],
+            f"Die erforderliche Variable {missing[0]} fehlt.",
+            variable=missing[0],
         )
     sanitized_html = sanitize_email_html(html_body.strip())
-    sanitized_variables = _validate_jinja(
-        sanitized_html, definition, "Der bereinigte HTML-Inhalt"
-    )
-    missing_after_sanitization = sorted(
-        definition.required_variables - sanitized_variables
-    )
+    sanitized_variables = _validate_jinja(sanitized_html, definition, "Der bereinigte HTML-Inhalt")
+    missing_after_sanitization = sorted(definition.required_variables - sanitized_variables)
     if missing_after_sanitization:
         raise EmailTemplateValidationError(
             "EMAIL_TEMPLATE_REQUIRED_VARIABLE_MISSING",
@@ -315,9 +338,7 @@ def default_template_content(definition: EmailTemplateDefinition) -> EmailTempla
     )
 
 
-async def get_template_content(
-    session: AsyncSession | None, key: str
-) -> EmailTemplateContent:
+async def get_template_content(session: AsyncSession | None, key: str) -> EmailTemplateContent:
     definition = template_definition(key)
     if session is None:
         return default_template_content(definition)
@@ -325,8 +346,11 @@ async def get_template_content(
     if record is None:
         return default_template_content(definition)
     return EmailTemplateContent(
-        record.subject, record.html_body, record.text_body,
-        record.is_customized, record.version,
+        record.subject,
+        record.html_body,
+        record.text_body,
+        record.is_customized,
+        record.version,
     )
 
 
@@ -343,7 +367,10 @@ def _render_string(
 
 
 async def render_email_template(
-    session: AsyncSession | None, key: str, variables: dict[str, object], *,
+    session: AsyncSession | None,
+    key: str,
+    variables: dict[str, object],
+    *,
     content_override: EmailTemplateContent | None = None,
 ) -> RenderedEmail:
     definition = template_definition(key)
@@ -392,8 +419,13 @@ def render_pair(template: str, context: dict[str, object]) -> tuple[str, str]:
 
 
 def send_email(
-    to_email: str, subject: str, html: str, text: str, *,
-    to_name: str | None = None, reply_to: str | None = None,
+    to_email: str,
+    subject: str,
+    html: str,
+    text: str,
+    *,
+    to_name: str | None = None,
+    reply_to: str | None = None,
 ) -> None:
     settings = get_settings()
     if settings.email_backend == "console":
@@ -420,12 +452,20 @@ def send_email(
 
 
 async def send_rendered_email(
-    to_email: str, rendered: RenderedEmail, *,
-    to_name: str | None = None, reply_to: str | None = None,
+    to_email: str,
+    rendered: RenderedEmail,
+    *,
+    to_name: str | None = None,
+    reply_to: str | None = None,
 ) -> None:
     await asyncio.to_thread(
-        send_email, to_email, rendered.subject, rendered.html, rendered.text,
-        to_name=to_name, reply_to=reply_to,
+        send_email,
+        to_email,
+        rendered.subject,
+        rendered.html,
+        rendered.text,
+        to_name=to_name,
+        reply_to=reply_to,
     )
 
 
@@ -449,9 +489,13 @@ async def send_password_reset_email(session: AsyncSession, user: User, token: st
     settings = get_settings()
     link = f"{settings.app_base_url.rstrip('/')}/passwort-zuruecksetzen?token={token}"
     rendered = await render_email_template(
-        session, "password_reset",
-        {"name": display_name(user), "reset_url": link,
-         "expires_minutes": settings.password_reset_expire_minutes},
+        session,
+        "password_reset",
+        {
+            "name": display_name(user),
+            "reset_url": link,
+            "expires_minutes": settings.password_reset_expire_minutes,
+        },
     )
     await send_rendered_email(user.email, rendered)
 
@@ -463,42 +507,95 @@ async def send_password_changed_email(session: AsyncSession, user: User) -> None
     await send_rendered_email(user.email, rendered)
 
 
+async def send_welcome_email(session: AsyncSession, user: User) -> None:
+    app_url = get_settings().app_base_url.rstrip("/")
+    rendered = await render_email_template(
+        session,
+        "welcome",
+        {
+            "name": display_name(user),
+            "app_url": app_url,
+            "documentation_url": f"{app_url}/dokumentation",
+            "profile_url": f"{app_url}/profil",
+        },
+    )
+    await send_rendered_email(user.email, rendered, to_name=display_name(user))
+
+
 _MFA_EVENTS = {
-    "enabled": ("Zwei-Faktor-Authentifizierung aktiviert", "Die Zwei-Faktor-Authentifizierung Ihres Kontos wurde aktiviert."),
-    "disabled": ("Zwei-Faktor-Authentifizierung deaktiviert", "Die Zwei-Faktor-Authentifizierung Ihres Kontos wurde deaktiviert."),
-    "recovery_regenerated": ("Neue Wiederherstellungscodes erzeugt", "Für Ihr Konto wurden neue Wiederherstellungscodes erzeugt. Alle bisherigen Codes sind ungültig."),
-    "recovery_used": ("Wiederherstellungscode verwendet", "Für die Anmeldung bei Ihrem Konto wurde ein Wiederherstellungscode verwendet."),
-    "passkey_added": ("Passkey hinzugefügt", "Für Ihr Konto wurde ein neuer Passkey hinzugefügt. Falls Sie diese Änderung nicht vorgenommen haben, prüfen Sie bitte umgehend Ihre Kontosicherheit."),
-    "passkey_removed": ("Passkey entfernt", "Ein Passkey wurde aus Ihrem Konto entfernt. Falls Sie diese Änderung nicht vorgenommen haben, prüfen Sie bitte umgehend Ihre Kontosicherheit."),
-    "passkeys_removed": ("Alle Passkeys entfernt", "Der letzte Passkey wurde aus Ihrem Konto entfernt. Falls Sie diese Änderung nicht vorgenommen haben, prüfen Sie bitte umgehend Ihre Kontosicherheit."),
+    "enabled": (
+        "Zwei-Faktor-Authentifizierung aktiviert",
+        "Die Zwei-Faktor-Authentifizierung Ihres Kontos wurde aktiviert.",
+    ),
+    "disabled": (
+        "Zwei-Faktor-Authentifizierung deaktiviert",
+        "Die Zwei-Faktor-Authentifizierung Ihres Kontos wurde deaktiviert.",
+    ),
+    "recovery_regenerated": (
+        "Neue Wiederherstellungscodes erzeugt",
+        "Für Ihr Konto wurden neue Wiederherstellungscodes erzeugt. Alle bisherigen Codes sind ungültig.",
+    ),
+    "recovery_used": (
+        "Wiederherstellungscode verwendet",
+        "Für die Anmeldung bei Ihrem Konto wurde ein Wiederherstellungscode verwendet.",
+    ),
+    "passkey_added": (
+        "Passkey hinzugefügt",
+        "Für Ihr Konto wurde ein neuer Passkey hinzugefügt. Falls Sie diese Änderung nicht vorgenommen haben, prüfen Sie bitte umgehend Ihre Kontosicherheit.",
+    ),
+    "passkey_removed": (
+        "Passkey entfernt",
+        "Ein Passkey wurde aus Ihrem Konto entfernt. Falls Sie diese Änderung nicht vorgenommen haben, prüfen Sie bitte umgehend Ihre Kontosicherheit.",
+    ),
+    "passkeys_removed": (
+        "Alle Passkeys entfernt",
+        "Der letzte Passkey wurde aus Ihrem Konto entfernt. Falls Sie diese Änderung nicht vorgenommen haben, prüfen Sie bitte umgehend Ihre Kontosicherheit.",
+    ),
 }
 
 
 async def send_mfa_security_email(session: AsyncSession, user: User, event: str) -> None:
     title, message = _MFA_EVENTS[event]
     rendered = await render_email_template(
-        session, "mfa_security",
-        {"name": display_name(user), "security_event_title": title,
-         "security_event_message": message},
+        session,
+        "mfa_security",
+        {
+            "name": display_name(user),
+            "security_event_title": title,
+            "security_event_message": message,
+        },
     )
     await send_rendered_email(user.email, rendered)
 
 
 async def send_contact_notification(
-    session: AsyncSession, *, name: str, email: str, subject: str,
-    message: str, received_at: str,
+    session: AsyncSession,
+    *,
+    name: str,
+    email: str,
+    subject: str,
+    message: str,
+    received_at: str,
 ) -> None:
     settings = get_settings()
     if not settings.contact_to_email:
         raise RuntimeError("CONTACT_TO_EMAIL must be configured")
     rendered = await render_email_template(
-        session, "contact_notification",
-        {"name": name, "email": email, "subject": subject,
-         "message": message, "received_at": received_at},
+        session,
+        "contact_notification",
+        {
+            "name": name,
+            "email": email,
+            "subject": subject,
+            "message": message,
+            "received_at": received_at,
+        },
     )
     await send_rendered_email(
-        settings.contact_to_email, rendered,
-        to_name=settings.contact_to_name, reply_to=email,
+        settings.contact_to_email,
+        rendered,
+        to_name=settings.contact_to_name,
+        reply_to=email,
     )
 
 

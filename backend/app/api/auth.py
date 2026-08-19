@@ -75,6 +75,7 @@ from app.services.auth_service import (
     signup,
     verify_email,
 )
+from app.services.email_outbox import attempt_welcome_delivery
 from app.services.email_service import send_mfa_security_email
 from app.services.mastodon_sso import (
     consume_mastodon_oauth_flow,
@@ -658,6 +659,7 @@ async def get_auth_session(
 @router.post("/verify-email", response_model=VerificationResponse)
 async def post_verify_email(payload: TokenRequest, session: SessionDep) -> VerificationResponse:
     result = await verify_email(session, payload.token)
+    await attempt_welcome_delivery(session, result.user_id)
     if result.status == "already_verified":
         return VerificationResponse(
             status="already_verified",
@@ -918,6 +920,8 @@ async def oauth_callback(
             redirect_response = oauth_link_result_redirect(provider, error=code_value)
             clear_oauth_cookie(redirect_response, provider)
             return redirect_response
+        if current_user.is_verified:
+            await attempt_welcome_delivery(session, current_user.id)
         redirect_response = oauth_link_result_redirect(provider, success="success")
         clear_oauth_cookie(redirect_response, provider)
         return redirect_response
@@ -931,6 +935,8 @@ async def oauth_callback(
             else "OAUTH_LOGIN_FAILED"
         )
         return oauth_flow_error_redirect("login", provider, code_value)
+    if user.is_verified:
+        await attempt_welcome_delivery(session, user.id)
     callback_url = f"{settings.app_base_url.rstrip('/')}/auth/callback"
     redirect_path = (
         "/profil?oauth_onboarding=email"

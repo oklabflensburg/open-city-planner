@@ -45,6 +45,9 @@ class EffectiveEmailTemplate:
 def preview_variables(key: str) -> dict[str, str]:
     values = {
         "name": "Max Mustermann",
+        "app_url": "https://example.invalid",
+        "documentation_url": "https://example.invalid/dokumentation",
+        "profile_url": "https://example.invalid/profil",
         "verification_url": "https://example.invalid/email-bestaetigen?token=vorschau",
         "reset_url": "https://example.invalid/passwort-zuruecksetzen?token=vorschau",
         "expires_minutes": "60",
