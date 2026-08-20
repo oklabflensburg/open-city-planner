@@ -173,6 +173,8 @@ async def answer_assistant_query(
             "assistant_query intent=%s llm_used=%s tool_calls=%d duration_ms=%d success=%s",
             *log_values,
         )
+
+    # print(response.model_dump_json(indent=2, ensure_ascii=False))
     return response
 
 
