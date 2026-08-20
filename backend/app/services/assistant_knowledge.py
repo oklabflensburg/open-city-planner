@@ -89,7 +89,7 @@ def _entries() -> tuple[KnowledgeEntry, ...]:
             "occupancy.VACANT", KnowledgeType.CONCEPT, "Leerstand",
             ("leerstand", "leer", "leerstehend", "ungenutzt", "unvermietet", "vacant"),
             "VACANT bezeichnet einen ausdrücklich als leerstehend erkannten Zustand. Bei OSM wird er nur aus den kontrollierten Lifecycle-Regeln wie shop=vacant, disused:shop oder disused=yes mit Gewerbekontext abgeleitet.",
-            "CODE", "backend/app/services/osm_occupancy.py", "VACANT",
+            "DOCUMENTATION", "docs/osm-data.md", "VACANT",
         ),
         KnowledgeEntry(
             "occupancy.OCCUPIED", KnowledgeType.CONCEPT, "Belegt",
@@ -132,6 +132,36 @@ def _entries() -> tuple[KnowledgeEntry, ...]:
             ("stadtplaner", "stadtplaner daten", "gepflegte flächen", "gepflegte flaechen"),
             "Stadtplaner-Daten sind die im Projekt gepflegten öffentlichen Verkaufsflächen. Sie werden getrennt von lokalen OSM-Referenzobjekten ausgewertet.",
             "SCHEMA", "backend/app/schemas/polygon_filters.py", "STADTPLANNER",
+        ),
+        KnowledgeEntry(
+            "data_source.STATISTICS", KnowledgeType.DATA_SOURCE, "Kommunale Statistik",
+            ("kommunale statistik", "statistikquelle", "zahlenspiegel", "statistische daten"),
+            "Die kommunalen Kennzahlen werden versioniert mit Quelle, Bezugszeitraum und Gebietsebene gespeichert. Für Stadtteile oder Quartiere kann transparent ein Wert des übergeordneten Gebiets verwendet werden.",
+            "DOCUMENTATION", "docs/flensburg-statistics.md", "STATISTICS",
+        ),
+        KnowledgeEntry(
+            "concept.intelligent_search", KnowledgeType.CONCEPT, "Intelligente Suche",
+            ("intelligente suche", "suchlogik", "kartensuche", "wie funktioniert die suche"),
+            "Die intelligente Suche übersetzt Fragen und Kartenbefehle in validierte, ausschließlich lesende Stadtplaner-Operationen. Zahlen und Kartenobjekte stammen aus den bestehenden Fachservices.",
+            "DOCUMENTATION", "docs/intelligent-search.md", None,
+        ),
+        KnowledgeEntry(
+            "concept.stadtplaner_assistant", KnowledgeType.CONCEPT, "Stadtplaner-Assistent",
+            ("assistant", "assistent", "stadtplaner assistent", "wissenskatalog"),
+            "Der Stadtplaner-Assistent kombiniert höchstens vier freigegebene Datenoperationen und kontrollierte Wissenseinträge zu strukturierten Antworten mit Quellenangaben.",
+            "DOCUMENTATION", "docs/stadtplaner-assistant.md", None,
+        ),
+        KnowledgeEntry(
+            "statistic.population", KnowledgeType.STATISTIC, "Bevölkerung",
+            ("bevölkerung", "bevoelkerung", "einwohner", "einwohnerzahl", "bevölkerungsentwicklung", "bevoelkerungsentwicklung"),
+            "Die Kennzahl population enthält die veröffentlichten Bevölkerungsstände als Personen je Berichtsperiode. Die Zeitreihe stammt aus der kommunalen Statistik und wird nicht aus Kartenobjekten abgeleitet.",
+            "DOCUMENTATION", "docs/flensburg-statistics.md", "population",
+        ),
+        KnowledgeEntry(
+            "statistic.households", KnowledgeType.STATISTIC, "Haushalte",
+            ("haushalte", "haushaltszahl", "haushaltsentwicklung", "anzahl haushalte"),
+            "Die Kennzahl households enthält die veröffentlichten Haushaltszahlen je Berichtsperiode. Quelle, Gebietsebene und eine mögliche Vererbung werden zusammen mit den Werten ausgegeben.",
+            "DOCUMENTATION", "docs/flensburg-statistics.md", "households",
         ),
         KnowledgeEntry(
             "metric.vacancy_rate", KnowledgeType.METRIC, "Leerstandsquote",
@@ -233,10 +263,5 @@ def public_datasets() -> list[dict[str, object]]:
             "description": "Gemeinde-, Stadtteil- und Quartiersgeometrien für räumliche Auswertungen.",
             "source": {"type": "SCHEMA", "path": "backend/app/models/analysis_area.py"},
         },
-        {
-            "key": "data_source.STATISTICS", "type": "DATA_SOURCE",
-            "title": "Kommunale Statistik",
-            "description": "Versionierte kommunale Kennzahlen und Zeitreihen mit Quellen- und Periodenangabe.",
-            "source": {"type": "DOCUMENTATION", "path": "docs/flensburg-statistics.md"},
-        },
+        get_knowledge("data_source.STATISTICS").public_dict(),  # type: ignore[union-attr]
     ]

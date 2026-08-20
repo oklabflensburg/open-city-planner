@@ -104,9 +104,20 @@
         <article v-else-if="search.result" class="text-sm text-slate-700" role="status" aria-live="polite" data-search-answer>
           <h2 class="font-black text-slate-950">{{ search.result.presentation.title }}</h2>
           <p v-if="search.result.presentation.type !== 'KNOWLEDGE' || !search.result.presentation.items.length" class="mt-1 leading-5">{{ search.result.answer }}</p>
-          <p v-if="search.result.presentation.type === 'METRIC' && search.result.presentation.value !== null" class="mt-2 text-2xl font-black text-[#154d73]" data-assistant-metric>
-            {{ formatValue(search.result.presentation.value) }}<span v-if="search.result.presentation.unit" class="ml-1 text-sm">{{ search.result.presentation.unit }}</span>
+          <p v-if="['METRIC', 'STATISTIC_METRIC'].includes(search.result.presentation.type) && search.result.presentation.value !== null" class="mt-2 text-2xl font-black text-[#154d73]" data-assistant-metric>
+            {{ formatValue(search.result.presentation.value) }}<span v-if="search.result.presentation.unit" class="text-sm">{{ ` ${unitLabel(search.result.presentation.unit)}` }}</span>
           </p>
+          <div v-if="search.result.presentation.type === 'STATISTICS_OVERVIEW'" class="mt-3" data-assistant-statistics>
+            <ul class="divide-y divide-slate-200 rounded-xl bg-slate-50 px-3 text-xs">
+              <li v-for="(item, index) in search.result.presentation.items.slice(0, 12)" :key="itemKey(item, index)" class="flex items-start justify-between gap-3 py-2">
+                <span><strong class="block text-slate-800">{{ stringValue(item.name) }}</strong><small class="text-slate-500">{{ stringValue(item.period) }}</small></span>
+                <strong class="text-right text-[#154d73]">{{ statisticValue(item) }}</strong>
+              </li>
+            </ul>
+          </div>
+          <div v-else-if="search.result.presentation.type === 'STATISTIC_SERIES'" class="mt-3 overflow-x-auto" data-assistant-statistic-series>
+            <table class="w-full text-left text-xs"><thead><tr><th class="py-1">Periode</th><th class="py-1 text-right">Wert</th></tr></thead><tbody><tr v-for="(item, index) in search.result.presentation.items" :key="itemKey(item, index)" class="border-t border-slate-200"><th class="py-1.5 font-semibold">{{ stringValue(item.period) }}</th><td class="text-right">{{ item.suppressed ? 'Unterdrückt' : statisticValue(item, search.result.presentation.unit) }}</td></tr></tbody></table>
+          </div>
           <ul v-else-if="['METRIC_LIST', 'AREA_LIST'].includes(search.result.presentation.type)" class="mt-2 max-h-36 overflow-y-auto text-xs" data-assistant-list>
             <li v-for="(item, index) in search.result.presentation.items.slice(0, 8)" :key="itemKey(item, index)" class="border-t border-slate-200 py-1.5 first:border-0">{{ itemLabel(item) }}</li>
           </ul>
@@ -125,9 +136,28 @@
           <div v-else-if="search.result.presentation.type === 'KNOWLEDGE'" class="mt-2 space-y-2 text-xs" data-assistant-knowledge>
             <div v-for="(item, index) in search.result.presentation.items" :key="itemKey(item, index)" class="border-t border-slate-200 pt-2 first:border-0 first:pt-0">
               <p v-if="knowledgeItemTitle(item)" class="font-bold text-slate-900">{{ knowledgeItemTitle(item) }}</p><p class="leading-5">{{ stringValue(item.description) }}</p>
+              <p v-if="knowledgeSource(item)" class="mt-1 text-[11px] text-slate-500">{{ knowledgeSource(item) }}</p>
+              <NuxtLink v-if="documentationRoute(item)" :to="documentationRoute(item)!" class="mt-1 inline-flex font-bold text-[#154d73] hover:underline">Mehr anzeigen</NuxtLink>
             </div>
           </div>
           <ul v-else-if="search.result.presentation.type === 'DATA_SOURCE_STATUS'" class="mt-2 text-xs" data-assistant-data-sources><li v-for="(item, index) in search.result.presentation.items" :key="itemKey(item, index)" class="border-t border-slate-200 py-1.5 first:border-0">{{ itemLabel(item) }}</li></ul>
+
+          <dl v-if="statisticsMetadata.length" class="mt-3 grid gap-1 rounded-xl border border-slate-200 p-3 text-[11px]" data-assistant-statistics-metadata>
+            <div v-for="item in statisticsMetadata" :key="item.label" class="flex justify-between gap-3"><dt class="text-slate-500">{{ item.label }}</dt><dd class="text-right font-semibold text-slate-700">{{ item.value }}</dd></div>
+          </dl>
+          <p v-if="statisticsInherited" class="mt-2 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-900" data-assistant-statistics-inherited>Für dieses Gebiet werden Werte des übergeordneten Statistikgebiets verwendet.</p>
+
+          <section v-for="(section, sectionIndex) in search.result.presentation.sections || []" :key="`${section.type}-${sectionIndex}`" class="mt-3 border-t border-slate-200 pt-3" data-assistant-result-section>
+            <h3 class="text-xs font-black text-slate-900">{{ section.title }}</h3>
+            <div v-if="section.type === 'KNOWLEDGE'" class="mt-1.5 space-y-2 text-xs" data-assistant-knowledge>
+              <div v-for="(item, index) in section.items" :key="itemKey(item, index)">
+                <p v-if="knowledgeItemTitle(item)" class="font-bold text-slate-900">{{ stringValue(item.title) }}</p>
+                <p class="leading-5">{{ stringValue(item.description) }}</p>
+                <p v-if="knowledgeSource(item)" class="mt-1 text-[11px] text-slate-500">{{ knowledgeSource(item) }}</p>
+                <NuxtLink v-if="documentationRoute(item)" :to="documentationRoute(item)!" class="mt-1 inline-flex font-bold text-[#154d73] hover:underline">Mehr anzeigen</NuxtLink>
+              </div>
+            </div>
+          </section>
 
           <div v-if="search.result.plan.response_mode === 'CLARIFICATION' && search.result.presentation.items.length" class="mt-3 flex flex-wrap gap-1.5" data-assistant-clarification>
             <button v-for="(item, index) in search.result.presentation.items" :key="itemKey(item, index)" class="rounded-full bg-[#edf4f8] px-3 py-1.5 text-xs font-bold text-[#154d73]" type="button" @click="runClarification(item)">{{ stringValue(item.name || item.label) }}</button>
@@ -178,6 +208,20 @@ const resultSummary = computed(() => {
     ...(filters.sources.length ? [{ label: 'Quelle', value: filters.sources.join(' + ') }] : [])
   ]
 })
+const statisticsMetadata = computed(() => {
+  const metadata = search.result?.presentation.metadata
+  if (!metadata || !search.result?.presentation.type.startsWith('STATISTIC')) return []
+  const source = asRecord(metadata.source)
+  const requestedArea = asRecord(metadata.requested_area)
+  const statisticsArea = asRecord(metadata.statistics_area)
+  return [
+    ...(requestedArea.name ? [{ label: 'Angefragtes Gebiet', value: String(requestedArea.name) }] : []),
+    ...(statisticsArea.name ? [{ label: 'Statistikgebiet', value: String(statisticsArea.name) }] : []),
+    ...(metadata.period ? [{ label: 'Stand', value: String(metadata.period) }] : []),
+    ...(source.name ? [{ label: 'Quelle', value: String(source.name) }] : [])
+  ]
+})
+const statisticsInherited = computed(() => Boolean(search.result?.presentation.metadata?.inherited_from_parent))
 
 watch(() => search.result, () => { detailsOpen.value = false })
 
@@ -196,6 +240,7 @@ function handleEscape() {
 }
 function formatValue(value: number | string) { return typeof value === 'number' ? new Intl.NumberFormat('de-DE').format(value) : value }
 function stringValue(value: unknown) { return typeof value === 'string' ? value : '–' }
+function asRecord(value: unknown): Record<string, unknown> { return value && typeof value === 'object' ? value as Record<string, unknown> : {} }
 function itemKey(item: Record<string, unknown>, index: number) { return String(item.id || item.slug || item.key || index) }
 function itemLabel(item: Record<string, unknown>) {
   const label = item.name || item.label || item.category || item.slug || 'Eintrag'
@@ -206,6 +251,29 @@ function knowledgeItemTitle(item: Record<string, unknown>) {
   const title = typeof item.title === 'string' ? item.title : ''
   return title === search.result?.presentation.title ? '' : title
 }
+function unitLabel(unit: string) {
+  return ({ persons: 'Personen', households: 'Haushalte', percent: '%' } as Record<string, string>)[unit] || unit
+}
+function statisticValue(item: Record<string, unknown>, fallbackUnit?: string | null) {
+  const value = item.value
+  if (typeof value !== 'number' && typeof value !== 'string') return '–'
+  const unit = typeof item.unit === 'string' ? item.unit : fallbackUnit
+  return `${formatValue(value)}${unit ? ` ${unitLabel(unit)}` : ''}`
+}
+function knowledgeSource(item: Record<string, unknown>) {
+  const source = asRecord(item.source)
+  if (!source.path) return ''
+  const label = source.type === 'DOCUMENTATION' ? 'Dokumentation' : 'Quelle'
+  return `${label}: ${String(source.path)}`
+}
+function documentationRoute(item: Record<string, unknown>) {
+  const source = asRecord(item.source)
+  const allowed = new Set([
+    'docs/flensburg-statistics.md', 'docs/osm-data.md',
+    'docs/intelligent-search.md', 'docs/stadtplaner-assistant.md'
+  ])
+  return source.type === 'DOCUMENTATION' && allowed.has(String(source.path)) ? '/dokumentation' : null
+}
 function metric(item: Record<string, unknown>, key: string) {
   const metrics = item.metrics
   if (!metrics || typeof metrics !== 'object') return '–'
@@ -215,8 +283,9 @@ function metric(item: Record<string, unknown>, key: string) {
 function sourceLabel(source: { type: string, source?: string | null }) {
   const labels: Record<string, string> = {
     ANALYSIS_AREA_ANALYTICS: 'Stadtplaner Analytics', AREA_COMPARISON: 'Stadtplaner-Vergleich',
-    STATISTICS: 'Kommunale Statistik', OSM: 'OpenStreetMap', STADTPLANNER: 'Stadtplaner',
-    OSM_AND_STADTPLANER: 'OpenStreetMap und Stadtplaner', KNOWLEDGE: 'Stadtplaner-Dokumentation'
+    STATISTICS: 'Kommunale Statistik', STATISTIC_SERIES: 'Kommunale Statistik-Zeitreihe',
+    OSM: 'OpenStreetMap', STADTPLANNER: 'Stadtplaner', DOCUMENTATION: 'Projektdokumentation',
+    OSM_AND_STADTPLANER: 'OpenStreetMap und Stadtplaner', KNOWLEDGE: 'Stadtplaner-Wissenskatalog'
   }
   return labels[source.type] || source.source || source.type
 }

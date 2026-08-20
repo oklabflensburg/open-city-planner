@@ -48,7 +48,7 @@ export function isFeatureCollection(value: unknown): value is FeatureCollection 
 }
 
 export type AssistantIntent = 'ANSWER_QUESTION' | 'COMPARE_AREAS' | 'SHOW_FEATURES' | 'CHANGE_FILTERS' | 'LIST_AREAS' | 'UNSUPPORTED'
-export type AnswerPresentationType = 'TEXT' | 'METRIC' | 'METRIC_LIST' | 'COMPARISON' | 'AREA_LIST' | 'FEATURE_LIST' | 'KNOWLEDGE' | 'DATA_SOURCE_STATUS'
+export type AnswerPresentationType = 'TEXT' | 'METRIC' | 'METRIC_LIST' | 'COMPARISON' | 'AREA_LIST' | 'FEATURE_LIST' | 'KNOWLEDGE' | 'DATA_SOURCE_STATUS' | 'STATISTICS_OVERVIEW' | 'STATISTIC_SERIES' | 'STATISTIC_METRIC'
 export type AssistantMapActionType = 'FIT_AREA' | 'SHOW_ANALYSIS_AREAS' | 'HIGHLIGHT_AREAS' | 'REPLACE_SEARCH_LAYER' | 'UPDATE_FILTERS'
 
 export type AssistantContext = {
@@ -57,6 +57,8 @@ export type AssistantContext = {
   last_compared_areas: NonNullable<SearchPlan['area']>[]
   last_intent: AssistantIntent | null
   last_topic: string | null
+  last_metric_key?: string | null
+  last_source_type?: string | null
   selected_polygon_slug: string | null
   selected_osm_feature: { osm_type: 'node' | 'way' | 'relation', osm_id: number } | null
   viewport: { west: number, south: number, east: number, north: number, zoom: number } | null
@@ -80,6 +82,8 @@ export type AssistantPresentation = {
   value: number | string | null
   unit: string | null
   items: Record<string, unknown>[]
+  metadata?: Record<string, unknown>
+  sections?: AssistantPresentation[]
 }
 
 export type AssistantResponse = {

@@ -24,6 +24,8 @@ const emptyContext = (): AssistantContext => ({
   last_compared_areas: [],
   last_intent: null,
   last_topic: null,
+  last_metric_key: null,
+  last_source_type: null,
   selected_polygon_slug: null,
   selected_osm_feature: null,
   viewport: null

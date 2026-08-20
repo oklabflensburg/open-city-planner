@@ -60,7 +60,8 @@ describe('Stadtplaner-Assistent', () => {
       method: 'POST',
       body: JSON.stringify({ query: 'Nur Leerstände', context: {
         active_area: null, active_filters: filters, last_compared_areas: [],
-        last_intent: null, last_topic: null, selected_polygon_slug: null,
+        last_intent: null, last_topic: null, last_metric_key: null,
+        last_source_type: null, selected_polygon_slug: null,
         selected_osm_feature: null, viewport: null
       } }),
       signal: expect.any(AbortSignal), retryOnUnauthorized: false
@@ -221,6 +222,11 @@ describe('Stadtplaner-Assistent', () => {
     expect(component).toContain("presentation.type === 'DATA_SOURCE_STATUS'")
     expect(component).toContain('data-assistant-clarification')
     expect(component).toContain('data-assistant-follow-ups')
+    expect(component).toContain("presentation.type === 'STATISTICS_OVERVIEW'")
+    expect(component).toContain("presentation.type === 'STATISTIC_SERIES'")
+    expect(component).toContain('data-assistant-statistics-metadata')
+    expect(component).toContain('data-assistant-result-section')
+    expect(component).toContain("'docs/flensburg-statistics.md'")
     expect(component).not.toContain(':disabled="search.loading')
     const shell = readFileSync(new URL('../app/components/layout/AppShell.vue', import.meta.url), 'utf8')
     expect(shell).toContain('<IntelligentSearch v-if="!isDesktop" compact @open="openAssistant" />')
