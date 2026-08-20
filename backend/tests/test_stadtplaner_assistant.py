@@ -9,6 +9,7 @@ from app.schemas.assistant import (
     AssistantPlan,
     AssistantQueryRequest,
     AssistantToolName,
+    KnowledgeToolResult,
     PolygonLocationInput,
     ResolveAreaResult,
     SearchFeaturesToolResult,
@@ -62,12 +63,30 @@ def _tool_result(name: AssistantToolName):
             ]})
         if _tool == AssistantToolName.GET_AREA_STATISTICS:
             return ToolDataResult(data={
-                "area": {"slug": "altstadt"},
-                "statistics_area": {"slug": "flensburg"},
+                "area": {"slug": "altstadt", "name": "Altstadt"},
+                "statistics_area": {"slug": "flensburg", "name": "Flensburg"},
                 "inherited_from_parent": True,
                 "source": {"name": "Zahlenspiegel"},
-                "latest": [{"name": "Bevölkerung", "value": 2000, "period": "2025"}],
+                "latest": [{"key": "population", "name": "Bevölkerung", "value": 2000, "unit": "persons", "period": "2025"}],
             })
+        if _tool == AssistantToolName.GET_STATISTIC_SERIES:
+            return ToolDataResult(data={
+                "area": {"slug": "altstadt", "name": "Altstadt"},
+                "statistics_area": {"slug": "flensburg", "name": "Flensburg"},
+                "inherited_from_parent": True,
+                "source": {"name": "Zahlenspiegel"},
+                "metric": {"key": "population", "name": "Bevölkerung", "unit": "persons"},
+                "series": [
+                    {"period": "2024", "value": 1990, "suppressed": False},
+                    {"period": "2025", "value": 2000, "suppressed": False},
+                ],
+            })
+        if _tool == AssistantToolName.GET_CONCEPT:
+            return KnowledgeToolResult(items=[{
+                "key": arguments["key"], "title": "Kommunale Statistik",
+                "description": "Versionierte kommunale Kennzahlen.",
+                "source": {"type": "DOCUMENTATION", "path": "docs/flensburg-statistics.md"},
+            }])
         raise AssertionError(_tool)
     return execute
 
@@ -128,6 +147,163 @@ async def test_null_vacancy_is_not_interpreted_as_zero(monkeypatch: pytest.Monke
     assert response.presentation.value is None
     assert "keine belastbare Zahl" in response.answer
     assert "0 %" not in response.answer
+
+
+@pytest.mark.asyncio
+async def test_statistics_overview_exposes_source_period_and_inheritance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(assistant, "_mentioned_areas", _areas)
+    monkeypatch.setattr(assistant, "execute_assistant_tool", _tool_result(AssistantToolName.GET_AREA_STATISTICS))
+
+    response = await answer_assistant_query(
+        object(), AssistantQueryRequest(query="Welche Statistiken gibt es für die Altstadt?")  # type: ignore[arg-type]
+    )
+
+    assert response.presentation.type == "STATISTICS_OVERVIEW"
+    assert response.presentation.metadata["statistics_area"]["name"] == "Flensburg"
+    assert response.presentation.metadata["period"] == "2025"
+    assert response.sources_used[-1].inherited_from_parent is True
+
+
+@pytest.mark.asyncio
+async def test_population_series_uses_known_metric_and_keeps_follow_up_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(assistant, "_mentioned_areas", _areas)
+    monkeypatch.setattr(assistant, "execute_assistant_tool", _tool_result(AssistantToolName.GET_STATISTIC_SERIES))
+
+    response = await answer_assistant_query(
+        object(), AssistantQueryRequest(query="Wie hat sich die Bevölkerung in der Altstadt entwickelt?")  # type: ignore[arg-type]
+    )
+
+    assert response.plan.steps[-1].tool == AssistantToolName.GET_STATISTIC_SERIES
+    assert response.plan.steps[-1].arguments["metric_key"] == "population"
+    assert response.presentation.type == "STATISTIC_SERIES"
+    assert response.context.last_metric_key == "population"
+    assert response.sources_used[-1].period == "2025"
+
+
+@pytest.mark.asyncio
+async def test_series_follow_up_reuses_last_unambiguous_metric(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(assistant, "_mentioned_areas", _areas)
+    monkeypatch.setattr(assistant, "execute_assistant_tool", _tool_result(AssistantToolName.GET_STATISTIC_SERIES))
+    context = AssistantContext(
+        active_area=ALTSTADT,
+        last_topic="STATISTIC_METRIC",
+        last_metric_key="population",
+    )
+
+    response = await answer_assistant_query(
+        object(), AssistantQueryRequest(query="Und wie hat sich das entwickelt?", context=context)  # type: ignore[arg-type]
+    )
+
+    assert response.plan.steps[-1].tool == AssistantToolName.GET_STATISTIC_SERIES
+    assert response.plan.steps[-1].arguments["metric_key"] == "population"
+
+
+@pytest.mark.asyncio
+async def test_statistics_and_documentation_are_returned_as_separate_sections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(assistant, "_mentioned_areas", _areas)
+    monkeypatch.setattr(assistant, "execute_assistant_tool", _tool_result(AssistantToolName.GET_AREA_STATISTICS))
+
+    response = await answer_assistant_query(
+        object(), AssistantQueryRequest(query="Wie viele Einwohner hat die Altstadt und aus welcher Quelle?")  # type: ignore[arg-type]
+    )
+
+    assert [step.tool for step in response.plan.steps] == [
+        AssistantToolName.RESOLVE_AREA,
+        AssistantToolName.GET_AREA_STATISTICS,
+        AssistantToolName.GET_CONCEPT,
+    ]
+    assert response.presentation.type == "STATISTIC_METRIC"
+    assert response.presentation.sections[0].type == "KNOWLEDGE"
+    assert response.sources_used[-1].type == "DOCUMENTATION"
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_statistics_metric_requests_clarification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(assistant, "_mentioned_areas", _areas)
+    response = await answer_assistant_query(
+        object(), AssistantQueryRequest(query="Zeige Bevölkerung und Haushalte in der Altstadt")  # type: ignore[arg-type]
+    )
+
+    assert response.plan.response_mode == "CLARIFICATION"
+    assert response.error_code == "ASSISTANT_METRIC_AMBIGUOUS"
+    assert {item["key"] for item in response.presentation.items} == {"population", "households"}
+
+
+@pytest.mark.asyncio
+async def test_missing_statistic_is_not_replaced_with_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(assistant, "_mentioned_areas", _areas)
+
+    async def execute(_session: object, tool: AssistantToolName, arguments: dict):
+        if tool == AssistantToolName.RESOLVE_AREA:
+            return ResolveAreaResult(status="resolved", area=ALTSTADT)
+        return ToolDataResult(data={
+            "area": {"slug": "altstadt", "name": "Altstadt"},
+            "statistics_area": {"slug": "altstadt", "name": "Altstadt"},
+            "inherited_from_parent": False, "source": None, "latest": [],
+        })
+
+    monkeypatch.setattr(assistant, "execute_assistant_tool", execute)
+    response = await answer_assistant_query(
+        object(), AssistantQueryRequest(query="Wie viele Einwohner hat die Altstadt?")  # type: ignore[arg-type]
+    )
+
+    assert response.presentation.value is None
+    assert "kein veröffentlichter Wert" in response.answer
+    assert "0" not in response.answer
+
+
+@pytest.mark.asyncio
+async def test_missing_documentation_does_not_hide_statistic_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(assistant, "_mentioned_areas", _areas)
+    default_execute = _tool_result(AssistantToolName.GET_AREA_STATISTICS)
+
+    async def execute(session: object, tool: AssistantToolName, arguments: dict):
+        if tool == AssistantToolName.GET_CONCEPT:
+            return KnowledgeToolResult(items=[])
+        return await default_execute(session, tool, arguments)
+
+    monkeypatch.setattr(assistant, "execute_assistant_tool", execute)
+    response = await answer_assistant_query(
+        object(), AssistantQueryRequest(query="Wie viele Einwohner hat die Altstadt und aus welcher Quelle?")  # type: ignore[arg-type]
+    )
+
+    assert response.presentation.value == 2000
+    assert response.presentation.sections == []
+
+
+@pytest.mark.asyncio
+async def test_follow_up_can_explain_last_statistic_metric(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(assistant, "_mentioned_areas", _areas)
+    monkeypatch.setattr(assistant, "execute_assistant_tool", _tool_result(AssistantToolName.GET_CONCEPT))
+    context = AssistantContext(
+        active_area=ALTSTADT,
+        last_topic="STATISTIC_METRIC",
+        last_metric_key="population",
+    )
+
+    response = await answer_assistant_query(
+        object(), AssistantQueryRequest(query="Was bedeutet diese Kennzahl?", context=context)  # type: ignore[arg-type]
+    )
+
+    assert response.context.last_metric_key == "population"
+    assert response.context.last_topic == "STATISTIC_EXPLANATION"
+    assert response.presentation.type == "KNOWLEDGE"
 
 
 @pytest.mark.asyncio

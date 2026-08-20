@@ -43,7 +43,8 @@ Ein `AssistantPlan` enthält ein Intent, einen Antwortmodus und eine geordnete L
 Das Antwortformat enthält:
 
 - `answer`: verständlicher deutscher Antworttext;
-- `presentation`: `TEXT`, `METRIC`, `METRIC_LIST`, `COMPARISON`, `AREA_LIST`, `FEATURE_LIST`, `KNOWLEDGE` oder `DATA_SOURCE_STATUS`;
+- `presentation`: unter anderem `TEXT`, `METRIC`, `COMPARISON`, `KNOWLEDGE`, `STATISTICS_OVERVIEW`, `STATISTIC_METRIC` oder `STATISTIC_SERIES`;
+- `presentation.sections`: bis zu vier getrennte Ergebnisabschnitte, etwa Kennzahl plus kontrollierte Definition;
 - `citations` und `sources_used`: interne Datenherkunft, keine Webquellen;
 - `map_actions`: null bis mehrere typisierte Kartenaktionen;
 - `context`: expliziter Kontext für die nächste Anfrage;
@@ -106,10 +107,23 @@ Der Client sendet pro Anfrage einen kleinen Kontext:
 - zuletzt verglichene Gebiete;
 - letztes Intent;
 - letztes fachliches Thema.
+- zuletzt eindeutig gewählter Statistikschlüssel und zuletzt verwendeter Quellentyp;
 - optional ausgewählter öffentlicher Polygon-Slug oder eine OSM-Referenz;
 - optional validierter Viewport mit Grenzen und Zoomstufe.
 
 Damit funktionieren beispielsweise „Und wie viele in der Innenstadt?“ nach einer POI-Frage und „Nur Leerstände“ nach einer Gebietsauswahl. Der Server speichert kein verborgenes Gespräch und keine personenbezogenen Daten.
+
+## Kommunale Statistik im Assistenten
+
+Statistikfragen verwenden ausschließlich `get_area_statistics` und `get_statistic_series`. Der Assistent kennt eine begrenzte Aliasliste für die tatsächlich importierten Schlüssel, beispielsweise `population`, `households` und die veröffentlichten Alters- und Haushaltsgrößengruppen. Er erzeugt keine Kennzahlenschlüssel aus freiem Text. Passen mehrere Schlüssel, antwortet er mit einer Auswahl zur Präzisierung.
+
+Eine Statistikantwort unterscheidet drei Darstellungen:
+
+- `STATISTICS_OVERVIEW` zeigt die zuletzt veröffentlichten Kennzahlen eines Gebiets;
+- `STATISTIC_METRIC` zeigt den letzten Wert einer eindeutig aufgelösten Kennzahl;
+- `STATISTIC_SERIES` zeigt deren veröffentlichte Zeitreihe.
+
+Alle drei Darstellungen transportieren das angefragte Gebiet, das tatsächlich verwendete Statistikgebiet, Quelle, Periode und `inherited_from_parent`. Eine Folgefrage wie „Und die Entwicklung?“ kann den zuletzt eindeutig gewählten Kennzahlenschlüssel verwenden. Definitionen und Quellenhinweise stammen aus dem kontrollierten KnowledgeCatalog und erscheinen als eigener Ergebnisabschnitt. Verweise enthalten nur freigegebene relative Projektpfade; die Oberfläche verlinkt bekannte Dokumentationspfade auf die interne Dokumentationsseite.
 
 ## Kartenaktionen
 

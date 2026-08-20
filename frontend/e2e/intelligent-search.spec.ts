@@ -137,6 +137,123 @@ test('Wissensfrage zeigt eine Knowledge Card mit Datenbasis', async ({ page }) =
   await expect(page.locator('[data-assistant-follow-ups]')).toContainText('Datenquelle anzeigen')
 })
 
+test('Definition der Leerstandsquote erscheint als Knowledge Card', async ({ page }) => {
+  await page.route('**/api/v1/assistant/query', async route => route.fulfill({ json: assistantResponse((await route.request().postDataJSON()).query, {
+    answer: 'Die Leerstandsquote berücksichtigt nur Flächen mit bekanntem Belegungsstatus.',
+    presentation: { type: 'KNOWLEDGE', title: 'Leerstandsquote', value: null, unit: null, items: [{
+      key: 'metric.vacancy_rate', title: 'Leerstandsquote',
+      description: 'Die Leerstandsquote berücksichtigt nur Flächen mit bekanntem Belegungsstatus.',
+      source: { type: 'CODE', path: 'backend/app/services/analytics.py' }
+    }] }
+  }) }))
+  await prepare(page)
+  await query(page, 'Was bedeutet Leerstandsquote?')
+  await expect(page.locator('[data-assistant-knowledge]')).toContainText('bekanntem Belegungsstatus')
+})
+
+test('Leerstandsmetrik und Erklärung erscheinen in getrennten Ergebnisabschnitten', async ({ page }) => {
+  await page.route('**/api/v1/assistant/query', async route => route.fulfill({ json: assistantResponse((await route.request().postDataJSON()).query, {
+    answer: 'Die Leerstandsquote beträgt 8,7 Prozent.',
+    presentation: {
+      type: 'METRIC', title: 'Leerstandsquote in Altstadt', value: 8.7, unit: '%', items: [],
+      sections: [{ type: 'KNOWLEDGE', title: 'Definition', value: null, unit: null, metadata: {}, sections: [], items: [{
+        key: 'metric.vacancy_rate', title: 'Leerstandsquote',
+        description: 'UNKNOWN wird nicht als belegt gewertet.',
+        source: { type: 'CODE', path: 'backend/app/services/analytics.py' }
+      }] }]
+    }
+  }) }))
+  await prepare(page)
+  await query(page, 'Wie hoch ist die Leerstandsquote in Altstadt und was bedeutet sie?')
+  await expect(page.locator('[data-assistant-metric]')).toContainText('8,7 %')
+  await expect(page.locator('[data-assistant-result-section]')).toContainText('UNKNOWN')
+})
+
+test('Statistikübersicht zeigt Stand, Quelle und geerbtes Statistikgebiet', async ({ page }) => {
+  await page.route('**/api/v1/assistant/query', async route => route.fulfill({ json: assistantResponse((await route.request().postDataJSON()).query, {
+    answer: 'Für Altstadt liegen kommunale Kennzahlen vor.',
+    presentation: {
+      type: 'STATISTICS_OVERVIEW', title: 'Statistik für Altstadt', value: null, unit: null,
+      items: [{ key: 'population', name: 'Bevölkerung', value: 92000, unit: 'persons', period: '2025' }],
+      metadata: {
+        requested_area: areaRef, statistics_area: { ...areaRef, name: 'Flensburg' },
+        inherited_from_parent: true, period: '2025', source: { name: 'Zahlenspiegel' }
+      }, sections: []
+    }
+  }) }))
+  await prepare(page)
+  await query(page, 'Welche Statistiken gibt es für die Altstadt?')
+  await expect(page.locator('[data-assistant-statistics]')).toContainText('92.000 Personen')
+  await expect(page.locator('[data-assistant-statistics-metadata]')).toContainText('Zahlenspiegel')
+  await expect(page.locator('[data-assistant-statistics-inherited]')).toContainText('übergeordneten Statistikgebiets')
+})
+
+test('Statistikzeitreihe bleibt als Tabelle im Assistant-Panel geöffnet', async ({ page }) => {
+  await page.route('**/api/v1/assistant/query', async route => route.fulfill({ json: assistantResponse((await route.request().postDataJSON()).query, {
+    answer: 'Die Zeitreihe enthält zwei Berichtsperioden.',
+    presentation: {
+      type: 'STATISTIC_SERIES', title: 'Bevölkerung in Altstadt', value: null, unit: 'persons',
+      items: [{ period: '2024', value: 91000, suppressed: false }, { period: '2025', value: 92000, suppressed: false }],
+      metadata: { inherited_from_parent: false, period: '2025', source: { name: 'Zahlenspiegel' } }, sections: []
+    }
+  }) }))
+  await prepare(page)
+  await query(page, 'Wie hat sich die Bevölkerung in der Altstadt entwickelt?')
+  await expect(page.locator('[data-assistant-statistic-series]')).toContainText('2024')
+  await expect(page.locator('[data-assistant-statistic-series]')).toContainText('92.000 Personen')
+  await expect(page.locator('[data-assistant-panel]')).toBeVisible()
+})
+
+test('Kombinierte Statistik- und Dokumentationsantwort trennt beide Abschnitte', async ({ page }) => {
+  await page.route('**/api/v1/assistant/query', async route => route.fulfill({ json: assistantResponse((await route.request().postDataJSON()).query, {
+    answer: 'Die Bevölkerung beträgt 92.000 Personen.',
+    presentation: {
+      type: 'STATISTIC_METRIC', title: 'Bevölkerung in Altstadt', value: 92000, unit: 'persons',
+      items: [{ key: 'population', name: 'Bevölkerung', value: 92000, unit: 'persons', period: '2025' }],
+      metadata: { inherited_from_parent: false, period: '2025', source: { name: 'Zahlenspiegel' } },
+      sections: [{ type: 'KNOWLEDGE', title: 'Definition und Datengrundlage', value: null, unit: null, metadata: {}, sections: [], items: [{
+        key: 'statistic.population', title: 'Bevölkerung', description: 'Veröffentlichter Bevölkerungsstand je Berichtsperiode.',
+        source: { type: 'DOCUMENTATION', path: 'docs/flensburg-statistics.md' }
+      }] }]
+    }
+  }) }))
+  await prepare(page)
+  await query(page, 'Wie viele Einwohner hat die Altstadt und aus welcher Quelle?')
+  await expect(page.locator('[data-assistant-metric]')).toContainText('92.000 Personen')
+  await expect(page.locator('[data-assistant-result-section]')).toContainText('Veröffentlichter Bevölkerungsstand')
+  await expect(page.getByRole('link', { name: 'Mehr anzeigen' })).toHaveAttribute('href', '/dokumentation')
+})
+
+test('Statistik-Folgefrage sendet das aktive Gebiet und die vorherige Kennzahl weiter', async ({ page }) => {
+  let turn = 0
+  await page.route('**/api/v1/assistant/query', async (route) => {
+    const body = await route.request().postDataJSON()
+    turn += 1
+    if (turn === 2) {
+      expect(body.context.active_area.slug).toBe('altstadt')
+      expect(body.context.last_topic).toBe('STATISTICS_OVERVIEW')
+    }
+    return route.fulfill({ json: {
+      ...assistantResponse(body.query, {
+        answer: turn === 1 ? 'Für Altstadt liegen Statistiken vor.' : 'Die Bevölkerung beträgt 92.000 Personen.',
+        presentation: turn === 1
+          ? { type: 'STATISTICS_OVERVIEW', title: 'Statistik für Altstadt', value: null, unit: null, items: [], metadata: {}, sections: [] }
+          : { type: 'STATISTIC_METRIC', title: 'Bevölkerung', value: 92000, unit: 'persons', items: [], metadata: {}, sections: [] }
+      }),
+      context: {
+        active_area: areaRef, active_filters: filters, last_compared_areas: [],
+        last_intent: 'ANSWER_QUESTION', last_topic: turn === 1 ? 'STATISTICS_OVERVIEW' : 'STATISTIC_METRIC',
+        last_metric_key: turn === 1 ? null : 'population', last_source_type: 'STATISTICS',
+        selected_polygon_slug: null, selected_osm_feature: null, viewport: null
+      }
+    } })
+  })
+  await prepare(page)
+  await query(page, 'Welche Statistiken gibt es für Altstadt?')
+  await query(page, 'Und die Bevölkerung?')
+  await expect(page.locator('[data-assistant-metric]')).toContainText('92.000 Personen')
+})
+
 test('Mobile Antworten öffnen im bestehenden Bottom Sheet', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.route('**/api/v1/assistant/query', async route => route.fulfill({ json: assistantResponse((await route.request().postDataJSON()).query, {

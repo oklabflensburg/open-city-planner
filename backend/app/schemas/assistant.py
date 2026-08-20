@@ -72,6 +72,9 @@ class AnswerPresentationType(StrEnum):
     FEATURE_LIST = "FEATURE_LIST"
     KNOWLEDGE = "KNOWLEDGE"
     DATA_SOURCE_STATUS = "DATA_SOURCE_STATUS"
+    STATISTICS_OVERVIEW = "STATISTICS_OVERVIEW"
+    STATISTIC_SERIES = "STATISTIC_SERIES"
+    STATISTIC_METRIC = "STATISTIC_METRIC"
 
 
 class AssistantViewport(BaseModel):
@@ -123,6 +126,10 @@ class AssistantContext(BaseModel):
     last_compared_areas: list[SearchArea] = Field(default_factory=list, max_length=4)
     last_intent: AssistantIntent | None = None
     last_topic: str | None = Field(default=None, max_length=50)
+    last_metric_key: str | None = Field(
+        default=None, max_length=100, pattern=r"^[a-z0-9][a-z0-9_.-]*$"
+    )
+    last_source_type: str | None = Field(default=None, max_length=50)
     selected_polygon_slug: str | None = Field(
         default=None, min_length=1, max_length=255, pattern=r"^[a-z0-9][a-z0-9_-]*$"
     )
@@ -177,6 +184,17 @@ class AssistantCitation(BaseModel):
     inherited_from_parent: bool | None = None
 
 
+class AnswerPresentationSection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: AnswerPresentationType
+    title: str
+    value: int | float | str | None = None
+    unit: str | None = None
+    items: list[dict[str, Any]] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class AnswerPresentation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -185,6 +203,8 @@ class AnswerPresentation(BaseModel):
     value: int | float | str | None = None
     unit: str | None = None
     items: list[dict[str, Any]] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    sections: list[AnswerPresentationSection] = Field(default_factory=list, max_length=4)
 
 
 class AssistantMapAction(BaseModel):

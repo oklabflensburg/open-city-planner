@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.schemas.assistant import (
     AnswerPresentation,
+    AnswerPresentationSection,
     AnswerPresentationType,
     AssistantCitation,
     AssistantClaim,
@@ -60,6 +61,21 @@ POI_AMENITY_SYNONYMS: dict[str, tuple[str, ...]] = {
     "museum": ("museum", "museen"),
 }
 
+STATISTIC_METRICS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "population": ("Bevölkerung", ("bevölkerung", "bevoelkerung", "einwohner", "einwohnerzahl", "bevölkerungsentwicklung", "bevoelkerungsentwicklung", "bevölkerungsdaten", "bevoelkerungsdaten")),
+    "population_non_german": ("Nichtdeutsche Bevölkerung", ("nichtdeutsche bevölkerung", "nicht deutsche bevölkerung", "ausländische bevölkerung", "auslaendische bevoelkerung")),
+    "age_0_17": ("Bevölkerung von 0 bis 17 Jahren", ("0 bis 17", "unter 18", "minderjährige")),
+    "age_18_64": ("Bevölkerung von 18 bis 64 Jahren", ("18 bis 64", "erwerbsalter")),
+    "age_65_plus": ("Bevölkerung ab 65 Jahren", ("ab 65", "über 65", "ueber 65", "senioren")),
+    "households": ("Haushalte", ("haushalte", "haushaltszahl", "haushaltsentwicklung", "haushaltsdaten")),
+    "households_non_german": ("Nichtdeutsche Haushalte", ("nichtdeutsche haushalte", "nicht deutsche haushalte")),
+    "households_size_1": ("Einpersonenhaushalte", ("einpersonenhaushalte", "1 personen haushalte", "singlehaushalte")),
+    "households_size_2": ("Zweipersonenhaushalte", ("zweipersonenhaushalte", "2 personen haushalte")),
+    "households_size_3": ("Dreipersonenhaushalte", ("dreipersonenhaushalte", "3 personen haushalte")),
+    "households_size_4": ("Vierpersonenhaushalte", ("vierpersonenhaushalte", "4 personen haushalte")),
+    "households_size_5_plus": ("Haushalte ab fünf Personen", ("5 personen haushalte", "fünf oder mehr personen", "fuenf oder mehr personen")),
+}
+
 
 class AssistantLLMProvider(Protocol):
     async def plan(self, query: str, context: AssistantContext, tools: list[dict[str, Any]]) -> AssistantPlan: ...
@@ -75,6 +91,8 @@ class _PreparedPlan:
     llm_used: bool = False
     provider_error: str | None = None
     error_code: str | None = None
+    metric_key: str | None = None
+    choices: list[dict[str, Any]] | None = None
 
 
 async def answer_assistant_query(
@@ -166,14 +184,6 @@ async def _plan_query(
             "OSM_EXPLANATION",
         )
 
-    if not _has(
-        normalized, "in der", "im stadtteil", "im quartier", "wie viele",
-        "wie hoch", "vergleiche", "vergleich", "zeige", "anzeigen",
-    ):
-        standalone_knowledge = _knowledge_plan(normalized, [], filters)
-        if standalone_knowledge is not None:
-            return standalone_knowledge
-
     areas = await _mentioned_areas(session, normalized)
     if not areas and request.context.active_area:
         areas = [request.context.active_area]
@@ -185,6 +195,15 @@ async def _plan_query(
             "Das genannte Gebiet ist nicht eindeutig. Bitte verwenden Sie den eindeutigen Gebietsslug.",
             areas,
         )
+
+    statistics_plan = _statistics_plan(normalized, areas, filters, request.context)
+    if statistics_plan is not None:
+        return statistics_plan
+
+    if not areas:
+        standalone_knowledge = _knowledge_plan(normalized, [], filters)
+        if standalone_knowledge is not None:
+            return standalone_knowledge
 
     knowledge_plan = _knowledge_plan(normalized, areas, filters)
     if knowledge_plan is not None:
@@ -322,6 +341,123 @@ async def _plan_query(
     return _PreparedPlan(AssistantPlan(intent=intent, steps=prefix + [step]), [area], filters, topic)
 
 
+def _statistics_plan(
+    normalized: str,
+    areas: list[SearchArea],
+    filters: SearchFilters,
+    context: AssistantContext,
+) -> _PreparedPlan | None:
+    metric_keys = _statistic_metric_keys(normalized)
+    continuation = normalized.startswith(("und ", "wie hat", "zeig die", "zeige die"))
+    wants_series = _has(
+        normalized, "entwicklung", "zeitreihe", "zeitverlauf", "verlauf",
+        "wie hat sich", "über die jahre", "ueber die jahre",
+    )
+    wants_overview = _has(
+        normalized, "welche statistiken", "welche statistik", "statistikübersicht",
+        "statistikuebersicht", "kommunale kennzahlen", "welche daten gibt es",
+    )
+    wants_explanation = _has(
+        normalized, "quelle", "datengrundlage", "dokumentation", "woher",
+        "erkläre", "erklaere", "was bedeutet",
+    )
+    wants_metric_explanation = bool(context.last_metric_key) and wants_explanation and _has(
+        normalized, "kennzahl", "diese kennzahl", "was bedeutet sie",
+    )
+    statistic_signal = bool(metric_keys) or wants_overview or _has(
+        normalized, "kommunale statistik", "bevölkerungsstatistik", "bevoelkerungsstatistik"
+    ) or wants_metric_explanation or (continuation and context.last_topic in {
+        "STATISTICS_OVERVIEW", "STATISTIC_METRIC", "STATISTIC_SERIES",
+        "STATISTICS_OVERVIEW_KNOWLEDGE", "STATISTIC_METRIC_KNOWLEDGE",
+        "STATISTIC_SERIES_KNOWLEDGE",
+    })
+    if not statistic_signal:
+        return None
+    if not areas:
+        return None
+
+    area = areas[0]
+    if wants_metric_explanation:
+        metric_key = context.last_metric_key
+        knowledge_key = (
+            f"statistic.{metric_key}"
+            if metric_key in {"population", "households"}
+            else "data_source.STATISTICS"
+        )
+        return _PreparedPlan(
+            AssistantPlan(intent=AssistantIntent.ANSWER_QUESTION, steps=[AssistantStep(
+                tool=AssistantToolName.GET_CONCEPT,
+                arguments={"key": knowledge_key},
+            )]),
+            [area], filters, "STATISTIC_EXPLANATION", metric_key=metric_key,
+        )
+    if wants_series and not metric_keys and context.last_metric_key:
+        metric_keys = [context.last_metric_key]
+    if len(metric_keys) > 1:
+        choices = [
+            {"key": key, "name": STATISTIC_METRICS[key][0], "value": key}
+            for key in metric_keys
+        ]
+        return _metric_clarification(
+            "Mehrere Kennzahlen passen zur Frage. Bitte wählen Sie eine Kennzahl aus.",
+            [area], filters, choices,
+        )
+
+    steps = _resolve_steps([area])
+    metric_key = metric_keys[0] if metric_keys else None
+    if wants_series:
+        if metric_key is None:
+            return _metric_clarification(
+                "Für welche Kennzahl soll die Zeitreihe angezeigt werden?",
+                [area], filters,
+                [
+                    {"key": key, "name": title, "value": key}
+                    for key, (title, _) in list(STATISTIC_METRICS.items())[:6]
+                ],
+            )
+        steps.append(AssistantStep(
+            tool=AssistantToolName.GET_STATISTIC_SERIES,
+            arguments={"slug": area.slug, "metric_key": metric_key},
+        ))
+        topic = "STATISTIC_SERIES"
+    else:
+        steps.append(AssistantStep(
+            tool=AssistantToolName.GET_AREA_STATISTICS,
+            arguments={"slug": area.slug},
+        ))
+        topic = "STATISTIC_METRIC" if metric_key else "STATISTICS_OVERVIEW"
+
+    if wants_explanation:
+        knowledge_key = (
+            f"statistic.{metric_key}"
+            if metric_key in {"population", "households"}
+            else "data_source.STATISTICS"
+        )
+        steps.append(AssistantStep(
+            tool=AssistantToolName.GET_CONCEPT,
+            arguments={"key": knowledge_key},
+        ))
+        topic += "_KNOWLEDGE"
+    return _PreparedPlan(
+        AssistantPlan(intent=AssistantIntent.ANSWER_QUESTION, steps=steps),
+        [area], filters, topic, metric_key=metric_key,
+    )
+
+
+def _statistic_metric_keys(normalized: str) -> list[str]:
+    matches = [
+        key for key, (_, aliases) in STATISTIC_METRICS.items()
+        if _has(normalized, *aliases)
+    ]
+    if "population_non_german" in matches and "population" in matches:
+        matches.remove("population")
+    if "households_non_german" in matches and "households" in matches:
+        matches.remove("households")
+    if any(key.startswith("households_size_") for key in matches) and "households" in matches:
+        matches.remove("households")
+    return matches
+
+
 async def _provider_or_unsupported(
     request: AssistantQueryRequest,
     provider: AssistantLLMProvider | None,
@@ -390,9 +526,11 @@ def _build_response(
         answer = prepared.message or "Bitte präzisieren Sie das gewünschte Gebiet."
         presentation = AnswerPresentation(
             type=AnswerPresentationType.AREA_LIST,
-            title="Gebiet präzisieren",
+            title=("Kennzahl präzisieren" if prepared.choices else "Gebiet präzisieren"),
             value=None,
-            items=[area.model_dump(mode="json") for area in prepared.areas],
+            items=(prepared.choices or [
+                area.model_dump(mode="json") for area in prepared.areas
+            ]),
         )
     elif prepared.plan.intent == AssistantIntent.UNSUPPORTED:
         answer = prepared.message or "Diese Frage kann mit den verfügbaren Stadtplaner-Daten derzeit nicht zuverlässig beantwortet werden."
@@ -413,6 +551,10 @@ def _build_response(
     context.last_topic = (
         prepared.topic if prepared.plan.intent != AssistantIntent.UNSUPPORTED else None
     )
+    if prepared.metric_key:
+        context.last_metric_key = prepared.metric_key
+    if sources:
+        context.last_source_type = sources[-1].type
     if prepared.plan.intent == AssistantIntent.COMPARE_AREAS:
         context.last_compared_areas = prepared.areas
     return AssistantQueryResponse(
@@ -444,6 +586,81 @@ def _answer_from_results(prepared: _PreparedPlan, results: list[tuple[AssistantT
         return answer, AnswerPresentation(
             type=AnswerPresentationType.KNOWLEDGE, title=title, items=items
         )
+    if topic == "STATISTIC_EXPLANATION":
+        items = useful.get("items", []) if isinstance(useful, dict) else []
+        if not items:
+            answer = "Zu dieser Kennzahl liegt derzeit keine kontrollierte Dokumentation vor."
+            return answer, AnswerPresentation(
+                type=AnswerPresentationType.KNOWLEDGE,
+                title="Kennzahl nicht dokumentiert",
+            )
+        answer = " ".join(
+            str(item.get("description", "")) for item in items if item.get("description")
+        )
+        return answer, AnswerPresentation(
+            type=AnswerPresentationType.KNOWLEDGE,
+            title=str(items[0].get("title") or "Kennzahl erklärt"),
+            items=items,
+        )
+    if topic and topic.startswith("STATISTIC"):
+        statistic_result = _tool_result_data(results, {
+            AssistantToolName.GET_AREA_STATISTICS,
+            AssistantToolName.GET_STATISTIC_SERIES,
+        })
+        statistic_data = statistic_result.get("data", {}) if isinstance(statistic_result, dict) else {}
+        knowledge = _tool_result_data(results, {AssistantToolName.GET_CONCEPT})
+        knowledge_items = knowledge.get("items", []) if isinstance(knowledge, dict) else []
+        sections = ([AnswerPresentationSection(
+            type=AnswerPresentationType.KNOWLEDGE,
+            title="Definition und Datengrundlage",
+            items=knowledge_items,
+        )] if knowledge_items else [])
+        metadata = _statistics_metadata(statistic_data)
+        if topic.startswith("STATISTIC_SERIES"):
+            metric = statistic_data.get("metric") or {}
+            items = statistic_data.get("series") or []
+            title = str(metric.get("name") or STATISTIC_METRICS.get(
+                prepared.metric_key or "", ("Statistische Kennzahl", ())
+            )[0])
+            answer = _statistics_answer_prefix(statistic_data) + (
+                f"Die Zeitreihe {title} für {area_name} enthält {len(items)} Berichtsperioden."
+            )
+            return answer, AnswerPresentation(
+                type=AnswerPresentationType.STATISTIC_SERIES,
+                title=f"{title} in {area_name}", unit=metric.get("unit"),
+                items=items, metadata=metadata, sections=sections,
+            )
+        latest = statistic_data.get("latest") or []
+        if topic.startswith("STATISTIC_METRIC"):
+            item = next((row for row in latest if row.get("key") == prepared.metric_key), None)
+            title = STATISTIC_METRICS.get(
+                prepared.metric_key or "", ("Statistische Kennzahl", ())
+            )[0]
+            if item is None:
+                answer = f"Für die Kennzahl {title} liegt in {area_name} kein veröffentlichter Wert vor."
+                return answer, AnswerPresentation(
+                    type=AnswerPresentationType.STATISTIC_METRIC,
+                    title=f"{title} in {area_name}", metadata=metadata,
+                    sections=sections,
+                )
+            answer = _statistics_answer_prefix(statistic_data) + (
+                f"{item.get('name') or title} beträgt {item.get('value')} "
+                f"{_unit_label(item.get('unit'))} für die Periode {item.get('period')}."
+            ).strip()
+            return answer, AnswerPresentation(
+                type=AnswerPresentationType.STATISTIC_METRIC,
+                title=f"{item.get('name') or title} in {area_name}",
+                value=item.get("value"), unit=item.get("unit"), items=[item],
+                metadata=metadata, sections=sections,
+            )
+        answer = _statistics_answer_prefix(statistic_data) + (
+            f"Für {area_name} liegen {len(latest)} kommunale Kennzahlen vor."
+        )
+        return answer, AnswerPresentation(
+            type=AnswerPresentationType.STATISTICS_OVERVIEW,
+            title=f"Statistik für {area_name}", items=latest,
+            metadata=metadata, sections=sections,
+        )
     if topic in {"COMBINED_GASTRONOMY", "COMBINED_VACANCY", "MAP_KNOWLEDGE", "COMPARISON_KNOWLEDGE"}:
         knowledge = _tool_result_data(results, {
             AssistantToolName.DESCRIBE_CATEGORY,
@@ -453,6 +670,11 @@ def _answer_from_results(prepared: _PreparedPlan, results: list[tuple[AssistantT
         })
         knowledge_items = knowledge.get("items", []) if isinstance(knowledge, dict) else []
         explanation = str(knowledge_items[0].get("description", "")) if knowledge_items else ""
+        knowledge_sections = ([AnswerPresentationSection(
+            type=AnswerPresentationType.KNOWLEDGE,
+            title="Definition und Datengrundlage",
+            items=knowledge_items,
+        )] if knowledge_items else [])
         if topic == "COMPARISON_KNOWLEDGE":
             comparison = _tool_result_data(results, {AssistantToolName.COMPARE_AREAS})
             items = comparison.get("data", {}).get("areas", []) if isinstance(comparison, dict) else []
@@ -460,7 +682,8 @@ def _answer_from_results(prepared: _PreparedPlan, results: list[tuple[AssistantT
             if explanation:
                 answer += f" {explanation}"
             return answer, AnswerPresentation(
-                type=AnswerPresentationType.COMPARISON, title="Gebietsvergleich", items=items
+                type=AnswerPresentationType.COMPARISON, title="Gebietsvergleich",
+                items=items, sections=knowledge_sections,
             )
         analytics = _tool_result_data(results, {AssistantToolName.GET_AREA_ANALYTICS})
         analytics_data = analytics.get("data", {}) if isinstance(analytics, dict) else {}
@@ -472,7 +695,7 @@ def _answer_from_results(prepared: _PreparedPlan, results: list[tuple[AssistantT
             )
             return f"{lead} {explanation}".strip(), AnswerPresentation(
                 type=AnswerPresentationType.METRIC, title=f"Gastronomieflächen in {area_name}",
-                value=value, items=knowledge_items,
+                value=value, items=knowledge_items, sections=knowledge_sections,
             )
         if topic == "COMBINED_VACANCY":
             value = analytics_data.get("metrics", {}).get("vacancy_rate")
@@ -482,7 +705,7 @@ def _answer_from_results(prepared: _PreparedPlan, results: list[tuple[AssistantT
             )
             return f"{lead} {explanation}".strip(), AnswerPresentation(
                 type=AnswerPresentationType.METRIC, title=f"Leerstandsquote in {area_name}",
-                value=value, unit="%", items=knowledge_items,
+                value=value, unit="%", items=knowledge_items, sections=knowledge_sections,
             )
         feature_result = _tool_result_data(results, {AssistantToolName.SEARCH_FEATURES})
         feature_data = feature_result.get("data", {}) if isinstance(feature_result, dict) else {}
@@ -491,6 +714,7 @@ def _answer_from_results(prepared: _PreparedPlan, results: list[tuple[AssistantT
         return answer, AnswerPresentation(
             type=AnswerPresentationType.FEATURE_LIST, title=f"Objekte in {area_name}",
             value=len(features), items=[item.get("properties", {}) for item in features[:20]],
+            sections=knowledge_sections,
         )
     if topic == "OSM_EXPLANATION":
         category = data.get("category_explanation") if isinstance(data, dict) else None
@@ -596,6 +820,34 @@ def _missing_metric(title: str) -> tuple[str, AnswerPresentation]:
     return answer, AnswerPresentation(type=AnswerPresentationType.METRIC, title=title, value=None)
 
 
+def _statistics_metadata(data: dict[str, Any]) -> dict[str, Any]:
+    rows = data.get("series") or data.get("latest") or []
+    period = next((row.get("period") for row in reversed(rows) if row.get("period")), None)
+    return {
+        "requested_area": data.get("area"),
+        "statistics_area": data.get("statistics_area"),
+        "inherited_from_parent": bool(data.get("inherited_from_parent")),
+        "source": data.get("source"),
+        "period": period,
+    }
+
+
+def _statistics_answer_prefix(data: dict[str, Any]) -> str:
+    if not data.get("inherited_from_parent"):
+        return ""
+    statistics_area = data.get("statistics_area") or {}
+    name = statistics_area.get("name") or "dem übergeordneten Gebiet"
+    return f"Für dieses Gebiet werden die veröffentlichten Werte vom übergeordneten Gebiet {name} verwendet. "
+
+
+def _unit_label(unit: Any) -> str:
+    return {
+        "persons": "Personen",
+        "households": "Haushalte",
+        "percent": "%",
+    }.get(str(unit), str(unit or ""))
+
+
 def _tool_result_data(
     results: list[tuple[AssistantToolName, Any]], names: set[AssistantToolName]
 ) -> dict[str, Any]:
@@ -615,10 +867,16 @@ def _sources(prepared: _PreparedPlan, results: list[tuple[AssistantToolName, Any
             citations.append(AssistantCitation(type="analytics", slug=slug))
         elif tool in {AssistantToolName.GET_AREA_STATISTICS, AssistantToolName.GET_STATISTIC_SERIES} and isinstance(data, dict):
             source = data.get("source") or {}
-            period = next((item.get("period") for item in data.get("latest", []) if item.get("period")), None)
+            rows = data.get("series") or data.get("latest") or []
+            period = next((item.get("period") for item in reversed(rows) if item.get("period")), None)
             inherited = bool(data.get("inherited_from_parent"))
             slug = prepared.areas[0].slug if prepared.areas else None
-            sources.append(AssistantSource(type="STATISTICS", area_slug=slug, source=source.get("name"), period=period, inherited_from_parent=inherited))
+            source_type = (
+                "STATISTIC_SERIES"
+                if tool == AssistantToolName.GET_STATISTIC_SERIES
+                else "STATISTICS"
+            )
+            sources.append(AssistantSource(type=source_type, area_slug=slug, source=source.get("name"), period=period, inherited_from_parent=inherited))
             citations.append(AssistantCitation(type="statistics", slug=slug, source=source.get("name"), period=period, inherited_from_parent=inherited))
         elif tool in {AssistantToolName.SEARCH_FEATURES, AssistantToolName.GET_POLYGON_LOCATION}:
             selected_sources = prepared.filters.sources
@@ -642,7 +900,8 @@ def _sources(prepared: _PreparedPlan, results: list[tuple[AssistantToolName, Any
             for item in items:
                 source = item.get("source") or {}
                 sources.append(AssistantSource(
-                    type="KNOWLEDGE", source=source.get("path"),
+                    type=("DOCUMENTATION" if source.get("type") == "DOCUMENTATION" else "KNOWLEDGE"),
+                    source=source.get("path"),
                     knowledge_key=item.get("key"),
                 ))
         elif tool == AssistantToolName.GET_OSM_FEATURE_DETAIL:
@@ -828,6 +1087,7 @@ def _knowledge_plan(
     asks_explanation = _has(
         normalized, "was bedeutet", "was ist", "was zählt", "was zaehlt",
         "erkläre", "erklaere", "wie erkennt", "warum ist", "unterschied",
+        "quelle", "datengrundlage", "dokumentation", "woher",
     )
     if _has(normalized, "welche datenquellen", "welche datensätze", "welche datensaetze"):
         return _PreparedPlan(
@@ -951,6 +1211,10 @@ def _provider_topic(plan: AssistantPlan) -> str:
         return "AREA_DETAIL"
     if AssistantToolName.GET_AREA_ANALYTICS in tools:
         return "ANALYTICS"
+    if AssistantToolName.GET_STATISTIC_SERIES in tools:
+        return "STATISTIC_SERIES"
+    if AssistantToolName.GET_AREA_STATISTICS in tools:
+        return "STATISTICS_OVERVIEW"
     return "PROVIDER"
 
 
@@ -974,6 +1238,15 @@ def _claims(
             ))
         elif tool == AssistantToolName.COMPARE_AREAS:
             evidence.append(AssistantEvidence(type="AREA_COMPARISON"))
+        elif tool in {
+            AssistantToolName.GET_AREA_STATISTICS,
+            AssistantToolName.GET_STATISTIC_SERIES,
+        }:
+            evidence.append(AssistantEvidence(
+                type="STATISTICS",
+                area_slug=prepared.areas[0].slug if prepared.areas else None,
+                field=prepared.metric_key,
+            ))
         elif tool in {
             AssistantToolName.SEARCH_KNOWLEDGE, AssistantToolName.GET_CONCEPT,
             AssistantToolName.DESCRIBE_CATEGORY, AssistantToolName.DESCRIBE_METRIC,
@@ -1003,6 +1276,18 @@ def _follow_up_actions(prepared: _PreparedPlan) -> list[AssistantFollowUpAction]
         actions.append(AssistantFollowUpAction(
             type="EXPLAIN_CONCEPT", label="Kategorie erklären",
             query="Was zählt als Gastronomie?",
+        ))
+    if prepared.areas and prepared.topic and prepared.topic.startswith("STATISTIC"):
+        area = prepared.areas[0]
+        if prepared.metric_key and not prepared.topic.startswith("STATISTIC_SERIES"):
+            title = STATISTIC_METRICS.get(prepared.metric_key, ("Kennzahl", ()))[0]
+            actions.append(AssistantFollowUpAction(
+                type="SHOW_STATISTICS", label="Entwicklung anzeigen",
+                query=f"Zeigen Sie die Entwicklung {title} in {area.name}",
+            ))
+        actions.append(AssistantFollowUpAction(
+            type="SHOW_DATA_SOURCE", label="Quelle erklären",
+            query=f"Erkläre die Quelle der kommunalen Statistik für {area.name}",
         ))
     return actions
 
@@ -1072,4 +1357,21 @@ def _clarification(message: str, areas: list[SearchArea]) -> _PreparedPlan:
     return _PreparedPlan(
         plan, areas, SearchFilters(), message=message,
         error_code="ASSISTANT_AREA_AMBIGUOUS",
+    )
+
+
+def _metric_clarification(
+    message: str,
+    areas: list[SearchArea],
+    filters: SearchFilters,
+    choices: list[dict[str, Any]],
+) -> _PreparedPlan:
+    plan = AssistantPlan(
+        intent=AssistantIntent.UNSUPPORTED,
+        response_mode=AssistantResponseMode.CLARIFICATION,
+    )
+    return _PreparedPlan(
+        plan, areas, filters, topic="STATISTIC_CLARIFICATION",
+        message=message, error_code="ASSISTANT_METRIC_AMBIGUOUS",
+        choices=choices,
     )
