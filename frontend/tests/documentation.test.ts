@@ -1,7 +1,8 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { documentationPages, documentationPaths } from '../app/config/documentation'
+import { documentationGroupOrder, documentationPages, documentationPaths } from '../app/config/documentation'
 import {
   documentationPath,
   findDocumentationPage,
@@ -17,11 +18,16 @@ describe('integrated documentation', () => {
     expect(documentationPaths).toEqual([
       '/dokumentation',
       '/dokumentation/erste-schritte',
+      '/dokumentation/suche',
       '/dokumentation/karte',
       '/dokumentation/filter',
       '/dokumentation/openstreetmap',
       '/dokumentation/flaechen',
       '/dokumentation/flaechen-bearbeiten',
+      '/dokumentation/statistik',
+      '/dokumentation/datenquellen',
+      '/dokumentation/leerstand',
+      '/dokumentation/branchen-und-pois',
       '/dokumentation/fast-facts',
       '/dokumentation/benutzerkonto',
       '/dokumentation/benachrichtigungen',
@@ -39,7 +45,7 @@ describe('integrated documentation', () => {
 
   it('groups navigation and resolves active page paths', () => {
     expect(getDocumentationGroups().map(group => group.label)).toEqual([
-      'Einstieg', 'Karte und Daten', 'Flächen', 'Auswertung', 'Konto und Zugriff', 'Verwaltung', 'Hilfe'
+      'Einstieg', 'Karte und Daten', 'Analyse', 'Konto und Bearbeitung', 'Hilfe', 'Quellcode und Entwicklung'
     ])
     const page = findDocumentationPage('rollen')!
     expect(documentationPath(page)).toBe('/dokumentation/rollen')
@@ -52,6 +58,38 @@ describe('integrated documentation', () => {
     expect(searchDocumentation('lokale datenbank').some(result => result.page.slug === 'openstreetmap')).toBe(true)
     expect(searchDocumentation('unauffindbarerbegriff')).toEqual([])
     expect(appFile('components/docs/DocsSearch.vue')).toContain('Keine passenden Dokumentationsseiten gefunden.')
+  })
+
+  it('findet zentrale Themen mit deutschen Suchbegriffen und Synonymen', () => {
+    expect(searchDocumentation('Statistik').some(result => result.page.slug === 'statistik')).toBe(true)
+    expect(searchDocumentation('Gebäude').some(result => result.page.slug === 'openstreetmap')).toBe(true)
+    expect(searchDocumentation('Leerstand').some(result => result.page.slug === 'leerstand')).toBe(true)
+    expect(searchDocumentation('KI Suche').some(result => result.page.slug === 'suche')).toBe(true)
+    expect(searchDocumentation('Daten aktuell').some(result => result.page.slug === 'datenquellen')).toBe(true)
+    expect(searchDocumentation('Quartier').some(result => result.page.slug === 'gebiete')).toBe(true)
+  })
+
+  it('hält Slugs, Metadaten, Gruppen und interne Dokumentationslinks gültig', () => {
+    const slugs = documentationPages.map(page => page.slug)
+    expect(new Set(slugs).size).toBe(slugs.length)
+    expect(documentationPages.every(page => page.title.trim() && page.description.trim())).toBe(true)
+    expect(documentationPages.every(page => documentationGroupOrder.includes(page.group as typeof documentationGroupOrder[number]))).toBe(true)
+
+    const documentationLinks = documentationPages
+      .flatMap(page => page.sections)
+      .flatMap(section => section.blocks)
+      .filter(block => block.type === 'links')
+      .flatMap(block => block.type === 'links' ? block.items : [])
+      .map(item => item.to)
+      .filter(to => to.startsWith('/dokumentation'))
+
+    expect(documentationLinks.every((target) => {
+      const [path, anchor] = target.split('#')
+      if (!path || !documentationPaths.includes(path)) return false
+      if (!anchor) return true
+      const linkedPage = documentationPages.find(page => documentationPath(page) === path)
+      return linkedPage?.sections.some(section => section.id === anchor) === true
+    })).toBe(true)
   })
 
   it('offers keyboard search and responsive disclosure controls', () => {
@@ -110,5 +148,30 @@ describe('integrated documentation', () => {
     expect(types).toContain("type: 'image'")
     expect(content).toContain(':alt="block.alt"')
     expect(documentationPages.flatMap(page => page.sections).flatMap(section => section.blocks).some(block => block.type === 'image')).toBe(false)
+  })
+
+  it('enthält keine gebrochenen relativen Markdown-Dateilinks', () => {
+    const root = fileURLToPath(new URL('../../', import.meta.url))
+    const docsDirectory = resolve(root, 'docs')
+    const markdownFiles = [
+      resolve(root, 'README.md'),
+      resolve(root, 'CONTRIBUTING.md'),
+      resolve(root, 'backend/README.md'),
+      resolve(root, 'frontend/README.md'),
+      ...readdirSync(docsDirectory, { recursive: true })
+        .filter(entry => typeof entry === 'string' && entry.endsWith('.md'))
+        .map(entry => resolve(docsDirectory, entry as string))
+    ]
+    const missing: string[] = []
+    for (const file of markdownFiles) {
+      const markdown = readFileSync(file, 'utf8')
+      for (const match of markdown.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
+        const target = match[1]!.trim().split('#')[0]!
+        if (!target || /^(?:https?:|mailto:|\/)/.test(target)) continue
+        const decoded = decodeURIComponent(target.replace(/^<|>$/g, ''))
+        if (!existsSync(resolve(dirname(file), decoded))) missing.push(`${file}: ${target}`)
+      }
+    }
+    expect(missing).toEqual([])
   })
 })

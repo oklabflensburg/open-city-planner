@@ -36,6 +36,9 @@ PostgreSQL bleibt die Zustellquelle. Der prozesslokale SSE-Broker liefert neue E
 
 ## Aufbewahrung und Betrieb
 
+Der gemeinsame Deployment-, Neustart- und Rollback-Ablauf ist im
+[Deployment- und Betriebsleitfaden](deployment.md) beschrieben.
+
 `NOTIFICATION_RETENTION_DAYS` legt die reguläre Aufbewahrung fest und beträgt standardmäßig 90 Tage. Die Bereinigung läuft bewusst nicht in API-Requests. Ein täglicher Cron- oder systemd-Timer kann folgenden begrenzten One-shot-Job starten:
 
 ```bash

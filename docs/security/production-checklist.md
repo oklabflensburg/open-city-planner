@@ -39,7 +39,7 @@ Die Anwendung setzt ihre eigenen Größenlimits auch dann durch, wenn `Content-L
 
 ## Daten und Betrieb
 
-- [ ] Vor dem Start des neuen Backends wurde `alembic upgrade head` ausgeführt. Die Migration `20260819_0028` ergänzt den Status zur Ungültigmachung von Passwortzurücksetzungstokens.
+- [ ] Vor dem Start des neuen Backends wurde `alembic upgrade head` ausgeführt und der aktuelle einzelne Migration-Head geprüft.
 - [ ] Die Redis-Konfiguration für Persistenz und Verdrängung eignet sich für Sicherheitszähler. Das konfigurierte Präfix ist für jede Umgebung eindeutig.
 - [ ] Automatisierte und verschlüsselte Sicherungen der Datenbank und Geheimnisse sind vorhanden. Wiederherstellungstests sind geplant und die Aufbewahrungsdauer ist dokumentiert.
 - [ ] Protokolle sind zugriffsgeschützt, werden rotiert und enthalten keine vertraulichen Werte. Tokens, Passwörter, MFA-Werte, OAuth-Codes und Autorisierungsheader gelangen nicht in die Protokolle.

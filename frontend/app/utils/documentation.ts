@@ -1,4 +1,4 @@
-import { documentationPages } from '~/config/documentation'
+import { documentationGroupOrder, documentationPages } from '~/config/documentation'
 import type { DocumentationBlock, DocumentationPage, DocumentationSearchResult } from '~/types/documentation'
 
 export function documentationPath(page: DocumentationPage) {
@@ -25,23 +25,28 @@ export function getDocumentationGroups() {
     groups.set(page.group, pages)
   }
   return Array.from(groups, ([label, pages]) => ({ label, pages }))
+    .sort((left, right) => {
+      const leftIndex = documentationGroupOrder.indexOf(left.label as typeof documentationGroupOrder[number])
+      const rightIndex = documentationGroupOrder.indexOf(right.label as typeof documentationGroupOrder[number])
+      return leftIndex - rightIndex
+    })
 }
 
 export function searchDocumentation(rawQuery: string): DocumentationSearchResult[] {
-  const terms = normalize(rawQuery).split(' ').filter(Boolean)
-  if (!terms.length) return []
+  const termGroups = normalize(rawQuery).split(' ').filter(Boolean).map(termVariants)
+  if (!termGroups.length) return []
 
   const results: DocumentationSearchResult[] = []
   for (const page of documentationPages) {
     const pageText = normalize([page.title, page.navTitle, page.description, ...page.keywords].join(' '))
-    const pageScore = matchScore(pageText, terms) * 4
+    const pageScore = matchScore(pageText, termGroups) * 4
     if (pageScore) {
       results.push({ page, excerpt: page.description, score: pageScore })
     }
 
     for (const section of page.sections) {
       const sectionText = normalize([section.title, ...section.blocks.map(blockText)].join(' '))
-      const score = matchScore(sectionText, terms)
+      const score = matchScore(sectionText, termGroups)
       if (score) {
         results.push({ page, section, excerpt: excerptFor(section.blocks), score: score + pageScore })
       }
@@ -54,9 +59,27 @@ export function searchDocumentation(rawQuery: string): DocumentationSearchResult
     .slice(0, 10)
 }
 
-function matchScore(text: string, terms: string[]) {
-  if (!terms.every(term => text.includes(term))) return 0
-  return terms.reduce((score, term) => score + text.split(term).length - 1, 0)
+const searchSynonyms: Record<string, string[]> = {
+  aktuell: ['aktuell', 'aktualitat', 'datenstand'],
+  aktualitat: ['aktualitat', 'aktuell', 'datenstand'],
+  assistant: ['assistant', 'assistent', 'suche', 'ki'],
+  assitent: ['assistent', 'assistant', 'suche'],
+  gebaude: ['gebaude', 'building'],
+  ki: ['ki', 'intelligent', 'assistant', 'assistent'],
+  pois: ['pois', 'poi'],
+  stadtviertel: ['stadtviertel', 'quartier'],
+}
+
+function termVariants(term: string) {
+  return searchSynonyms[term] || [term]
+}
+
+function matchScore(text: string, termGroups: string[][]) {
+  if (!termGroups.every(variants => variants.some(term => text.includes(term)))) return 0
+  return termGroups.reduce((score, variants) => {
+    const matches = variants.map(term => text.split(term).length - 1)
+    return score + Math.max(...matches)
+  }, 0)
 }
 
 function normalize(value: string) {
@@ -80,6 +103,6 @@ function blockText(block: DocumentationBlock) {
 }
 
 function excerptFor(blocks: DocumentationBlock[]) {
-  const text = blocks.map(blockText).find(Boolean) || ''
+  const text = blocks.filter(block => block.type !== 'code').map(blockText).find(Boolean) || ''
   return text.length > 170 ? `${text.slice(0, 167).trim()}…` : text
 }

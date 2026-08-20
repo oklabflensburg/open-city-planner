@@ -95,6 +95,10 @@ Die reinen OSM-Service-Hits ohne HTTP/GZip lagen nach Speicherung fertiger JSON-
 
 ## Betrieb und Sicherheit
 
+Die Einordnung in den vollständigen Rollout, die Reihenfolge von Migration,
+Build und Neustart sowie die allgemeinen Smoke-Tests stehen im
+[Deployment- und Betriebsleitfaden](deployment.md).
+
 Beispiel für einen Redis-Server auf derselben Maschine:
 
 ```text

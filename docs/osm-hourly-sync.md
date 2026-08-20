@@ -1,5 +1,9 @@
 # Stündliche OpenStreetMap-Synchronisierung
 
+Der übergreifende Anwendungs-Rollout ist im
+[Deployment- und Betriebsleitfaden](deployment.md) beschrieben. Dieses Runbook
+behandelt ausschließlich die zusätzliche OSM-Import- und Replikationspipeline.
+
 Stand dieser Betriebsanleitung: 18. August 2026. Sie beschreibt den versionierten
 Stadtplaner-Prozess für Schleswig-Holstein. Befehle, die Produktionsdaten ändern,
 sind bewusst nicht automatisch bei einem Deployment aktiv.

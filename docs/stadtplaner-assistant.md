@@ -144,6 +144,9 @@ Vorhandene fachliche Redis-Caches für Gebiete, Analytics, Statistik und Datenst
 
 ## Konfiguration und Fallback
 
+Die Einbindung dieser Variablen in einen vollständigen Produktionsrollout ist im
+[Deployment- und Betriebsleitfaden](deployment.md) beschrieben.
+
 ```dotenv
 AI_SEARCH_ENABLED=false
 AI_SEARCH_PROVIDER=groq

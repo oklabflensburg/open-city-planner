@@ -104,12 +104,18 @@ cd backend
 
 Für systemd stehen `deploy/systemd/stadtplaner-email-outbox.service` und `.timer` bereit. Auditereignisse enthalten nur Outbox-ID und Versuchszahl, niemals Empfänger, Mailinhalt oder Template-Kontext.
 
-Vor dem Deployment:
+Der gemeinsame Ablauf für Migration, Build, Neustart, Smoke-Tests und Rollback
+steht im [Deployment- und Betriebsleitfaden](deployment.md). Für das E-Mail-System
+sind zusätzlich zu prüfen:
 
 1. `APP_BASE_URL` auf die öffentliche Frontend-Origin setzen, produktiv beispielsweise `https://stadtplaner.oklabflensburg.de`.
 2. `alembic upgrade head` im Backend ausführen.
-3. Die unveränderten Units `stadtplaner-email-outbox.service` und `.timer` installieren und den Timer aktivieren. Derselbe Worker verarbeitet Welcome-, Notification- und Kampagnenmails.
+3. Die zum auszurollenden Commit gehörenden Units `stadtplaner-email-outbox.service` und `.timer` installieren und den Timer aktivieren. Derselbe Worker verarbeitet Welcome-, Notification- und Kampagnenmails.
 4. Backend und Frontend neu bauen und neu starten.
 5. Erreichbarkeit von Logo, Impressum und Datenschutz über die öffentliche Domain prüfen.
 
-Ein Rollback der Anpassungen erfolgt pro Vorlage über „Standard wiederherstellen“. `alembic downgrade 20260819_0030` entfernt Kampagnen, Mehrkanal-Präferenzen und die generische Outbox-Erweiterung; dabei werden nicht im alten Schema darstellbare Kampagnen- und Notification-Outbox-Einträge entfernt. Weitere Downgrades entfernen anschließend Welcome-Outbox und gespeicherte Template-Overrides.
+Inhaltliche Anpassungen können pro Vorlage über „Standard wiederherstellen“
+zurückgenommen werden. Schema-Downgrades sind kein pauschaler
+Anwendungs-Rollback: Sie können Outbox-, Kampagnen- und Vorlagendaten verlieren
+und dürfen nur nach Prüfung der konkreten Migrationen und mit geprüftem Backup
+erfolgen.

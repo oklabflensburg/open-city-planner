@@ -64,6 +64,10 @@ Quartiere erhalten keine künstlich verteilten Beobachtungen. Ihre API-Antwort v
 
 ## Import und Betrieb
 
+Installation, Migration, Dienstneustart und allgemeine Rollback-Regeln stehen im
+[Deployment- und Betriebsleitfaden](deployment.md). Dieser Abschnitt beschreibt
+nur den fachlichen Statistikimport.
+
 Manuelle Discovery:
 
 ```bash

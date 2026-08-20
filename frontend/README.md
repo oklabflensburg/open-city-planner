@@ -19,6 +19,8 @@ pnpm build
 
 `NUXT_PUBLIC_API_BASE_URL` zeigt auf die FastAPI-Basis (typisch `http://localhost:8000/api/v1`). `NUXT_PUBLIC_SITE_URL` muss in Produktion die öffentliche Origin enthalten. Kartenstil, Startposition und optionale Medien-/OG-URLs werden über die Variablen in `.env.example` konfiguriert; ohne externen Kartenstil wird der lokale `stadtplaner-light`-Stil genutzt.
 
+Alle `NUXT_PUBLIC_*`-Werte sind im Browser sichtbar und dürfen keine Secrets enthalten. Der produktive Build- und Deploymentablauf steht in [docs/deployment.md](../docs/deployment.md).
+
 ## Gebiete, SEO und Sitemap
 
 `/gebiete` rendert die reale Gemeinde-/Stadtteil-/Quartierhierarchie. `/gebiete/[slug]` lädt Detail, Analytics, Vergleich und Flächen serverseitig, setzt Canonical-, Open-Graph-, Twitter- und JSON-LD-Daten und verlinkt bidirektional zur GIS-Auswahl `/?area=<slug>`. Interaktive Kartendaten werden erst clientseitig geladen.
@@ -27,7 +29,7 @@ Die XML-Sitemap kombiniert statische Seiten mit dynamischen Polygon- und Analysi
 
 ## Dokumentation
 
-Die öffentliche Dokumentation wird in `app/config/documentation.ts` gepflegt. Navigation, Suche, SEO und Sitemap-Pfade entstehen daraus automatisch. Die Gebiets-, Methodik- und API-Seiten erläutern die öffentliche Hierarchie, reale Aggregationslogik und Links zur OpenAPI-Dokumentation.
+Die öffentliche Dokumentation wird in `app/config/documentation.ts` gepflegt. Navigation, Suche, SEO und Sitemap-Pfade entstehen daraus automatisch. Neue sichtbare Kernfunktionen benötigen einen verständlichen Help-Eintrag, Suchbegriffe und passende Dokumentationstests. Die technische Dokumentationsübersicht liegt unter [docs/README.md](../docs/README.md).
 
 ## Superuser-Auditlog
 

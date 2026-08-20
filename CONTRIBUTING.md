@@ -41,7 +41,7 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-Die lokalen Standardadressen und die benötigten Umgebungsvariablen sind im [README](README.md) beschrieben. Echte Secrets gehören ausschließlich in die nicht versionierte `.env`-Datei.
+Die lokalen Standardadressen stehen im [README](README.md); alle Variablen sind in den jeweiligen `.env.example`-Dateien beschrieben. Echte Secrets gehören ausschließlich in die nicht versionierte `.env`-Datei. Maintainer finden den produktiven Ablauf in [docs/deployment.md](docs/deployment.md).
 
 ## Änderungen umsetzen
 
@@ -134,5 +134,7 @@ Pull Requests müssen nicht groß sein. Kleine, nachvollziehbare Änderungen las
 ## Dokumentation und Sprache
 
 Benutzeroberfläche und öffentliche Projektdokumentation sind überwiegend deutsch. Codebezeichner und technische Kommentare können englisch sein. Formuliere Texte verständlich, konkret und inklusiv und erfinde keine Funktionen, Zuständigkeiten oder Datenquellen.
+
+Für eine neue sichtbare Kernfunktion prüfe zusätzlich den öffentlichen Eintrag in `frontend/app/config/documentation.ts`, passende Suchbegriffe, technische Dokumentation und die Dokumentationstests. Der technische Einstieg steht in [docs/README.md](docs/README.md); Deployment bleibt eine Maintainer-Aufgabe und wird nicht im Contributor-Ablauf dupliziert.
 
 Mit deinem Beitrag bestätigst du, dass du die eingereichten Änderungen selbst erstellt hast oder zu ihrer Weitergabe berechtigt bist.

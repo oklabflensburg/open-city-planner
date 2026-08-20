@@ -159,14 +159,22 @@ OpenAPI, GeoJSON, private Felder und Datenbankzugänge werden nicht an das Model
 übertragen. Bei deaktivierter KI oder Provider-Ausfall bleiben alle deterministischen
 Suchbefehle verfügbar.
 
-## Bekannte Grenzen und Phase 2
+## Verhältnis zum semantischen Assistenten und bekannte Grenzen
 
-- Freie komplexe Formulierungen außerhalb der dokumentierten Regeln benötigen
-  später einen konkreten `SearchLLMProvider`.
-- Mehrgebietsfragen können später auf den vorhandenen Vergleichsdienst mit maximal
-  vier Gebieten abgebildet werden.
-- Umkreissuchen können später den vorhandenen öffentlichen Location-Service für
-  Flächen mit 100 bis 2.000 Metern Radius verwenden.
+Die Endpunkte dieser ersten, deterministischen Suchschicht bleiben aus
+Kompatibilitätsgründen bestehen. Die aktuelle Oberfläche verwendet für
+Mehrschrittfragen, kommunale Statistik, kontrolliertes Projektwissen,
+Mehrgebietsvergleiche und ausgewählte Umgebungsanalysen den weiterführenden
+[`POST /api/v1/assistant/query`](stadtplaner-assistant.md). Dort kann optional
+Groq ausschließlich zur Sprachinterpretation eingesetzt werden; Zahlen und
+Kartenergebnisse stammen weiterhin aus den validierten Stadtplaner-Werkzeugen.
+
+- Freie Formulierungen außerhalb der deterministischen Regeln benötigen einen
+  aktivierten und korrekt konfigurierten Sprachprovider oder führen zu einer
+  kontrollierten Rückfrage beziehungsweise Nicht-unterstützt-Antwort.
+- Mehrgebietsvergleiche bleiben auf höchstens vier Gebiete begrenzt.
+- Umgebungsanalysen verwenden ausschließlich vorhandene öffentliche Flächen und
+  einen validierten Radius von 100 bis 2.000 Metern.
 - Größenwörter wie „klein“ oder „sehr groß“ werden nicht auf S/M/L/XL gemappt,
   weil das Projekt dafür bewusst keine erfundenen Quadratmetergrenzen verwendet.
 - Der Search-Layer ist eine Ergebnisdarstellung; die normalen Viewport-Layer und

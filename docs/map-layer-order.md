@@ -1,69 +1,69 @@
-# GIS layer order
+# Reihenfolge der GIS-Layer
 
-Custom MapLibre overlays are registered in `frontend/app/utils/mapLayerOrder.ts`. New overlay layers must be assigned to one of those groups and created through the structural map-infrastructure lifecycle before `ensureStadtplanerLayerOrder()` runs.
+Eigene MapLibre-Overlays sind in `frontend/app/utils/mapLayerOrder.ts` registriert. Neue Layer müssen einer dort definierten Gruppe zugeordnet und im strukturellen Kartenlebenszyklus erzeugt werden, bevor `ensureStadtplanerLayerOrder()` läuft.
 
-The permanent bottom-to-top rule is:
+Die dauerhafte Reihenfolge von unten nach oben lautet:
 
-1. analysis areas
-2. OSM polygon fills and outlines
-3. Stadtplaner polygon fills and outlines
-4. polygon selection highlights
-5. POI clusters
-6. POI points and point selection
-7. POI labels
+1. Analysegebiete;
+2. Füllungen und Umrisse von OSM-Polygonen;
+3. Füllungen und Umrisse von Stadtplaner-Polygonen;
+4. Hervorhebung der Polygonauswahl;
+5. POI-Cluster;
+6. POI-Punkte und Punktauswahl;
+7. POI-Beschriftungen.
 
-The order is restored after initial map load and every `style.load`. It is not recalculated during `move`, `drag`, or `render`.
+Die Reihenfolge wird nach dem ersten Kartenladen und nach jedem `style.load` wiederhergestellt. Während `move`, `drag` oder `render` wird sie nicht neu berechnet.
 
-## GIS control semantics
+## Semantik der GIS-Bedienelemente
 
-The sidebar uses one control type per interaction model:
+Die Sidebar verwendet pro Interaktionsmodell genau einen Bedienelementtyp:
 
-- radio buttons select exactly one thematic map presentation;
-- switches control binary layer visibility, including Stadtplaner polygons, administrative boundaries and OSM feature layers;
-- multi-select toggles include or exclude filter values;
-- compact buttons/chips select short values such as sales-area size.
+- Radiobuttons wählen genau eine thematische Kartendarstellung;
+- Schalter steuern die binäre Sichtbarkeit von Stadtplaner-Polygonen, Gebietsgrenzen und OSM-Layern;
+- Mehrfachauswahlen schließen Filterwerte ein oder aus;
+- kompakte Schaltflächen beziehungsweise Chips wählen kurze Werte wie die Verkaufsflächengröße.
 
-The OpenStreetMap data-source switch is the master for its feature-layer switches. Turning it off disables POIs, area objects and buildings without resetting their individual choices. Turning it on restores the previous child selection. Visibility switches update the existing sources and MapLibre layer visibility; they never recreate the map or replace its style.
+Der OpenStreetMap-Datenquellenschalter ist der Hauptschalter seiner Feature-Layer. Beim Ausschalten werden POIs, Flächenobjekte und Gebäude deaktiviert, ohne ihre Einzelauswahl zurückzusetzen. Beim erneuten Einschalten wird die vorherige Auswahl wiederhergestellt. Sichtbarkeitsschalter aktualisieren vorhandene Sources und MapLibre-Layer; sie erzeugen weder die Karte noch ihren Stil neu.
 
-## Custom-layer inventory
+## Inventar der Anwendungslayer
 
-All application overlays are GeoJSON sources and therefore have no `source-layer`. The VersaTiles basemap is vector-tiled, but none of its source layers is interactive. Imported OSM-derived and manually/local-created sales areas both enter the same `overview-polygons` source; their provenance does not alter interaction or selection.
+Alle Anwendungs-Overlays sind GeoJSON-Sources und besitzen deshalb kein `source-layer`. Die VersaTiles-Basiskarte verwendet Vektorkacheln, ihre Layer sind jedoch nicht interaktiv. Aus OSM übernommene und lokal beziehungsweise manuell erzeugte Stadtplaner-Flächen liegen gemeinsam in `overview-polygons`; ihre Herkunft ändert Auswahl und Interaktion nicht.
 
-| Feature type | Source ID / type | Interactive layer | Stable feature ID | Selectable | Universal selection |
+| Objekttyp | Source / Typ | Interaktiver Layer | Stabile Feature-ID | Auswählbar | Allgemeine Auswahl |
 | --- | --- | --- | --- | --- | --- |
-| Stadtplaner sales area, including OSM-imported and local/manual geometry | `overview-polygons` / PostGIS → GeoJSON | `overview-polygons-fill` | top-level `id`, property `id` | yes | yes |
-| Pure OSM business or context polygon | `osm-polygons` / PostGIS → GeoJSON | `osm-polygons-fill` | `promoteId: feature_id` | yes | yes |
-| Municipality | `analysis-areas` / PostGIS → GeoJSON | `analysis-areas-municipality-fill` | top-level `id`, property `id` | yes | yes |
-| District | `analysis-areas` / PostGIS → GeoJSON | `analysis-areas-district-fill` | top-level `id`, property `id` | yes | yes |
-| Quarter | `analysis-areas` / PostGIS → GeoJSON | `analysis-areas-quarter-fill` | top-level `id`, property `id` | yes | yes |
-| VersaTiles basemap polygons | configured vector source / MVT | numerous style layers | source-specific | no | no |
-| Area boundary and contained polygons on an area detail page | `area-detail-*` / GeoJSON | `area-detail-*` | not required | no, display-only | no |
-| Polygon on a sales-area detail page | `detail-polygon` / GeoJSON | `detail-polygon-*` | not required | no, display-only | no |
+| Stadtplaner-Fläche einschließlich OSM-Übernahme | `overview-polygons` / PostGIS → GeoJSON | `overview-polygons-fill` | oberste `id` und Property `id` | ja | ja |
+| Reines OSM-Geschäfts- oder Kontextpolygon | `osm-polygons` / PostGIS → GeoJSON | `osm-polygons-fill` | `promoteId: feature_id` | ja | ja |
+| Gemeinde | `analysis-areas` / PostGIS → GeoJSON | `analysis-areas-municipality-fill` | oberste `id` und Property `id` | ja | ja |
+| Stadtteil | `analysis-areas` / PostGIS → GeoJSON | `analysis-areas-district-fill` | oberste `id` und Property `id` | ja | ja |
+| Quartier | `analysis-areas` / PostGIS → GeoJSON | `analysis-areas-quarter-fill` | oberste `id` und Property `id` | ja | ja |
+| VersaTiles-Basiskartenpolygone | konfigurierte Vector Source / MVT | mehrere Style-Layer | sourceabhängig | nein | nein |
+| Gebietsgrenze und enthaltene Polygone auf Gebietsdetailseiten | `area-detail-*` / GeoJSON | `area-detail-*` | nicht erforderlich | nein, reine Anzeige | nein |
+| Polygon auf einer Flächendetailseite | `detail-polygon` / GeoJSON | `detail-polygon-*` | nicht erforderlich | nein, reine Anzeige | nein |
 
-| Layer ID | Source | Type | Zoom range | Interactive |
+| Layer-ID | Source | Typ | Zoombereich | Interaktiv |
 | --- | --- | --- | --- | --- |
-| `analysis-areas-municipality-fill` | `analysis-areas` | fill | 7–10.5 | yes, fallback |
-| `analysis-areas-district-fill` | `analysis-areas` | fill | 9.5–13.5 | yes, fallback |
-| `analysis-areas-quarter-fill` | `analysis-areas` | fill | 11.5–24 | yes, fallback |
-| `analysis-areas-municipality` | `analysis-areas` | line | 7–10.5 | no |
-| `analysis-areas-district` | `analysis-areas` | line | 9.5–13.5 | no |
-| `analysis-areas-quarter` | `analysis-areas` | line | 11.5–24 | no |
-| `analysis-areas-municipality-label` | `analysis-areas` | symbol | 7.8–10.5 | no |
-| `analysis-areas-district-label` | `analysis-areas` | symbol | 10.3–13.5 | no |
-| `analysis-areas-quarter-label` | `analysis-areas` | symbol | 12.3–24 | no |
-| `osm-polygons-fill` | `osm-polygons` | fill | 14.5+ | yes, OSM polygon |
-| `osm-polygons-line` | `osm-polygons` | line | 14.5+ | no |
-| `overview-polygons-fill` | `overview-polygons` | fill | all | yes, Stadtplaner polygon |
-| `overview-polygons-line` | `overview-polygons` | line | all | no |
-| `selected-polygon-fill` | `selected-polygon-source` | fill | all | no, universal selection |
-| `selected-polygon-halo` | `selected-polygon-source` | line | all | no, universal selection |
-| `selected-polygon-outline` | `selected-polygon-source` | line | all | no, universal selection |
-| `osm-clusters` | `osm-pois` | circle | 11+ | yes, cluster |
-| `osm-cluster-count` | `osm-pois` | symbol | 11+ | no |
-| `osm-poi-circle` | `osm-pois` | circle | 12+ | yes, point POI |
-| `osm-selected-point` | `osm-pois` | circle | 11+ | no |
-| `osm-poi-label` | `osm-pois` | symbol | 18+ | no |
+| `analysis-areas-municipality-fill` | `analysis-areas` | fill | 7–10,5 | ja, Fallback |
+| `analysis-areas-district-fill` | `analysis-areas` | fill | 9,5–13,5 | ja, Fallback |
+| `analysis-areas-quarter-fill` | `analysis-areas` | fill | 11,5–24 | ja, Fallback |
+| `analysis-areas-municipality` | `analysis-areas` | line | 7–10,5 | nein |
+| `analysis-areas-district` | `analysis-areas` | line | 9,5–13,5 | nein |
+| `analysis-areas-quarter` | `analysis-areas` | line | 11,5–24 | nein |
+| `analysis-areas-municipality-label` | `analysis-areas` | symbol | 7,8–10,5 | nein |
+| `analysis-areas-district-label` | `analysis-areas` | symbol | 10,3–13,5 | nein |
+| `analysis-areas-quarter-label` | `analysis-areas` | symbol | 12,3–24 | nein |
+| `osm-polygons-fill` | `osm-polygons` | fill | ab 14,5 | ja, OSM-Polygon |
+| `osm-polygons-line` | `osm-polygons` | line | ab 14,5 | nein |
+| `overview-polygons-fill` | `overview-polygons` | fill | alle | ja, Stadtplaner-Polygon |
+| `overview-polygons-line` | `overview-polygons` | line | alle | nein |
+| `selected-polygon-fill` | `selected-polygon-source` | fill | alle | nein, allgemeine Auswahl |
+| `selected-polygon-halo` | `selected-polygon-source` | line | alle | nein, allgemeine Auswahl |
+| `selected-polygon-outline` | `selected-polygon-source` | line | alle | nein, allgemeine Auswahl |
+| `osm-clusters` | `osm-pois` | circle | ab 11 | ja, Cluster |
+| `osm-cluster-count` | `osm-pois` | symbol | ab 11 | nein |
+| `osm-poi-circle` | `osm-pois` | circle | ab 12 | ja, POI-Punkt |
+| `osm-selected-point` | `osm-pois` | circle | ab 11 | nein |
+| `osm-poi-label` | `osm-pois` | symbol | ab 18 | nein |
 
-The central registry in `mapFeaturePicking.ts` is the only list of interactive polygon layers. Picking is deliberately independent of rendered-layer return order. Its priority is point POI, cluster, Stadtplaner polygon, business OSM polygon, quarter, contextual OSM `landuse`/`building`, district, then municipality. This lets a shop win over its containing area while a free part of a quarter remains selectable. Only registered application layers participate; basemap features are excluded.
+Die zentrale Registry in `mapFeaturePicking.ts` ist die einzige Liste interaktiver Polygonlayer. Die Auswahl ist bewusst unabhängig von der Rückgabereihenfolge gerenderter Layer. Die Priorität lautet: POI-Punkt, Cluster, Stadtplaner-Polygon, OSM-Geschäftspolygon, Quartier, kontextuelles OSM-`landuse` oder `building`, Stadtteil und Gemeinde. Dadurch gewinnt ein Geschäft gegenüber seinem umschließenden Gebiet, während ein freier Teil eines Quartiers auswählbar bleibt. Basiskartenobjekte sind ausgeschlossen.
 
-Every polygon is normalized to `InteractivePolygonFeature` with source, optional vector `sourceLayer`, feature type, geometry type, stable ID and the collision-safe key `source:featureType:id`. Selection itself is source-independent: `selected-polygon-source` contains zero or one Polygon/MultiPolygon with minimal public properties. Its three fixed layers preserve the underlying thematic color, add a white halo and draw the primary outline. POIs remain above this overlay. New selectable polygon sources only require a registry entry and a matching detail target; sources without usable feature-state need no special fallback because the universal overlay is the default path.
+Jedes Polygon wird zu `InteractivePolygonFeature` mit Source, optionalem Vector-`sourceLayer`, Featuretyp, Geometrietyp, stabiler ID und dem kollisionssicheren Schlüssel `source:featureType:id` normalisiert. `selected-polygon-source` enthält unabhängig von der Herkunft höchstens ein Polygon oder MultiPolygon mit minimalen öffentlichen Properties. Drei feste Layer erhalten die Themenfarbe, ergänzen einen weißen Halo und zeichnen den primären Umriss. POIs bleiben darüber sichtbar. Eine neue auswählbare Polygonquelle benötigt nur einen Registry-Eintrag und ein passendes Detailziel.

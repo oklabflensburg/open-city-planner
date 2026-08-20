@@ -6,9 +6,9 @@ export const documentationPages: DocumentationPage[] = [
     slug: '',
     title: 'Stadtplaner-Dokumentation',
     navTitle: 'Übersicht',
-    description: 'Anleitungen zur Karte, zu Flächendetails, Benutzerkonten und Verwaltungsfunktionen des Stadtplaners.',
+    description: 'Benutzerhandbuch für Karte, Suche, Daten, Analysen, Flächen und Benutzerkonto des Stadtplaners.',
     group: 'Einstieg',
-    keywords: ['Hilfe', 'Handbuch', 'Anleitung', 'Stadtplaner'],
+    keywords: ['Hilfe', 'Handbuch', 'Anleitung', 'Stadtplaner', 'Suche', 'Statistik', 'OSM'],
     audience: 'public',
     sections: [
       {
@@ -29,7 +29,10 @@ export const documentationPages: DocumentationPage[] = [
             items: [
               { label: 'Karte öffnen', to: '/', description: 'Direkt zur interaktiven Kartenübersicht.' },
               { label: 'Erste Schritte', to: '/dokumentation/erste-schritte', description: 'Die wichtigsten Bedienwege in wenigen Minuten kennenlernen.' },
+              { label: 'Intelligente Suche', to: '/dokumentation/suche', description: 'Kartenbefehle und Fragen in Alltagssprache verwenden.' },
               { label: 'Karte bedienen', to: '/dokumentation/karte', description: 'Navigieren, Flächen auswählen und Ebenen bedienen.' },
+              { label: 'Kommunale Statistik', to: '/dokumentation/statistik', description: 'Werte, Zeitreihen, Quellen und übergeordnete Statistikgebiete verstehen.' },
+              { label: 'Datenquellen und Aktualität', to: '/dokumentation/datenquellen', description: 'Stadtplaner, OpenStreetMap und kommunale Statistik unterscheiden.' },
               { label: 'Flächen bearbeiten', to: '/dokumentation/flaechen-bearbeiten', description: 'Attribute und Geometrie mit Autosave ändern.' },
               { label: 'Verwaltung', to: '/dokumentation/verwaltung', description: 'Nicht öffentliche Felder und Kennzahlen verwalten.' }
             ]
@@ -50,15 +53,6 @@ export const documentationPages: DocumentationPage[] = [
         blocks: [
           { type: 'paragraph', text: 'Stadtplaner wird als Open-Source-Projekt entwickelt. Das offizielle GitHub-Repository enthält den Quellcode für Frontend und Backend sowie die technische Dokumentation für Entwicklung und Betrieb.' },
           { type: 'links', items: [{ label: 'Offizielles GitHub-Repository', to: projectConfig.github.url, description: 'Quellcode und technische Projektdokumentation öffnen.', provider: 'github' }, { label: 'Zum Projekt beitragen', to: projectConfig.github.contributingUrl, description: 'Lokales Setup, Qualitätsanforderungen und Pull-Request-Ablauf.', provider: 'github' }] }
-        ]
-      },
-      {
-        id: 'mastodon-und-fediverse',
-        title: 'Mastodon & Fediverse',
-        blocks: [
-          { type: 'paragraph', text: 'Öffentliche Änderungen an Stadtplaner-Gebieten können automatisiert und gebündelt über den Mastodon-Account des OK Lab Flensburg veröffentlicht werden. Der bestehende Mastodon-Account ist bereits ein ActivityPub-Actor; Mastodon übernimmt die Föderation. Stadtplaner betreibt deshalb keinen eigenen WebFinger-, Inbox- oder Outbox-Actor.' },
-          { type: 'list', items: ['Veröffentlicht werden nur bewusst klassifizierte Änderungen an öffentlichen Gemeinde-, Stadtteil- und Quartiersdaten.', 'Mehrere Änderungen desselben Gebiets werden standardmäßig fünf Minuten gesammelt und als ein verständlicher Hinweis veröffentlicht.', 'Jeder automatische Post enthält einen Screenshot einer öffentlichen Stadtplaner-Seite und eine strukturierte Bildbeschreibung. Adminseiten werden dafür niemals geöffnet.', 'Superuser können automatische Veröffentlichung, Freigabemodus, Themen, Hashtags, Sichtbarkeit und Screenshotdarstellung steuern.', 'Der reguläre OSM-Sync erzeugt keine Posts. Ein bewusst gestarteter Lauf kann neue Gebiete oder ausreichend große Grenzänderungen einreihen.', 'Künftig bewusst aus OpenStreetMap übernommene Flächen können separat aktiviert werden. Pro Übernahme entsteht höchstens ein Beitrag; spätere Autosaves und das Aktivieren der Option lösen weder Wiederholung noch historischen Backfill aus.', 'Für übernommene Flächen ist die öffentliche Detailseite oder die GIS-Karte mit ausgewählter Fläche als Link- und Screenshotziel wählbar.', 'Ein Statistikimport erzeugt höchstens einen zusammenfassenden Hinweis statt eines Posts pro Beobachtung.', 'Eigentümer-, Miet-, Benutzer- und andere interne Daten sind nicht Teil der Feld-Allowlist und können nicht in kontrollierten Texten oder Screenshots erscheinen.'] },
-          { type: 'links', items: [{ label: projectConfig.social.mastodon.handle, to: projectConfig.social.mastodon.url, description: 'Öffentliche Aktualisierungen des OK Lab Flensburg auf Mastodon.', provider: 'mastodon' }, { label: 'Open-Source-Implementierung', to: projectConfig.github.url, description: 'Outbox, Publishing-Service und technische Dokumentation auf GitHub.', provider: 'github' }] }
         ]
       }
     ]
@@ -94,6 +88,41 @@ export const documentationPages: DocumentationPage[] = [
         blocks: [
           { type: 'paragraph', text: 'Für die öffentliche Recherche ist kein Konto erforderlich. Ein Konto wird benötigt, um das eigene Profil und zugeordnete Flächen aufzurufen. Änderungen an Flächen setzen zusätzlich eine bestätigte E-Mail-Adresse und eine Bearbeitungsberechtigung voraus.' },
           { type: 'links', items: [{ label: 'Benutzerkonto', to: '/dokumentation/benutzerkonto' }, { label: 'Rollen und Rechte', to: '/dokumentation/rollen' }] }
+        ]
+      }
+    ]
+  },
+  {
+    slug: 'suche',
+    title: 'Intelligente Suche',
+    navTitle: 'Intelligente Suche',
+    description: 'Mit verständlichen Kartenbefehlen und Fragen nach Gebieten, Flächen, Kennzahlen und Statistik suchen.',
+    group: 'Einstieg',
+    keywords: ['KI', 'Suche', 'Assistant', 'Assistent', 'natürliche Sprache', 'Kartenbefehl', 'Statistik'],
+    audience: 'public',
+    sections: [
+      {
+        id: 'was-die-suche-kann',
+        title: 'Was die Suche kann',
+        blocks: [
+          { type: 'paragraph', text: 'Die intelligente Suche versteht ausgewählte Kartenbefehle und Fragen in Alltagssprache. Sie kann Gebiete auswählen, Kartenobjekte filtern, Kennzahlen anzeigen und Begriffe aus der Projektdokumentation erklären. Die Karte bleibt dabei die Hauptdarstellung.' },
+          { type: 'paragraph', text: 'Zahlen und Kartenobjekte stammen aus den vorhandenen Stadtplaner-, OpenStreetMap- und Statistikdaten. Ein optionales Sprachmodell hilft nur beim Verstehen komplexerer Formulierungen und ist nicht selbst die Datenquelle.' }
+        ]
+      },
+      {
+        id: 'beispiele',
+        title: 'Beispiele für Suchanfragen',
+        blocks: [
+          { type: 'list', items: ['„Alle Stadtteile anzeigen“', '„Zeige Gastronomieflächen in der Altstadt“', '„Nur Leerstände“', '„Wie viele POIs gibt es in der Altstadt?“', '„Welche Statistiken gibt es für die Altstadt?“', '„Wie hat sich die Bevölkerung in der Altstadt entwickelt?“', '„Was bedeutet Leerstandsquote?“', '„Zeige Rathaus in Flensburg“'] },
+          { type: 'callout', variant: 'tip', title: 'Folgefragen', text: 'Nach einer eindeutigen Gebiets- oder Statistikfrage können kurze Folgefragen wie „Und die Bevölkerung?“ oder „Was bedeutet diese Kennzahl?“ den bisherigen Zusammenhang verwenden.' }
+        ]
+      },
+      {
+        id: 'grenzen-und-datenschutz',
+        title: 'Grenzen und Datenschutz',
+        blocks: [
+          { type: 'list', items: ['Nicht jede frei formulierte Frage lässt sich zuverlässig beantworten.', 'Fehlende Werte werden nicht geschätzt, hochgerechnet oder durch null ersetzt.', 'Die Suche liest ausschließlich öffentliche Stadtplaner-Daten und führt keine Änderungen aus.', 'Benutzer-, Verwaltungs- und Anmeldedaten sind nicht Teil der Suchwerkzeuge.', 'Ist die erweiterte Sprachinterpretation nicht verfügbar, funktionieren die bekannten direkten Suchbefehle weiterhin.'] },
+          { type: 'links', items: [{ label: 'Datenquellen und Aktualität', to: '/dokumentation/datenquellen' }, { label: 'Häufige Fragen', to: '/dokumentation/faq' }] }
         ]
       }
     ]
@@ -174,11 +203,11 @@ export const documentationPages: DocumentationPage[] = [
   },
   {
     slug: 'openstreetmap',
-    title: 'OpenStreetMap-Informationen',
+    title: 'OpenStreetMap im Stadtplaner',
     navTitle: 'OpenStreetMap',
     description: 'Herkunft, Anzeige und Grenzen der ergänzenden OSM-Daten.',
     group: 'Karte und Daten',
-    keywords: ['OSM', 'Overpass', 'lokale Datenbank', 'Tags', 'POI'],
+    keywords: ['OSM', 'OpenStreetMap', 'Gebäude', 'lokale Daten', 'Tags', 'POI', 'Datenquelle', 'Aktualität'],
     audience: 'public',
     sections: [
       {
@@ -232,13 +261,21 @@ export const documentationPages: DocumentationPage[] = [
   },
   {
     slug: 'flaechen',
-    title: 'Flächendetailseiten',
-    navTitle: 'Flächendetails',
-    description: 'Öffentliche Angaben, Adressen, Geometrie und dauerhafte Links einer Fläche.',
-    group: 'Flächen',
-    keywords: ['Detailseite', 'Adresse', 'Geometrie', 'Slug', 'Beschreibung'],
+    title: 'Verkaufsflächen und Flächendetails',
+    navTitle: 'Verkaufsflächen',
+    description: 'Was Stadtplaner-Flächen sind und welche öffentlichen Angaben, Geometrien und Detailseiten sie besitzen.',
+    group: 'Karte und Daten',
+    keywords: ['Verkaufsfläche', 'Fläche', 'Detailseite', 'Adresse', 'Geometrie', 'Beschreibung', 'Stadtplaner'],
     audience: 'public',
     sections: [
+      {
+        id: 'was-ist-eine-stadtplaner-flaeche',
+        title: 'Was ist eine Stadtplaner-Fläche?',
+        blocks: [
+          { type: 'paragraph', text: 'Eine Stadtplaner-Fläche ist eine im Projekt angelegte und eigenständig gepflegte räumliche Fläche. Sie kann manuell gezeichnet oder aus einem vorhandenen OpenStreetMap-Objekt übernommen worden sein. Nach der Übernahme bleibt sie ein eigener Stadtplaner-Datensatz; Änderungen daran verändern OpenStreetMap nicht.' },
+          { type: 'callout', variant: 'info', title: 'Gebäude ist nicht automatisch Verkaufsfläche', text: 'Eine Gebäudegeometrie oder ein anderes OSM-Polygon beweist für sich allein keine Verkaufsflächennutzung. Der Stadtplaner stellt diese Datenebenen deshalb getrennt dar.' }
+        ]
+      },
       {
         id: 'oeffentliche-angaben',
         title: 'Öffentliche Angaben',
@@ -282,7 +319,7 @@ export const documentationPages: DocumentationPage[] = [
     title: 'Flächen bearbeiten',
     navTitle: 'Bearbeiten',
     description: 'Öffentliche Attribute und Polygon-Geometrie sicher ändern und speichern.',
-    group: 'Flächen',
+    group: 'Konto und Bearbeitung',
     keywords: ['Autosave', 'Editor', 'TerraDraw', 'Konflikt', 'Vertex', 'Eckpunkt'],
     audience: 'login',
     sections: [
@@ -339,12 +376,147 @@ export const documentationPages: DocumentationPage[] = [
     ]
   },
   {
+    slug: 'statistik',
+    title: 'Kommunale Statistik',
+    navTitle: 'Kommunale Statistik',
+    description: 'Bevölkerung, Haushalte, Zeitreihen, Quellen und Statistikgebiete verständlich einordnen.',
+    group: 'Karte und Daten',
+    keywords: ['Statistik', 'Bevölkerung', 'Einwohner', 'Haushalte', 'Zeitreihe', 'Periode', 'Zahlenspiegel'],
+    audience: 'public',
+    sections: [
+      {
+        id: 'herkunft-und-anzeige',
+        title: 'Woher kommen die Statistikwerte?',
+        blocks: [
+          { type: 'paragraph', text: 'Der Stadtplaner importiert veröffentlichte Bevölkerungs- und Haushaltsdaten aus dem Zahlenspiegel der Stadt Flensburg. Die Anwendung zeigt lokal gespeicherte Werte und fragt das Statistikportal nicht bei jedem Seitenaufruf live ab.' },
+          { type: 'list', items: ['Jeder Wert besitzt eine Berichtsperiode.', 'Die Quelle und der verfügbare Datenstand werden angezeigt.', 'Zeitreihen enthalten nur tatsächlich veröffentlichte Perioden.', 'Fehlende oder unterdrückte Werte werden nicht zurückgerechnet.'] }
+        ]
+      },
+      {
+        id: 'statistikgebiete',
+        title: 'Für welches Gebiet gilt ein Wert?',
+        blocks: [
+          { type: 'paragraph', text: 'Die Statistik ist für die Gesamtstadt und die zugeordneten Stadtteile verfügbar. Quartiere besitzen derzeit keine künstlich verteilten eigenen Werte.' },
+          { type: 'callout', variant: 'important', title: 'Wert des übergeordneten Gebiets', text: 'Für ein Quartier kann deshalb der veröffentlichte Wert des übergeordneten Stadtteils erscheinen. Der Stadtplaner nennt sowohl das angefragte Gebiet als auch das tatsächlich verwendete Statistikgebiet. Der Wert wird nicht als eigene Erhebung des Quartiers dargestellt.' },
+          { type: 'paragraph', text: 'Statistische Gebietseinteilung und Kartengrenze haben passende Bezeichnungen. Eine geometrisch vollständig identische Abgrenzung ist damit jedoch nicht automatisch belegt.' }
+        ]
+      },
+      {
+        id: 'statistik-und-auswertung',
+        title: 'Statistik und berechnete Auswertung unterscheiden',
+        blocks: [
+          { type: 'table', headers: ['Beispiel', 'Art der Angabe', 'Datengrundlage'], rows: [['Bevölkerung und Haushalte', 'Kommunale Statistik', 'Veröffentlichter Zahlenspiegel'], ['POI-Anzahl', 'Räumliche Auswertung', 'Lokal importierte OpenStreetMap-Objekte'], ['Leerstandsquote', 'Berechnete Kennzahl oder veröffentlichter Referenzwert', 'Flächen mit bekanntem Status beziehungsweise gepflegte Quelle']] },
+          { type: 'links', items: [{ label: 'Kennzahlen verstehen', to: '/dokumentation/fast-facts' }, { label: 'Datenquellen und Aktualität', to: '/dokumentation/datenquellen' }] }
+        ]
+      }
+    ]
+  },
+  {
+    slug: 'datenquellen',
+    title: 'Datenquellen und Aktualität',
+    navTitle: 'Datenquellen',
+    description: 'Herkunft, Datenstand und Qualitätsgrenzen von Stadtplaner-Flächen, OpenStreetMap und kommunaler Statistik.',
+    group: 'Karte und Daten',
+    keywords: ['Datenquelle', 'Daten aktuell', 'Aktualität', 'Datenstand', 'OSM', 'OpenStreetMap', 'Statistik', 'Qualität', 'null', 'UNKNOWN'],
+    audience: 'public',
+    sections: [
+      {
+        id: 'quellen-im-vergleich',
+        title: 'Datenquellen im Vergleich',
+        blocks: [
+          { type: 'table', headers: ['Aspekt', 'Stadtplaner', 'OpenStreetMap'], rows: [['Pflege', 'Eigene, berechtigungsgeschützt gepflegte Flächen', 'Gemeinschaftlich gepflegte offene Geodaten'], ['Geschäftsflächen', 'Als Stadtplaner-Flächen mit eigener Detailseite', 'Ergänzende Geschäftsobjekte, sofern passende Tags vorhanden sind'], ['POIs', 'Umfeld- und Standortauswertungen', 'Quelle der lokal importierten POIs'], ['Gebäude', 'Keine automatische Behauptung einer Verkaufsfläche', 'Separat einblendbare OSM-Gebäudegeometrien'], ['Belegungsstatus', 'Kann ausdrücklich gepflegt sein', 'Nur aus kontrollierten eindeutigen Tags abgeleitet'], ['Aktualität', 'Zeitpunkt der letzten Änderung ist sichtbar', 'Abhängig vom lokalen OSM-Import und der OSM-Datenpflege']] },
+          { type: 'callout', variant: 'info', title: 'Analysegebiete sind eine eigene Ebene', text: 'Gemeinden, Stadtteile und Quartiere sind fachliche Analysegebiete. Ein gewöhnliches OpenStreetMap-Objekt wird nicht automatisch zu einem Analysegebiet.' }
+        ]
+      },
+      {
+        id: 'weitere-quellen',
+        title: 'Kommunale Statistik und manuelle Kennzahlen',
+        blocks: [
+          { type: 'paragraph', text: 'Kommunale Statistik wird mit Quelle und Berichtsperiode importiert. Zentralität, Kaufkraft und gegebenenfalls veröffentlichte Referenzquoten können als eigenständige Stadtkennzahlen mit Quelle und Referenzdatum gepflegt sein.' },
+          { type: 'paragraph', text: 'Es gibt kein pauschal garantiertes Aktualisierungsintervall für alle Quellen. Beachten Sie deshalb den jeweils angezeigten Änderungszeitpunkt, Datenstand oder die Berichtsperiode.' }
+        ]
+      },
+      {
+        id: 'fehlend-unbekannt-null',
+        title: 'Fehlend, unbekannt und null',
+        blocks: [
+          { type: 'table', headers: ['Anzeige', 'Bedeutung'], rows: [['0', 'Ein vorhandener Wert mit dem Zahlenwert null.'], ['Nicht angegeben oder Gedankenstrich', 'Es liegt keine belastbare Zahl vor.'], ['Unbekannt', 'Der fachliche Status ist nicht ausreichend bekannt.'], ['Keine Treffer', 'Die aktuelle Auswahl enthält keine passenden Objekte; das ist nicht automatisch ein Datenfehler.']] },
+          { type: 'callout', variant: 'important', title: 'Keine Gleichsetzung', text: 'Unbekannt bedeutet nicht belegt. Ein fehlender Wert bedeutet nicht null. Unterschiedliche Quellen können außerdem einen unterschiedlichen Datenstand besitzen.' },
+          { type: 'links', items: [{ label: 'Daten fehlen oder sind falsch', to: '/dokumentation/faq#daten-korrigieren' }] }
+        ]
+      }
+    ]
+  },
+  {
+    slug: 'leerstand',
+    title: 'Leerstand und Belegungsstatus',
+    navTitle: 'Leerstand',
+    description: 'Belegt, leerstehend und unbekannt unterscheiden und die Leerstandsquote richtig lesen.',
+    group: 'Analyse',
+    keywords: ['Leerstand', 'Belegungsstatus', 'leerstehend', 'belegt', 'unbekannt', 'VACANT', 'OCCUPIED', 'UNKNOWN', 'Leerstandsquote'],
+    audience: 'public',
+    sections: [
+      {
+        id: 'statuswerte',
+        title: 'Drei mögliche Statusangaben',
+        blocks: [
+          { type: 'table', headers: ['Anzeige', 'Bedeutung'], rows: [['Belegt', 'Die Stadtplaner-Fläche ist ausdrücklich als belegt gepflegt.'], ['Leerstehend', 'Die Fläche oder das OSM-Objekt wurde nach den vorhandenen Regeln ausdrücklich als leerstehend erkannt.'], ['Unbekannt', 'Der Belegungsstatus ist nicht ausreichend bekannt.']] },
+          { type: 'callout', variant: 'important', title: 'Unbekannt ist nicht belegt', text: 'Das Fehlen eines Leerstandshinweises reicht nicht aus, um ein Objekt als belegt zu zählen.' }
+        ]
+      },
+      {
+        id: 'osm-ableitung',
+        title: 'Leerstand aus OpenStreetMap',
+        blocks: [
+          { type: 'paragraph', text: 'Bei OpenStreetMap berücksichtigt der Stadtplaner nur kontrollierte Lifecycle-Angaben mit passendem Gewerbekontext, beispielsweise shop=vacant, disused:shop oder disused=yes. Fehlen eindeutige Angaben, bleibt der Status unbekannt.' },
+          { type: 'links', items: [{ label: 'OpenStreetMap im Stadtplaner', to: '/dokumentation/openstreetmap' }] }
+        ]
+      },
+      {
+        id: 'leerstandsquote',
+        title: 'Leerstandsquote',
+        blocks: [
+          { type: 'paragraph', text: 'Die berechnete Leerstandsquote teilt die Zahl der leerstehenden Flächen durch alle Flächen mit bekanntem Belegungsstatus. Flächen mit unbekanntem Status werden weder als leerstehend noch als belegt in den Nenner aufgenommen.' },
+          { type: 'callout', variant: 'info', title: 'Berechnet oder gepflegt', text: 'Wenn die aktuelle Auswahl eine Quote aus bekannten Flächenstatus berechnen lässt, wird diese verwendet. Andernfalls kann für die Gesamtstadt ein veröffentlichter Referenzwert mit Quelle angezeigt werden. Die Oberfläche kennzeichnet die Datengrundlage.' }
+        ]
+      }
+    ]
+  },
+  {
+    slug: 'branchen-und-pois',
+    title: 'Branchen, Kategorien und POIs',
+    navTitle: 'Branchen und POIs',
+    description: 'Branchenfilter, Kategorien und ergänzende OpenStreetMap-Orte voneinander unterscheiden.',
+    group: 'Analyse',
+    keywords: ['Branche', 'Kategorie', 'POI', 'Gastronomie', 'Mode', 'Lebensmittel', 'Dienstleistung', 'Geschäft'],
+    audience: 'public',
+    sections: [
+      {
+        id: 'branchen',
+        title: 'Verfügbare Branchen',
+        blocks: [
+          { type: 'paragraph', text: 'Stadtplaner-Flächen und passende OSM-Geschäftsobjekte verwenden eine gemeinsame nutzerfreundliche Branchenauswahl.' },
+          { type: 'table', headers: ['Branche', 'Beispiele'], rows: [['Warenhaus', 'Warenhäuser'], ['Mode / Bekleidung', 'Bekleidungsgeschäfte'], ['Nahrungsmittel / Drogerie', 'Lebensmittel und Drogeriewaren'], ['Elektro / Technik', 'Elektro- und Technikgeschäfte'], ['Einrichtungsbedarf', 'Möbel und Einrichtung'], ['Garten / Freizeit', 'Garten- und Freizeitangebote'], ['Sonstige Waren', 'Weitere Warenangebote'], ['Gastronomie', 'Restaurants, Cafés, Bars und ähnliche Angebote'], ['Einzelhandelsnahe Dienstleister', 'Dienstleistungen mit Bezug zum Standort'], ['Sonstige Flächen', 'Nicht anderweitig zugeordnete Flächen']] },
+          { type: 'paragraph', text: 'Die genaue Zuordnung von OSM-Tags erfolgt über die kontrollierte Mappinglogik des Stadtplaners. Ein unbekannter älterer Kategorienwert bleibt sichtbar und erhält keine erfundene Zuordnung.' }
+        ]
+      },
+      {
+        id: 'pois',
+        title: 'Was sind POIs?',
+        blocks: [
+          { type: 'paragraph', text: 'POI steht für „Point of Interest“, also einen relevanten Ort. Dazu können beispielsweise Haltestellen, Parkmöglichkeiten, Kultur-, Bildungs- oder Versorgungsangebote gehören. POIs ergänzen die Standortanalyse und sind nicht automatisch Verkaufsflächen.' },
+          { type: 'paragraph', text: 'POI-Zahlen werden aus den lokal importierten OpenStreetMap-Objekten innerhalb des betrachteten Gebiets oder Umkreises ermittelt. Aktive Geschäftsfilter und reine Umfeld-POIs bleiben fachlich getrennt.' }
+        ]
+      }
+    ]
+  },
+  {
     slug: 'fast-facts',
     title: 'Kennzahlen und Auswertungen',
     navTitle: 'Kennzahlen',
     description: 'Bedeutung, Herkunft und Filterverhalten der Kennzahlen.',
-    group: 'Auswertung',
-    keywords: ['Leerstand', 'Filialisierung', 'Zentralität', 'Kaufkraft', 'Standorte', 'Kennzahlen'],
+    group: 'Analyse',
+    keywords: ['Leerstand', 'Leerstandsquote', 'Filialisierung', 'Zentralität', 'Kaufkraft', 'POI', 'Median', 'Durchschnitt', 'Standorte', 'Kennzahlen', 'Analytics'],
     audience: 'public',
     sections: [
       {
@@ -388,7 +560,7 @@ export const documentationPages: DocumentationPage[] = [
     title: 'Benutzerkonto und Profil',
     navTitle: 'Benutzerkonto',
     description: 'Registrierung, E-Mail-Bestätigung, Profil, Avatar und Kontosicherheit einschließlich Deaktivierung und Löschung.',
-    group: 'Konto und Zugriff',
+    group: 'Konto und Bearbeitung',
     keywords: ['Registrierung', 'Login', 'Passwort', 'Avatar', 'Profil', 'E-Mail'],
     audience: 'login',
     sections: [
@@ -448,7 +620,7 @@ export const documentationPages: DocumentationPage[] = [
     title: 'Benachrichtigungen',
     navTitle: 'Benachrichtigungen',
     description: 'Persönliche Hinweise zu Flächen, Gebieten, Importen, Veröffentlichungen und Kontosicherheit.',
-    group: 'Konto und Zugriff',
+    group: 'Konto und Bearbeitung',
     keywords: ['Benachrichtigung', 'Glocke', 'Folgen', 'Ungelesen', 'Hinweise', 'Einstellungen'],
     audience: 'login',
     sections: [
@@ -492,7 +664,7 @@ export const documentationPages: DocumentationPage[] = [
     title: 'Anmeldung mit externen Diensten',
     navTitle: 'Externe Anmeldung',
     description: 'OAuth-Anmeldung sowie Verknüpfen und Trennen externer Konten.',
-    group: 'Konto und Zugriff',
+    group: 'Konto und Bearbeitung',
     keywords: ['OAuth', 'Google', 'GitHub', 'Mastodon', 'Provider', 'Verknüpfung'],
     audience: 'login',
     sections: [
@@ -530,7 +702,7 @@ export const documentationPages: DocumentationPage[] = [
     title: 'Rollen und Berechtigungen',
     navTitle: 'Rollen',
     description: 'Welche Bereiche öffentlich, nach Anmeldung oder nur für die Verwaltung erreichbar sind.',
-    group: 'Konto und Zugriff',
+    group: 'Konto und Bearbeitung',
     keywords: ['VERWALTUNG', 'Berechtigung', 'verifiziert', 'Eigentümer', 'Zugriff'],
     audience: 'public',
     sections: [
@@ -564,7 +736,7 @@ export const documentationPages: DocumentationPage[] = [
     title: 'Verwaltungsfunktionen',
     navTitle: 'Verwaltung',
     description: 'Interne Flächenangaben und zentrale Stadtkennzahlen mit der Rolle VERWALTUNG pflegen.',
-    group: 'Verwaltung',
+    group: 'Konto und Bearbeitung',
     keywords: ['VERWALTUNG', 'Eigentümer', 'Preis', 'Kennzahleneditor', 'Quelle', 'Notizen'],
     audience: 'verwaltung',
     sections: [
@@ -611,7 +783,7 @@ export const documentationPages: DocumentationPage[] = [
     title: 'Administration: Benutzer und Rollen',
     navTitle: 'Administration',
     description: 'Benutzerkonten suchen und die fachliche Rolle VERWALTUNG als Superuser sicher zuweisen oder entfernen.',
-    group: 'Verwaltung',
+    group: 'Konto und Bearbeitung',
     keywords: ['SUPERUSER', 'Administration', 'Benutzer', 'Rollen', 'VERWALTUNG'],
     audience: 'superuser',
     sections: [
@@ -693,19 +865,19 @@ export const documentationPages: DocumentationPage[] = [
   },
   {
     slug: 'methodik',
-    title: 'Methodik und Datenquellen',
-    navTitle: 'Methodik',
-    description: 'Räumliche Zuordnung, Berechnung von Kennzahlen und transparente Darstellung fehlender Daten.',
-    group: 'Karte und Daten',
-    keywords: ['Methodik', 'PostGIS', 'ST_PointOnSurface', 'Leerstandsquote', 'POI', 'OSM', 'Zahlenspiegel', 'Statistik'],
+    title: 'Datenqualität und Methodik',
+    navTitle: 'Datenqualität',
+    description: 'Räumliche Zuordnung, berechnete Kennzahlen und Grenzen der verfügbaren Daten verständlich einordnen.',
+    group: 'Analyse',
+    keywords: ['Methodik', 'Datenqualität', 'fehlende Daten', 'null', 'unbekannt', 'Leerstandsquote', 'POI', 'Statistik'],
     audience: 'public',
     sections: [
       {
         id: 'raeumliche-zuordnung',
         title: 'Räumliche Zuordnung',
         blocks: [
-          { type: 'paragraph', text: 'Gebietsgrenzen stammen aus der gepflegten Analysis-Area-Tabelle und werden überwiegend aus OpenStreetMap synchronisiert. Stadtplaner-Flächen werden anhand eines mit ST_PointOnSurface bestimmten Punkts räumlich genau einem passenden Gebiet je Ebene zugeordnet. So bleiben auch unregelmäßige Polygone robust auswertbar.' },
-          { type: 'callout', variant: 'info', title: 'Stabile Adressen', text: 'Der Gebiets-Slug wird beim Import erzeugt und bei späteren Aktualisierungen nicht überschrieben. Namensänderungen brechen daher keine bestehenden Links.' }
+          { type: 'paragraph', text: 'Gebietsgrenzen werden als eigene Analysegebiete gepflegt und überwiegend aus OpenStreetMap synchronisiert. Eine Stadtplaner-Fläche wird anhand eines repräsentativen Punkts räumlich einem passenden Gebiet je Ebene zugeordnet.' },
+          { type: 'callout', variant: 'info', title: 'Grenzen der Zuordnung', text: 'Eine Fläche kann eine Gebietsgrenze schneiden. Für die Auswertung zählt die Zuordnung über den repräsentativen Punkt; sie ist keine Aussage darüber, dass jeder Teil der Fläche vollständig innerhalb derselben Grenze liegt.' }
         ]
       },
       {
@@ -717,19 +889,21 @@ export const documentationPages: DocumentationPage[] = [
         ]
       },
       {
-        id: 'kommunale-statistik',
-        title: 'Kommunale Statistik aus dem Zahlenspiegel',
+        id: 'unterschiedliche-datenstaende',
+        title: 'Unterschiedliche Datenstände',
         blocks: [
-          { type: 'paragraph', text: 'Bevölkerungs- und Haushaltsstatistiken werden strukturiert über die öffentliche Superset-API des Zahlenspiegels der Stadt Flensburg importiert. Gebietsseiten fragen ausschließlich die lokal gespeicherten PostgreSQL-Daten ab und sind nicht von der Erreichbarkeit des Dashboards abhängig.' },
-          { type: 'table', headers: ['Aspekt', 'Umgang'], rows: [['Zeitraum', 'Jährliche Beobachtungen von 2011 bis zum aktuell veröffentlichten Stand.'], ['Stadtteile', 'Zuordnung über eine geprüfte Mappingtabelle mit den amtlich veröffentlichten IDs 01–13.'], ['Quartiere', 'Keine künstliche Verteilung; klar gekennzeichnete Werte des übergeordneten Stadtteils.'], ['Fehlende/unterdrückte Werte', 'Bleiben fehlend und werden weder als null interpretiert noch zurückgerechnet.'], ['Gesamtstadt', 'Als rechnerische Summe derselben 13 Stadtteilbeobachtungen und derselben Periode gekennzeichnet.']] },
-          { type: 'callout', variant: 'warning', title: 'Statistikgebiet und Kartengrenze', text: 'Die Namen und die 13-teilige Stadtgliederung stimmen überein. Die Karte verwendet jedoch OpenStreetMap-Grenzen; eine geometrisch exakte Identität mit der kommunalen Statistikgeografie ist nicht belegt.' },
-          { type: 'links', items: [{ label: 'Flensburger Zahlenspiegel', to: 'https://superset.flensburg.de/superset/dashboard/3b53ff0b-6e8c-435e-83f6-666f8a7cc158/', description: 'Originalquelle der Stadt Flensburg.' }, { label: 'Datenlizenz Deutschland – Zero 2.0', to: 'https://www.govdata.de/dl-de/zero-2-0' }] }
+          { type: 'paragraph', text: 'Stadtplaner-Flächen, OpenStreetMap und kommunale Statistik werden unabhängig voneinander gepflegt und aktualisiert. Unterschiede zwischen zwei Anzeigen können deshalb durch Quelle, räumliche Abgrenzung oder Datenstand entstehen.' },
+          { type: 'callout', variant: 'important', title: 'Keine Schätzungen', text: 'Fehlende oder unterdrückte Angaben bleiben fehlend. Der Stadtplaner interpoliert keine Jahre, verteilt keine Stadtteilwerte auf Quartiere und setzt unbekannte Statusangaben nicht mit belegt gleich.' },
+          { type: 'links', items: [{ label: 'Kommunale Statistik', to: '/dokumentation/statistik' }, { label: 'Datenquellen und Aktualität', to: '/dokumentation/datenquellen' }] }
         ]
       },
       {
-        id: 'datenstand',
-        title: 'Datenstand und Quellen',
-        blocks: [{ type: 'paragraph', text: 'Gebietsseiten nennen den letzten verfügbaren Datenstand und die Herkunft der Grenze. Fachkennzahlen beruhen ausschließlich auf tatsächlich gespeicherten Stadtplaner-Flächen und lokal importierten OSM-Daten; es werden keine Schätzwerte erfunden.' }]
+        id: 'korrekturen',
+        title: 'Daten prüfen und korrigieren',
+        blocks: [
+          { type: 'paragraph', text: 'Prüfen Sie bei auffälligen Angaben zuerst die genannte Quelle und den Datenstand. OpenStreetMap-Daten werden in OSM verbessert; Stadtplaner-Flächen über die vorhandenen Bearbeitungs- oder Kontaktwege. Statistikwerte folgen der veröffentlichten Originalquelle.' },
+          { type: 'links', items: [{ label: 'Daten fehlen oder sind falsch', to: '/dokumentation/faq#daten-korrigieren' }] }
+        ]
       }
     ]
   },
@@ -738,7 +912,7 @@ export const documentationPages: DocumentationPage[] = [
     title: 'Öffentliche API',
     navTitle: 'API',
     description: 'OpenAPI-Dokumentation und öffentliche Lese-Endpunkte für Gebiete und Stadtplaner-Flächen.',
-    group: 'Karte und Daten',
+    group: 'Quellcode und Entwicklung',
     keywords: ['API', 'OpenAPI', 'Swagger', 'ReDoc', 'JSON'],
     audience: 'public',
     sections: [
@@ -775,7 +949,7 @@ export const documentationPages: DocumentationPage[] = [
     navTitle: 'FAQ',
     description: 'Kurze Antworten auf häufige Fragen zur Bedienung und zu Daten.',
     group: 'Hilfe',
-    keywords: ['FAQ', 'Problem', 'Fehler', 'Hilfe', 'keine Daten'],
+    keywords: ['FAQ', 'Problem', 'Fehler', 'Hilfe', 'keine Daten', 'Gebäude', 'Statistik', 'Quartier', 'Korrektur', 'Konto'],
     audience: 'public',
     sections: [
       {
@@ -814,6 +988,66 @@ export const documentationPages: DocumentationPage[] = [
         ]
       },
       {
+        id: 'gebaeude-fehlen',
+        title: 'Warum sehe ich keine Gebäude?',
+        blocks: [
+          { type: 'paragraph', text: 'Aktivieren Sie die Gebäudeebene und zoomen Sie weiter hinein. Gebäude werden erst ab der dafür vorgesehenen Zoomstufe geladen. Fehlt eine Geometrie weiterhin, kann sie im lokalen OpenStreetMap-Datenstand nicht vorhanden sein.' }
+        ]
+      },
+      {
+        id: 'unbekannter-status',
+        title: 'Warum ist ein Objekt als unbekannt gekennzeichnet?',
+        blocks: [
+          { type: 'paragraph', text: 'Für den betreffenden Status liegt keine ausreichende Angabe vor. Unbekannt wird nicht automatisch als belegt interpretiert.' },
+          { type: 'links', items: [{ label: 'Leerstand und Belegungsstatus', to: '/dokumentation/leerstand' }] }
+        ]
+      },
+      {
+        id: 'osm-und-stadtplaner-unterschied',
+        title: 'Warum unterscheiden sich OpenStreetMap und Stadtplaner?',
+        blocks: [
+          { type: 'paragraph', text: 'Beide Quellen werden unabhängig gepflegt und können unterschiedliche Attribute oder Aktualisierungsstände besitzen. Eine verknüpfte Stadtplaner-Fläche hat in der gemeinsamen Kartendarstellung Vorrang, damit dasselbe Objekt nicht doppelt gezählt wird.' }
+        ]
+      },
+      {
+        id: 'statistik-fehlt',
+        title: 'Warum fehlt eine Statistik?',
+        blocks: [
+          { type: 'paragraph', text: 'Nicht für jede Kennzahl, Periode oder Gebietsebene liegt ein veröffentlichter Wert vor. Fehlende Angaben werden nicht geschätzt. Prüfen Sie Statistikgebiet, Berichtsperiode und Quelle in der Anzeige.' },
+          { type: 'links', items: [{ label: 'Kommunale Statistik verstehen', to: '/dokumentation/statistik' }] }
+        ]
+      },
+      {
+        id: 'quartier-parent-wert',
+        title: 'Warum zeigt ein Quartier den Wert eines Stadtteils?',
+        blocks: [
+          { type: 'paragraph', text: 'Für Quartiere liegen derzeit keine künstlich verteilten eigenen Statistikwerte vor. Deshalb kann der Stadtplaner den veröffentlichten Wert des übergeordneten Stadtteils zeigen und kennzeichnet das tatsächlich verwendete Statistikgebiet.' }
+        ]
+      },
+      {
+        id: 'konto-erforderlich',
+        title: 'Brauche ich ein Konto?',
+        blocks: [
+          { type: 'paragraph', text: 'Nein. Karte, öffentliche Flächen- und Gebietsseiten, Kennzahlen und Dokumentation sind ohne Anmeldung lesbar. Ein Konto wird für persönliche Funktionen und das Anlegen eigener Flächen benötigt; Änderungen setzen zusätzliche Berechtigungen voraus.' }
+        ]
+      },
+      {
+        id: 'intelligente-suche',
+        title: 'Was kann die intelligente Suche?',
+        blocks: [
+          { type: 'paragraph', text: 'Sie versteht ausgewählte Kartenbefehle, Filter, Statistikfragen und Begriffserklärungen. Sie verändert keine Daten und schätzt keine fehlenden Zahlen.' },
+          { type: 'links', items: [{ label: 'Intelligente Suche verwenden', to: '/dokumentation/suche' }] }
+        ]
+      },
+      {
+        id: 'daten-korrigieren',
+        title: 'Daten fehlen oder sind falsch – was kann ich tun?',
+        blocks: [
+          { type: 'table', headers: ['Betroffene Angabe', 'Passender Weg'], rows: [['OpenStreetMap-Objekt oder Gebäude', 'Über den angebotenen Link mit StreetComplete oder dem OpenStreetMap-Editor verbessern.'], ['Stadtplaner-Fläche', 'Bei vorhandener Berechtigung auf der Detailseite bearbeiten oder über die Kontaktseite melden.'], ['Kommunale Statistik', 'Quelle und Berichtsperiode prüfen; der Stadtplaner übernimmt nur veröffentlichte Werte.']] },
+          { type: 'links', items: [{ label: 'Kontakt aufnehmen', to: '/kontakt' }, { label: 'OpenStreetMap verbessern', to: '/dokumentation/openstreetmap#osm-daten-ergaenzen' }, { label: 'Flächen bearbeiten', to: '/dokumentation/flaechen-bearbeiten' }] }
+        ]
+      },
+      {
         id: 'kennzahl-strich',
         title: 'Was bedeutet ein Gedankenstrich bei Kennzahlen?',
         blocks: [
@@ -832,3 +1066,12 @@ export const documentationPages: DocumentationPage[] = [
 ]
 
 export const documentationPaths = documentationPages.map(page => page.slug ? `/dokumentation/${page.slug}` : '/dokumentation')
+
+export const documentationGroupOrder = [
+  'Einstieg',
+  'Karte und Daten',
+  'Analyse',
+  'Konto und Bearbeitung',
+  'Hilfe',
+  'Quellcode und Entwicklung'
+] as const
