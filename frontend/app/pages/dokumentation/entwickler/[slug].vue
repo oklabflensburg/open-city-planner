@@ -12,5 +12,5 @@ const page = computed(() => findDeveloperDocumentationPage(slug.value))
 if (!page.value) {
   throw createError({ statusCode: 404, statusMessage: 'Entwicklerdokumentation nicht gefunden.' })
 }
-useDocumentationSeo(page.value)
+useDeveloperDocumentationSeo(page.value)
 </script>
