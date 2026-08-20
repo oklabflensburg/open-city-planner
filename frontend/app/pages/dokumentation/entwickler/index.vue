@@ -7,5 +7,5 @@ import { developerDocumentationPages } from '~/config/developerDocumentation'
 
 const page = developerDocumentationPages[0]
 if (!page) throw createError({ statusCode: 500, statusMessage: 'Entwicklerdokumentation ist nicht konfiguriert.' })
-useDocumentationSeo(page)
+useDeveloperDocumentationSeo(page)
 </script>
