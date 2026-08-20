@@ -655,6 +655,65 @@ async def test_unknown_object_with_area_uses_provider_instead_of_area_detail(
 
 
 @pytest.mark.asyncio
+async def test_provider_feature_plan_without_prepared_area_builds_map_actions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def no_areas(_session: object, _normalized: str) -> list[SearchArea]:
+        return []
+
+    async def execute(_session: object, tool: AssistantToolName, _arguments: dict):
+        assert tool == AssistantToolName.SEARCH_FEATURES
+        return SearchFeaturesToolResult.model_validate({
+            "data": {
+                "feature_collection": {
+                    "type": "FeatureCollection",
+                    "features": [{
+                        "type": "Feature",
+                        "id": "OSM:node:7",
+                        "geometry": {"type": "Point", "coordinates": [9.43, 54.78]},
+                        "properties": {"name": "Bürgerbüro", "source": "OSM"},
+                    }],
+                },
+                "bounds": [9.3, 54.7, 9.6, 54.9],
+            },
+        })
+
+    class Provider:
+        name = "groq"
+
+        def __init__(self) -> None:
+            self.usage: dict[str, int] = {}
+
+        async def plan(self, *_args: object) -> AssistantPlan:
+            return AssistantPlan.model_validate({
+                "intent": "SHOW_FEATURES",
+                "steps": [{
+                    "tool": "search_features",
+                    "arguments": {
+                        "area_slug": ALTSTADT.slug,
+                        "filters": {"sources": ["OSM"]},
+                        "limit": 200,
+                    },
+                }],
+            })
+
+    monkeypatch.setattr(assistant, "_mentioned_areas", no_areas)
+    monkeypatch.setattr(assistant, "execute_assistant_tool", execute)
+    response = await answer_assistant_query(
+        object(),  # type: ignore[arg-type]
+        AssistantQueryRequest(query="Zeige das Bürgerbüro"),
+        provider=Provider(),
+    )
+
+    assert response.telemetry.llm_used is True
+    assert [action.type for action in response.map_actions] == [
+        "FIT_AREA", "REPLACE_SEARCH_LAYER",
+    ]
+    assert all(action.area_slug == ALTSTADT.slug for action in response.map_actions)
+    assert response.sources_used[-1].area_slug == ALTSTADT.slug
+
+
+@pytest.mark.asyncio
 async def test_unknown_object_without_provider_is_not_misreported_as_area_detail(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

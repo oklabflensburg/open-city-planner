@@ -857,27 +857,29 @@ def _tool_result_data(
 def _sources(prepared: _PreparedPlan, results: list[tuple[AssistantToolName, Any]]) -> tuple[list[AssistantCitation], list[AssistantSource]]:
     citations: list[AssistantCitation] = []
     sources: list[AssistantSource] = []
+    area_slugs = _prepared_area_slugs(prepared)
+    area_slug = area_slugs[0] if area_slugs else None
     for area in prepared.areas:
         citations.append(AssistantCitation(type="area", slug=area.slug))
+    if area_slug and not prepared.areas:
+        citations.append(AssistantCitation(type="area", slug=area_slug))
     for tool, result in results:
         data = result.get("data", result)
         if tool == AssistantToolName.GET_AREA_ANALYTICS:
-            slug = prepared.areas[0].slug if prepared.areas else None
-            sources.append(AssistantSource(type="ANALYSIS_AREA_ANALYTICS", area_slug=slug))
-            citations.append(AssistantCitation(type="analytics", slug=slug))
+            sources.append(AssistantSource(type="ANALYSIS_AREA_ANALYTICS", area_slug=area_slug))
+            citations.append(AssistantCitation(type="analytics", slug=area_slug))
         elif tool in {AssistantToolName.GET_AREA_STATISTICS, AssistantToolName.GET_STATISTIC_SERIES} and isinstance(data, dict):
             source = data.get("source") or {}
             rows = data.get("series") or data.get("latest") or []
             period = next((item.get("period") for item in reversed(rows) if item.get("period")), None)
             inherited = bool(data.get("inherited_from_parent"))
-            slug = prepared.areas[0].slug if prepared.areas else None
             source_type = (
                 "STATISTIC_SERIES"
                 if tool == AssistantToolName.GET_STATISTIC_SERIES
                 else "STATISTICS"
             )
-            sources.append(AssistantSource(type=source_type, area_slug=slug, source=source.get("name"), period=period, inherited_from_parent=inherited))
-            citations.append(AssistantCitation(type="statistics", slug=slug, source=source.get("name"), period=period, inherited_from_parent=inherited))
+            sources.append(AssistantSource(type=source_type, area_slug=area_slug, source=source.get("name"), period=period, inherited_from_parent=inherited))
+            citations.append(AssistantCitation(type="statistics", slug=area_slug, source=source.get("name"), period=period, inherited_from_parent=inherited))
         elif tool in {AssistantToolName.SEARCH_FEATURES, AssistantToolName.GET_POLYGON_LOCATION}:
             selected_sources = prepared.filters.sources
             source_type = (
@@ -887,7 +889,7 @@ def _sources(prepared: _PreparedPlan, results: list[tuple[AssistantToolName, Any
             )
             sources.append(AssistantSource(
                 type=source_type,
-                area_slug=prepared.areas[0].slug if prepared.areas else None,
+                area_slug=area_slug,
             ))
         elif tool == AssistantToolName.COMPARE_AREAS:
             sources.append(AssistantSource(type="AREA_COMPARISON"))
@@ -911,6 +913,7 @@ def _sources(prepared: _PreparedPlan, results: list[tuple[AssistantToolName, Any
 
 def _map_actions(query: str, prepared: _PreparedPlan, results: list[tuple[AssistantToolName, Any]]) -> list[AssistantMapAction]:
     normalized = normalize_search_text(query)
+    area_slugs = _prepared_area_slugs(prepared)
     if prepared.plan.intent == AssistantIntent.CHANGE_FILTERS:
         return [AssistantMapAction(type=AssistantMapActionType.UPDATE_FILTERS, filters=prepared.filters)]
     if prepared.topic == "AREA_LIST":
@@ -919,7 +922,9 @@ def _map_actions(query: str, prepared: _PreparedPlan, results: list[tuple[Assist
     if prepared.topic in {"FEATURES", "POLYGON_FEATURES", "MAP_KNOWLEDGE"} and results:
         feature_result = _tool_result_data(results, {AssistantToolName.SEARCH_FEATURES})
         data = feature_result.get("data")
-        slug = prepared.areas[0].slug
+        if not area_slugs:
+            return []
+        slug = area_slugs[0]
         collection = data.get("feature_collection") if isinstance(data, dict) else None
         bounds = data.get("bounds") if isinstance(data, dict) else None
         return [
@@ -932,16 +937,47 @@ def _map_actions(query: str, prepared: _PreparedPlan, results: list[tuple[Assist
             ),
         ]
     if prepared.plan.intent == AssistantIntent.COMPARE_AREAS and _has(normalized, "zeige", "anzeigen", "karte"):
-        if "danach" in normalized:
+        if "danach" in normalized and prepared.areas:
             tail = normalized.split("danach", 1)[1]
             selected = next((area for area in prepared.areas if _has(tail, area.name, area.slug)), prepared.areas[0])
             return [AssistantMapAction(type=AssistantMapActionType.FIT_AREA, area_slug=selected.slug, fit_bounds=True)]
-        return [AssistantMapAction(type=AssistantMapActionType.HIGHLIGHT_AREAS, area_slugs=[area.slug for area in prepared.areas], fit_bounds=True)]
-    if prepared.areas and _has(normalized, "zeige", "anzeigen", "karte"):
+        return [AssistantMapAction(type=AssistantMapActionType.HIGHLIGHT_AREAS, area_slugs=area_slugs, fit_bounds=True)] if area_slugs else []
+    if area_slugs and _has(normalized, "zeige", "anzeigen", "karte"):
         data = results[-1][1].get("data", {}) if results else {}
         bounds = data.get("bbox") if isinstance(data, dict) else None
-        return [AssistantMapAction(type=AssistantMapActionType.FIT_AREA, area_slug=prepared.areas[0].slug, fit_bounds=True, bounds=bounds)]
+        return [AssistantMapAction(type=AssistantMapActionType.FIT_AREA, area_slug=area_slugs[0], fit_bounds=True, bounds=bounds)]
     return []
+
+
+def _prepared_area_slugs(prepared: _PreparedPlan) -> list[str]:
+    """Liest Gebiets-Slugs auch aus einem validierten Provider-Plan.
+
+    Ein Sprachprovider darf ein Gebiet direkt in Tool-Argumenten referenzieren,
+    obwohl es nicht als ausgeschriebener Gebietsname in der Frage vorkommt. Die
+    Kartenprojektion darf deshalb nicht allein von ``prepared.areas`` abhängen.
+    """
+    slugs = [area.slug for area in prepared.areas]
+    area_slug_arguments = {
+        AssistantToolName.GET_AREA_DETAIL: "slug",
+        AssistantToolName.GET_AREA_ANALYTICS: "slug",
+        AssistantToolName.GET_AREA_STATISTICS: "slug",
+        AssistantToolName.GET_STATISTIC_SERIES: "slug",
+        AssistantToolName.LIST_AREA_POLYGONS: "slug",
+        AssistantToolName.SEARCH_FEATURES: "area_slug",
+    }
+    for step in prepared.plan.steps:
+        argument = area_slug_arguments.get(step.tool)
+        value = step.arguments.get(argument) if argument else None
+        if isinstance(value, str) and value and value not in slugs:
+            slugs.append(value)
+        if step.tool == AssistantToolName.COMPARE_AREAS:
+            values = step.arguments.get("area_slugs")
+            if isinstance(values, list):
+                slugs.extend(
+                    value for value in values
+                    if isinstance(value, str) and value and value not in slugs
+                )
+    return slugs
 
 
 async def _mentioned_areas(session: AsyncSession, normalized: str) -> list[SearchArea]:
@@ -1229,11 +1265,13 @@ def _claims(
     answer: str, prepared: _PreparedPlan, results: list[tuple[AssistantToolName, Any]]
 ) -> list[AssistantClaim]:
     evidence: list[AssistantEvidence] = []
+    area_slugs = _prepared_area_slugs(prepared)
+    area_slug = area_slugs[0] if area_slugs else None
     for tool, result in results:
         if tool == AssistantToolName.GET_AREA_ANALYTICS:
             evidence.append(AssistantEvidence(
                 type="AREA_ANALYTICS",
-                area_slug=prepared.areas[0].slug if prepared.areas else None,
+                area_slug=area_slug,
                 field=prepared.topic,
             ))
         elif tool == AssistantToolName.COMPARE_AREAS:
@@ -1244,7 +1282,7 @@ def _claims(
         }:
             evidence.append(AssistantEvidence(
                 type="STATISTICS",
-                area_slug=prepared.areas[0].slug if prepared.areas else None,
+                area_slug=area_slug,
                 field=prepared.metric_key,
             ))
         elif tool in {
