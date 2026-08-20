@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from typing import Any
 
 import httpx
@@ -10,6 +11,9 @@ from app.schemas.assistant import AssistantContext, AssistantPlan
 
 ASSISTANT_PROMPT_VERSION = "3.0"
 TOOL_REGISTRY_VERSION = "3.0"
+PROVIDER_LOG_RESPONSE_LIMIT = 4_000
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """Sie sind der read-only Stadtplaner-Assistent des Open City Planner.
 
@@ -79,6 +83,13 @@ class GroqProvider:
             try:
                 return AssistantPlan.model_validate_json(content)
             except (ValidationError, ValueError) as exc:
+                logger.warning(
+                    "assistant_provider_invalid_plan provider=groq model=%r "
+                    "repair=%s response=%s",
+                    self.model,
+                    bool(repair),
+                    self._safe_log_value(content),
+                )
                 if repair:
                     raise AssistantProviderError(
                         "ASSISTANT_INVALID_PLAN",
@@ -124,6 +135,15 @@ class GroqProvider:
                     "Die intelligente Sprachinterpretation ist derzeit nicht verfügbar.",
                     retryable=True,
                 ) from exc
+            if response.status_code >= 400:
+                logger.warning(
+                    "assistant_provider_http_error provider=groq status=%d "
+                    "model=%r attempt=%d response=%s",
+                    response.status_code,
+                    self.model,
+                    attempt + 1,
+                    self._safe_log_value(response.text),
+                )
             if response.status_code in {429, 500, 502, 503, 504} and attempt < retries:
                 retry_after = _retry_after(response)
                 await asyncio.sleep(retry_after if retry_after is not None else 0.25 * (2**attempt))
@@ -158,11 +178,28 @@ class GroqProvider:
                 }
                 return content
             except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                logger.warning(
+                    "assistant_provider_invalid_response provider=groq model=%r "
+                    "response=%s",
+                    self.model,
+                    self._safe_log_value(response.text),
+                )
                 raise AssistantProviderError(
                     "ASSISTANT_INVALID_PLAN",
                     "Die Sprachinterpretation lieferte keine gültige strukturierte Antwort.",
                 ) from exc
         raise AssertionError("unreachable")
+
+    def _safe_log_value(self, value: str) -> str:
+        secret = (
+            self.settings.groq_api_key.get_secret_value()
+            if self.settings.groq_api_key
+            else ""
+        )
+        redacted = value.replace(secret, "[REDACTED]") if secret else value
+        if len(redacted) <= PROVIDER_LOG_RESPONSE_LIMIT:
+            return redacted
+        return f"{redacted[:PROVIDER_LOG_RESPONSE_LIMIT]}…[gekürzt]"
 
 
 def _retry_after(response: httpx.Response) -> float | None:

@@ -144,6 +144,13 @@ ASSISTANT_QUERY_LOGGING=false
 
 API-Schlüssel werden als maskiertes Secret ausschließlich im Backend verarbeitet. Modell und Base-URL sind austauschbar; Preise oder Modellnamen sind nicht in der Fachlogik verankert. Bei `AI_SEARCH_ENABLED=false`, fehlendem Schlüssel, Timeout oder Providerfehler bleiben die deterministischen Phase-1/2/3-Pfade verfügbar. HTTP 429 und temporäre Serverfehler werden höchstens gemäß `GROQ_MAX_RETRIES` wiederholt; Tool-Ausführungen werden dabei niemals erneut ausgeführt.
 
+HTTP-Fehler des Providers werden mit Statuscode, Modell, Versuch und dem
+begrenzten Response-Body als Warning protokolliert. Dasselbe gilt für erfolgreiche
+HTTP-Antworten, deren Struktur oder enthaltener Plan nicht validiert werden kann.
+Der konfigurierte API-Schlüssel wird vor der Ausgabe durch `[REDACTED]` ersetzt;
+Response-Texte werden nach 4.000 Zeichen gekürzt. Request-Header und der
+Authorization-Header werden nicht protokolliert.
+
 ## Knowledge Retrieval und Versionierung
 
 Der kleine Katalog wird beim Start aus expliziten fachlichen Einträgen aufgebaut. Quellen sind ausschließlich öffentlicher Domain-Code, öffentliche Schemas und die Dokumentation. `.env`, Auth-, User-, Admin-, E-Mail-, Audit- und Eigentümerdaten sind ausgeschlossen. Die Retrieval-Reihenfolge ist exakter Schlüssel, Alias, normalisiertes Textmatching und konservative Tippfehlerähnlichkeit. Confidence verwendet nur `EXACT`, `HIGH`, `AMBIGUOUS` und `NOT_FOUND`, keine erfundenen Prozentwerte.
@@ -160,7 +167,7 @@ OSM-Erklärungen verwenden die tatsächlichen Tags und die aktuelle kanonische M
 
 Das Sprachmodell generiert niemals SQL und erhält keinen direkten Datenbankzugang. Die vollständige OpenAPI wird dem Modell nicht als Tool-Sammlung bereitgestellt. Nur die explizite read-only Tool-Allowlist ist verfügbar. Administrative, Auth-, User-, Benachrichtigungs-, E-Mail- und Schreiboperationen sind technisch nicht erreichbar. User Input, OSM-Namen und Knowledge-Inhalte bleiben als nicht vertrauenswürdige Daten vom versionierten Systemprompt getrennt.
 
-Standardmäßig werden weder vollständige Nutzerfragen noch Prompts, Tool-Ergebnisse oder rohe OSM-Tags protokolliert. Die Telemetrie enthält Provider, konfiguriertes Modell, Prompt-, Knowledge- und Tool-Registry-Version, Intent, Tool-Anzahl, Dauer, Erfolg und optional aggregierte Tokenzahlen ohne Personenbezug.
+Standardmäßig werden weder vollständige Nutzerfragen noch Prompts, Tool-Ergebnisse oder rohe OSM-Tags protokolliert. Davon ausgenommen sind die begrenzten und um den API-Schlüssel bereinigten Provider-Responses bei HTTP- oder Validierungsfehlern. Die Telemetrie enthält Provider, konfiguriertes Modell, Prompt-, Knowledge- und Tool-Registry-Version, Intent, Tool-Anzahl, Dauer, Erfolg und optional aggregierte Tokenzahlen ohne Personenbezug.
 
 ## Tests und Evaluation
 

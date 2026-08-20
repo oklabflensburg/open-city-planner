@@ -81,6 +81,13 @@ Kartenaktionen sind `NONE`, `FIT_AREA`, `SHOW_ANALYSIS_AREAS`,
 vorhandenen Pinia-Filter und eine einzige langlebige MapLibre-GeoJSON-Source namens
 `search-results`.
 
+Vor jeder Assistant-Anfrage wird der Kontext aus den aktuell sichtbaren
+Sidebar-Filtern aufgebaut. Eigenständige neue Fragen und Suchbefehle übernehmen
+keine Filter aus einer früheren Assistant-Antwort. Nur erkennbare Folgefragen wie
+„und wie viele …“, „davon …“ oder reine Filterbefehle wie „nur Leerstände“ bauen
+bewusst auf der aktuellen Auswahl auf. Dadurch können beispielsweise
+`gastronomy` und `VACANT` nicht unbemerkt in spätere unabhängige Suchen gelangen.
+
 ## Regelbasiert unterstützte Beispiele
 
 | Eingabe | Ergebnis |

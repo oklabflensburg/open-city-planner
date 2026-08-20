@@ -61,6 +61,7 @@ export const useSearchStore = defineStore('search', {
       this.activeTab = 'answer'
       this.assistantOpen = true
       try {
+        this.context.active_filters = currentFilterContext()
         if (this.context.last_topic && this.context.last_topic.length > 50) {
           this.context.last_topic = null
         }
@@ -198,4 +199,22 @@ function presentationBehavior(result: AssistantResponse) {
   if (result.plan.response_mode !== 'ANSWER') return 'KEEP_OPEN'
   if (result.plan.intent === 'CHANGE_FILTERS' || result.plan.intent === 'LIST_AREAS') return 'AUTO_CLOSE'
   return 'KEEP_OPEN'
+}
+
+function currentFilterContext(): SearchFilters {
+  const filter = useFilterStore()
+  return {
+    categories: narrowedSelection(filter.activeCategories, industries.map(item => item.key)),
+    occupancy_statuses: narrowedSelection(filter.occupancyStatuses, OCCUPANCY_OPTIONS.map(item => item.value)),
+    floors: narrowedSelection(filter.selectedFloors, FLOOR_OPTIONS.map(item => item.value)),
+    area_sizes: narrowedSelection(filter.selectedSizes, SALES_AREA_SIZE_OPTIONS.map(item => item.value)),
+    business_structures: narrowedSelection(filter.businessStructures, BUSINESS_STRUCTURE_OPTIONS.map(item => item.value)),
+    sources: narrowedSelection(filter.selectedSources, DATA_SOURCE_OPTIONS.map(item => item.value))
+  }
+}
+
+function narrowedSelection<T>(selected: T[], available: readonly T[]): T[] {
+  return selected.length === available.length && available.every(value => selected.includes(value))
+    ? []
+    : [...selected]
 }

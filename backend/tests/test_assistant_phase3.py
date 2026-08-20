@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from pathlib import Path
 
@@ -251,6 +252,7 @@ async def test_groq_provider_validates_structured_plan_and_usage() -> None:
 @pytest.mark.parametrize(
     ("status", "code"),
     [
+        (400, "ASSISTANT_PROVIDER_UNAVAILABLE"),
         (401, "ASSISTANT_PROVIDER_UNAVAILABLE"),
         (429, "ASSISTANT_RATE_LIMITED"),
         (500, "ASSISTANT_PROVIDER_UNAVAILABLE"),
@@ -258,8 +260,9 @@ async def test_groq_provider_validates_structured_plan_and_usage() -> None:
     ],
 )
 async def test_groq_provider_maps_http_errors_without_leaking_secret(
-    status: int, code: str,
+    status: int, code: str, caplog: pytest.LogCaptureFixture,
 ) -> None:
+    caplog.set_level(logging.WARNING, logger="app.services.assistant_provider")
     async def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(status, json={"error": {"message": "secret-value"}})
 
@@ -271,6 +274,10 @@ async def test_groq_provider_maps_http_errors_without_leaking_secret(
             await provider.plan("Fachfrage", AssistantContext(), [])
     assert raised.value.code == code
     assert "secret-value" not in str(raised.value)
+    assert f"status={status}" in caplog.text
+    assert "response=" in caplog.text
+    assert "[REDACTED]" in caplog.text
+    assert "secret-value" not in caplog.text
 
 
 @pytest.mark.asyncio
@@ -303,7 +310,10 @@ async def test_provider_failure_is_visible_in_privacy_safe_telemetry(
 
 
 @pytest.mark.asyncio
-async def test_groq_provider_rejects_empty_and_malformed_output_after_one_repair() -> None:
+async def test_groq_provider_rejects_empty_and_malformed_output_after_one_repair(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.WARNING, logger="app.services.assistant_provider")
     calls = 0
 
     async def handler(_request: httpx.Request) -> httpx.Response:
@@ -319,6 +329,9 @@ async def test_groq_provider_rejects_empty_and_malformed_output_after_one_repair
             await provider.plan("Fachfrage", AssistantContext(), [])
     assert raised.value.code == "ASSISTANT_INVALID_PLAN"
     assert calls == 2
+    assert "assistant_provider_invalid_plan" in caplog.text
+    assert "response={}" in caplog.text
+    assert "response=kein json" in caplog.text
 
 
 @pytest.mark.asyncio

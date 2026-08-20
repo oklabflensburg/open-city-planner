@@ -71,6 +71,22 @@ describe('Stadtplaner-Assistent', () => {
     expect(search.confirmation).toBe('Die Kartenfilter wurden aktualisiert.')
   })
 
+  it('baut den Request-Kontext aus den tatsächlich sichtbaren Filtern auf', async () => {
+    const request = vi.fn().mockResolvedValue(response())
+    vi.stubGlobal('useApi', () => ({ request }))
+    const filter = useFilterStore()
+    filter.setCategories(['gastronomy'])
+    filter.setOccupancyStatuses(['VACANT'])
+    const search = useSearchStore()
+    search.context.active_filters = filters
+
+    await search.submit('Zeige passende Flächen')
+
+    const body = JSON.parse(request.mock.calls[0][1].body)
+    expect(body.context.active_filters.categories).toEqual(['gastronomy'])
+    expect(body.context.active_filters.occupancy_statuses).toEqual(['VACANT'])
+  })
+
   it('wendet mehrere typisierte Kartenaktionen an', async () => {
     const featureCollection = { type: 'FeatureCollection' as const, features: [{
       type: 'Feature' as const,

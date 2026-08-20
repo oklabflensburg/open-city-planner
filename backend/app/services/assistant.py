@@ -708,9 +708,9 @@ def _filters(normalized: str, active: SearchFilters) -> SearchFilters:
         explicit_source = "OSM"
 
     values = (
-        SearchFilters()
-        if explicit_source and _has(normalized, "nur")
-        else active.model_copy(deep=True)
+        active.model_copy(deep=True)
+        if _inherits_active_filters(normalized)
+        else SearchFilters()
     )
     if explicit_source:
         values.sources = [explicit_source]
@@ -725,6 +725,18 @@ def _filters(normalized: str, active: SearchFilters) -> SearchFilters:
     if _has(normalized, "erdgeschoss", "eg"):
         values.floors = ["EG"]
     return values
+
+
+def _inherits_active_filters(normalized: str) -> bool:
+    """Übernimmt die aktuelle Auswahl nur bei einem erkennbaren Folgebefehl."""
+    return (
+        _filter_only(normalized)
+        or normalized.startswith(("und ", "davon ", "dort ", "jetzt "))
+        or _has(
+            normalized,
+            "davon", "weiterhin", "zusätzlich", "zusaetzlich",
+        )
+    )
 
 
 def _topic(normalized: str, previous: str | None) -> str:

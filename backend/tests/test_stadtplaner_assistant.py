@@ -94,6 +94,33 @@ async def test_poi_count_is_copied_exactly_from_tool(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.asyncio
+async def test_independent_analytics_query_does_not_reuse_old_filters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(assistant, "_mentioned_areas", _areas)
+    monkeypatch.setattr(
+        assistant,
+        "execute_assistant_tool",
+        _tool_result(AssistantToolName.GET_AREA_ANALYTICS),
+    )
+    context = AssistantContext(
+        active_filters=SearchFilters(
+            categories=["gastronomy"], occupancy_statuses=["VACANT"]
+        )
+    )
+
+    response = await answer_assistant_query(
+        object(),  # type: ignore[arg-type]
+        AssistantQueryRequest(
+            query="Wie viele Flächen hat die Altstadt?", context=context
+        ),
+    )
+
+    assert response.plan.steps[-1].arguments["filters"] == SearchFilters().model_dump()
+    assert response.context.active_filters == SearchFilters()
+
+
+@pytest.mark.asyncio
 async def test_null_vacancy_is_not_interpreted_as_zero(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(assistant, "_mentioned_areas", _areas)
     monkeypatch.setattr(assistant, "execute_assistant_tool", _tool_result(AssistantToolName.GET_AREA_ANALYTICS))
@@ -130,10 +157,17 @@ async def test_statistics_preserve_source_period_and_inheritance(monkeypatch: py
 async def test_follow_up_reuses_topic_and_changes_area(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(assistant, "_mentioned_areas", _areas)
     monkeypatch.setattr(assistant, "execute_assistant_tool", _tool_result(AssistantToolName.GET_AREA_ANALYTICS))
-    context = AssistantContext(active_area=ALTSTADT, last_topic="POI_COUNT")
+    context = AssistantContext(
+        active_area=ALTSTADT,
+        active_filters=SearchFilters(
+            categories=["gastronomy"], occupancy_statuses=["VACANT"]
+        ),
+        last_topic="POI_COUNT",
+    )
     response = await answer_assistant_query(object(), AssistantQueryRequest(query="Und wie viele in der Innenstadt?", context=context))  # type: ignore[arg-type]
     assert response.context.active_area == INNENSTADT
     assert response.presentation.value == 17
+    assert response.context.active_filters == context.active_filters
 
 
 def test_legacy_answer_message_is_discarded_as_topic() -> None:
@@ -196,7 +230,7 @@ async def test_explicit_area_map_command_ignores_inherited_filter_for_planning(
         AssistantToolName.RESOLVE_AREA,
         AssistantToolName.GET_AREA_DETAIL,
     ]
-    assert response.context.active_filters.occupancy_statuses == ["VACANT"]
+    assert response.context.active_filters == SearchFilters()
     assert response.context.last_topic == "AREA_DETAIL"
     assert [action.type for action in response.map_actions] == ["FIT_AREA"]
 
