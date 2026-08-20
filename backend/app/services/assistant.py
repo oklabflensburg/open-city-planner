@@ -121,6 +121,23 @@ async def answer_assistant_query(
         success = False
         warnings.append(error.message)
         failure_code = _assistant_error_code(error.code)
+    except ValidationError as error:
+        success = False
+        warnings.append(
+            "Die Sprachinterpretation hat ungültige Suchparameter erzeugt. "
+            "Bitte formulieren Sie die Anfrage etwas genauer."
+        )
+        failure_code = "ASSISTANT_INVALID_TOOL_ARGUMENTS"
+        failed_step = prepared.plan.steps[len(results)]
+        logger.warning(
+            "assistant_invalid_tool_arguments provider=%s tool=%s fields=%s",
+            getattr(provider, "name", None) if prepared.llm_used else None,
+            failed_step.tool,
+            sorted({
+                ".".join(str(part) for part in item["loc"])
+                for item in error.errors(include_url=False, include_input=False)
+            }),
+        )
 
     response = _build_response(request, prepared, results, warnings, failure_code)
     duration_ms = max(0, round((time.monotonic() - started) * 1000))
@@ -301,13 +318,17 @@ async def _plan_query(
     topic = _topic(normalized, request.context.last_topic)
     wants_map = _has(normalized, "zeige", "anzeigen", "karte")
     has_feature_constraint = _has_explicit_feature_constraint(normalized)
+    implicit_feature_search = bool(filters.categories) and not _has(
+        normalized,
+        "wie viele", "anzahl", "was", "warum", "welche", "erkläre", "erklaere",
+    )
     if wants_map and not has_feature_constraint and _is_area_map_query(normalized, area):
         step = AssistantStep(
             tool=AssistantToolName.GET_AREA_DETAIL,
             arguments={"slug": area.slug},
         )
         topic = "AREA_DETAIL"
-    elif wants_map and has_feature_constraint:
+    elif has_feature_constraint and (wants_map or implicit_feature_search):
         polygon_features = request.context.last_topic == "POLYGONS" or _has(
             normalized, "fläche", "flächen", "flaeche", "flaechen", "verkaufsflächen", "verkaufsflaechen"
         )
@@ -542,7 +563,7 @@ def _build_response(
         answer, presentation = _answer_from_results(prepared, results)
 
     citations, sources = _sources(prepared, results)
-    actions = _map_actions(request.query, prepared, results)
+    actions = [] if warnings else _map_actions(request.query, prepared, results)
     context = request.context.model_copy(deep=True)
     if prepared.areas and prepared.plan.response_mode != AssistantResponseMode.CLARIFICATION:
         context.active_area = prepared.areas[0]

@@ -32,11 +32,46 @@ SEARCH_CATALOG = SearchCatalog(
     business_structures=tuple(sorted(BUSINESS_STRUCTURES)),
     sources=tuple(sorted(DATA_SOURCES)),
     category_synonyms={
+        "warehouse": (
+            "warenhaus", "warenhäuser", "warenhaeuser", "kaufhaus", "kaufhäuser",
+            "kaufhaeuser",
+        ),
+        "fashion": (
+            "mode", "bekleidung", "modegeschäft", "modegeschaeft", "modegeschäfte",
+            "modegeschaefte", "modeladen", "modeläden", "modelaeden", "kleidung",
+            "bekleidungsgeschäft", "bekleidungsgeschaeft", "schuhgeschäft",
+            "schuhgeschaeft",
+        ),
+        "food": (
+            "nahrungsmittel", "lebensmittel", "supermarkt", "supermärkte",
+            "supermaerkte", "drogerie", "drogerien", "bäckerei", "baeckerei",
+        ),
+        "electronics": (
+            "elektro", "elektronik", "technikgeschäft", "technikgeschaeft",
+            "computerladen", "handyladen",
+        ),
+        "furniture": (
+            "einrichtungsbedarf", "einrichtung", "möbel", "moebel", "möbelhaus",
+            "moebelhaus",
+        ),
+        "garden": (
+            "garten", "freizeit", "gartencenter", "gartenmarkt", "baumarkt",
+            "sportgeschäft", "sportgeschaeft",
+        ),
+        "other": ("sonstige waren", "sonstige ware"),
         "gastronomy": (
             "gastronomie", "gastronomiefläche", "gastronomieflächen",
             "gastronomiebetrieb", "gastronomiebetriebe", "gaststätte",
             "gaststätten", "restaurant", "restaurants", "café", "cafés", "cafe",
             "cafes", "kneipe", "kneipen", "bar", "bars",
+        ),
+        "services": (
+            "einzelhandelsnahe dienstleister", "dienstleister", "dienstleistung",
+            "friseur", "friseure", "bank", "banken", "apotheke", "apotheken",
+        ),
+        "otherAreas": (
+            "sonstige fläche", "sonstige flächen", "sonstige flaeche",
+            "sonstige flaechen",
         ),
     },
     allowed_operations=(

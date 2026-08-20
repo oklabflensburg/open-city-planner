@@ -714,6 +714,79 @@ async def test_provider_feature_plan_without_prepared_area_builds_map_actions(
 
 
 @pytest.mark.asyncio
+async def test_invalid_provider_tool_arguments_return_safe_assistant_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def no_areas(_session: object, _normalized: str) -> list[SearchArea]:
+        return []
+
+    class Provider:
+        name = "groq"
+
+        def __init__(self) -> None:
+            self.usage: dict[str, int] = {}
+
+        async def plan(self, *_args: object) -> AssistantPlan:
+            return AssistantPlan.model_validate({
+                "intent": "SHOW_FEATURES",
+                "steps": [{
+                    "tool": "search_features",
+                    "arguments": {
+                        "area_slug": ALTSTADT.slug,
+                        "filters": {"categories": ["clothing"]},
+                        "limit": 200,
+                    },
+                }],
+            })
+
+    monkeypatch.setattr(assistant, "_mentioned_areas", no_areas)
+    response = await answer_assistant_query(
+        object(),  # type: ignore[arg-type]
+        AssistantQueryRequest(query="Zeige Modegeschäfte"),
+        provider=Provider(),
+    )
+
+    assert response.error_code == "ASSISTANT_INVALID_TOOL_ARGUMENTS"
+    assert response.telemetry.llm_used is True
+    assert response.telemetry.success is False
+    assert response.telemetry.tool_calls == 0
+    assert response.plan.steps[0].arguments["filters"] == {
+        "categories": ["clothing"]
+    }
+    assert response.map_actions == []
+    assert "ungültige Suchparameter" in response.answer
+
+
+@pytest.mark.asyncio
+async def test_fashion_shops_are_planned_without_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def execute(_session: object, tool: AssistantToolName, arguments: dict):
+        if tool == AssistantToolName.RESOLVE_AREA:
+            return ResolveAreaResult(status="resolved", area=INNENSTADT)
+        assert tool == AssistantToolName.SEARCH_FEATURES
+        assert arguments["filters"]["categories"] == ["fashion"]
+        return SearchFeaturesToolResult.model_validate({
+            "data": {
+                "feature_collection": {"type": "FeatureCollection", "features": []},
+                "bounds": [9.3, 54.7, 9.6, 54.9],
+            },
+        })
+
+    monkeypatch.setattr(assistant, "_mentioned_areas", _areas)
+    monkeypatch.setattr(assistant, "execute_assistant_tool", execute)
+    response = await answer_assistant_query(
+        object(),  # type: ignore[arg-type]
+        AssistantQueryRequest(query="Modeläden in der Innenstadt"),
+    )
+
+    assert response.telemetry.llm_used is False
+    assert response.plan.intent == "SHOW_FEATURES"
+    assert response.context.active_filters.categories == ["fashion"]
+    assert response.error_code is None
+
+
+@pytest.mark.asyncio
 async def test_unknown_object_without_provider_is_not_misreported_as_area_detail(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
