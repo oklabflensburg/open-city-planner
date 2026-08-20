@@ -6,6 +6,9 @@ export const projectConfig = {
     issuesUrl: 'https://github.com/oklabflensburg/open-city-planner/issues',
     contributingUrl: 'https://github.com/oklabflensburg/open-city-planner/blob/main/CONTRIBUTING.md'
   },
+  documentation: {
+    developerUrl: 'https://developer.stadtplaner.oklabflensburg.de'
+  },
   social: {
     mastodon: {
       label: 'Mastodon',
