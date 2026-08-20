@@ -6,6 +6,7 @@ export interface PageSeoOptions {
   title: string
   description: string
   path?: string
+  siteUrl?: string
   image?: string | null
   imageAlt?: string | null
   type?: 'website' | 'article'
@@ -18,7 +19,7 @@ export interface PageSeoOptions {
 export function usePageSeo(options: PageSeoOptions) {
   const config = useRuntimeConfig()
   const siteName = config.public.siteName
-  const siteUrl = config.public.siteUrl
+  const siteUrl = options.siteUrl || config.public.siteUrl
   const title = options.title === siteName ? siteName : `${options.title} – ${siteName}`
   const canonical = buildAbsoluteUrl(siteUrl, options.path || '/')
   const image = options.image === null
