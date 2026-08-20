@@ -13,6 +13,7 @@ from app.api.router import api_router
 from app.cache.redis import close_redis, initialize_redis, redis_health
 from app.core.config import get_settings
 from app.security.request_limits import RequestBodyLimitMiddleware
+from app.services.assistant_provider import close_assistant_provider
 
 settings = get_settings()
 logging.basicConfig(level=settings.log_level)
@@ -30,6 +31,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await close_assistant_provider()
         await close_redis()
 
 
@@ -39,6 +41,13 @@ OPENAPI_TAGS = [
         "description": "Öffentliche Gemeinde-, Stadtteil- und Quartiersdaten mit räumlichen Aggregationen.",
     },
     {"name": "Analytics", "description": "Kennzahlen, Benchmarks und Zeitreihen des Stadtplaners."},
+    {
+        "name": "Assistant",
+        "description": (
+            "Optionale KI-Sprachinterpretation über eine explizite read-only Tool-Allowlist. "
+            "Kein Datenbankzugriff, keine administrativen Daten und keine Schreiboperationen."
+        ),
+    },
     {
         "name": "Polygons",
         "description": "Öffentliche Verkaufsflächen sowie berechtigungsgeschützte Pflegeoperationen.",

@@ -2,6 +2,7 @@
   <section
     class="overview-shell relative min-h-0 min-w-0 overflow-hidden bg-[var(--c-surface)] text-[var(--c-text)] xl:grid xl:gap-4 xl:p-4"
     :data-social-preview-capture="socialPreview ? '' : undefined"
+    :data-assistant-open="isDesktop && searchStore.assistantOpen ? 'true' : 'false'"
   >
     <div class="hidden min-h-0 min-w-0 xl:block">
       <ClientOnly>
@@ -11,6 +12,9 @@
 
     <section class="absolute inset-0 min-h-0 min-w-0 p-2 xl:relative xl:inset-auto xl:p-0" aria-label="Stadtplaner-Karte">
       <LazyMapCanvas hydrate-on-idle />
+      <div class="absolute inset-x-3 top-3 z-30 xl:hidden">
+        <IntelligentSearch v-if="!isDesktop" compact @open="openAssistant" />
+      </div>
 
       <nav
         v-if="mapStore.activeMobilePanel === null"
@@ -58,6 +62,7 @@
           <button class="min-h-11 cursor-pointer rounded-xl bg-[#154d73] px-3 text-sm font-bold text-white hover:bg-[#0f3f61]" type="button" @click="closeMobilePanel">{{ mobileResultLabel }}</button>
         </div>
       </template>
+      <IntelligentSearch v-else-if="mapStore.activeMobilePanel === 'assistant'" embedded />
       <LazyRightSidebar v-else-if="mapStore.activeMobilePanel === 'analytics'" embedded />
       <div v-else-if="mapStore.activeMobilePanel === 'selection'" class="-m-3 min-h-full bg-white p-4">
         <MapSelectionContent embedded />
@@ -70,6 +75,7 @@
 import { BarChart3, ListFilter, Plus } from 'lucide-vue-next'
 
 const mapStore = useMapStore()
+const searchStore = useSearchStore()
 const route = useRoute()
 const socialPreview = computed(() => route.query['social-preview'] === '1')
 const filterStore = useFilterStore()
@@ -84,6 +90,7 @@ const activeFilterCount = computed(() => filterStore.activeFilterCount)
 const mobileResultCount = computed(() => usePolygonStore().polygons.length + (osmStore.data?.meta.business_count || 0))
 const mobileResultLabel = computed(() => mobileResultCount.value ? `${mobileResultCount.value} Ergebnisse anzeigen` : 'Keine Ergebnisse')
 const activePanelTitle = computed(() => {
+  if (mapStore.activeMobilePanel === 'assistant') return 'Stadtplaner durchsuchen'
   if (mapStore.activeMobilePanel === 'filter') return activeFilterCount.value ? `Filter · ${activeFilterCount.value} aktiv` : 'Filter'
   if (mapStore.activeMobilePanel === 'selection' && mapStore.selectedMapEntity?.type === 'polygon') return 'Ausgewählte Fläche'
   if (osmStore.selectedFeature) return 'OpenStreetMap-Objekt'
@@ -91,6 +98,7 @@ const activePanelTitle = computed(() => {
   return 'Analyse'
 })
 const activePanelCloseLabel = computed(() => {
+  if (mapStore.activeMobilePanel === 'assistant') return 'Assistant schließen'
   if (mapStore.activeMobilePanel === 'filter') return 'Filter schließen'
   if (mapStore.activeMobilePanel === 'selection') return 'Auswahl schließen'
   return 'Analyse schließen'
@@ -130,6 +138,12 @@ watch(() => mapStore.activeMobilePanel, (panel, previous) => {
   }
 })
 
+watch(() => searchStore.assistantOpen, (open) => {
+  if (!import.meta.client || isDesktop.value) return
+  if (open) mapStore.openMobilePanel('assistant')
+  else if (mapStore.activeMobilePanel === 'assistant') mapStore.closeMobilePanel()
+})
+
 watch(
   () => filterStore.filterKey,
   () => {
@@ -151,6 +165,7 @@ onBeforeUnmount(() => {
   panelHistoryActive = false
   mapStore.closeMobilePanels()
   mapSelection.clearSelection()
+  searchStore.dispose()
   desktopQuery?.removeEventListener('change', handleDesktopBreakpoint)
   window.removeEventListener('popstate', handlePopState)
 })
@@ -164,12 +179,18 @@ function openAnalysis() {
   void analyticsStore.load()
 }
 
+function openAssistant() {
+  searchStore.openAssistant()
+  mapStore.openMobilePanel('assistant')
+}
+
 function handleSheetOpen(open: boolean) {
   if (!open) closeMobilePanel()
 }
 
 function closeMobilePanel() {
   if (mapStore.activeMobilePanel === 'selection') mapSelection.clearSelection()
+  if (mapStore.activeMobilePanel === 'assistant') searchStore.closeAssistant()
   mapStore.closeMobilePanel()
 }
 
@@ -182,6 +203,7 @@ function handleDesktopBreakpoint(event: MediaQueryListEvent) {
   isDesktop.value = event.matches
   if (event.matches) void analyticsStore.load()
   if (event.matches) mapStore.closeMobilePanel()
+  else if (searchStore.assistantOpen) mapStore.openMobilePanel('assistant')
 }
 
 function analyticsIsVisible() {
@@ -237,9 +259,14 @@ function handlePopState() {
     min-height: 620px;
     grid-template-columns: 272px minmax(0, 1fr) 312px;
   }
+
+  .overview-shell[data-assistant-open='true'] {
+    grid-template-columns: minmax(380px, 400px) minmax(0, 1fr) 312px;
+  }
 }
 
 @media (min-width: 1440px) {
   .overview-shell { grid-template-columns: 288px minmax(600px, 1fr) 328px; }
+  .overview-shell[data-assistant-open='true'] { grid-template-columns: 420px minmax(600px, 1fr) 328px; }
 }
 </style>

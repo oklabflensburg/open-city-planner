@@ -1,6 +1,7 @@
 <template>
   <div class="relative h-full min-h-0 min-w-0 overflow-hidden rounded-[var(--radius-panel)] border border-white bg-[var(--c-surface-muted)] shadow-[var(--shadow-card)] lg:min-h-[420px]">
     <span v-if="socialPreview" class="sr-only" :data-social-preview-ready="gisPreviewReady ? 'true' : 'false'">Kartenvorschau bereit</span>
+    <span class="sr-only" :data-search-layer-count="mapStore.searchAction?.data?.features.length || 0">Suchergebnisse auf der Karte</span>
     <div ref="mapEl" class="absolute inset-0 h-full w-full" role="region" aria-label="Interaktive Stadtkarte von Flensburg" />
     <div v-if="!mapStore.mapLoaded && !mapError" class="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-slate-100/90" role="status" aria-live="polite">
       <div class="flex items-center gap-3 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
@@ -33,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import type { FeatureCollection } from 'geojson'
+import type { FeatureCollection, Geometry } from 'geojson'
 import type { FillLayerSpecification, GeoJSONSource, Map, MapMouseEvent } from 'maplibre-gl'
 import { LoaderCircle, RefreshCw } from 'lucide-vue-next'
 import type { OsmViewportResult } from '~/types/osm'
@@ -44,10 +45,12 @@ import { shouldExcludeOsmFeature } from '~/utils/osmExclusions'
 import { pickMapEntityAtPoint, type InteractivePolygonFeature } from '~/utils/mapFeaturePicking'
 import { ensureStadtplanerLayerOrder, getStadtplanerLayerOrder, hasValidStadtplanerLayerOrder } from '~/utils/mapLayerOrder'
 import { setMapCursor } from '~/utils/mapCursor'
+import { getMapViewportPadding } from '~/utils/mapViewportPadding'
 import { loadMapStyle } from '~/config/mapStyles'
 
 const config = useRuntimeConfig()
 const mapStore = useMapStore()
+const searchStore = useSearchStore()
 const polygonStore = usePolygonStore()
 const filterStore = useFilterStore()
 const osmStore = useOsmViewportStore()
@@ -65,6 +68,7 @@ let disposed = false
 let osmViewportTimer: ReturnType<typeof setTimeout> | undefined
 let forceNextOsmRefresh = false
 let hoverFrame: number | undefined
+let layoutFrame: number | undefined
 let mapDragging = false
 let pendingHoverPoint: { x: number, y: number } | null = null
 let hoveredPolygonId: string | null = null
@@ -183,6 +187,7 @@ onBeforeUnmount(() => {
   clearTimeout(osmViewportTimer)
   clearTimeout(polygonFilterTimer)
   if (hoverFrame !== undefined) cancelAnimationFrame(hoverFrame)
+  if (layoutFrame !== undefined) cancelAnimationFrame(layoutFrame)
   osmStore.dispose()
   mapStore.mapLoaded = false
   window.removeEventListener('resize', resizeMap)
@@ -222,6 +227,11 @@ watch(() => mapStore.thematicStyle, () => {
 })
 watch(() => analysisAreasStore.visibility, setAnalysisAreaVisibility, { deep: true })
 watch(() => mapStore.polygonsVisible, setPolygonVisibility)
+watch(() => mapStore.searchActionGeneration, scheduleSearchMapAction)
+watch(
+  () => [searchStore.assistantOpen, mapStore.activeMobilePanel],
+  scheduleMapLayoutResize
+)
 watch(
   () => [osmStore.showPois, osmStore.showAreas, osmStore.showBuildings, osmStore.activeCategories.join(',')],
   () => scheduleOsmViewportRefresh(0)
@@ -427,11 +437,70 @@ function ensureMapInfrastructure(instance: Map) {
   ensureAnalysisAreaInfrastructure(instance)
   ensureOsmInfrastructure(instance)
   ensurePolygonInfrastructure(instance)
+  ensureSearchInfrastructure(instance)
   ensureSelectionInfrastructure(instance)
   ensureStadtplanerLayerOrder(instance)
   if (import.meta.dev && !hasValidStadtplanerLayerOrder(instance)) {
     console.warn('Stadtplaner overlay layer order is invalid', getStadtplanerLayerOrder(instance))
   }
+}
+
+function ensureSearchInfrastructure(instance: Map) {
+  const empty: FeatureCollection = { type: 'FeatureCollection', features: [] }
+  if (!instance.getSource('search-results')) {
+    instance.addSource('search-results', { type: 'geojson', data: mapStore.searchAction?.data || empty })
+  }
+  if (!instance.getLayer('search-results-fill')) instance.addLayer({
+    id: 'search-results-fill', type: 'fill', source: 'search-results',
+    filter: ['==', ['geometry-type'], 'Polygon'],
+    paint: { 'fill-color': '#0b8190', 'fill-opacity': 0.28 }
+  })
+  if (!instance.getLayer('search-results-line')) instance.addLayer({
+    id: 'search-results-line', type: 'line', source: 'search-results',
+    filter: ['==', ['geometry-type'], 'Polygon'],
+    paint: { 'line-color': '#075985', 'line-width': 3, 'line-opacity': 0.9 }
+  })
+  if (!instance.getLayer('search-results-point')) instance.addLayer({
+    id: 'search-results-point', type: 'circle', source: 'search-results',
+    filter: ['==', ['geometry-type'], 'Point'],
+    paint: { 'circle-color': '#0b8190', 'circle-radius': 7, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 }
+  })
+  applySearchMapAction()
+}
+
+function applySearchMapAction() {
+  const instance = map.value
+  const action = mapStore.searchAction
+  if (!instance || !action) return
+  const source = instance.getSource('search-results') as GeoJSONSource | undefined
+  if (action.type === 'REPLACE_SEARCH_LAYER' || action.type === 'SHOW_ANALYSIS_AREAS') {
+    source?.setData(action.data || { type: 'FeatureCollection', features: [] })
+  } else if (action.type === 'FIT_AREA') {
+    source?.setData({ type: 'FeatureCollection', features: [] })
+  }
+  if (action.type === 'HIGHLIGHT_AREAS' && instance.getLayer('analysis-areas-assistant-highlight')) {
+    instance.setFilter('analysis-areas-assistant-highlight', ['in', ['get', 'slug'], ['literal', action.areaSlugs]])
+  }
+  const areaFeatures = action.areaSlugs.length
+    ? analysisAreasStore.featureCollection.features.filter(feature => action.areaSlugs.includes(String(feature.properties?.slug)))
+    : []
+  const bounds = action.bounds || (action.fitBounds && (action.data || areaFeatures.length)
+    ? geometryBounds((action.data?.features || areaFeatures).map(feature => geometryCoordinateTree(feature.geometry)))
+    : null)
+  if (action.fitBounds && bounds) {
+    instance.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], {
+      padding: currentViewportPadding(),
+      maxZoom: 16,
+      duration: 350
+    })
+  }
+}
+
+function geometryCoordinateTree(geometry: Geometry | null): unknown {
+  if (!geometry) return []
+  return geometry.type === 'GeometryCollection'
+    ? geometry.geometries.map(geometryCoordinateTree)
+    : geometry.coordinates
 }
 
 function ensureAnalysisAreaInfrastructure(instance: Map) {
@@ -457,6 +526,13 @@ function ensureAnalysisAreaInfrastructure(instance: Map) {
       paint: { 'text-color': layer.color, 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 }
     })
   }
+  if (!instance.getLayer('analysis-areas-assistant-highlight')) instance.addLayer({
+    id: 'analysis-areas-assistant-highlight',
+    type: 'line',
+    source: 'analysis-areas',
+    filter: ['in', ['get', 'slug'], ['literal', []]],
+    paint: { 'line-color': '#e11d48', 'line-opacity': 0.95, 'line-width': 4 }
+  })
   setAnalysisAreaVisibility()
 }
 
@@ -623,7 +699,7 @@ async function selectPolygon(id: string, fitSelection = false) {
   if (mapStore.selectedMapEntity?.type !== 'polygon' || mapStore.selectedMapEntity.id !== id) return
   const bbox = polygonStore.selectedMetrics?.bbox
   if (fitSelection && bbox && map.value) map.value.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], {
-    padding: window.matchMedia('(max-width: 1279px)').matches ? { top: 64, right: 40, bottom: 300, left: 40 } : 72,
+    padding: currentViewportPadding(),
     maxZoom: 18,
     duration: 0
   })
@@ -637,7 +713,7 @@ async function selectRequestedArea(instance: Map) {
   if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openMobilePanel('selection')
   const feature = analysisAreasStore.featureCollection.features.find(candidate => candidate.properties.id === area.id)
   const bounds = feature ? geometryBounds(feature.geometry.coordinates) : null
-  if (bounds) instance.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 72, maxZoom: 16, duration: 0 })
+  if (bounds) instance.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: currentViewportPadding(), maxZoom: 16, duration: 0 })
   await request
 }
 
@@ -785,7 +861,39 @@ function setPolygonVisibility(visible: boolean) {
 }
 
 function resetView() {
-  map.value?.easeTo({ center: initialCenter, zoom: initialZoom, bearing: 0, pitch: 0 })
+  map.value?.easeTo({ center: initialCenter, zoom: initialZoom, bearing: 0, pitch: 0, padding: currentViewportPadding() })
+}
+
+function currentViewportPadding() {
+  return getMapViewportPadding({
+    viewportWidth: window.innerWidth,
+    assistantOpen: searchStore.assistantOpen,
+    mobilePanelOpen: mapStore.activeMobilePanel !== null,
+    analysisPanelVisible: window.innerWidth >= 1280
+  })
+}
+
+function scheduleMapLayoutResize() {
+  if (!import.meta.client) return
+  nextTick(() => {
+    if (layoutFrame !== undefined) cancelAnimationFrame(layoutFrame)
+    layoutFrame = requestAnimationFrame(() => {
+      layoutFrame = undefined
+      map.value?.resize()
+    })
+  })
+}
+
+function scheduleSearchMapAction() {
+  if (!import.meta.client) return
+  nextTick(() => {
+    if (layoutFrame !== undefined) cancelAnimationFrame(layoutFrame)
+    layoutFrame = requestAnimationFrame(() => {
+      layoutFrame = undefined
+      map.value?.resize()
+      applySearchMapAction()
+    })
+  })
 }
 
 function resizeMap() {

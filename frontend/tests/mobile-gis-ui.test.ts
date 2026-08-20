@@ -50,13 +50,14 @@ describe('mobile GIS interface', () => {
   it('uses one mutually exclusive mobile panel state', () => {
     const store = appFile('stores/map.ts')
     const shell = appFile('components/layout/AppShell.vue')
-    expect(store).toContain("export type MobilePanel = 'filter' | 'analytics' | 'selection' | null")
+    expect(store).toContain("export type MobilePanel = 'assistant' | 'filter' | 'analytics' | 'selection' | null")
     expect(store).toContain('activeMobilePanel: null as MobilePanel')
     expect(store).not.toContain('filterDrawerOpen')
     expect(store).not.toContain('analysisDrawerOpen')
     expect(store).not.toContain('polygonPreviewOpen')
     expect(shell).toContain("mapStore.openMobilePanel('filter')")
     expect(shell).toContain("mapStore.openMobilePanel('analytics')")
+    expect(shell).toContain("mapStore.openMobilePanel('assistant')")
   })
 
   it('keeps preview navigation slug-based and OSM data on demand', () => {

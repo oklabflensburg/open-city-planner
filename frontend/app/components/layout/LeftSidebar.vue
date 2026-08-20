@@ -1,9 +1,10 @@
 <template>
   <aside
     class="max-w-full min-w-0"
-    :class="embedded ? 'bg-transparent' : 'civic-card lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain'"
+    :class="embedded ? 'bg-transparent' : 'flex h-full min-h-0 flex-col gap-3 overflow-hidden'"
   >
-    <section>
+    <IntelligentSearch v-if="!embedded" class="shrink-0" />
+    <section :class="embedded ? '' : 'civic-card min-h-0 flex-1 overflow-y-auto overscroll-contain'">
       <header
         data-filter-summary
         :class="embedded

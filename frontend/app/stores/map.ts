@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia'
 import type { MapTheme } from '~/utils/mapThemes'
 import type { SelectedMapEntity } from '~/types/mapSelection'
+import type { FeatureCollection } from 'geojson'
+import type { AssistantMapActionType, SearchMapActionType } from '~/types/search'
 
 export type DrawingMode = 'select' | 'polygon' | 'edit' | 'delete'
-export type MobilePanel = 'filter' | 'analytics' | 'selection' | null
+export type MobilePanel = 'assistant' | 'filter' | 'analytics' | 'selection' | null
 
 export const useMapStore = defineStore('map', {
   state: () => ({
@@ -19,7 +21,15 @@ export const useMapStore = defineStore('map', {
     categoryHighlight: null as string | null,
     thematicStyle: 'category' as MapTheme,
     gisDataGeneration: 0,
-    gisDataDirty: false
+    gisDataDirty: false,
+    searchActionGeneration: 0,
+    searchAction: null as {
+      type: SearchMapActionType | AssistantMapActionType
+      fitBounds: boolean
+      bounds: [number, number, number, number] | null
+      data: FeatureCollection | null
+      areaSlugs: string[]
+    } | null
   }),
   actions: {
     setView(center: [number, number], zoom: number, bearing: number, pitch: number) {
@@ -55,6 +65,14 @@ export const useMapStore = defineStore('map', {
     },
     markGisDataFresh() {
       this.gisDataDirty = false
+    },
+    applySearchAction(
+      action: { type: SearchMapActionType | AssistantMapActionType, fit_bounds: boolean, bounds: [number, number, number, number] | null, area_slug?: string | null, area_slugs?: string[] },
+      data: FeatureCollection | null
+    ) {
+      const areaSlugs = action.area_slugs?.length ? action.area_slugs : action.area_slug ? [action.area_slug] : []
+      this.searchAction = { type: action.type, fitBounds: action.fit_bounds, bounds: action.bounds, data, areaSlugs }
+      this.searchActionGeneration += 1
     }
   }
 })

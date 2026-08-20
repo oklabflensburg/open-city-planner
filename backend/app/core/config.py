@@ -3,7 +3,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from cryptography.fernet import Fernet
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
@@ -107,6 +107,16 @@ class Settings(BaseSettings):
     public_query_timeout_ms: int = Field(default=8_000, ge=1_000, le=30_000)
     public_query_rate_limit_attempts: int = Field(default=120, ge=10, le=10_000)
     public_query_rate_limit_window_seconds: int = Field(default=60, ge=10, le=3_600)
+    ai_search_enabled: bool = False
+    ai_search_provider: str = "groq"
+    ai_search_model: str | None = None
+    openai_api_key: SecretStr | None = None
+    groq_api_key: SecretStr | None = None
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    groq_timeout_seconds: float = Field(default=8.0, ge=1.0, le=30.0)
+    groq_max_retries: int = Field(default=1, ge=0, le=2)
+    groq_temperature: float = Field(default=0.1, gt=0, le=2)
+    assistant_query_logging: bool = False
     avatar_output_size: int = 512
     avatar_webp_quality: int = 85
     media_base_url: str = ""
@@ -228,6 +238,18 @@ class Settings(BaseSettings):
             raise RuntimeError("REFRESH_REQUIRE_ORIGIN must be true in production")
         if self.auth_rate_limit_backend not in {"memory", "redis"}:
             raise RuntimeError("AUTH_RATE_LIMIT_BACKEND must be memory or redis")
+        if self.ai_search_provider not in {"groq", "openai"}:
+            raise RuntimeError("AI_SEARCH_PROVIDER must be groq or openai")
+        groq_origin = urlsplit(self.groq_base_url)
+        if (
+            groq_origin.scheme != "https"
+            or not groq_origin.hostname
+            or groq_origin.username
+            or groq_origin.password
+            or groq_origin.query
+            or groq_origin.fragment
+        ):
+            raise RuntimeError("GROQ_BASE_URL must be an HTTPS URL without credentials")
         if self.production and self.auth_rate_limit_backend != "redis":
             raise RuntimeError("AUTH_RATE_LIMIT_BACKEND must be redis in production")
         if self.production and not self.redis_enabled:
