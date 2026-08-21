@@ -3,6 +3,5 @@ all:
     stadtplaner:
       hosts:
         stadtplaner-prod:
-          ansible_host: 89.58.56.254
-          ansible_user: awendelk
+          ansible_host: stadtplaner.oklabflensburg.de
           ansible_become: true
