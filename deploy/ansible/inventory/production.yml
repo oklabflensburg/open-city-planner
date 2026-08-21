@@ -1,0 +1,8 @@
+all:
+  children:
+    stadtplaner:
+      hosts:
+        stadtplaner-prod:
+          ansible_host: 89.58.56.254
+          ansible_user: awendelk
+          ansible_become: true
