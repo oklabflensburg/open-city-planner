@@ -3,6 +3,10 @@
   hosts: stadtplaner
   become: true
   serial: 1
+  roles:
+    - role: stadtplaner_dns_preflight
+      stadtplaner_dns_additional_hosts:
+        - "{{ stadtplaner_developer_host }}"
   tasks:
     - name: Require explicit certificate opt-in and contact email
       ansible.builtin.assert:

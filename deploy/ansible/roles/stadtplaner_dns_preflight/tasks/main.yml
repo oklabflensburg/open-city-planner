@@ -1,0 +1,45 @@
+---
+- name: Define hostnames required for this deployment
+  ansible.builtin.set_fact:
+    stadtplaner_dns_hosts_to_check: >-
+      {{ ([stadtplaner_public_host, stadtplaner_api_host]
+          + ([stadtplaner_developer_host] if stadtplaner_enable_developer_host else [])
+          + stadtplaner_dns_additional_hosts) | unique }}
+  changed_when: false
+  when: stadtplaner_require_dns_preflight
+
+- name: Require explicit expected production DNS addresses
+  ansible.builtin.assert:
+    that:
+      - stadtplaner_expected_dns_addresses | length > 0
+      - stadtplaner_expected_dns_addresses | reject('equalto', '') | list | length == stadtplaner_expected_dns_addresses | length
+    fail_msg: >-
+      DNS preflight is enabled, but stadtplaner_expected_dns_addresses is empty.
+      Configure the public IPv4 and/or IPv6 addresses of the target server.
+  when: stadtplaner_require_dns_preflight
+
+- name: Resolve required production hostnames from the controller
+  ansible.builtin.command:
+    argv: [getent, ahosts, "{{ item }}"]
+  loop: "{{ stadtplaner_dns_hosts_to_check }}"
+  register: stadtplaner_dns_resolution
+  changed_when: false
+  failed_when: false
+  become: false
+  delegate_to: localhost
+  when: stadtplaner_require_dns_preflight
+
+- name: Require every hostname to resolve to the production server
+  ansible.builtin.assert:
+    that:
+      - item.rc == 0
+      - (item.stdout | regex_findall('(?m)^(\\S+)') | intersect(stadtplaner_expected_dns_addresses)) | length > 0
+    fail_msg: >-
+      DNS preflight failed for {{ item.item }}. Resolved addresses:
+      {{ item.stdout | regex_findall('(?m)^(\\S+)') | unique | join(', ') | default('none', true) }}.
+      Expected at least one of: {{ stadtplaner_expected_dns_addresses | join(', ') }}.
+      Correct DNS and wait for propagation before running the deployment again.
+  loop: "{{ stadtplaner_dns_resolution.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: stadtplaner_require_dns_preflight

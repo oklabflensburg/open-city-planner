@@ -1,31 +1,4 @@
 ---
-- name: Validate supported runtime versions
-  block:
-    - name: Validate Python 3.12+
-      ansible.builtin.command:
-        argv: [python3, -c, "import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)"]
-      changed_when: false
-
-    - name: Read Node version
-      ansible.builtin.command: node --version
-      register: stadtplaner_node_version
-      changed_when: false
-
-    - name: Require Node 22
-      ansible.builtin.assert:
-        that: stadtplaner_node_version.stdout is match('^v22\\.')
-        fail_msg: "Node 22 is required by the current CI/deployment baseline; found {{ stadtplaner_node_version.stdout }}"
-
-    - name: Read pnpm version through Corepack
-      ansible.builtin.command: corepack pnpm --version
-      register: stadtplaner_pnpm_version
-      changed_when: false
-
-    - name: Require pnpm 11
-      ansible.builtin.assert:
-        that: stadtplaner_pnpm_version.stdout is match('^11\\.')
-        fail_msg: "pnpm 11 is required; found {{ stadtplaner_pnpm_version.stdout }}"
-
 - name: Ensure service and configuration directories exist
   ansible.builtin.file:
     path: "{{ item.path }}"
@@ -107,6 +80,20 @@
     state: link
     force: true
 
+- name: Verify the service user can read persistent environments
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - >-
+        import os, sys;
+        paths = sys.argv[1:];
+        raise SystemExit(0 if all(os.path.isfile(path) and os.access(path, os.R_OK) for path in paths) else 1)
+      - "{{ stadtplaner_repo_path }}/backend/.env"
+      - "{{ stadtplaner_repo_path }}/frontend/.env"
+  become_user: "{{ stadtplaner_service_user }}"
+  changed_when: false
+
 - name: Ensure backend writable data directory exists
   ansible.builtin.file:
     path: "{{ stadtplaner_repo_path }}/backend/data"
@@ -170,21 +157,140 @@
 
 - name: Require configured backup before migrations
   ansible.builtin.assert:
-    that: stadtplaner_pre_migration_backup_command | length > 0
+    that:
+      - stadtplaner_database_backup_mode in ['managed', 'custom']
+      - stadtplaner_database_backup_mode != 'custom' or stadtplaner_pre_migration_backup_command | length > 0
     fail_msg: >-
-      Migrations are enabled but no pre-migration backup command is configured.
-      Set stadtplaner_pre_migration_backup_command or explicitly set stadtplaner_run_migrations=false.
+      Migrations require a verified backup. Use stadtplaner_database_backup_mode=managed,
+      or select custom and configure stadtplaner_pre_migration_backup_command.
   when:
     - stadtplaner_run_migrations
     - stadtplaner_require_pre_migration_backup | default(true)
 
-- name: Create pre-migration database backup
+- name: Ensure managed database backup directory exists
+  ansible.builtin.file:
+    path: "{{ stadtplaner_database_backup_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0750'
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Define managed pre-migration backup path
+  ansible.builtin.set_fact:
+    stadtplaner_database_backup_path: >-
+      {{ stadtplaner_database_backup_dir }}/stadtplaner-{{ ansible_date_time.epoch }}.dump
+    stadtplaner_database_backup_partial_path: >-
+      {{ stadtplaner_database_backup_dir }}/.stadtplaner-{{ ansible_date_time.epoch }}.dump.partial
+  changed_when: false
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Create managed pre-migration database backup
+  ansible.builtin.command:
+    argv:
+      - pg_dump
+      - --format=custom
+      - --lock-wait-timeout=30s
+      - "--file={{ stadtplaner_database_backup_partial_path }}"
+      - "--dbname={{ stadtplaner_database_name }}"
+  become_user: postgres
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+  changed_when: true
+
+- name: Restrict partial database backup permissions
+  ansible.builtin.file:
+    path: "{{ stadtplaner_database_backup_partial_path }}"
+    owner: postgres
+    group: postgres
+    mode: '0640'
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Inspect managed database backup
+  ansible.builtin.stat:
+    path: "{{ stadtplaner_database_backup_partial_path }}"
+  register: stadtplaner_database_backup_stat
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Require a non-empty managed database backup
+  ansible.builtin.assert:
+    that:
+      - stadtplaner_database_backup_stat.stat.exists
+      - stadtplaner_database_backup_stat.stat.isreg
+      - stadtplaner_database_backup_stat.stat.size | int > 0
+    fail_msg: "Managed database backup {{ stadtplaner_database_backup_partial_path }} is missing or empty."
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Validate managed database backup archive
+  ansible.builtin.command:
+    argv: [pg_restore, --list, "{{ stadtplaner_database_backup_partial_path }}"]
+  become_user: postgres
+  changed_when: false
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Publish validated managed database backup atomically
+  ansible.builtin.command:
+    argv:
+      - mv
+      - --
+      - "{{ stadtplaner_database_backup_partial_path }}"
+      - "{{ stadtplaner_database_backup_path }}"
+  become_user: postgres
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+  changed_when: true
+
+- name: Verify published managed database backup
+  ansible.builtin.stat:
+    path: "{{ stadtplaner_database_backup_path }}"
+  register: stadtplaner_published_database_backup_stat
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Require published managed database backup before migration
+  ansible.builtin.assert:
+    that:
+      - stadtplaner_published_database_backup_stat.stat.exists
+      - stadtplaner_published_database_backup_stat.stat.isreg
+      - stadtplaner_published_database_backup_stat.stat.size | int > 0
+    fail_msg: "Validated database backup was not published to {{ stadtplaner_database_backup_path }}."
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Create custom pre-migration database backup
   ansible.builtin.shell: "{{ stadtplaner_pre_migration_backup_command }}"
   args:
     executable: /bin/bash
   when:
     - stadtplaner_run_migrations
-    - stadtplaner_pre_migration_backup_command | length > 0
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'custom'
   changed_when: true
   no_log: true
 
@@ -357,6 +463,41 @@
     state: link
   when: stadtplaner_manage_nginx
   notify: Nginx configuration changed
+
+- name: Stop managed primary services before legacy handover
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    daemon_reload: true
+  loop:
+    - stadtplaner-api.service
+    - stadtplaner-frontend.service
+  when: stadtplaner_disable_legacy_primary_services
+
+- name: Discover installed services before legacy handover
+  ansible.builtin.service_facts:
+  when: stadtplaner_disable_legacy_primary_services
+
+- name: Stop and disable legacy primary services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop: "{{ stadtplaner_legacy_primary_services }}"
+  when:
+    - stadtplaner_disable_legacy_primary_services
+    - item in ansible_facts.services
+
+- name: Require application ports to be free after legacy handover
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ item }}"
+    state: stopped
+    timeout: 15
+  loop:
+    - "{{ stadtplaner_backend_port }}"
+    - "{{ stadtplaner_frontend_port }}"
+  when: stadtplaner_disable_legacy_primary_services
 
 - name: Enable and start primary application services
   ansible.builtin.systemd_service:

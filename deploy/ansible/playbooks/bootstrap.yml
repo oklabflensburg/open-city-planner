@@ -3,28 +3,15 @@
   hosts: stadtplaner
   become: true
   serial: 1
+  roles:
+    - role: stadtplaner_dns_preflight
+    - role: stadtplaner_runtime
   tasks:
-    - name: Verify Python 3.12+
-      ansible.builtin.command:
-        argv: [python3, -c, "import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)"]
-      changed_when: false
-
-    - name: Verify Node 22
-      ansible.builtin.command: node --version
-      register: node_version
-      changed_when: false
-
-    - name: Require Node 22
-      ansible.builtin.assert:
-        that: node_version.stdout is match('^v22\\.')
-        fail_msg: "Install Node 22 using the shared server's package policy before deploying Stadtplaner."
-
     - name: Verify required executables
       ansible.builtin.command: "sh -lc 'command -v {{ item }}'"
       changed_when: false
       loop:
         - git
-        - corepack
         - nginx
         - certbot
         - psql

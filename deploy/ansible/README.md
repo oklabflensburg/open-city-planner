@@ -1,6 +1,6 @@
 # Ansible Deployment
 
-Dieses Verzeichnis automatisiert den produktiven Betrieb des Open City Planner auf dem bestehenden Shared Host. Es ersetzt bewusst nicht die globale Serververwaltung aller OK-Lab-Projekte. Nginx, PostgreSQL, Redis und Node können weitere Anwendungen bedienen; die Playbooks verändern deshalb nur Stadtplaner-spezifische Dateien und prüfen globale Voraussetzungen, statt `/etc/nginx/nginx.conf`, PostgreSQL oder Redis blind neu zu konfigurieren.
+Dieses Verzeichnis automatisiert den produktiven Betrieb des Open City Planner auf dem bestehenden Shared Host. Es ersetzt bewusst nicht die globale Serververwaltung aller OK-Lab-Projekte. Nginx, PostgreSQL, Redis und Node können weitere Anwendungen bedienen; die Playbooks verändern deshalb überwiegend Stadtplaner-spezifische Dateien. Die ausdrücklich verwaltete NodeSource-22-Paketquelle und die gepinnten Corepack-/pnpm-Versionen bilden die gemeinsame JavaScript-Runtime-Ausnahme. `/etc/nginx/nginx.conf`, PostgreSQL und Redis werden nicht blind neu konfiguriert.
 
 ## Warum Ansible?
 
@@ -46,15 +46,39 @@ ansible stadtplaner -b -m command -a 'id'
 
 Alternativ kann der Login in `~/.ssh/config` oder einem nicht committeten lokalen Inventory gesetzt werden. SSH Host Keys bleiben absichtlich aktiviert.
 
+Temporäre Moduldateien legt der Controller unter `/tmp` auf dem Zielhost ab. Ansible erzeugt dort für jeden Task ein zufälliges, nur für den SSH-Benutzer zugängliches Unterverzeichnis. Damit hängt ein Deploy nicht von einem möglicherweise veralteten oder falsch berechtigten `~/.ansible/tmp` eines Operators ab.
+
+## DNS-Preflight
+
+Bootstrap, normaler Deploy und Zertifikatsausstellung beginnen mit einem DNS-Preflight. Er löst die benötigten Hostnamen auf dem Controller auf und verlangt mindestens eine Übereinstimmung mit `stadtplaner_expected_dns_addresses`. Standardmäßig werden öffentliche Website und API geprüft; die Entwickler-Subdomain kommt bei ihrer Aktivierung und immer vor ihrem Zertifikats-Playbook hinzu. Falsche oder noch nicht propagierte Einträge stoppen den Lauf vor jeder Installationsänderung.
+
+Der Preflight kann auch separat ausgeführt werden:
+
+```bash
+ANSIBLE_REMOTE_USER=awendelk ansible-playbook playbooks/preflight.yml \
+  -e @~/stadtplaner-vault.yml \
+  --ask-vault-pass
+```
+
+Für ein anderes Zielsystem müssen im externen Vault dessen öffentliche Adressen stehen:
+
+```yaml
+stadtplaner_expected_dns_addresses:
+  - 203.0.113.10
+  - 2001:db8::10
+```
+
+`stadtplaner_require_dns_preflight=false` ist nur für bewusst offline vorbereitete Testsysteme vorgesehen.
+
 ## Einmalige Voraussetzungen
 
-`bootstrap.yml` prüft bewusst nur den vorhandenen Shared Host und legt Stadtplaner-Verzeichnisse an. Es fügt keine fremden APT-Repositories hinzu und ersetzt keine globale Nginx-/PostgreSQL-/Redis-Konfiguration.
+`bootstrap.yml` richtet die vorhandene, über `/usr/share/keyrings/nodesource.gpg` verifizierte NodeSource-Paketquelle auf Node 22 aus, aktualisiert Node innerhalb dieser Hauptversion und installiert die für das Projekt gepinnten Corepack-/pnpm-Versionen. Außerdem prüft es den Shared Host und legt Stadtplaner-Verzeichnisse an. Die globale Nginx-/PostgreSQL-/Redis-Konfiguration bleibt unverändert.
 
 ```bash
 ansible-playbook playbooks/bootstrap.yml
 ```
 
-Erwartet werden unter anderem Python 3.12+, Node 22, Corepack, Nginx, Certbot, PostgreSQL-Client, Redis-CLI, `osm2pgsql` und `osmium`.
+Erwartet werden unter anderem Python 3.12+, der vorhandene NodeSource-Schlüsselbund, Nginx, Certbot, PostgreSQL-Client, Redis-CLI, `osm2pgsql` und `osmium`. Ansible verwaltet Node.js 22.22.2 oder neuer, Corepack 0.35.0 und pnpm 11.22.0. Mit `stadtplaner_manage_node_runtime=false` kann die globale Runtime-Verwaltung bewusst abgeschaltet werden; die Versionsprüfung bleibt aktiv.
 
 ## Secrets und Environment
 
@@ -74,20 +98,28 @@ ansible-playbook playbooks/deploy.yml \
   -e stadtplaner_deploy_ref=<commit-sha>
 ```
 
-`vault.example.yml` enthält nur Platzhalter. Reale Secrets niemals committen.
+`vault.example.yml` ist die vollständige Eingabereferenz: Es führt alle Schlüssel aus `backend/.env.example`, `frontend/.env.example` und `deploy/osm-sync.env.example` sowie sämtliche überschreibbaren Deployment- und Runtime-Variablen auf. Pflichtwerte sind deutlich mit `REPLACE_…` markiert; optionale Integrationen bleiben standardmäßig deaktiviert. Reale Secrets niemals committen.
 
 ## Datenbankbackup vor Migrationen
 
-Das Playbook verlangt standardmäßig einen expliziten Backup-Befehl, bevor `alembic upgrade head` ausgeführt wird. Das Repository kennt absichtlich keine Produktions-Datenbank-Credentials und erfindet daher keinen `pg_dump`-Aufruf.
+Vor `alembic upgrade head` erstellt Ansible standardmäßig einen Custom-Format-Dump unter `/var/backups/stadtplaner`. `pg_dump` läuft als lokaler PostgreSQL-Systembenutzer `postgres` über Peer-Authentifizierung und liest die Datenbank nur; Datenbankzugangsdaten werden weder ausgelesen noch auf der Kommandozeile offengelegt. Ein 30-sekündiges Lock-Limit verhindert unbegrenztes Warten auf konkurrierende DDL. Der Lauf schreibt zunächst eine restriktiv berechtigte `.partial`-Datei, verlangt einen nicht leeren Dump, validiert ihn mit `pg_restore --list` und benennt ihn erst danach atomar zum endgültigen Archiv um. Nur ein erfolgreich veröffentlichtes Archiv gibt die Migration frei.
 
-Beispiel als verschlüsselte Variable:
+Die Standardkonfiguration lautet:
 
 ```yaml
-stadtplaner_pre_migration_backup_command: >-
-  /usr/local/sbin/stadtplaner-backup-before-deploy
+stadtplaner_database_backup_mode: managed
+stadtplaner_database_name: open_city_map
+stadtplaner_database_backup_dir: /var/backups/stadtplaner
 ```
 
-Der angegebene Befehl muss selbst mit Fehlercode != 0 abbrechen, wenn kein verifiziertes Backup erzeugt werden konnte. Für einen Deploy ohne Schemaänderungen kann bewusst gesetzt werden:
+Für eine externe Backup-Lösung kann stattdessen bewusst `custom` gewählt werden. Der Befehl muss mit einem Fehlercode ungleich null abbrechen, wenn kein verifiziertes Backup erzeugt wurde:
+
+```yaml
+stadtplaner_database_backup_mode: custom
+stadtplaner_pre_migration_backup_command: /usr/local/sbin/stadtplaner-backup-before-deploy
+```
+
+Für einen Deploy ohne Schemaänderungen kann bewusst gesetzt werden:
 
 ```bash
 -e stadtplaner_run_migrations=false
@@ -111,7 +143,7 @@ ANSIBLE_REMOTE_USER=awendelk ansible-playbook playbooks/deploy.yml \
 
 Der Ablauf ist:
 
-1. Runtime-Versionen prüfen.
+1. NodeSource-22-Paketquelle, Node.js, Corepack und pnpm aktualisieren beziehungsweise prüfen.
 2. persistente Env-Dateien prüfen/schreiben;
 3. Git auf exakt den gewünschten Ref aktualisieren, ohne lokale Änderungen zu verwerfen;
 4. Backend-Venv und Python-Abhängigkeiten aktualisieren;
@@ -121,10 +153,12 @@ Der Ablauf ist:
 8. systemd-Units installieren/aktualisieren;
 9. Hintergrund-Timer synchronisieren;
 10. Stadtplaner-Nginx-Konfiguration installieren und mit `nginx -t` validieren;
-11. API und Frontend kontrolliert neu starten;
+11. gegebenenfalls die alten `stadtplanner-*`-Units kontrolliert stoppen und deaktivieren, Ports freigeben sowie API und Frontend unter den verwalteten `stadtplaner-*`-Units starten;
 12. lokale Health-/HTTP-Smoke-Tests durchführen.
 
 Ein Fehler stoppt den Lauf. `serial: 1` und `any_errors_fatal: true` verhindern ein Weiterrollen nach einem Fehler.
+
+Beim einmaligen Wechsel von älteren Installationen setzt `stadtplaner_disable_legacy_primary_services=true` die Units `stadtplanner-api.service` und `stadtplanner-frontend.service` außer Betrieb. Ansible löscht ihre Unit-Dateien nicht. Vor dem Handover prüft es, dass der konfigurierte Service-Benutzer die persistenten Environment-Dateien lesen kann; danach müssen die Anwendungsports frei sein, bevor die neuen Units gestartet werden.
 
 ## Optionale Prüfungen auf dem Server
 

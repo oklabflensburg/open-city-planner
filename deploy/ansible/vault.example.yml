@@ -1,44 +1,287 @@
-# Copy this file OUTSIDE the repository, fill it, then encrypt it with:
-#   ansible-vault encrypt /path/to/stadtplaner-vault.yml
-# Pass it with:
-#   ansible-playbook playbooks/deploy.yml -e @/path/to/stadtplaner-vault.yml --ask-vault-pass
+# Copy this file OUTSIDE the repository, replace all required placeholders, and encrypt it:
+#   cp vault.example.yml ~/stadtplaner-vault.yml
+#   chmod 600 ~/stadtplaner-vault.yml
+#   ansible-vault encrypt ~/stadtplaner-vault.yml
+# Deploy it with:
+#   ansible-playbook playbooks/deploy.yml \
+#     -e @~/stadtplaner-vault.yml --ask-vault-pass \
+#     -e stadtplaner_deploy_ref=<commit-sha>
 #
-# The values below are a MINIMAL orientation, not a replacement for comparing
-# the production environment with backend/.env.example and frontend/.env.example.
-# Do not commit real secrets.
+# This is the complete deployment input reference. Empty values are intentionally
+# disabled optional integrations unless a comment says otherwise. Never commit real secrets.
 
+# Complete backend/.env, installed as /etc/stadtplaner/backend.env.
 stadtplaner_backend_env_content: |
+  DATABASE_URL=REPLACE_WITH_PRODUCTION_DATABASE_URL
+  CORS_ORIGINS=https://stadtplaner.oklabflensburg.de
+  LOG_LEVEL=INFO
   APP_ENVIRONMENT=production
   APP_BASE_URL=https://stadtplaner.oklabflensburg.de
   API_BASE_URL=https://api.stadtplaner.oklabflensburg.de
-  CORS_ORIGINS=https://stadtplaner.oklabflensburg.de
-  DATABASE_URL=REPLACE_ME
+
   JWT_SECRET_KEY=REPLACE_WITH_32_PLUS_RANDOM_CHARS
+  JWT_ALGORITHM=HS256
   JWT_ISSUER=https://api.stadtplaner.oklabflensburg.de
+  JWT_AUDIENCE=stadtplaner
   OAUTH_STATE_SECRET=REPLACE_WITH_DISTINCT_32_PLUS_RANDOM_CHARS
   MFA_RECOVERY_PEPPER=REPLACE_WITH_DISTINCT_32_PLUS_RANDOM_CHARS
-  AUTH_COOKIE_SECURE=true
+  ACCESS_TOKEN_EXPIRE_MINUTES=15
+  REFRESH_TOKEN_EXPIRE_DAYS=30
+  REFRESH_TOKEN_REUSE_GRACE_SECONDS=5
+  REFRESH_RATE_LIMIT_ATTEMPTS=30
+  REFRESH_RATE_LIMIT_WINDOW_SECONDS=60
   REFRESH_REQUIRE_ORIGIN=true
   AUTH_RATE_LIMIT_BACKEND=redis
   RATE_LIMIT_FAIL_CLOSED=true
+  RATE_LIMIT_MEMORY_MAX_KEYS=10000
+  TRUSTED_PROXIES=127.0.0.1,::1
+  EMAIL_VERIFICATION_EXPIRE_HOURS=24
+  PASSWORD_RESET_EXPIRE_MINUTES=60
+  AUTH_COOKIE_SECURE=true
+  AUTH_COOKIE_SAMESITE=lax
+  AUTH_COOKIE_DOMAIN=
+  AUTH_COOKIE_PATH=/
+  AUTH_MFA_COOKIE_NAME=ocm_mfa_challenge
+
+  MFA_ENCRYPTION_KEY=REPLACE_WITH_FERNET_KEY
+  MFA_CHALLENGE_EXPIRE_SECONDS=300
+  MFA_MAX_ATTEMPTS=5
+  MFA_TOTP_ISSUER="Stadtplaner - OK Lab Flensburg"
+  MFA_TOTP_VALID_WINDOW=1
+  MFA_RECOVERY_CODE_COUNT=10
+  MFA_SETUP_EXPIRE_SECONDS=600
+  REAUTH_MAX_AGE_SECONDS=600
   REQUIRE_MFA_FOR_SUPERUSERS=true
   WEBAUTHN_RP_ID=stadtplaner.oklabflensburg.de
+  WEBAUTHN_RP_NAME="Stadtplaner - OK Lab Flensburg"
   WEBAUTHN_ORIGIN=https://stadtplaner.oklabflensburg.de
+  WEBAUTHN_CHALLENGE_EXPIRE_SECONDS=300
+  WEBAUTHN_TIMEOUT_MS=60000
+
+  EMAIL_BACKEND=smtp
+  SMTP_HOST=REPLACE_WITH_SMTP_HOST
+  SMTP_PORT=587
+  SMTP_USERNAME=REPLACE_WITH_SMTP_USERNAME
+  SMTP_PASSWORD=REPLACE_WITH_SMTP_PASSWORD
+  SMTP_FROM_EMAIL=REPLACE_WITH_FROM_ADDRESS
+  SMTP_FROM_NAME="OK Lab Flensburg"
+  SMTP_USE_TLS=true
+  CONTACT_TO_EMAIL=REPLACE_WITH_CONTACT_ADDRESS
+  CONTACT_TO_NAME="Stadtplaner / OK Lab Flensburg"
+  CONTACT_FORM_TOKEN_EXPIRE_MINUTES=30
+  CONTACT_FORM_MIN_SECONDS=2
+  CONTACT_IP_RATE_LIMIT_ATTEMPTS=5
+  CONTACT_EMAIL_RATE_LIMIT_ATTEMPTS=3
+  CONTACT_RATE_LIMIT_WINDOW_SECONDS=3600
+  CONTACT_TURNSTILE_ENABLED=false
+  TURNSTILE_SITE_KEY=
+  TURNSTILE_SECRET_KEY=
+
+  GITHUB_CLIENT_ID=
+  GITHUB_CLIENT_SECRET=
+  GOOGLE_CLIENT_ID=
+  GOOGLE_CLIENT_SECRET=
+  MASTODON_SSO_ENABLED=false
+  MASTODON_SSO_CLIENT_NAME=Stadtplaner
+  MASTODON_SSO_DEFAULT_INSTANCE=https://norden.social
+  MASTODON_SSO_ENCRYPTION_KEY=
+  MASTODON_SSO_TIMEOUT_SECONDS=10
+  MASTODON_SSO_STATE_TTL_SECONDS=600
+  MASTODON_SSO_REGISTRATION_BACKOFF_SECONDS=300
+  OAUTH_REDIRECT_BASE_URL=https://api.stadtplaner.oklabflensburg.de
+
+  AVATAR_UPLOAD_DIR=/data/stadtplaner/uploads
+  AVATAR_MAX_FILE_SIZE=5242880
+  UPLOAD_BODY_OVERHEAD_BYTES=65536
+  MAX_JSON_BODY_BYTES=2097152
+  POLYGON_PROPERTIES_MAX_BYTES=65536
+  PUBLIC_QUERY_TIMEOUT_MS=8000
+  PUBLIC_QUERY_RATE_LIMIT_ATTEMPTS=120
+  PUBLIC_QUERY_RATE_LIMIT_WINDOW_SECONDS=60
+
+  AI_SEARCH_ENABLED=false
+  AI_SEARCH_PROVIDER=groq
+  AI_SEARCH_MODEL=
+  OPENAI_API_KEY=
+  GROQ_API_KEY=
+  GROQ_BASE_URL=https://api.groq.com/openai/v1
+  GROQ_TIMEOUT_SECONDS=8
+  GROQ_MAX_RETRIES=1
+  GROQ_TEMPERATURE=0.1
+  ASSISTANT_QUERY_LOGGING=true
+
+  AVATAR_OUTPUT_SIZE=512
+  AVATAR_WEBP_QUALITY=85
+  MEDIA_BASE_URL=https://api.stadtplaner.oklabflensburg.de/media
+  NOMINATIM_BASE_URL=
+  NOMINATIM_USER_AGENT="OpenCityPlanner/0.1"
+  NOMINATIM_EMAIL=
+  NOMINATIM_TIMEOUT_SECONDS=5
+  NOMINATIM_CACHE_TTL_SECONDS=86400
+
+  OSM_EXTERNAL_FALLBACK_ENABLED=false
+  OVERPASS_API_URL=
+  OVERPASS_USER_AGENT="OpenCityPlanner/0.1 (https://stadtplaner.oklabflensburg.de)"
+  OVERPASS_TIMEOUT_SECONDS=8
+  OSM_LOOKUP_CACHE_TTL_SECONDS=3600
+  OSM_EXTERNAL_MIN_INTERVAL_SECONDS=1
+  OSM_LOOKUP_MAX_MATCHES=25
+  OSM_VIEWPORT_FEATURE_LIMIT=2000
+  OSM_VIEWPORT_LOW_ZOOM_FEATURE_LIMIT=800
+  OSM_VIEWPORT_MID_ZOOM_FEATURE_LIMIT=1200
+  OSM_VIEWPORT_POINT_FEATURE_LIMIT=1500
+  OSM_VIEWPORT_POLYGON_FEATURE_LIMIT=350
+  OSM_VIEWPORT_BUILDING_FEATURE_LIMIT=150
+
   REDIS_ENABLED=true
   REDIS_REQUIRED=true
   REDIS_URL=redis://127.0.0.1:6379/0
+  REDIS_CONNECT_TIMEOUT=2
+  REDIS_SOCKET_TIMEOUT=2
+  REDIS_MAX_CONNECTIONS=40
   CACHE_PREFIX=stadtplaner:prod
-  TRUSTED_PROXIES=127.0.0.1,::1
+  CACHE_DEBUG_HEADERS=false
+  CACHE_LOCK_TTL_SECONDS=15
+  OSM_VIEWPORT_CACHE_TTL=1800
+  ANALYTICS_CACHE_TTL=600
+  ANALYSIS_AREA_CACHE_TTL=3600
+  WIKIDATA_API_URL=https://www.wikidata.org/w/api.php
+  WIKIDATA_USER_AGENT="Stadtplaner/1.0 (https://stadtplaner.oklabflensburg.de; OK Lab Flensburg)"
+  WIKIDATA_TIMEOUT_SECONDS=10
+  WIKIDATA_CACHE_TTL_SECONDS=604800
+  WIKIDATA_NEGATIVE_CACHE_TTL_SECONDS=86400
+  WIKIDATA_STALE_DAYS=90
+  WIKIDATA_SEARCH_LIMIT=8
+  STATISTICS_CACHE_TTL=3600
+  POLYGON_CACHE_TTL=60
+  COMPARABLE_CACHE_TTL=600
+  CACHE_PAYLOAD_WARNING_BYTES=2000000
 
+  DATABASE_POOL_SIZE=10
+  DATABASE_MAX_OVERFLOW=20
+  DATABASE_POOL_TIMEOUT_SECONDS=15
+  FLENSBURG_SUPERSET_BASE_URL=https://superset.flensburg.de
+  FLENSBURG_SUPERSET_DASHBOARD_ID=3b53ff0b-6e8c-435e-83f6-666f8a7cc158
+  FLENSBURG_SUPERSET_TIMEOUT_SECONDS=60
+
+  MASTODON_ENABLED=false
+  MASTODON_BASE_URL=https://norden.social
+  MASTODON_ACCESS_TOKEN=
+  MASTODON_ACCOUNT_URL=https://norden.social/@oklabflensburg
+  MASTODON_ACCOUNT_HANDLE=@oklabflensburg@norden.social
+  MASTODON_DEFAULT_VISIBILITY=public
+  MASTODON_AREA_UPDATES_ENABLED=true
+  MASTODON_AREA_UPDATE_DEBOUNCE_SECONDS=300
+  MASTODON_DRY_RUN=false
+  MASTODON_TIMEOUT_SECONDS=10
+  MASTODON_HASHTAGS=Flensburg,OpenData,Stadtplaner
+  MASTODON_MAX_ATTEMPTS=5
+  MASTODON_BOUNDARY_CHANGE_MIN_RATIO=0.01
+  MASTODON_SCREENSHOT_DIRECTORY=/data/stadtplaner-social
+  MASTODON_SCREENSHOT_TIMEOUT_SECONDS=30
+
+# Complete frontend/.env, installed as /etc/stadtplaner/frontend.env.
 stadtplaner_frontend_env_content: |
-  NUXT_PUBLIC_SITE_URL=https://stadtplaner.oklabflensburg.de
   NUXT_PUBLIC_API_BASE_URL=https://api.stadtplaner.oklabflensburg.de/api/v1
+  NUXT_PUBLIC_SITE_URL=https://stadtplaner.oklabflensburg.de
+  NUXT_PUBLIC_DEFAULT_OG_IMAGE=
+  NUXT_PUBLIC_MEDIA_BASE_URL=https://api.stadtplaner.oklabflensburg.de/media
+  NUXT_PUBLIC_AVATAR_MAX_UPLOAD_BYTES=5242880
+  NUXT_PUBLIC_MAP_STYLE_URL=
+  NUXT_PUBLIC_MAP_CENTER_LNG=9.435
+  NUXT_PUBLIC_MAP_CENTER_LAT=54.783
+  NUXT_PUBLIC_MAP_ZOOM=16.4
+  NUXT_PUBLIC_CONTACT_MAIL=oklabflensburg@grain.one
+  NUXT_PUBLIC_CONTACT_PHONE="+49 176 59978074"
+  NUXT_PUBLIC_ADDRESS_NAME="Open Knowledge Lab Flensburg"
+  NUXT_PUBLIC_ADDRESS_STREET="Am Nordertor"
+  NUXT_PUBLIC_ADDRESS_HOUSE_NUMBER="2"
+  NUXT_PUBLIC_ADDRESS_POSTAL_CODE=24939
+  NUXT_PUBLIC_ADDRESS_CITY=Flensburg
+  NUXT_PUBLIC_PRIVACY_CONTACT_PERSON=
+  NUXT_PUBLIC_WEBSITE_ORIGIN=https://stadtplaner.oklabflensburg.de
 
-# OSM replication uses a separate shell-compatible environment file.
+# Complete deploy/osm-sync.env.example, installed as /etc/stadtplaner/osm-sync.env.
+# Database passwords belong in ~oklab/.pgpass (mode 0600), not in this file.
 stadtplaner_osm_env_content: |
-  # Copy the required values from deploy/osm-sync.env.example and adjust them.
-  # Never place real database passwords in this example file.
+  PGHOST=127.0.0.1
+  PGPORT=5432
+  PGDATABASE=open_city_map
+  PGUSER=osm
+  OSM_APPLICATION_DB_ROLE=
+  OSM_DATA_DIR=/data/stadtplaner
+  OSM_REPOSITORY=/opt/git/open-city-planner
+  OSM_BACKEND_DIR=/opt/git/open-city-planner/backend
+  OSM_OUTPUT_SCHEMA=osm_import
+  OSM_MIDDLE_SCHEMA=osm_middle
+  OSM_PREFIX=stadtplaner_osm
+  OSM_STYLE=/opt/git/open-city-planner/scripts/osm/osm.lua
+  OSM_PBF_URL=https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf
+  OSM_PBF_MD5_URL=https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf.md5
+  OSM_REPLICATION_URL=https://planet.openstreetmap.org/replication/minute
+  OSM_MUNICIPALITY=Flensburg
+  OSM_CACHE_MB=1024
+  OSM_MAX_DIFF_MB=100
+  OSM_BBOX_WEST=7.5
+  OSM_BBOX_SOUTH=53.3
+  OSM_BBOX_EAST=11.6
+  OSM_BBOX_NORTH=55.2
 
-# Example only: point this at a root-owned backup wrapper that exits non-zero
-# unless a verified backup was written successfully.
-stadtplaner_pre_migration_backup_command: /usr/local/sbin/stadtplaner-backup-before-deploy
+# Runtime management. These mirror roles/stadtplaner_runtime/defaults/main.yml.
+stadtplaner_manage_node_runtime: true
+stadtplaner_nodesource_keyring: /usr/share/keyrings/nodesource.gpg
+stadtplaner_nodesource_repository_file: /etc/apt/sources.list.d/nodesource.list
+stadtplaner_node_major_version: 22
+stadtplaner_node_minimum_version: 22.22.2
+stadtplaner_corepack_version: 0.35.0
+stadtplaner_pnpm_version: 11.22.0
+
+# Deployment paths, services and feature switches. These mirror inventory/group_vars/all.yml.
+stadtplaner_repo_url: https://github.com/oklabflensburg/open-city-planner.git
+stadtplaner_repo_path: /opt/git/open-city-planner
+stadtplaner_deploy_ref: main
+stadtplaner_service_user: oklab
+stadtplaner_service_group: oklab
+stadtplaner_config_dir: /etc/stadtplaner
+stadtplaner_data_dir: /data/stadtplaner
+stadtplaner_social_dir: /data/stadtplaner-social
+stadtplaner_backend_port: 8008
+stadtplaner_frontend_port: 3008
+stadtplaner_backend_env_file: /etc/stadtplaner/backend.env
+stadtplaner_frontend_env_file: /etc/stadtplaner/frontend.env
+stadtplaner_osm_env_file: /etc/stadtplaner/osm-sync.env
+stadtplaner_manage_nginx: true
+stadtplaner_manage_background_timers: true
+stadtplaner_disable_legacy_primary_services: true
+stadtplaner_legacy_primary_services:
+  - stadtplanner-api.service
+  - stadtplanner-frontend.service
+stadtplaner_enable_osm_timer: true
+stadtplaner_enable_statistics_timer: true
+stadtplaner_enable_email_outbox_timer: true
+stadtplaner_enable_social_publisher_timer: false
+stadtplaner_public_host: stadtplaner.oklabflensburg.de
+stadtplaner_api_host: api.stadtplaner.oklabflensburg.de
+stadtplaner_developer_host: developer.stadtplaner.oklabflensburg.de
+stadtplaner_enable_developer_host: false
+stadtplaner_enable_rate_limit_dry_run: true
+stadtplaner_require_dns_preflight: true
+stadtplaner_expected_dns_addresses:
+  - REPLACE_WITH_SERVER_IPV4
+  - REPLACE_WITH_SERVER_IPV6
+stadtplaner_dns_additional_hosts: []
+stadtplaner_public_certificate_name: stadtplaner.oklabflensburg.de
+stadtplaner_api_certificate_name: api.stadtplaner.oklabflensburg.de
+stadtplaner_developer_certificate_name: developer.stadtplaner.oklabflensburg.de
+stadtplaner_run_migrations: true
+stadtplaner_require_pre_migration_backup: true
+stadtplaner_run_frontend_typecheck: false
+stadtplaner_run_backend_tests: false
+stadtplaner_run_frontend_tests: false
+stadtplaner_require_clean_checkout: true
+stadtplaner_database_backup_mode: managed
+stadtplaner_database_name: open_city_map
+stadtplaner_database_backup_dir: /var/backups/stadtplaner
+stadtplaner_pre_migration_backup_command: ''
+stadtplaner_certbot_email: ''
+stadtplaner_manage_certificates: false

@@ -1,0 +1,7 @@
+---
+- name: Validate production DNS before deployment
+  hosts: stadtplaner
+  gather_facts: false
+  become: false
+  roles:
+    - role: stadtplaner_dns_preflight

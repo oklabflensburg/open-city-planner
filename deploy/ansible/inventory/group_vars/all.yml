@@ -15,6 +15,10 @@ stadtplaner_osm_env_file: /etc/stadtplaner/osm-sync.env
 
 stadtplaner_manage_nginx: true
 stadtplaner_manage_background_timers: true
+stadtplaner_disable_legacy_primary_services: true
+stadtplaner_legacy_primary_services:
+  - stadtplanner-api.service
+  - stadtplanner-frontend.service
 stadtplaner_enable_osm_timer: true
 stadtplaner_enable_statistics_timer: true
 stadtplaner_enable_email_outbox_timer: true
@@ -25,6 +29,10 @@ stadtplaner_api_host: api.stadtplaner.oklabflensburg.de
 stadtplaner_developer_host: developer.stadtplaner.oklabflensburg.de
 stadtplaner_enable_developer_host: false
 stadtplaner_enable_rate_limit_dry_run: true
+stadtplaner_require_dns_preflight: true
+stadtplaner_expected_dns_addresses:
+  - 89.58.56.254
+  - 2a03:4000:6a:398::1
 
 stadtplaner_public_certificate_name: stadtplaner.oklabflensburg.de
 stadtplaner_api_certificate_name: api.stadtplaner.oklabflensburg.de
@@ -37,8 +45,11 @@ stadtplaner_run_backend_tests: false
 stadtplaner_run_frontend_tests: false
 stadtplaner_require_clean_checkout: true
 
-# Set this to a command that creates a verified production backup before migrations.
-# It is intentionally empty by default; Ansible will never invent database credentials.
+# Managed mode uses local peer authentication as the postgres system user and
+# validates the custom-format archive before Alembic runs.
+stadtplaner_database_backup_mode: managed
+stadtplaner_database_name: open_city_map
+stadtplaner_database_backup_dir: /var/backups/stadtplaner
 stadtplaner_pre_migration_backup_command: ''
 
 # Certbot is opt-in and must never run on each normal deploy.

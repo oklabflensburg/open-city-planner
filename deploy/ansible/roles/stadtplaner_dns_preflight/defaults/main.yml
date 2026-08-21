@@ -1,0 +1,4 @@
+---
+stadtplaner_require_dns_preflight: true
+stadtplaner_expected_dns_addresses: []
+stadtplaner_dns_additional_hosts: []

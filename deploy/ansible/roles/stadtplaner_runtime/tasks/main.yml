@@ -1,0 +1,111 @@
+---
+- name: Validate Python 3.12+
+  ansible.builtin.command:
+    argv: [python3, -c, "import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)"]
+  changed_when: false
+
+- name: Manage Node.js and package-manager runtime
+  when: stadtplaner_manage_node_runtime
+  block:
+    - name: Check the existing NodeSource signing key
+      ansible.builtin.stat:
+        path: "{{ stadtplaner_nodesource_keyring }}"
+      register: stadtplaner_nodesource_keyring_stat
+
+    - name: Require the existing NodeSource signing key
+      ansible.builtin.assert:
+        that:
+          - stadtplaner_nodesource_keyring_stat.stat.exists
+          - stadtplaner_nodesource_keyring_stat.stat.isreg
+        fail_msg: >-
+          The shared host has no NodeSource signing key at
+          {{ stadtplaner_nodesource_keyring }}. Install and verify the key before
+          allowing this application-specific playbook to manage the NodeSource repository.
+
+    - name: Configure the NodeSource Node.js 22 repository
+      ansible.builtin.copy:
+        content: >-
+          deb [arch={{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_architecture, ansible_architecture) }} signed-by={{ stadtplaner_nodesource_keyring }}]
+          https://deb.nodesource.com/node_{{ stadtplaner_node_major_version }}.x nodistro main
+        dest: "{{ stadtplaner_nodesource_repository_file }}"
+        owner: root
+        group: root
+        mode: '0644'
+      register: stadtplaner_nodesource_repository
+
+    - name: Refresh APT metadata after changing the NodeSource repository
+      ansible.builtin.apt:
+        update_cache: true
+      when: stadtplaner_nodesource_repository.changed
+
+    - name: Install the current Node.js 22 package
+      ansible.builtin.apt:
+        name: nodejs
+        state: latest
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Read installed Corepack version
+      ansible.builtin.command: corepack --version
+      register: stadtplaner_installed_corepack
+      changed_when: false
+      failed_when: false
+
+    - name: Install the pinned Corepack release
+      ansible.builtin.command:
+        argv: [npm, install, --global, "corepack@{{ stadtplaner_corepack_version }}"]
+      when: stadtplaner_installed_corepack.stdout | trim != stadtplaner_corepack_version
+
+    - name: Enable Corepack shims
+      ansible.builtin.command: corepack enable
+      changed_when: false
+
+    - name: Read active pnpm version
+      ansible.builtin.command: corepack pnpm --version
+      register: stadtplaner_installed_pnpm
+      changed_when: false
+      failed_when: false
+
+    - name: Activate the pinned pnpm release
+      ansible.builtin.command:
+        argv: [corepack, install, --global, "pnpm@{{ stadtplaner_pnpm_version }}"]
+      when: stadtplaner_installed_pnpm.stdout | trim != stadtplaner_pnpm_version
+
+- name: Read Node version
+  ansible.builtin.command: node --version
+  register: stadtplaner_node_version
+  changed_when: false
+
+- name: Require the supported Node.js 22 patch level
+  ansible.builtin.assert:
+    that:
+      - stadtplaner_node_version.stdout is match('^v' ~ stadtplaner_node_major_version ~ '\\.')
+      - stadtplaner_node_version.stdout[1:] is version(stadtplaner_node_minimum_version, '>=')
+    fail_msg: >-
+      Node.js {{ stadtplaner_node_major_version }} at version
+      {{ stadtplaner_node_minimum_version }} or newer is required; found
+      {{ stadtplaner_node_version.stdout }}.
+
+- name: Read final Corepack version
+  ansible.builtin.command: corepack --version
+  register: stadtplaner_corepack_version_result
+  changed_when: false
+
+- name: Require the pinned Corepack version
+  ansible.builtin.assert:
+    that: stadtplaner_corepack_version_result.stdout | trim == stadtplaner_corepack_version
+    fail_msg: >-
+      Corepack {{ stadtplaner_corepack_version }} is required; found
+      {{ stadtplaner_corepack_version_result.stdout | default('not installed') }}.
+
+- name: Read final pnpm version
+  ansible.builtin.command: corepack pnpm --version
+  register: stadtplaner_pnpm_version_result
+  changed_when: false
+
+- name: Require the pinned pnpm version
+  ansible.builtin.assert:
+    that: stadtplaner_pnpm_version_result.stdout | trim == stadtplaner_pnpm_version
+    fail_msg: >-
+      pnpm {{ stadtplaner_pnpm_version }} is required; found
+      {{ stadtplaner_pnpm_version_result.stdout | default('not installed') }}.

@@ -1,0 +1,8 @@
+---
+stadtplaner_manage_node_runtime: true
+stadtplaner_nodesource_keyring: /usr/share/keyrings/nodesource.gpg
+stadtplaner_nodesource_repository_file: /etc/apt/sources.list.d/nodesource.list
+stadtplaner_node_major_version: 22
+stadtplaner_node_minimum_version: 22.22.2
+stadtplaner_corepack_version: 0.35.0
+stadtplaner_pnpm_version: 11.22.0
