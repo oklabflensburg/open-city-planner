@@ -1,0 +1,60 @@
+---
+- name: Bootstrap Open City Planner host prerequisites
+  hosts: stadtplaner
+  become: true
+  serial: 1
+  tasks:
+    - name: Verify Python 3.12+
+      ansible.builtin.command:
+        argv: [python3, -c, "import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)"]
+      changed_when: false
+
+    - name: Verify Node 22
+      ansible.builtin.command: node --version
+      register: node_version
+      changed_when: false
+
+    - name: Require Node 22
+      ansible.builtin.assert:
+        that: node_version.stdout is match('^v22\\.')
+        fail_msg: "Install Node 22 using the shared server's package policy before deploying Stadtplaner."
+
+    - name: Verify required executables
+      ansible.builtin.command: "sh -lc 'command -v {{ item }}'"
+      changed_when: false
+      loop:
+        - git
+        - corepack
+        - nginx
+        - certbot
+        - psql
+        - redis-cli
+        - osm2pgsql
+        - osmium
+
+    - name: Ensure application parent directory exists
+      ansible.builtin.file:
+        path: "{{ stadtplaner_repo_path | dirname }}"
+        state: directory
+        owner: "{{ stadtplaner_service_user }}"
+        group: "{{ stadtplaner_service_group }}"
+        mode: '0755'
+
+    - name: Ensure persistent configuration directory exists
+      ansible.builtin.file:
+        path: "{{ stadtplaner_config_dir }}"
+        state: directory
+        owner: root
+        group: "{{ stadtplaner_service_group }}"
+        mode: '0750'
+
+    - name: Ensure persistent data directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ stadtplaner_service_user }}"
+        group: "{{ stadtplaner_service_group }}"
+        mode: '0750'
+      loop:
+        - "{{ stadtplaner_data_dir }}"
+        - "{{ stadtplaner_social_dir }}"
