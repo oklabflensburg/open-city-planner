@@ -1,0 +1,24 @@
+[Unit]
+Description=Open City Planner FastAPI API
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ stadtplaner_service_user }}
+Group={{ stadtplaner_service_group }}
+WorkingDirectory={{ stadtplaner_repo_path }}/backend
+EnvironmentFile={{ stadtplaner_backend_env_file }}
+ExecStart={{ stadtplaner_repo_path }}/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port {{ stadtplaner_backend_port }} --proxy-headers --forwarded-allow-ips=127.0.0.1,::1
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ stadtplaner_repo_path }}/backend/data {{ stadtplaner_data_dir }} {{ stadtplaner_social_dir }}
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
