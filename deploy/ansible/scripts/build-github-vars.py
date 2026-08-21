@@ -109,6 +109,12 @@ def main() -> None:
         generated[ansible_key] = content + "\n"
 
     backend_values = assignments(generated["stadtplaner_backend_env_content"])
+    avatar_upload_dir = backend_values.get("AVATAR_UPLOAD_DIR", "").strip().strip('"')
+    avatar_path = Path(avatar_upload_dir)
+    if not avatar_path.is_absolute() or avatar_path == Path("/"):
+        raise SystemExit("AVATAR_UPLOAD_DIR must be an absolute non-root path")
+    generated["stadtplaner_avatar_upload_dir"] = avatar_upload_dir
+
     required = set(ALWAYS_REQUIRED_SECRETS)
     if backend_values.get("EMAIL_BACKEND", "").strip('"') == "smtp":
         required.update(

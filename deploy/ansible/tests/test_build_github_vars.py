@@ -77,6 +77,7 @@ class GitHubVarsBuilderTest(unittest.TestCase):
                 BUILDER.assignments(self.reference["stadtplaner_backend_env_content"])
             )
             self.assertEqual(actual, expected)
+            self.assertEqual(generated["stadtplaner_avatar_upload_dir"], "/data/uploads")
             self.assertEqual(output.stat().st_mode & 0o777, 0o600)
 
     def test_rejects_secret_in_open_configuration(self) -> None:

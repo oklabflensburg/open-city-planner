@@ -10,6 +10,8 @@
     - { path: "{{ stadtplaner_config_dir }}", owner: root, group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_data_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_social_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
+    - { path: "{{ stadtplaner_avatar_upload_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
+    - { path: "{{ stadtplaner_avatar_upload_dir }}/avatars", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
 
 - name: Install backend environment from encrypted variable when supplied
   ansible.builtin.copy:

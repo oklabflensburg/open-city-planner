@@ -73,6 +73,19 @@ describe('Ansible deployment contract', () => {
     expect(freePorts).toBeLessThan(startManaged)
   })
 
+  it('keeps the configured avatar storage writable through systemd hardening', () => {
+    const defaults = repositoryFile('deploy/ansible/inventory/group_vars/all.yml')
+    const vault = repositoryFile('deploy/ansible/vault.example.yml')
+    const tasks = repositoryFile('deploy/ansible/roles/stadtplaner/tasks/main.yml')
+    const unit = repositoryFile('deploy/ansible/roles/stadtplaner/templates/stadtplaner-api.service.j2')
+
+    expect(defaults).toContain('stadtplaner_avatar_upload_dir: /data/uploads')
+    expect(vault).toContain('AVATAR_UPLOAD_DIR=/data/uploads')
+    expect(tasks).toContain('{{ stadtplaner_avatar_upload_dir }}/avatars')
+    expect(unit).toContain('ReadWritePaths=')
+    expect(unit).toContain('{{ stadtplaner_avatar_upload_dir }}')
+  })
+
   it('deploys the exact main commit without weakening SSH verification', () => {
     const workflow = repositoryFile('.github/workflows/deploy.yml')
 

@@ -90,7 +90,7 @@ stadtplaner_backend_env_content: |
   MASTODON_SSO_REGISTRATION_BACKOFF_SECONDS=300
   OAUTH_REDIRECT_BASE_URL=https://api.stadtplaner.oklabflensburg.de
 
-  AVATAR_UPLOAD_DIR=/data/stadtplaner/uploads
+  AVATAR_UPLOAD_DIR=/data/uploads
   AVATAR_MAX_FILE_SIZE=5242880
   UPLOAD_BODY_OVERHEAD_BYTES=65536
   MAX_JSON_BODY_BYTES=2097152
@@ -245,6 +245,7 @@ stadtplaner_service_group: oklab
 stadtplaner_config_dir: /etc/stadtplaner
 stadtplaner_data_dir: /data/stadtplaner
 stadtplaner_social_dir: /data/stadtplaner-social
+stadtplaner_avatar_upload_dir: /data/uploads
 stadtplaner_backend_port: 8008
 stadtplaner_frontend_port: 3008
 stadtplaner_backend_env_file: /etc/stadtplaner/backend.env
