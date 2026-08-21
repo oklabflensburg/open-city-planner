@@ -1,0 +1,95 @@
+# Shared nginx baseline for a host that serves multiple projects.
+#
+# This is intentionally project-neutral. Project-specific rate limits belong in
+# /etc/nginx/conf.d/*.conf and are only applied by the corresponding vhost.
+# Compare with the server's existing /etc/nginx/nginx.conf before replacing it.
+
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+    worker_connections 2048;
+    use epoll;
+    multi_accept on;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Do not expose the nginx version in generated responses.
+    server_tokens off;
+
+    # Efficient file/network handling.
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    reset_timedout_connection on;
+    types_hash_max_size 2048;
+    server_names_hash_bucket_size 128;
+
+    # Modern TLS baseline. Certbot's options-ssl-nginx.conf may add compatible
+    # per-vhost settings, but TLS 1.0/1.1 should not be re-enabled globally.
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:SSL:20m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    # Let the TLS library negotiate modern suites. TLS 1.3 ciphers are not
+    # controlled by ssl_ciphers. This conservative TLS 1.2 list avoids legacy
+    # CBC/3DES/RC4 suites without pretending to be a complete TLS policy.
+    ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305';
+    ssl_prefer_server_ciphers off;
+
+    # Global request parser limits. Keep these sane for all projects. Individual
+    # applications can lower client_max_body_size in their server/location.
+    client_max_body_size 10m;
+    client_body_buffer_size 128k;
+    client_header_buffer_size 8k;
+    large_client_header_buffers 4 16k;
+    client_body_timeout 30s;
+    client_header_timeout 30s;
+    send_timeout 60s;
+
+    # Generic per-IP connection zone. Defining a zone does not limit anything
+    # until a vhost explicitly uses limit_conn.
+    limit_conn_zone $binary_remote_addr zone=conn_limit_per_ip:10m;
+
+    # Logging includes request/upstream timing and nginx request-limit status so
+    # rate limits can be tuned from real traffic instead of guesses.
+    log_format main '$remote_addr - $remote_user [$time_local] "$host" '
+                    '"$request" status=$status bytes=$body_bytes_sent '
+                    'request_time=$request_time upstream_time=$upstream_response_time '
+                    'limit_req=$limit_req_status referer="$http_referer" '
+                    'ua="$http_user_agent" xff="$http_x_forwarded_for"';
+
+    access_log /var/log/nginx/access.log main;
+    error_log /var/log/nginx/error.log warn;
+
+    # Compression. Level 6 is a better CPU/size trade-off than level 9 on a
+    # shared host. Do not gzip formats that are already compressed (JPEG/PNG).
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_min_length 1024;
+    gzip_types
+        text/plain
+        text/css
+        application/json
+        application/javascript
+        application/xml
+        application/rss+xml
+        image/svg+xml;
+
+    # Do not set application CSP/X-Frame-Options/X-XSS-Protection globally.
+    # Different projects need different policies, and modern applications in
+    # this repository already emit their own security headers. X-XSS-Protection
+    # is obsolete and should not be used as a global hardening mechanism.
+
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}
