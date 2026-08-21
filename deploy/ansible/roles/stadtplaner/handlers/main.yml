@@ -1,0 +1,27 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Restart Stadtplaner API
+  ansible.builtin.systemd_service:
+    name: stadtplaner-api.service
+    state: restarted
+    daemon_reload: true
+
+- name: Restart Stadtplaner frontend
+  ansible.builtin.systemd_service:
+    name: stadtplaner-frontend.service
+    state: restarted
+    daemon_reload: true
+
+- name: Validate nginx configuration
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  listen: Nginx configuration changed
+
+- name: Reload nginx
+  ansible.builtin.systemd_service:
+    name: nginx
+    state: reloaded
+  listen: Nginx configuration changed

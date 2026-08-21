@@ -36,6 +36,8 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 ## Betrieb und Integrationen
 
 - [Deployment und Betrieb](deployment.md)
+- [Wiederholbares Ansible-Deployment](../deploy/ansible/README.md)
+- [Nginx-Hardening und Rate Limits](../deploy/nginx/README.md)
 - [Social Publishing mit Mastodon](social-publishing.md)
 - [Produktions-Sicherheitscheckliste](security/production-checklist.md)
 - [Zwei-Faktor-Authentifizierung](security/mfa.md)

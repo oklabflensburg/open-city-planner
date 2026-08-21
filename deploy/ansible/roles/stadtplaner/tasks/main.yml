@@ -1,0 +1,403 @@
+---
+- name: Validate supported runtime versions
+  block:
+    - name: Validate Python 3.12+
+      ansible.builtin.command:
+        argv: [python3, -c, "import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)"]
+      changed_when: false
+
+    - name: Read Node version
+      ansible.builtin.command: node --version
+      register: stadtplaner_node_version
+      changed_when: false
+
+    - name: Require Node 22
+      ansible.builtin.assert:
+        that: stadtplaner_node_version.stdout is match('^v22\\.')
+        fail_msg: "Node 22 is required by the current CI/deployment baseline; found {{ stadtplaner_node_version.stdout }}"
+
+    - name: Read pnpm version through Corepack
+      ansible.builtin.command: corepack pnpm --version
+      register: stadtplaner_pnpm_version
+      changed_when: false
+
+    - name: Require pnpm 11
+      ansible.builtin.assert:
+        that: stadtplaner_pnpm_version.stdout is match('^11\\.')
+        fail_msg: "pnpm 11 is required; found {{ stadtplaner_pnpm_version.stdout }}"
+
+- name: Ensure service and configuration directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ stadtplaner_config_dir }}", owner: root, group: "{{ stadtplaner_service_group }}", mode: '0750' }
+    - { path: "{{ stadtplaner_data_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
+    - { path: "{{ stadtplaner_social_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
+
+- name: Install backend environment from encrypted variable when supplied
+  ansible.builtin.copy:
+    content: "{{ stadtplaner_backend_env_content }}"
+    dest: "{{ stadtplaner_backend_env_file }}"
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0640'
+  when: stadtplaner_backend_env_content is defined
+  no_log: true
+
+- name: Install frontend environment from encrypted variable when supplied
+  ansible.builtin.copy:
+    content: "{{ stadtplaner_frontend_env_content }}"
+    dest: "{{ stadtplaner_frontend_env_file }}"
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0640'
+  when: stadtplaner_frontend_env_content is defined
+  no_log: true
+
+- name: Install OSM environment from encrypted variable when supplied
+  ansible.builtin.copy:
+    content: "{{ stadtplaner_osm_env_content }}"
+    dest: "{{ stadtplaner_osm_env_file }}"
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0640'
+  when: stadtplaner_osm_env_content is defined
+  no_log: true
+
+- name: Verify required environment files exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: >-
+    {{ [stadtplaner_backend_env_file, stadtplaner_frontend_env_file]
+       + ([stadtplaner_osm_env_file] if stadtplaner_enable_osm_timer else []) }}
+  register: stadtplaner_env_stats
+
+- name: Refuse deployment without persistent environment files
+  ansible.builtin.assert:
+    that: item.stat.exists and item.stat.isreg
+    fail_msg: "Required environment file {{ item.item }} is missing. Use an encrypted external vault or create the server-side file first."
+  loop: "{{ stadtplaner_env_stats.results }}"
+  no_log: true
+
+- name: Update repository to the requested ref without discarding local changes
+  ansible.builtin.git:
+    repo: "{{ stadtplaner_repo_url }}"
+    dest: "{{ stadtplaner_repo_path }}"
+    version: "{{ stadtplaner_deploy_ref }}"
+    update: true
+    force: false
+  become_user: "{{ stadtplaner_service_user }}"
+  register: stadtplaner_git
+
+- name: Link persistent backend environment into the checkout
+  ansible.builtin.file:
+    src: "{{ stadtplaner_backend_env_file }}"
+    dest: "{{ stadtplaner_repo_path }}/backend/.env"
+    state: link
+    force: true
+
+- name: Link persistent frontend environment into the checkout
+  ansible.builtin.file:
+    src: "{{ stadtplaner_frontend_env_file }}"
+    dest: "{{ stadtplaner_repo_path }}/frontend/.env"
+    state: link
+    force: true
+
+- name: Ensure backend writable data directory exists
+  ansible.builtin.file:
+    path: "{{ stadtplaner_repo_path }}/backend/data"
+    state: directory
+    owner: "{{ stadtplaner_service_user }}"
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0750'
+
+- name: Create backend virtual environment
+  ansible.builtin.command:
+    cmd: python3 -m venv .venv
+    chdir: "{{ stadtplaner_repo_path }}/backend"
+    creates: "{{ stadtplaner_repo_path }}/backend/.venv/bin/python"
+  become_user: "{{ stadtplaner_service_user }}"
+
+- name: Install backend production dependencies
+  ansible.builtin.command:
+    cmd: .venv/bin/python -m pip install -e .
+    chdir: "{{ stadtplaner_repo_path }}/backend"
+  become_user: "{{ stadtplaner_service_user }}"
+  notify: Restart Stadtplaner API
+
+- name: Run optional backend test suite before migration
+  ansible.builtin.command:
+    cmd: .venv/bin/python -m pytest
+    chdir: "{{ stadtplaner_repo_path }}/backend"
+  become_user: "{{ stadtplaner_service_user }}"
+  when: stadtplaner_run_backend_tests
+  changed_when: false
+
+- name: Install frontend dependencies from lockfile
+  ansible.builtin.command:
+    cmd: corepack pnpm install --frozen-lockfile
+    chdir: "{{ stadtplaner_repo_path }}/frontend"
+  become_user: "{{ stadtplaner_service_user }}"
+
+- name: Run optional frontend typecheck
+  ansible.builtin.command:
+    cmd: corepack pnpm typecheck
+    chdir: "{{ stadtplaner_repo_path }}/frontend"
+  become_user: "{{ stadtplaner_service_user }}"
+  when: stadtplaner_run_frontend_typecheck
+  changed_when: false
+
+- name: Run optional frontend unit tests
+  ansible.builtin.command:
+    cmd: corepack pnpm test
+    chdir: "{{ stadtplaner_repo_path }}/frontend"
+  become_user: "{{ stadtplaner_service_user }}"
+  when: stadtplaner_run_frontend_tests
+  changed_when: false
+
+- name: Build production frontend
+  ansible.builtin.command:
+    cmd: corepack pnpm build
+    chdir: "{{ stadtplaner_repo_path }}/frontend"
+  become_user: "{{ stadtplaner_service_user }}"
+  environment:
+    NODE_ENV: production
+  notify: Restart Stadtplaner frontend
+
+- name: Require configured backup before migrations
+  ansible.builtin.assert:
+    that: stadtplaner_pre_migration_backup_command | length > 0
+    fail_msg: >-
+      Migrations are enabled but no pre-migration backup command is configured.
+      Set stadtplaner_pre_migration_backup_command or explicitly set stadtplaner_run_migrations=false.
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+
+- name: Create pre-migration database backup
+  ansible.builtin.shell: "{{ stadtplaner_pre_migration_backup_command }}"
+  args:
+    executable: /bin/bash
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_pre_migration_backup_command | length > 0
+  changed_when: true
+  no_log: true
+
+- name: Apply Alembic migrations
+  ansible.builtin.command:
+    cmd: .venv/bin/alembic upgrade head
+    chdir: "{{ stadtplaner_repo_path }}/backend"
+  become_user: "{{ stadtplaner_service_user }}"
+  when: stadtplaner_run_migrations
+  notify: Restart Stadtplaner API
+
+- name: Install primary systemd units
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - { src: stadtplaner-api.service.j2, dest: stadtplaner-api.service }
+    - { src: stadtplaner-frontend.service.j2, dest: stadtplaner-frontend.service }
+  notify:
+    - Reload systemd
+    - Restart Stadtplaner API
+    - Restart Stadtplaner frontend
+
+- name: Define background services
+  ansible.builtin.set_fact:
+    stadtplaner_background_services:
+      - name: stadtplaner-osm-update
+        description: Stadtplaner OpenStreetMap replication update
+        enabled: "{{ stadtplaner_enable_osm_timer }}"
+        working_directory: "{{ stadtplaner_repo_path }}"
+        environment_file: "{{ stadtplaner_osm_env_file }}"
+        exec_start: "{{ stadtplaner_repo_path }}/scripts/osm/update.sh"
+        read_write_paths: ["{{ stadtplaner_data_dir }}"]
+        timer_description: Run Stadtplaner OpenStreetMap synchronization hourly
+        on_boot: 10m
+        on_unit_active: 1h
+        on_calendar: ''
+        accuracy: 1m
+        randomized_delay: 5m
+      - name: stadtplaner-flensburg-statistics-sync
+        description: Stadtplaner Flensburg statistics synchronization
+        enabled: "{{ stadtplaner_enable_statistics_timer }}"
+        working_directory: "{{ stadtplaner_repo_path }}/backend"
+        environment_file: "{{ stadtplaner_backend_env_file }}"
+        exec_start: "{{ stadtplaner_repo_path }}/backend/.venv/bin/python -m app.cli.import_flensburg_statistics"
+        read_write_paths: ["{{ stadtplaner_repo_path }}/backend/data"]
+        timer_description: Weekly check for updated Flensburg statistics
+        on_boot: ''
+        on_unit_active: ''
+        on_calendar: 'Mon *-*-* 03:15:00 Europe/Berlin'
+        accuracy: 1m
+        randomized_delay: 30m
+      - name: stadtplaner-email-outbox
+        description: Stadtplaner E-Mail-Outbox verarbeiten
+        enabled: "{{ stadtplaner_enable_email_outbox_timer }}"
+        working_directory: "{{ stadtplaner_repo_path }}/backend"
+        environment_file: "{{ stadtplaner_backend_env_file }}"
+        exec_start: "{{ stadtplaner_repo_path }}/backend/.venv/bin/python -m app.cli.process_email_outbox --limit 20"
+        read_write_paths: []
+        timer_description: Fällige Stadtplaner-E-Mails regelmäßig versenden
+        on_boot: 1m
+        on_unit_active: 1m
+        on_calendar: ''
+        accuracy: 10s
+        randomized_delay: ''
+      - name: stadtplaner-social-publisher
+        description: Stadtplaner Mastodon outbox publisher
+        enabled: "{{ stadtplaner_enable_social_publisher_timer }}"
+        working_directory: "{{ stadtplaner_repo_path }}/backend"
+        environment_file: "{{ stadtplaner_backend_env_file }}"
+        exec_start: "{{ stadtplaner_repo_path }}/backend/.venv/bin/python -m app.cli.publish_social_outbox --limit 20"
+        read_write_paths: ["{{ stadtplaner_social_dir }}"]
+        timer_description: Publish due Stadtplaner Mastodon outbox events
+        on_boot: 2m
+        on_unit_active: 1m
+        on_calendar: ''
+        accuracy: 10s
+        randomized_delay: ''
+  when: stadtplaner_manage_background_timers
+
+- name: Install background oneshot services
+  ansible.builtin.template:
+    src: oneshot.service.j2
+    dest: "/etc/systemd/system/{{ item.name }}.service"
+    owner: root
+    group: root
+    mode: '0644'
+  vars:
+    unit_description: "{{ item.description }}"
+    unit_working_directory: "{{ item.working_directory }}"
+    unit_environment_file: "{{ item.environment_file }}"
+    unit_exec_start: "{{ item.exec_start }}"
+    unit_read_write_paths: "{{ item.read_write_paths }}"
+  loop: "{{ stadtplaner_background_services | default([]) }}"
+  when: stadtplaner_manage_background_timers
+  notify: Reload systemd
+
+- name: Install background timers
+  ansible.builtin.template:
+    src: timer.timer.j2
+    dest: "/etc/systemd/system/{{ item.name }}.timer"
+    owner: root
+    group: root
+    mode: '0644'
+  vars:
+    timer_description: "{{ item.timer_description }}"
+    timer_on_boot: "{{ item.on_boot }}"
+    timer_on_unit_active: "{{ item.on_unit_active }}"
+    timer_on_calendar: "{{ item.on_calendar }}"
+    timer_accuracy: "{{ item.accuracy }}"
+    timer_randomized_delay: "{{ item.randomized_delay }}"
+    timer_service: "{{ item.name }}.service"
+  loop: "{{ stadtplaner_background_services | default([]) }}"
+  when: stadtplaner_manage_background_timers
+  notify: Reload systemd
+
+- name: Enable or disable background timers according to configuration
+  ansible.builtin.systemd_service:
+    name: "{{ item.name }}.timer"
+    enabled: "{{ item.enabled | bool }}"
+    state: "{{ 'started' if (item.enabled | bool) else 'stopped' }}"
+    daemon_reload: true
+  loop: "{{ stadtplaner_background_services | default([]) }}"
+  when: stadtplaner_manage_background_timers
+
+- name: Install Stadtplaner nginx rate-limit zones
+  ansible.builtin.copy:
+    src: "{{ stadtplaner_repo_path }}/deploy/nginx/conf.d/stadtplaner-rate-limits.conf"
+    dest: /etc/nginx/conf.d/stadtplaner-rate-limits.conf
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0644'
+  when: stadtplaner_manage_nginx
+  notify: Nginx configuration changed
+
+- name: Verify required TLS certificates before writing nginx vhost
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ item }}/fullchain.pem"
+  loop: >-
+    {{ [stadtplaner_public_certificate_name, stadtplaner_api_certificate_name]
+       + ([stadtplaner_developer_certificate_name] if stadtplaner_enable_developer_host else []) }}
+  register: stadtplaner_certificate_stats
+  when: stadtplaner_manage_nginx
+
+- name: Refuse nginx rollout with missing certificate
+  ansible.builtin.assert:
+    that: item.stat.exists
+    fail_msg: "TLS certificate {{ item.item }} is missing; issue it first with playbooks/certificates.yml."
+  loop: "{{ stadtplaner_certificate_stats.results | default([]) }}"
+  when: stadtplaner_manage_nginx
+
+- name: Install managed Stadtplaner nginx vhost
+  ansible.builtin.template:
+    src: stadtplaner.nginx.conf.j2
+    dest: /etc/nginx/sites-available/stadtplaner
+    owner: root
+    group: root
+    mode: '0644'
+  when: stadtplaner_manage_nginx
+  notify: Nginx configuration changed
+
+- name: Enable managed Stadtplaner nginx vhost
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/stadtplaner
+    dest: /etc/nginx/sites-enabled/stadtplaner
+    state: link
+  when: stadtplaner_manage_nginx
+  notify: Nginx configuration changed
+
+- name: Enable and start primary application services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - stadtplaner-api.service
+    - stadtplaner-frontend.service
+
+- name: Apply pending service and nginx handlers before smoke tests
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for local API listener
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ stadtplaner_backend_port }}"
+    timeout: 30
+
+- name: Verify API health
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health"
+    status_code: 200
+    return_content: true
+  register: stadtplaner_health
+  failed_when: >-
+    stadtplaner_health.status != 200 or
+    (stadtplaner_health.json.status | default('')) != 'ok'
+
+- name: Wait for local frontend listener
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ stadtplaner_frontend_port }}"
+    timeout: 30
+
+- name: Verify frontend root
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ stadtplaner_frontend_port }}/"
+    status_code: 200
+
+- name: Report deployed revision
+  ansible.builtin.debug:
+    msg: "Deployed {{ stadtplaner_git.after | default(stadtplaner_deploy_ref) }} to {{ inventory_hostname }}"

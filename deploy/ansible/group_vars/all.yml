@@ -1,0 +1,46 @@
+stadtplaner_repo_url: https://github.com/oklabflensburg/open-city-planner.git
+stadtplaner_repo_path: /opt/git/open-city-planner
+stadtplaner_deploy_ref: main
+stadtplaner_service_user: oklab
+stadtplaner_service_group: oklab
+stadtplaner_config_dir: /etc/stadtplaner
+stadtplaner_data_dir: /data/stadtplaner
+stadtplaner_social_dir: /data/stadtplaner-social
+
+stadtplaner_backend_port: 8008
+stadtplaner_frontend_port: 3008
+stadtplaner_backend_env_file: /etc/stadtplaner/backend.env
+stadtplaner_frontend_env_file: /etc/stadtplaner/frontend.env
+stadtplaner_osm_env_file: /etc/stadtplaner/osm-sync.env
+
+stadtplaner_manage_nginx: true
+stadtplaner_manage_background_timers: true
+stadtplaner_enable_osm_timer: true
+stadtplaner_enable_statistics_timer: true
+stadtplaner_enable_email_outbox_timer: true
+stadtplaner_enable_social_publisher_timer: false
+
+stadtplaner_public_host: stadtplaner.oklabflensburg.de
+stadtplaner_api_host: api.stadtplaner.oklabflensburg.de
+stadtplaner_developer_host: developer.stadtplaner.oklabflensburg.de
+stadtplaner_enable_developer_host: false
+stadtplaner_enable_rate_limit_dry_run: true
+
+stadtplaner_public_certificate_name: stadtplaner.oklabflensburg.de
+stadtplaner_api_certificate_name: api.stadtplaner.oklabflensburg.de
+stadtplaner_developer_certificate_name: developer.stadtplaner.oklabflensburg.de
+
+stadtplaner_run_migrations: true
+stadtplaner_require_pre_migration_backup: true
+stadtplaner_run_frontend_typecheck: false
+stadtplaner_run_backend_tests: false
+stadtplaner_run_frontend_tests: false
+stadtplaner_require_clean_checkout: true
+
+# Set this to a command that creates a verified production backup before migrations.
+# It is intentionally empty by default; Ansible will never invent database credentials.
+stadtplaner_pre_migration_backup_command: ''
+
+# Certbot is opt-in and must never run on each normal deploy.
+stadtplaner_certbot_email: ''
+stadtplaner_manage_certificates: false

@@ -1,0 +1,90 @@
+---
+- name: Issue developer documentation TLS certificate
+  hosts: stadtplaner
+  become: true
+  serial: 1
+  tasks:
+    - name: Require explicit certificate opt-in and contact email
+      ansible.builtin.assert:
+        that:
+          - stadtplaner_manage_certificates | bool
+          - stadtplaner_certbot_email | length > 3
+        fail_msg: >-
+          Certificate issuance is deliberately opt-in. Set
+          stadtplaner_manage_certificates=true and stadtplaner_certbot_email.
+
+    - name: Check whether developer certificate already exists
+      ansible.builtin.stat:
+        path: "/etc/letsencrypt/live/{{ stadtplaner_developer_certificate_name }}/fullchain.pem"
+      register: developer_certificate
+
+    - name: Create ACME webroot
+      ansible.builtin.file:
+        path: /var/www/letsencrypt
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+      when: not developer_certificate.stat.exists
+
+    - name: Install temporary HTTP-only developer ACME vhost
+      ansible.builtin.copy:
+        dest: /etc/nginx/sites-available/stadtplaner-developer-acme
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name {{ stadtplaner_developer_host }};
+              location /.well-known/acme-challenge/ { root /var/www/letsencrypt; }
+              location / { return 404; }
+          }
+      when: not developer_certificate.stat.exists
+
+    - name: Enable temporary developer ACME vhost
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/stadtplaner-developer-acme
+        dest: /etc/nginx/sites-enabled/stadtplaner-developer-acme
+        state: link
+      when: not developer_certificate.stat.exists
+
+    - name: Validate nginx before certificate request
+      ansible.builtin.command: nginx -t
+      changed_when: false
+      when: not developer_certificate.stat.exists
+
+    - name: Reload nginx for ACME challenge
+      ansible.builtin.systemd_service:
+        name: nginx
+        state: reloaded
+      when: not developer_certificate.stat.exists
+
+    - name: Obtain developer certificate through webroot challenge
+      ansible.builtin.command:
+        argv:
+          - certbot
+          - certonly
+          - --webroot
+          - -w
+          - /var/www/letsencrypt
+          - -d
+          - "{{ stadtplaner_developer_host }}"
+          - --non-interactive
+          - --agree-tos
+          - --email
+          - "{{ stadtplaner_certbot_email }}"
+      when: not developer_certificate.stat.exists
+
+    - name: Remove temporary ACME vhost symlink
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/stadtplaner-developer-acme
+        state: absent
+      when: not developer_certificate.stat.exists
+
+    - name: Enable developer host for subsequent deploys
+      ansible.builtin.debug:
+        msg: >-
+          Certificate is available. Run deploy.yml with
+          -e stadtplaner_enable_developer_host=true to publish the developer subdomain.

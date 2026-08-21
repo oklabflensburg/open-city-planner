@@ -1,0 +1,18 @@
+[Unit]
+Description={{ unit_description }}
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ stadtplaner_service_user }}
+Group={{ stadtplaner_service_group }}
+WorkingDirectory={{ unit_working_directory }}
+{% if unit_environment_file %}EnvironmentFile={{ unit_environment_file }}
+{% endif %}ExecStart={{ unit_exec_start }}
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+{% if unit_read_write_paths | length > 0 %}ReadWritePaths={{ unit_read_write_paths | join(' ') }}
+{% endif %}UMask=0027

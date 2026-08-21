@@ -1,0 +1,7 @@
+all:
+  children:
+    stadtplaner:
+      hosts:
+        stadtplaner-prod:
+          ansible_host: stadtplaner.oklabflensburg.de
+          ansible_become: true
