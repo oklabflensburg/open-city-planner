@@ -1,0 +1,30 @@
+---
+- name: Run guarded OpenStreetMap initial import
+  hosts: stadtplaner
+  become: true
+  serial: 1
+  tasks:
+    - name: Require explicit destructive/expensive import confirmation
+      ansible.builtin.assert:
+        that: confirm_osm_initial_import | default(false) | bool
+        fail_msg: >-
+          OSM initial import is never part of a normal deployment. Rerun with
+          -e confirm_osm_initial_import=true after reviewing docs/osm-hourly-sync.md.
+
+    - name: Verify OSM environment exists
+      ansible.builtin.stat:
+        path: "{{ stadtplaner_osm_env_file }}"
+      register: osm_env
+
+    - name: Refuse import without OSM environment
+      ansible.builtin.assert:
+        that: osm_env.stat.exists
+        fail_msg: "Missing {{ stadtplaner_osm_env_file }}"
+
+    - name: Run repository initial import script
+      ansible.builtin.command:
+        cmd: "{{ stadtplaner_repo_path }}/scripts/osm/initial-import.sh"
+        chdir: "{{ stadtplaner_repo_path }}"
+      become_user: "{{ stadtplaner_service_user }}"
+      environment:
+        OSM_ENV_FILE: "{{ stadtplaner_osm_env_file }}"
