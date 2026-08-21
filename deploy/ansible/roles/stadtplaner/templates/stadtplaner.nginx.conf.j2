@@ -1,0 +1,145 @@
+upstream stadtplaner_frontend {
+    server 127.0.0.1:{{ stadtplaner_frontend_port }};
+    keepalive 32;
+}
+
+upstream stadtplaner_api {
+    server 127.0.0.1:{{ stadtplaner_backend_port }};
+    keepalive 32;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ stadtplaner_public_host }};
+
+    location / {
+        proxy_pass http://stadtplaner_frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $stadtplaner_connection_upgrade;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    ssl_certificate /etc/letsencrypt/live/{{ stadtplaner_public_certificate_name }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ stadtplaner_public_certificate_name }}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+{% if stadtplaner_enable_developer_host %}
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ stadtplaner_developer_host }};
+
+    location / {
+        proxy_pass http://stadtplaner_frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $stadtplaner_connection_upgrade;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    ssl_certificate /etc/letsencrypt/live/{{ stadtplaner_developer_certificate_name }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ stadtplaner_developer_certificate_name }}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+{% endif %}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ stadtplaner_api_host }};
+
+    limit_req_dry_run {{ 'on' if stadtplaner_enable_rate_limit_dry_run else 'off' }};
+
+    location = /health {
+        proxy_pass http://stadtplaner_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 10s;
+    }
+
+    location = /api/v1/assistant/query {
+        limit_req zone=stadtplaner_assistant_per_ip burst=20 nodelay;
+        limit_req_status 429;
+        limit_req_log_level notice;
+        proxy_pass http://stadtplaner_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 35s;
+        proxy_read_timeout 35s;
+    }
+
+    location ^~ /api/v1/auth/ {
+        limit_req zone=stadtplaner_auth_per_ip burst=20 nodelay;
+        limit_req_status 429;
+        limit_req_log_level notice;
+        proxy_pass http://stadtplaner_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    location / {
+        limit_req zone=stadtplaner_api_per_ip burst=100 nodelay;
+        limit_req zone=stadtplaner_api_global burst=500 nodelay;
+        limit_req_status 429;
+        limit_req_log_level notice;
+        proxy_pass http://stadtplaner_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $stadtplaner_connection_upgrade;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    ssl_certificate /etc/letsencrypt/live/{{ stadtplaner_api_certificate_name }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ stadtplaner_api_certificate_name }}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ stadtplaner_public_host }} {{ stadtplaner_api_host }}{% if stadtplaner_enable_developer_host %} {{ stadtplaner_developer_host }}{% endif %};
+    return 301 https://$host$request_uri;
+}
