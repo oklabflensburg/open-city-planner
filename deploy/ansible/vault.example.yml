@@ -1,0 +1,34 @@
+# Copy this file OUTSIDE the repository, fill it, then encrypt it with:
+#   ansible-vault encrypt /path/to/stadtplaner-vault.yml
+# Pass it with:
+#   ansible-playbook playbooks/deploy.yml -e @/path/to/stadtplaner-vault.yml --ask-vault-pass
+#
+# The values below are whole .env file payloads. Do not commit real secrets.
+
+stadtplaner_backend_env_content: |
+  APP_ENVIRONMENT=production
+  APP_BASE_URL=https://stadtplaner.oklabflensburg.de
+  API_BASE_URL=https://api.stadtplaner.oklabflensburg.de
+  CORS_ORIGINS=https://stadtplaner.oklabflensburg.de
+  DATABASE_URL=REPLACE_ME
+  JWT_SECRET_KEY=REPLACE_ME
+  OAUTH_STATE_SECRET=REPLACE_ME
+  MFA_RECOVERY_PEPPER=REPLACE_ME
+  AUTH_COOKIE_SECURE=true
+  REFRESH_REQUIRE_ORIGIN=true
+  AUTH_RATE_LIMIT_BACKEND=redis
+  RATE_LIMIT_FAIL_CLOSED=true
+  REDIS_ENABLED=true
+  REDIS_REQUIRED=true
+  REDIS_URL=redis://127.0.0.1:6379/0
+  CACHE_PREFIX=stadtplaner:prod
+  TRUSTED_PROXIES=127.0.0.1,::1
+
+stadtplaner_frontend_env_content: |
+  NUXT_PUBLIC_SITE_URL=https://stadtplaner.oklabflensburg.de
+  NUXT_PUBLIC_API_BASE_URL=https://api.stadtplaner.oklabflensburg.de/api/v1
+
+# OSM replication uses a separate shell-compatible environment file.
+stadtplaner_osm_env_content: |
+  # Copy the actual values from deploy/osm-sync.env.example and adjust them.
+  # Never place database passwords in this example file.
