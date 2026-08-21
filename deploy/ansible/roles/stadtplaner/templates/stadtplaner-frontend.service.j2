@@ -1,0 +1,28 @@
+[Unit]
+Description=Open City Planner Nuxt frontend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ stadtplaner_service_user }}
+Group={{ stadtplaner_service_group }}
+WorkingDirectory={{ stadtplaner_repo_path }}/frontend
+EnvironmentFile={{ stadtplaner_frontend_env_file }}
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT={{ stadtplaner_frontend_port }}
+Environment=NITRO_HOST=127.0.0.1
+Environment=NITRO_PORT={{ stadtplaner_frontend_port }}
+ExecStart=/usr/bin/node {{ stadtplaner_repo_path }}/frontend/.output/server/index.mjs
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
