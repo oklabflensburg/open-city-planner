@@ -9,7 +9,7 @@ Für diesen Server ist ein idempotenter Deployment-Ablauf sicherer als wiederhol
 ## Aus dem Repository abgeleitete Produktionsarchitektur
 
 - Checkout: `/opt/git/open-city-planner`
-- Arbeits-/SSH-Benutzer: `awendelk` mit `become`
+- administrativer SSH-Zugang mit `become`; der konkrete Login bleibt lokale Operator-Konfiguration
 - Service-Benutzer: `oklab`
 - FastAPI: `127.0.0.1:8008`
 - Nuxt/Nitro: `127.0.0.1:3008`
@@ -36,12 +36,15 @@ python3 -m venv ~/.venvs/stadtplaner-ansible
 cd /pfad/zum/open-city-planner/deploy/ansible
 ```
 
-Der Inventory-Eintrag verwendet `89.58.56.254` und `awendelk`. SSH Host Keys bleiben absichtlich aktiviert. Test:
+Das committed Inventory verwendet den öffentlichen Stadtplaner-Hostnamen, aber absichtlich keinen SSH-Benutzernamen oder private SSH-Optionen. Für den aktuellen Operator kann der Login lokal gesetzt werden, zum Beispiel:
 
 ```bash
+export ANSIBLE_REMOTE_USER=awendelk
 ansible stadtplaner -m ping
 ansible stadtplaner -b -m command -a 'id'
 ```
+
+Alternativ kann der Login in `~/.ssh/config` oder einem nicht committeten lokalen Inventory gesetzt werden. SSH Host Keys bleiben absichtlich aktiviert.
 
 ## Einmalige Voraussetzungen
 
@@ -100,7 +103,7 @@ Am sichersten wird **ein konkreter Commit** deployed, nicht ein beweglicher Bran
 git fetch origin
 SHA=$(git rev-parse origin/main)
 cd deploy/ansible
-ansible-playbook playbooks/deploy.yml \
+ANSIBLE_REMOTE_USER=awendelk ansible-playbook playbooks/deploy.yml \
   -e stadtplaner_deploy_ref="$SHA" \
   -e @~/stadtplaner-vault.yml \
   --ask-vault-pass
@@ -133,7 +136,7 @@ CI sollte die Hauptqualitätsgrenze bleiben. Für ein besonders sensibles Releas
 -e stadtplaner_run_frontend_typecheck=true
 ```
 
-Diese Prüfungen verlängern das Produktionsdeployment und sind standardmäßig aus.
+Diese Prüfungen verlängern das Produktionsdeployment und sind standardmäßig aus. Für Backend-Pytest müssen die Development-Extras im produktiven Venv vorhanden sein; im Normalbetrieb wird deshalb die CI als Testgrenze empfohlen.
 
 ## Nginx und Rate Limits
 
@@ -160,7 +163,7 @@ Die Entwickler-Subdomain ist standardmäßig aus, damit ein fehlendes Zertifikat
 Nach gesetztem DNS zunächst einmalig:
 
 ```bash
-ansible-playbook playbooks/certificates.yml \
+ANSIBLE_REMOTE_USER=awendelk ansible-playbook playbooks/certificates.yml \
   -e stadtplaner_manage_certificates=true \
   -e stadtplaner_certbot_email=DEINE-ADMIN-MAIL
 ```
@@ -178,7 +181,7 @@ Normale Deployments führen Certbot nicht aus. Die reguläre Certbot-Renewal-Inf
 Der Initialimport ist absichtlich aus dem normalen Deployment ausgeschlossen. Er ist groß, extern datenabhängig und darf nur explizit gestartet werden:
 
 ```bash
-ansible-playbook playbooks/osm-initial-import.yml \
+ANSIBLE_REMOTE_USER=awendelk ansible-playbook playbooks/osm-initial-import.yml \
   -e confirm_osm_initial_import=true
 ```
 
@@ -204,7 +207,7 @@ Mastodon nur aktivieren, wenn die Backend-Konfiguration vollständig ist:
 Für Code ohne inkompatible Datenbankänderung kann ein zuvor bekannter Commit wieder deployed werden:
 
 ```bash
-ansible-playbook playbooks/deploy.yml \
+ANSIBLE_REMOTE_USER=awendelk ansible-playbook playbooks/deploy.yml \
   -e stadtplaner_deploy_ref=<previous-good-sha> \
   -e stadtplaner_run_migrations=false
 ```
