@@ -39,7 +39,7 @@ cd /pfad/zum/open-city-planner/deploy/ansible
 Das committed Inventory verwendet den öffentlichen Stadtplaner-Hostnamen, aber absichtlich keinen SSH-Benutzernamen oder private SSH-Optionen. Für den aktuellen Operator kann der Login lokal gesetzt werden, zum Beispiel:
 
 ```bash
-export ANSIBLE_REMOTE_USER=awendelk
+export ANSIBLE_REMOTE_USER=DEPLOY_USER
 ansible stadtplaner -m ping
 ansible stadtplaner -b -m command -a 'id'
 ```
@@ -55,7 +55,7 @@ Bootstrap, normaler Deploy und Zertifikatsausstellung beginnen mit einem DNS-Pre
 Der Preflight kann auch separat ausgeführt werden:
 
 ```bash
-ANSIBLE_REMOTE_USER=awendelk ansible-playbook playbooks/preflight.yml \
+ANSIBLE_REMOTE_USER=DEPLOY_USER ansible-playbook playbooks/preflight.yml \
   -e @~/stadtplaner-vault.yml \
   --ask-vault-pass
 ```
@@ -100,6 +100,52 @@ ansible-playbook playbooks/deploy.yml \
 
 `vault.example.yml` ist die vollständige Eingabereferenz: Es führt alle Schlüssel aus `backend/.env.example`, `frontend/.env.example` und `deploy/osm-sync.env.example` sowie sämtliche überschreibbaren Deployment- und Runtime-Variablen auf. Pflichtwerte sind deutlich mit `REPLACE_…` markiert; optionale Integrationen bleiben standardmäßig deaktiviert. Reale Secrets niemals committen.
 
+## Automatischer Deploy über GitHub Actions
+
+`.github/workflows/deploy.yml` deployt einen Push auf `main` automatisch, sobald der zugehörige Workflow **E2E Tests** erfolgreich beendet wurde, und kann zusätzlich über `workflow_dispatch` auf `main` manuell gestartet werden. Für automatische Läufe verwendet er `workflow_run.head_sha`, sodass exakt der erfolgreich getestete Commit ausgerollt wird. Fehlgeschlagene E2E-Läufe lösen keinen Deploy aus. Eine Concurrency-Gruppe lässt nie zwei Produktionsdeployments gleichzeitig laufen.
+
+Lege im Repository unter **Settings → Environments** die Environment `production` an und beschränke sie auf den Branch `main`. Ein Required Reviewer ist optional: Ohne Reviewer läuft der Deploy vollautomatisch; mit Reviewer wartet er vor dem Zugriff auf die Secrets auf eine Freigabe.
+
+GitHub Actions verwendet absichtlich keinen Base64-kodierten Ansible Vault. GitHub verschlüsselt Environment Secrets bereits; Vault-Datei und Vault-Passwort gemeinsam dort abzulegen würde die Secret-Verwaltung nur doppeln. Stattdessen werden skalare Zugangsdaten einzeln gespeichert und erst auf dem temporären Runner mit der nicht-sensitiven Konfiguration zusammengesetzt.
+
+Lege unter **Environment variables** drei mehrzeilige Konfigurationswerte an:
+
+- `STADTPLANER_BACKEND_ENV_CONFIG`: vollständige Backend-Konfiguration ohne die unten aufgeführten Secret-Schlüssel;
+- `STADTPLANER_FRONTEND_ENV_CONFIG`: vollständiger Inhalt von `frontend/.env`;
+- `STADTPLANER_OSM_ENV_CONFIG`: vollständiger Inhalt von `deploy/osm-sync.env`.
+
+Die drei Blöcke müssen alle zugehörigen Schlüssel aus `vault.example.yml` enthalten. Aus dem Backend-Block müssen `DATABASE_URL`, `JWT_SECRET_KEY`, `OAUTH_STATE_SECRET`, `MFA_RECOVERY_PEPPER`, `MFA_ENCRYPTION_KEY`, `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `CONTACT_TO_EMAIL`, `CONTACT_TO_NAME`, `REDIS_URL`, `TURNSTILE_SECRET_KEY`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `MASTODON_SSO_ENCRYPTION_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `NOMINATIM_BASE_URL`, `NOMINATIM_EMAIL` und `MASTODON_ACCESS_TOKEN` entfernt werden. Der Workflow lehnt doppelte, fehlende, zusätzliche oder versehentlich offen eingetragene Secret-Schlüssel ab.
+
+Unter **Environment secrets** gehören die vier Deployment-Zugangsdaten:
+
+- `STADTPLANER_ANSIBLE_REMOTE_USER`
+- `STADTPLANER_SSH_PRIVATE_KEY`
+- `STADTPLANER_SSH_KNOWN_HOSTS`
+- `STADTPLANER_BECOME_PASSWORD`
+
+Hinzu kommen die individuellen Applikations-Secrets:
+
+- `STADTPLANER_DATABASE_URL`
+- `STADTPLANER_JWT_SECRET_KEY`
+- `STADTPLANER_OAUTH_STATE_SECRET`
+- `STADTPLANER_MFA_RECOVERY_PEPPER`
+- `STADTPLANER_MFA_ENCRYPTION_KEY`
+- `STADTPLANER_SMTP_HOST`, `STADTPLANER_SMTP_USERNAME`, `STADTPLANER_SMTP_PASSWORD`, `STADTPLANER_SMTP_FROM_EMAIL`
+- `STADTPLANER_CONTACT_TO_EMAIL`, `STADTPLANER_CONTACT_TO_NAME`
+- `STADTPLANER_REDIS_URL`
+- optional je nach aktivierter Integration: `STADTPLANER_TURNSTILE_SECRET_KEY`, `STADTPLANER_GITHUB_CLIENT_SECRET`, `STADTPLANER_GOOGLE_CLIENT_SECRET`, `STADTPLANER_MASTODON_SSO_ENCRYPTION_KEY`, `STADTPLANER_OPENAI_API_KEY`, `STADTPLANER_GROQ_API_KEY`, `STADTPLANER_NOMINATIM_BASE_URL`, `STADTPLANER_NOMINATIM_EMAIL`, `STADTPLANER_MASTODON_ACCESS_TOKEN`.
+
+Secret-Werte können mit `gh secret set NAME --env production` interaktiv gesetzt werden, ohne sie als Kommandozeilenargument in die Shell-History zu schreiben. Für Dateiwerte gilt beispielsweise:
+
+```bash
+gh secret set STADTPLANER_SSH_PRIVATE_KEY --env production < ~/.ssh/STADTPLANER_CI_KEY
+ssh-keygen -F stadtplaner.oklabflensburg.de -f ~/.ssh/known_hosts \
+  | sed '/^#/d' \
+  | gh secret set STADTPLANER_SSH_KNOWN_HOSTS --env production
+```
+
+Den Host-Key vor dem Hochladen gegen einen bereits vertrauenswürdig bekannten Fingerprint prüfen. Niemals die Host-Key-Prüfung abschalten. Der Runner schreibt die zusammengesetzten Ansible-Variablen und Zugangsdaten nur mit Modus `0600` in sein temporäres Verzeichnis und entfernt sie auch nach einem Fehler. Das lokale Ansible Vault bleibt für manuelle Deployments verwendbar, ist aber keine Eingabe des GitHub-Workflows mehr.
+
 ## Datenbankbackup vor Migrationen
 
 Vor `alembic upgrade head` erstellt Ansible standardmäßig einen Custom-Format-Dump unter `/var/backups/stadtplaner`. `pg_dump` läuft als lokaler PostgreSQL-Systembenutzer `postgres` über Peer-Authentifizierung und liest die Datenbank nur; Datenbankzugangsdaten werden weder ausgelesen noch auf der Kommandozeile offengelegt. Ein 30-sekündiges Lock-Limit verhindert unbegrenztes Warten auf konkurrierende DDL. Der Lauf schreibt zunächst eine restriktiv berechtigte `.partial`-Datei, verlangt einen nicht leeren Dump, validiert ihn mit `pg_restore --list` und benennt ihn erst danach atomar zum endgültigen Archiv um. Nur ein erfolgreich veröffentlichtes Archiv gibt die Migration frei.
@@ -135,7 +181,7 @@ Am sichersten wird **ein konkreter Commit** deployed, nicht ein beweglicher Bran
 git fetch origin
 SHA=$(git rev-parse origin/main)
 cd deploy/ansible
-ANSIBLE_REMOTE_USER=awendelk ansible-playbook playbooks/deploy.yml \
+ANSIBLE_REMOTE_USER=DEPLOY_USER ansible-playbook playbooks/deploy.yml \
   -e stadtplaner_deploy_ref="$SHA" \
   -e @~/stadtplaner-vault.yml \
   --ask-vault-pass
@@ -197,7 +243,7 @@ Die Entwickler-Subdomain ist standardmäßig aus, damit ein fehlendes Zertifikat
 Nach gesetztem DNS zunächst einmalig:
 
 ```bash
-ANSIBLE_REMOTE_USER=awendelk ansible-playbook playbooks/certificates.yml \
+ANSIBLE_REMOTE_USER=DEPLOY_USER ansible-playbook playbooks/certificates.yml \
   -e stadtplaner_manage_certificates=true \
   -e stadtplaner_certbot_email=DEINE-ADMIN-MAIL
 ```
@@ -215,7 +261,7 @@ Normale Deployments führen Certbot nicht aus. Die reguläre Certbot-Renewal-Inf
 Der Initialimport ist absichtlich aus dem normalen Deployment ausgeschlossen. Er ist groß, extern datenabhängig und darf nur explizit gestartet werden:
 
 ```bash
-ANSIBLE_REMOTE_USER=awendelk ansible-playbook playbooks/osm-initial-import.yml \
+ANSIBLE_REMOTE_USER=DEPLOY_USER ansible-playbook playbooks/osm-initial-import.yml \
   -e confirm_osm_initial_import=true
 ```
 
@@ -241,7 +287,7 @@ Mastodon nur aktivieren, wenn die Backend-Konfiguration vollständig ist:
 Für Code ohne inkompatible Datenbankänderung kann ein zuvor bekannter Commit wieder deployed werden:
 
 ```bash
-ANSIBLE_REMOTE_USER=awendelk ansible-playbook playbooks/deploy.yml \
+ANSIBLE_REMOTE_USER=DEPLOY_USER ansible-playbook playbooks/deploy.yml \
   -e stadtplaner_deploy_ref=<previous-good-sha> \
   -e stadtplaner_run_migrations=false
 ```

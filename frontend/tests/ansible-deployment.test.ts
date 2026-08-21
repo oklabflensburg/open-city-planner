@@ -72,4 +72,22 @@ describe('Ansible deployment contract', () => {
     expect(stopLegacy).toBeLessThan(freePorts)
     expect(freePorts).toBeLessThan(startManaged)
   })
+
+  it('deploys the exact main commit without weakening SSH verification', () => {
+    const workflow = repositoryFile('.github/workflows/deploy.yml')
+
+    expect(workflow).toContain('environment:\n      name: production')
+    expect(workflow).toContain('cancel-in-progress: false')
+    expect(workflow).toContain('github.event.workflow_run.conclusion == \'success\'')
+    expect(workflow).toContain('ANSIBLE_HOST_KEY_CHECKING: "True"')
+    expect(workflow).toContain('secrets.STADTPLANER_ANSIBLE_REMOTE_USER')
+    expect(workflow).toContain('STADTPLANER_SSH_KNOWN_HOSTS')
+    expect(workflow).toContain('vars.STADTPLANER_BACKEND_ENV_CONFIG')
+    expect(workflow).toContain('secrets.STADTPLANER_DATABASE_URL')
+    expect(workflow).toContain('stadtplaner_deploy_ref=${STADTPLANER_DEPLOY_SHA}')
+    expect(workflow).toContain('--become-password-file')
+    expect(workflow).not.toContain('STADTPLANER_ANSIBLE_VAULT_BASE64')
+    expect(workflow).not.toContain('--vault-password-file')
+    expect(workflow).not.toContain('StrictHostKeyChecking=no')
+  })
 })

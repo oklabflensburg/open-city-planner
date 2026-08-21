@@ -1,0 +1,135 @@
+name: Production Deploy
+
+on:
+  workflow_run:
+    workflows: [E2E Tests]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stadtplaner-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy with Ansible
+    if: >-
+      ${{
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'workflow_run' &&
+         github.event.workflow_run.event == 'push' &&
+         github.event.workflow_run.head_branch == 'main' &&
+         github.event.workflow_run.conclusion == 'success')
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: production
+      url: https://stadtplaner.oklabflensburg.de
+    env:
+      ANSIBLE_HOST_KEY_CHECKING: "True"
+      STADTPLANER_DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible
+        run: python -m pip install 'ansible-core>=2.17,<2.20'
+
+      - name: Prepare ephemeral deployment credentials
+        shell: bash
+        env:
+          STADTPLANER_ANSIBLE_REMOTE_USER: ${{ secrets.STADTPLANER_ANSIBLE_REMOTE_USER }}
+          STADTPLANER_SSH_PRIVATE_KEY: ${{ secrets.STADTPLANER_SSH_PRIVATE_KEY }}
+          STADTPLANER_SSH_KNOWN_HOSTS: ${{ secrets.STADTPLANER_SSH_KNOWN_HOSTS }}
+          STADTPLANER_BECOME_PASSWORD: ${{ secrets.STADTPLANER_BECOME_PASSWORD }}
+          STADTPLANER_BACKEND_ENV_CONFIG: ${{ vars.STADTPLANER_BACKEND_ENV_CONFIG }}
+          STADTPLANER_FRONTEND_ENV_CONFIG: ${{ vars.STADTPLANER_FRONTEND_ENV_CONFIG }}
+          STADTPLANER_OSM_ENV_CONFIG: ${{ vars.STADTPLANER_OSM_ENV_CONFIG }}
+          STADTPLANER_DATABASE_URL: ${{ secrets.STADTPLANER_DATABASE_URL }}
+          STADTPLANER_JWT_SECRET_KEY: ${{ secrets.STADTPLANER_JWT_SECRET_KEY }}
+          STADTPLANER_OAUTH_STATE_SECRET: ${{ secrets.STADTPLANER_OAUTH_STATE_SECRET }}
+          STADTPLANER_MFA_RECOVERY_PEPPER: ${{ secrets.STADTPLANER_MFA_RECOVERY_PEPPER }}
+          STADTPLANER_MFA_ENCRYPTION_KEY: ${{ secrets.STADTPLANER_MFA_ENCRYPTION_KEY }}
+          STADTPLANER_SMTP_HOST: ${{ secrets.STADTPLANER_SMTP_HOST }}
+          STADTPLANER_SMTP_USERNAME: ${{ secrets.STADTPLANER_SMTP_USERNAME }}
+          STADTPLANER_SMTP_PASSWORD: ${{ secrets.STADTPLANER_SMTP_PASSWORD }}
+          STADTPLANER_SMTP_FROM_EMAIL: ${{ secrets.STADTPLANER_SMTP_FROM_EMAIL }}
+          STADTPLANER_CONTACT_TO_EMAIL: ${{ secrets.STADTPLANER_CONTACT_TO_EMAIL }}
+          STADTPLANER_CONTACT_TO_NAME: ${{ secrets.STADTPLANER_CONTACT_TO_NAME }}
+          STADTPLANER_REDIS_URL: ${{ secrets.STADTPLANER_REDIS_URL }}
+          STADTPLANER_TURNSTILE_SECRET_KEY: ${{ secrets.STADTPLANER_TURNSTILE_SECRET_KEY }}
+          STADTPLANER_GITHUB_CLIENT_SECRET: ${{ secrets.STADTPLANER_GITHUB_CLIENT_SECRET }}
+          STADTPLANER_GOOGLE_CLIENT_SECRET: ${{ secrets.STADTPLANER_GOOGLE_CLIENT_SECRET }}
+          STADTPLANER_MASTODON_SSO_ENCRYPTION_KEY: ${{ secrets.STADTPLANER_MASTODON_SSO_ENCRYPTION_KEY }}
+          STADTPLANER_OPENAI_API_KEY: ${{ secrets.STADTPLANER_OPENAI_API_KEY }}
+          STADTPLANER_GROQ_API_KEY: ${{ secrets.STADTPLANER_GROQ_API_KEY }}
+          STADTPLANER_NOMINATIM_BASE_URL: ${{ secrets.STADTPLANER_NOMINATIM_BASE_URL }}
+          STADTPLANER_NOMINATIM_EMAIL: ${{ secrets.STADTPLANER_NOMINATIM_EMAIL }}
+          STADTPLANER_MASTODON_ACCESS_TOKEN: ${{ secrets.STADTPLANER_MASTODON_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          required=(
+            STADTPLANER_ANSIBLE_REMOTE_USER
+            STADTPLANER_SSH_PRIVATE_KEY
+            STADTPLANER_SSH_KNOWN_HOSTS
+            STADTPLANER_BECOME_PASSWORD
+          )
+          for variable in "${required[@]}"; do
+            if [[ -z "${!variable:-}" ]]; then
+              echo "Missing production environment value: ${variable}" >&2
+              exit 1
+            fi
+          done
+          install -d -m 0700 "${HOME}/.ssh"
+          printf '%s\n' "${STADTPLANER_SSH_PRIVATE_KEY}" > "${RUNNER_TEMP}/stadtplaner-ssh-key"
+          printf '%s\n' "${STADTPLANER_SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+          printf '%s\n' "${STADTPLANER_BECOME_PASSWORD}" \
+            > "${RUNNER_TEMP}/stadtplaner-become-password"
+          printf '%s\n' "${STADTPLANER_ANSIBLE_REMOTE_USER}" \
+            > "${RUNNER_TEMP}/stadtplaner-remote-user"
+          chmod 0600 \
+            "${RUNNER_TEMP}/stadtplaner-ssh-key" \
+            "${RUNNER_TEMP}/stadtplaner-become-password" \
+            "${RUNNER_TEMP}/stadtplaner-remote-user" \
+            "${HOME}/.ssh/known_hosts"
+          ssh-keygen -y -f "${RUNNER_TEMP}/stadtplaner-ssh-key" >/dev/null
+          python deploy/ansible/scripts/build-github-vars.py \
+            --example deploy/ansible/vault.example.yml \
+            --output "${RUNNER_TEMP}/stadtplaner-github-vars.yml"
+
+      - name: Verify SSH connectivity
+        working-directory: deploy/ansible
+        run: >-
+          ansible stadtplaner
+          --user "$(cat "${RUNNER_TEMP}/stadtplaner-remote-user")"
+          --private-key "${RUNNER_TEMP}/stadtplaner-ssh-key"
+          --module-name ansible.builtin.ping
+
+      - name: Deploy exact commit
+        working-directory: deploy/ansible
+        run: >-
+          ansible-playbook playbooks/deploy.yml
+          --user "$(cat "${RUNNER_TEMP}/stadtplaner-remote-user")"
+          --private-key "${RUNNER_TEMP}/stadtplaner-ssh-key"
+          --become-password-file "${RUNNER_TEMP}/stadtplaner-become-password"
+          --extra-vars "@${RUNNER_TEMP}/stadtplaner-github-vars.yml"
+          --extra-vars "stadtplaner_deploy_ref=${STADTPLANER_DEPLOY_SHA}"
+
+      - name: Remove ephemeral credentials
+        if: always()
+        shell: bash
+        run: |
+          rm -f \
+            "${RUNNER_TEMP}/stadtplaner-ssh-key" \
+            "${RUNNER_TEMP}/stadtplaner-github-vars.yml" \
+            "${RUNNER_TEMP}/stadtplaner-become-password" \
+            "${RUNNER_TEMP}/stadtplaner-remote-user"

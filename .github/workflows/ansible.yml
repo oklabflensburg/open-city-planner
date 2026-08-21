@@ -31,6 +31,8 @@ jobs:
       - name: Syntax-check deployment playbooks
         working-directory: deploy/ansible
         run: |
+          python -m unittest discover -s tests
+          ansible-playbook --syntax-check playbooks/preflight.yml
           ansible-playbook --syntax-check playbooks/bootstrap.yml
           ansible-playbook --syntax-check playbooks/deploy.yml
           ansible-playbook --syntax-check playbooks/certificates.yml
