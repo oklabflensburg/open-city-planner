@@ -112,6 +112,7 @@ jobs:
           ansible stadtplaner
           --user "$(cat "${RUNNER_TEMP}/stadtplaner-remote-user")"
           --private-key "${RUNNER_TEMP}/stadtplaner-ssh-key"
+          --become-password-file "${RUNNER_TEMP}/stadtplaner-become-password"
           --module-name ansible.builtin.ping
 
       - name: Deploy exact commit

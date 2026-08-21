@@ -85,7 +85,7 @@ describe('Ansible deployment contract', () => {
     expect(workflow).toContain('vars.STADTPLANER_BACKEND_ENV_CONFIG')
     expect(workflow).toContain('secrets.STADTPLANER_DATABASE_URL')
     expect(workflow).toContain('stadtplaner_deploy_ref=${STADTPLANER_DEPLOY_SHA}')
-    expect(workflow).toContain('--become-password-file')
+    expect(workflow.match(/--become-password-file/g)).toHaveLength(2)
     expect(workflow).not.toContain('STADTPLANER_ANSIBLE_VAULT_BASE64')
     expect(workflow).not.toContain('--vault-password-file')
     expect(workflow).not.toContain('StrictHostKeyChecking=no')
