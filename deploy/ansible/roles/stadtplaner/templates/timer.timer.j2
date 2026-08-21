@@ -1,0 +1,13 @@
+[Unit]
+Description={{ timer_description }}
+
+[Timer]
+{% if timer_on_boot %}OnBootSec={{ timer_on_boot }}
+{% endif %}{% if timer_on_unit_active %}OnUnitActiveSec={{ timer_on_unit_active }}
+{% endif %}{% if timer_on_calendar %}OnCalendar={{ timer_on_calendar }}
+{% endif %}AccuracySec={{ timer_accuracy }}
+Persistent=true
+Unit={{ timer_service }}
+
+[Install]
+WantedBy=timers.target
