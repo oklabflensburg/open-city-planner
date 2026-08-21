@@ -6,7 +6,8 @@ Description={{ timer_description }}
 {% endif %}{% if timer_on_unit_active %}OnUnitActiveSec={{ timer_on_unit_active }}
 {% endif %}{% if timer_on_calendar %}OnCalendar={{ timer_on_calendar }}
 {% endif %}AccuracySec={{ timer_accuracy }}
-Persistent=true
+{% if timer_randomized_delay %}RandomizedDelaySec={{ timer_randomized_delay }}
+{% endif %}Persistent=true
 Unit={{ timer_service }}
 
 [Install]
