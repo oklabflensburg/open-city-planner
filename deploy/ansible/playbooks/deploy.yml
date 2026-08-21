@@ -1,0 +1,8 @@
+---
+- name: Deploy Open City Planner production
+  hosts: stadtplaner
+  become: true
+  serial: 1
+  any_errors_fatal: true
+  roles:
+    - role: stadtplaner
