@@ -13,7 +13,6 @@ stadtplaner_backend_env_file: /etc/stadtplaner/backend.env
 stadtplaner_frontend_env_file: /etc/stadtplaner/frontend.env
 stadtplaner_osm_env_file: /etc/stadtplaner/osm-sync.env
 
-stadtplaner_manage_system_packages: false
 stadtplaner_manage_nginx: true
 stadtplaner_manage_background_timers: true
 stadtplaner_enable_osm_timer: true
@@ -32,6 +31,7 @@ stadtplaner_api_certificate_name: api.stadtplaner.oklabflensburg.de
 stadtplaner_developer_certificate_name: developer.stadtplaner.oklabflensburg.de
 
 stadtplaner_run_migrations: true
+stadtplaner_require_pre_migration_backup: true
 stadtplaner_run_frontend_typecheck: false
 stadtplaner_run_backend_tests: false
 stadtplaner_run_frontend_tests: false
