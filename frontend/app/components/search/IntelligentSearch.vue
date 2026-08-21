@@ -262,9 +262,7 @@ function statisticValue(item: Record<string, unknown>, fallbackUnit?: string | n
 }
 function knowledgeSource(item: Record<string, unknown>) {
   const source = asRecord(item.source)
-  if (!source.path) return ''
-  const label = source.type === 'DOCUMENTATION' ? 'Dokumentation' : 'Quelle'
-  return `${label}: ${String(source.path)}`
+  return source.type === 'DOCUMENTATION' ? 'Quelle: Stadtplaner-Dokumentation' : ''
 }
 function documentationRoute(item: Record<string, unknown>) {
   const source = asRecord(item.source)

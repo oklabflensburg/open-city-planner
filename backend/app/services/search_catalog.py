@@ -9,6 +9,19 @@ from app.schemas.polygon_filters import (
     OCCUPANCY_STATUSES,
 )
 
+CATEGORY_LABELS: dict[str, str] = {
+    "warehouse": "Warenhaus",
+    "fashion": "Mode / Bekleidung",
+    "food": "Nahrungsmittel / Drogerie",
+    "electronics": "Elektro / Technik",
+    "furniture": "Einrichtungsbedarf",
+    "garden": "Garten / Freizeit",
+    "other": "Sonstige Waren",
+    "gastronomy": "Gastronomie",
+    "services": "Einzelhandelsnahe Dienstleister",
+    "otherAreas": "Sonstige Flächen",
+}
+
 
 @dataclass(frozen=True, slots=True)
 class SearchCatalog:

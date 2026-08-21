@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.analysis_area import AnalysisAreaAnalytics, AnalysisAreaDetail, AnalysisAreaPolygon
 from app.schemas.analytics import AreaCompareResult, LocationAnalysis
@@ -428,8 +428,20 @@ class SearchFeaturesInput(BaseModel):
     area_slug: str = Field(min_length=1, max_length=255)
     filters: SearchFilters = Field(default_factory=SearchFilters)
     geometry_filter: SearchGeometryFilter = SearchGeometryFilter.ALL
+    area_m2_greater_than: float | None = Field(default=None, gt=0, le=100_000_000)
+    area_m2_less_than: float | None = Field(default=None, gt=0, le=100_000_000)
     osm_amenities: list[OsmAmenity] = Field(default_factory=list, max_length=10)
     limit: int = Field(default=200, ge=1, le=200)
+
+    @model_validator(mode="after")
+    def valid_area_range(self) -> "SearchFeaturesInput":
+        if (
+            self.area_m2_greater_than is not None
+            and self.area_m2_less_than is not None
+            and self.area_m2_greater_than >= self.area_m2_less_than
+        ):
+            raise ValueError("area_m2_greater_than muss kleiner als area_m2_less_than sein")
+        return self
 
 
 class EmptyToolInput(BaseModel):

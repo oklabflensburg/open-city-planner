@@ -227,6 +227,8 @@ describe('Stadtplaner-Assistent', () => {
     expect(component).toContain('data-assistant-statistics-metadata')
     expect(component).toContain('data-assistant-result-section')
     expect(component).toContain("'docs/flensburg-statistics.md'")
+    expect(component).toContain('Quelle: Stadtplaner-Dokumentation')
+    expect(component).not.toContain('return `${label}: ${String(source.path)}`')
     expect(component).not.toContain(':disabled="search.loading')
     const shell = readFileSync(new URL('../app/components/layout/AppShell.vue', import.meta.url), 'utf8')
     expect(shell).toContain('<IntelligentSearch v-if="!isDesktop" compact @open="openAssistant" />')

@@ -113,7 +113,8 @@ export const documentationPages: DocumentationPage[] = [
         id: 'beispiele',
         title: 'Beispiele für Suchanfragen',
         blocks: [
-          { type: 'list', items: ['„Alle Stadtteile anzeigen“', '„Zeige Gastronomieflächen in der Altstadt“', '„Nur Leerstände“', '„Wie viele POIs gibt es in der Altstadt?“', '„Welche Statistiken gibt es für die Altstadt?“', '„Wie hat sich die Bevölkerung in der Altstadt entwickelt?“', '„Was bedeutet Leerstandsquote?“', '„Zeige Rathaus in Flensburg“'] },
+          { type: 'list', items: ['„Alle Stadtteile anzeigen“', '„Zeige Gastronomieflächen in der Altstadt“', '„Gibt es Flächen größer als 350 qm in Flensburg?“', '„Nur Leerstände“', '„Wie viele POIs gibt es in der Altstadt?“', '„Welche Statistiken gibt es für die Altstadt?“', '„Wie hat sich die Bevölkerung in der Altstadt entwickelt?“', '„Was bedeutet Leerstandsquote?“', '„Zeige Rathaus in Flensburg“'] },
+          { type: 'callout', variant: 'info', title: 'Numerische Flächensuche', text: 'Angaben wie „größer als 350 qm“ oder „unter 100 Quadratmeter“ beziehen sich ausschließlich auf die vermessene Polygonfläche gepflegter Stadtplaner-Flächen. OpenStreetMap-Gebäudegrundrisse werden dabei nicht als Verkaufsfläche angenommen.' },
           { type: 'callout', variant: 'tip', title: 'Folgefragen', text: 'Nach einer eindeutigen Gebiets- oder Statistikfrage können kurze Folgefragen wie „Und die Bevölkerung?“ oder „Was bedeutet diese Kennzahl?“ den bisherigen Zusammenhang verwenden.' }
         ]
       },

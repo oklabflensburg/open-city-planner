@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.polygon_filters import (
     AREA_SIZES,
@@ -112,7 +112,19 @@ class SearchPlan(BaseModel):
     filters: SearchFilters = Field(default_factory=SearchFilters)
     geometry_filter: SearchGeometryFilter = SearchGeometryFilter.ALL
     osm_amenities: list[OsmAmenity] = Field(default_factory=list, max_length=10)
+    area_m2_greater_than: float | None = Field(default=None, gt=0, le=100_000_000)
+    area_m2_less_than: float | None = Field(default=None, gt=0, le=100_000_000)
     map_action: SearchPresentation = Field(default_factory=SearchPresentation)
+
+    @model_validator(mode="after")
+    def valid_area_range(self) -> "SearchPlan":
+        if (
+            self.area_m2_greater_than is not None
+            and self.area_m2_less_than is not None
+            and self.area_m2_greater_than >= self.area_m2_less_than
+        ):
+            raise ValueError("area_m2_greater_than muss kleiner als area_m2_less_than sein")
+        return self
 
 
 class SearchRequest(BaseModel):

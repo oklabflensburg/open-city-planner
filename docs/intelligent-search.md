@@ -96,6 +96,7 @@ bewusst auf der aktuellen Auswahl auf. Dadurch können beispielsweise
 | `Zeige alle Quartiere` | Gebiete vom Typ `QUARTER` anzeigen |
 | `Zeige Gastronomieflächen in der Altstadt` | Kategorie `gastronomy`, nur Polygone, exakte Gebietsabgrenzung |
 | `Alle Restaurants in der Altstadt` | Kategorie `gastronomy` im aufgelösten Gebiet |
+| `Gibt es Flächen größer als 350 qm in Flensburg?` | Stadtplaner-Polygone mit einer vermessenen Fläche über 350 Quadratmetern |
 | `Nur Leerstände` | `occupancy_statuses=[VACANT]` |
 | `Nur belegte Flächen` | `occupancy_statuses=[OCCUPIED]` |
 | `Nur OSM` / `Nur Stadtplaner` | entsprechende Quelle auswählen |
@@ -177,5 +178,8 @@ Kartenergebnisse stammen weiterhin aus den validierten Stadtplaner-Werkzeugen.
   einen validierten Radius von 100 bis 2.000 Metern.
 - Größenwörter wie „klein“ oder „sehr groß“ werden nicht auf S/M/L/XL gemappt,
   weil das Projekt dafür bewusst keine erfundenen Quadratmetergrenzen verwendet.
+- Explizite numerische Grenzen wie „größer als 350 qm“ werden auf die mit PostGIS
+  vermessene Polygonfläche gepflegter Stadtplaner-Flächen angewendet. OSM-Polygone
+  bleiben ausgeschlossen, weil ein Gebäudegrundriss keine behauptete Verkaufsfläche ist.
 - Der Search-Layer ist eine Ergebnisdarstellung; die normalen Viewport-Layer und
   deren zentrale Deduplizierung bleiben unverändert.

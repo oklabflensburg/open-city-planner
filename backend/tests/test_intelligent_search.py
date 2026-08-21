@@ -257,6 +257,54 @@ def test_osm_amenity_filter_is_parameterized_and_excludes_stadtplaner_rows() -> 
     assert ":osm_amenities" in str(search_executor.SEARCH_POLYGON_FEATURES_SQL)
 
 
+def test_numeric_area_threshold_is_parameterized_and_excludes_osm_rows() -> None:
+    plan = SearchPlan(
+        intent=SearchIntent.SHOW_FEATURES,
+        area=SearchArea(
+            id=str(AREA_ID), name="Flensburg", slug="flensburg-27020",
+            area_type=SearchAreaType.MUNICIPALITY,
+        ),
+        filters=SearchFilters(sources=["STADTPLANNER"]),
+        geometry_filter=SearchGeometryFilter.POLYGONS_ONLY,
+        area_m2_greater_than=350,
+    )
+
+    assert search_executor._params(plan)["area_m2_greater_than"] == 350
+    assert "CAST(:area_m2_greater_than AS double precision) IS NULL" in str(
+        search_executor.SEARCH_OSM_FEATURES_SQL
+    )
+    assert "ST_Area(ST_Transform(polygon.geometry, 25832))" in str(
+        search_executor.SEARCH_POLYGON_FEATURES_SQL
+    )
+    polygon_sql = str(search_executor.SEARCH_POLYGON_FEATURES_SQL)
+    count_sql = str(search_executor.COUNT_FEATURES_SQL)
+    expected_cast = "CAST(:area_m2_greater_than AS double precision)"
+    assert expected_cast in polygon_sql
+    assert expected_cast in count_sql
+
+
+def test_optional_numeric_area_parameters_are_typed_in_all_queries() -> None:
+    for statement in (
+        search_executor.SEARCH_OSM_FEATURES_SQL,
+        search_executor.SEARCH_POLYGON_FEATURES_SQL,
+        search_executor.COUNT_FEATURES_SQL,
+    ):
+        sql = str(statement)
+        assert "CAST(:area_m2_greater_than AS double precision) IS NULL" in sql
+        assert "CAST(:area_m2_less_than AS double precision) IS NULL" in sql
+
+
+def test_search_plan_rejects_invalid_numeric_area_range() -> None:
+    with pytest.raises(ValidationError):
+        SearchPlan(intent=SearchIntent.SHOW_FEATURES, area_m2_greater_than=0)
+    with pytest.raises(ValidationError):
+        SearchPlan(
+            intent=SearchIntent.SHOW_FEATURES,
+            area_m2_greater_than=500,
+            area_m2_less_than=350,
+        )
+
+
 def test_search_routes_are_publicly_documented() -> None:
     paths = app.openapi()["paths"]
     assert "/api/v1/search" in paths

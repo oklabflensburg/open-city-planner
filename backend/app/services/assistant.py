@@ -44,7 +44,7 @@ from app.services.assistant_tools import (
     AssistantToolError,
     execute_assistant_tool,
 )
-from app.services.search_catalog import SEARCH_CATALOG, VACANCY_SYNONYMS
+from app.services.search_catalog import CATEGORY_LABELS, SEARCH_CATALOG, VACANCY_SYNONYMS
 from app.services.search_interpreter import FORBIDDEN_PATTERNS, normalize_search_text
 
 logger = logging.getLogger(__name__)
@@ -320,7 +320,13 @@ async def _plan_query(
     topic = _topic(normalized, request.context.last_topic)
     wants_map = _has(normalized, "zeige", "anzeigen", "karte")
     has_feature_constraint = _has_explicit_feature_constraint(normalized)
-    implicit_feature_search = bool(filters.categories) and not _has(
+    area_thresholds = _area_m2_thresholds(normalized)
+    if any(value is not None for value in area_thresholds):
+        filters.sources = ["STADTPLANNER"]
+        has_feature_constraint = True
+    implicit_feature_search = (bool(filters.categories) or any(
+        value is not None for value in area_thresholds
+    )) and not _has(
         normalized,
         "wie viele", "anzahl", "was", "warum", "welche", "erkläre", "erklaere",
     )
@@ -337,7 +343,10 @@ async def _plan_query(
         geometry = "POLYGONS_ONLY" if polygon_features else "ALL"
         step = AssistantStep(tool=AssistantToolName.SEARCH_FEATURES, arguments={
             "area_slug": area.slug, "filters": filters.model_dump(),
-            "geometry_filter": geometry, "limit": 200,
+            "geometry_filter": geometry,
+            "area_m2_greater_than": area_thresholds[0],
+            "area_m2_less_than": area_thresholds[1],
+            "limit": 200,
         })
         topic = "POLYGON_FEATURES" if polygon_features else "FEATURES"
     elif _has(normalized, "welche verkaufsflächen", "welche verkaufsflaechen"):
@@ -1140,6 +1149,33 @@ def _has_explicit_feature_constraint(normalized: str) -> bool:
     )
 
 
+def _area_m2_thresholds(normalized: str) -> tuple[float | None, float | None]:
+    number = r"(\d{1,8}(?:[.,]\d{1,2})?)"
+    unit = r"(?:qm|m2|quadratmeter)"
+
+    def first_match(*patterns: str) -> re.Match[str] | None:
+        return next(
+            (match for pattern in patterns if (match := re.search(pattern, normalized))),
+            None,
+        )
+
+    greater = first_match(
+        rf"(?:grösser|groesser|mehr)\s+als\s+{number}\s*{unit}",
+        rf"(?:über|ueber)\s+{number}\s*{unit}",
+        rf"(?:grösser|groesser)\s+{number}\s*{unit}",
+    )
+    less = first_match(
+        rf"(?:kleiner|weniger)\s+als\s+{number}\s*{unit}",
+        rf"unter\s+{number}\s*{unit}",
+        rf"kleiner\s+{number}\s*{unit}",
+    )
+
+    def value(match: re.Match[str] | None) -> float | None:
+        return float(match.group(1).replace(",", ".")) if match else None
+
+    return value(greater), value(less)
+
+
 def _knowledge_plan(
     normalized: str, areas: list[SearchArea], filters: SearchFilters
 ) -> _PreparedPlan | None:
@@ -1227,6 +1263,14 @@ def _knowledge_plan(
 
     if not asks_explanation:
         return None
+    if len(filters.categories) == 1:
+        return _PreparedPlan(
+            AssistantPlan(intent=AssistantIntent.ANSWER_QUESTION, steps=[AssistantStep(
+                tool=AssistantToolName.DESCRIBE_CATEGORY,
+                arguments={"category": filters.categories[0]},
+            )]),
+            [], filters, "KNOWLEDGE",
+        )
     if _has(normalized, "unterschied") and _has(normalized, "osm", "openstreetmap") and _has(
         normalized, "stadtplaner"
     ):
@@ -1333,10 +1377,19 @@ def _follow_up_actions(prepared: _PreparedPlan) -> list[AssistantFollowUpAction]
             type="SHOW_ON_MAP", label="Auf Karte anzeigen",
             query=f"Bitte {area.name} auf der Karte anzeigen",
         ))
-    if prepared.topic in {"GASTRONOMY_COUNT", "FEATURES", "POLYGON_FEATURES"}:
+    category = None
+    if prepared.topic == "GASTRONOMY_COUNT":
+        category = "gastronomy"
+    elif (
+        prepared.topic in {"FEATURES", "POLYGON_FEATURES"}
+        and len(prepared.filters.categories) == 1
+    ):
+        category = prepared.filters.categories[0]
+    if category:
+        label = CATEGORY_LABELS.get(category, category)
         actions.append(AssistantFollowUpAction(
             type="EXPLAIN_CONCEPT", label="Kategorie erklären",
-            query="Was zählt als Gastronomie?",
+            query=f"Was zählt als {label}?",
         ))
     if prepared.areas and prepared.topic and prepared.topic.startswith("STATISTIC"):
         area = prepared.areas[0]

@@ -222,6 +222,8 @@ async def _search_features(session: AsyncSession, raw: BaseModel) -> SearchFeatu
         filters=args.filters,
         geometry_filter=args.geometry_filter,
         osm_amenities=args.osm_amenities,
+        area_m2_greater_than=args.area_m2_greater_than,
+        area_m2_less_than=args.area_m2_less_than,
         map_action=SearchPresentation(type=SearchMapActionType.REPLACE_SEARCH_LAYER, fit_bounds=True),
     )
     response = await execute_search(session, "Assistant-Feature-Suche", plan)

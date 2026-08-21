@@ -4,8 +4,8 @@ from dataclasses import asdict, dataclass
 from difflib import SequenceMatcher
 from enum import StrEnum
 
-from app.services.osm_canonical import GASTRONOMY_AMENITIES
-from app.services.search_catalog import SEARCH_CATALOG
+from app.services.osm_canonical import GASTRONOMY_AMENITIES, SHOP_CATEGORIES
+from app.services.search_catalog import CATEGORY_LABELS, SEARCH_CATALOG
 from app.services.search_interpreter import normalize_search_text
 
 KNOWLEDGE_RETRIEVAL_VERSION = "1"
@@ -68,15 +68,23 @@ def _entries() -> tuple[KnowledgeEntry, ...]:
         KnowledgeEntry(
             key=f"category.{category}",
             type=KnowledgeType.CATEGORY,
-            title="Gastronomie" if category == "gastronomy" else category,
+            title=CATEGORY_LABELS[category],
             aliases=SEARCH_CATALOG.category_synonyms.get(category, (category,)),
             description=(
                 "Zur Kategorie Gastronomie zählen in den lokalen OSM-Daten die Tags "
                 + ", ".join(f"amenity={value}" for value in sorted(GASTRONOMY_AMENITIES))
                 + ". Die Zuordnung folgt der kanonischen Mappinglogik des Stadtplaners."
                 if category == "gastronomy"
-                else f"{category} ist ein kanonischer Filterwert des Stadtplaners. "
-                "Die konkrete Zuordnung folgt ausschließlich der vorhandenen OSM- und Flächenlogik."
+                else (
+                    f"Zur Kategorie {CATEGORY_LABELS[category]} zählen in den lokalen "
+                    "OSM-Daten die shop-Werte "
+                    + ", ".join(f"shop={value}" for value in sorted(SHOP_CATEGORIES[category]))
+                    + ". Die Zuordnung folgt der kanonischen Mappinglogik des Stadtplaners."
+                    if category in SHOP_CATEGORIES
+                    else f"{CATEGORY_LABELS[category]} ist ein kanonischer Filterwert "
+                    "des Stadtplaners. Die konkrete Zuordnung folgt ausschließlich der "
+                    "vorhandenen OSM- und Flächenlogik."
+                )
             ),
             source_type="CODE",
             source_path="backend/app/services/osm_canonical.py",

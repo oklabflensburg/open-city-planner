@@ -161,6 +161,12 @@ ASSISTANT_QUERY_LOGGING=false
 
 API-Schlüssel werden als maskiertes Secret ausschließlich im Backend verarbeitet. Modell und Base-URL sind austauschbar; Preise oder Modellnamen sind nicht in der Fachlogik verankert. Bei `AI_SEARCH_ENABLED=false`, fehlendem Schlüssel, Timeout oder Providerfehler bleiben die deterministischen Phase-1/2/3-Pfade verfügbar. HTTP 429 und temporäre Serverfehler werden höchstens gemäß `GROQ_MAX_RETRIES` wiederholt; Tool-Ausführungen werden dabei niemals erneut ausgeführt.
 
+Explizite numerische Flächenabfragen wie „Gibt es Flächen größer als 350 qm in
+Flensburg?“ gehören zu diesen deterministischen Pfaden und benötigen keinen
+Provider. Der Grenzwert wird ausschließlich auf die mit PostGIS vermessene
+Polygonfläche gepflegter Stadtplaner-Flächen angewendet; OSM-Gebäudegrundrisse
+werden nicht als Verkaufsfläche interpretiert.
+
 HTTP-Fehler des Providers werden mit Statuscode, Modell, Versuch und dem
 begrenzten Response-Body als Warning protokolliert. Dasselbe gilt für erfolgreiche
 HTTP-Antworten, deren Struktur oder enthaltener Plan nicht validiert werden kann.

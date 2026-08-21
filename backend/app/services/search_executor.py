@@ -33,6 +33,7 @@ WITH target AS (
 SELECT 'OSM' AS source, osm.osm_type || ':' || osm.osm_id::text AS id,
        coalesce(osm.tags->>'name', osm.tags->>'shop', osm.tags->>'amenity', 'OpenStreetMap-Objekt') AS name,
        {_OSM_CATEGORY_SQL} AS category, {_OSM_STATUS_SQL} AS occupancy_status,
+       NULL::double precision AS area_m2,
        ST_AsGeoJSON(osm.geometry, 6)::json AS geometry
 FROM osm_features osm CROSS JOIN target
 WHERE osm.geometry && target.geometry
@@ -47,6 +48,8 @@ WHERE osm.geometry && target.geometry
        OR {_OSM_FLOOR_SQL} = ANY(CAST(:floors AS text[])))
   AND cardinality(CAST(:area_sizes AS text[])) = 0
   AND cardinality(CAST(:business_structures AS text[])) = 0
+  AND CAST(:area_m2_greater_than AS double precision) IS NULL
+  AND CAST(:area_m2_less_than AS double precision) IS NULL
   AND (:geometry_filter = 'ALL'
        OR (:geometry_filter = 'POLYGONS_ONLY' AND ST_Dimension(osm.geometry) = 2)
        OR (:geometry_filter = 'POINTS_ONLY' AND ST_Dimension(osm.geometry) = 0))
@@ -62,6 +65,7 @@ LIMIT :limit
 SEARCH_POLYGON_FEATURES_SQL = text("""
 SELECT 'STADTPLANNER' AS source, polygon.uuid::text AS id, polygon.name,
        polygon.category, polygon.occupancy_status,
+       ST_Area(ST_Transform(polygon.geometry, 25832)) AS area_m2,
        ST_AsGeoJSON(polygon.geometry, 6)::json AS geometry
 FROM user_polygons polygon
 JOIN polygon_analysis_areas assignment ON assignment.polygon_id = polygon.id
@@ -80,6 +84,12 @@ WHERE area.uuid = CAST(:area_id AS uuid)
        OR polygon.properties->>'size' = ANY(CAST(:area_sizes AS text[])))
   AND (cardinality(CAST(:business_structures AS text[])) = 0
        OR polygon.business_structure = ANY(CAST(:business_structures AS text[])))
+  AND (CAST(:area_m2_greater_than AS double precision) IS NULL
+       OR ST_Area(ST_Transform(polygon.geometry, 25832))
+          > CAST(:area_m2_greater_than AS double precision))
+  AND (CAST(:area_m2_less_than AS double precision) IS NULL
+       OR ST_Area(ST_Transform(polygon.geometry, 25832))
+          < CAST(:area_m2_less_than AS double precision))
   AND cardinality(CAST(:osm_amenities AS text[])) = 0
   AND :geometry_filter <> 'POINTS_ONLY'
 ORDER BY polygon.updated_at DESC, polygon.id DESC
@@ -103,6 +113,8 @@ WITH target AS (
          OR {_OSM_FLOOR_SQL} = ANY(CAST(:floors AS text[])))
     AND cardinality(CAST(:area_sizes AS text[])) = 0
     AND cardinality(CAST(:business_structures AS text[])) = 0
+    AND CAST(:area_m2_greater_than AS double precision) IS NULL
+    AND CAST(:area_m2_less_than AS double precision) IS NULL
     AND (:geometry_filter = 'ALL'
          OR (:geometry_filter = 'POLYGONS_ONLY' AND ST_Dimension(osm.geometry) = 2)
          OR (:geometry_filter = 'POINTS_ONLY' AND ST_Dimension(osm.geometry) = 0))
@@ -129,6 +141,12 @@ WITH target AS (
          OR polygon.properties->>'size' = ANY(CAST(:area_sizes AS text[])))
     AND (cardinality(CAST(:business_structures AS text[])) = 0
          OR polygon.business_structure = ANY(CAST(:business_structures AS text[])))
+    AND (CAST(:area_m2_greater_than AS double precision) IS NULL
+         OR ST_Area(ST_Transform(polygon.geometry, 25832))
+            > CAST(:area_m2_greater_than AS double precision))
+    AND (CAST(:area_m2_less_than AS double precision) IS NULL
+         OR ST_Area(ST_Transform(polygon.geometry, 25832))
+            < CAST(:area_m2_less_than AS double precision))
     AND :geometry_filter <> 'POINTS_ONLY'
 )
 SELECT source, count FROM counts ORDER BY source
@@ -238,6 +256,8 @@ def _params(plan: SearchPlan) -> dict:
         "business_structures": plan.filters.business_structures,
         "geometry_filter": plan.geometry_filter.value,
         "osm_amenities": plan.osm_amenities,
+        "area_m2_greater_than": plan.area_m2_greater_than,
+        "area_m2_less_than": plan.area_m2_less_than,
     }
 
 

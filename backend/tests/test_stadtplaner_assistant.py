@@ -226,6 +226,29 @@ async def test_statistics_and_documentation_are_returned_as_separate_sections(
 
 
 @pytest.mark.asyncio
+async def test_category_explanation_returns_only_the_detected_category(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def no_areas(_session: object, _normalized: str) -> list[SearchArea]:
+        return []
+
+    monkeypatch.setattr(assistant, "_mentioned_areas", no_areas)
+    response = await answer_assistant_query(
+        object(),  # type: ignore[arg-type]
+        AssistantQueryRequest(query="Was zählt als Drogerie?"),
+    )
+
+    assert response.telemetry.llm_used is False
+    assert response.plan.steps[-1].tool == AssistantToolName.DESCRIBE_CATEGORY
+    assert response.plan.steps[-1].arguments == {"category": "food"}
+    assert len(response.presentation.items) == 1
+    assert response.presentation.items[0]["key"] == "category.food"
+    assert response.presentation.items[0]["title"] == "Nahrungsmittel / Drogerie"
+    assert "shop=chemist" in response.answer
+    assert "Obergeschoss" not in response.answer
+
+
+@pytest.mark.asyncio
 async def test_ambiguous_statistics_metric_requests_clarification(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -783,6 +806,54 @@ async def test_fashion_shops_are_planned_without_provider(
     assert response.telemetry.llm_used is False
     assert response.plan.intent == "SHOW_FEATURES"
     assert response.context.active_filters.categories == ["fashion"]
+    assert response.follow_up_actions[0].query == "Was zählt als Mode / Bekleidung?"
+    assert response.error_code is None
+
+
+@pytest.mark.asyncio
+async def test_numeric_area_threshold_is_planned_without_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    flensburg = SearchArea(
+        id=str(uuid.UUID("33333333-3333-4333-8333-333333333333")),
+        slug="flensburg-27020",
+        name="Flensburg",
+        area_type=SearchAreaType.MUNICIPALITY,
+    )
+
+    async def areas(_session: object, normalized: str) -> list[SearchArea]:
+        return [flensburg] if "flensburg" in normalized else []
+
+    async def execute(_session: object, tool: AssistantToolName, arguments: dict):
+        if tool == AssistantToolName.RESOLVE_AREA:
+            return ResolveAreaResult(status="resolved", area=flensburg)
+        assert tool == AssistantToolName.SEARCH_FEATURES
+        assert arguments["filters"]["sources"] == ["STADTPLANNER"]
+        assert arguments["geometry_filter"] == "POLYGONS_ONLY"
+        assert arguments["area_m2_greater_than"] == 350
+        assert arguments["area_m2_less_than"] is None
+        return SearchFeaturesToolResult.model_validate({
+            "data": {
+                "feature_collection": {"type": "FeatureCollection", "features": []},
+                "bounds": [9.3, 54.7, 9.6, 54.9],
+            },
+        })
+
+    monkeypatch.setattr(assistant, "_mentioned_areas", areas)
+    monkeypatch.setattr(assistant, "execute_assistant_tool", execute)
+    response = await answer_assistant_query(
+        object(),  # type: ignore[arg-type]
+        AssistantQueryRequest(query="Gibt es Flächen größer als 350 qm in Flensburg?"),
+    )
+
+    assert response.telemetry.llm_used is False
+    assert response.plan.intent == "SHOW_FEATURES"
+    assert response.context.active_filters.sources == ["STADTPLANNER"]
+    assert response.context.active_filters.categories == []
+    assert all(
+        action.type != "EXPLAIN_CONCEPT"
+        for action in response.follow_up_actions
+    )
     assert response.error_code is None
 
 
