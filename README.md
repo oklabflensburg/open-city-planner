@@ -24,6 +24,8 @@ Der Stadtplaner macht Verkaufsflächen, OpenStreetMap-Informationen, Analysegebi
 backend/          API, Datenmodelle, Migrationen, CLI und Tests
 frontend/         Webanwendung, öffentliches Benutzerhandbuch und E2E-Tests
 docs/             technische Entwickler-, Architektur- und Betriebsdokumentation
+deploy/ansible/   reproduzierbares Produktionsdeployment
+deploy/nginx/     Stadtplaner-spezifische Nginx-Hardening-Vorlagen
 deploy/systemd/   mitgelieferte Units für Hintergrundaufgaben
 scripts/osm/      initialer OSM-Import und Replikationsupdate
 ```
@@ -85,6 +87,8 @@ Die vollständigen CI-Jobs und stabilen Check-Namen stehen in [docs/ci.md](docs/
 - Das öffentliche Benutzerhandbuch ist in der Anwendung unter `/dokumentation` erreichbar und wird aus `frontend/app/config/documentation.ts` erzeugt.
 - [Technische Dokumentation](docs/README.md)
 - [Deployment und Betrieb](docs/deployment.md)
+- [Ansible-Deployment](deploy/ansible/README.md)
+- [Nginx-Hardening und Rate Limits](deploy/nginx/README.md)
 - [OpenStreetMap-Daten](docs/osm-data.md)
 - [Kommunale Statistik](docs/flensburg-statistics.md)
 - [Intelligente Suche](docs/intelligent-search.md) und [Stadtplaner-Assistent](docs/stadtplaner-assistant.md)
