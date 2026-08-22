@@ -171,6 +171,7 @@ class Settings(BaseSettings):
     database_pool_size: int = 10
     database_max_overflow: int = 20
     database_pool_timeout_seconds: float = 15.0
+    database_health_timeout_seconds: float = Field(default=2.0, ge=0.25, le=10.0)
     mastodon_enabled: bool = False
     mastodon_base_url: str = "https://norden.social"
     mastodon_access_token: str | None = None

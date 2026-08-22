@@ -520,9 +520,9 @@
     port: "{{ stadtplaner_backend_port }}"
     timeout: 30
 
-- name: Verify API health
+- name: Verify API readiness
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health"
+    url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/ready"
     status_code: 200
     return_content: true
   register: stadtplaner_health
