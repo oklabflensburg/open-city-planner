@@ -9,6 +9,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.db.session import close_session
 from app.models.user_polygon import UserPolygon
 from app.schemas.osm import OsmAddress, OsmCentroid, OsmObjectInfo, PolygonOsmInfo
 from app.services.external_links import external_links_from_osm_tags
@@ -253,6 +254,7 @@ class OsmLookupService:
         # The result is plain Python values and carries no reference to the
         # session, so it is safe to hand into a globally-shared task.
         local_matches = await self._local_matches(session, str(polygon.uuid))
+        await close_session(session)
 
         task = _inflight.get(key)
         if task is None:
@@ -352,6 +354,7 @@ class OsmLookupService:
         try:
             async with httpx.AsyncClient(
                 timeout=settings.overpass_timeout_seconds,
+                limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
                 headers={
                     "User-Agent": settings.overpass_user_agent,
                     "Accept": "application/json",

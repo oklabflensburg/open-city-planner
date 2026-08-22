@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.db.session import AsyncSessionLocal, close_session
 from app.schemas.assistant import (
     AnswerPresentation,
     AnswerPresentationSection,
@@ -109,13 +110,17 @@ async def answer_assistant_query(
             code="ASSISTANT_TOOL_LIMIT_REACHED",
         )
 
+    tool_session = session
+    if prepared.llm_used and not getattr(session, "closed", False):
+        tool_session = AsyncSessionLocal()
+
     results: list[tuple[AssistantToolName, Any]] = []
     success = True
     warnings: list[str] = []
     failure_code: str | None = None
     try:
         for step in prepared.plan.steps:
-            result = await execute_assistant_tool(session, step.tool, step.arguments)
+            result = await execute_assistant_tool(tool_session, step.tool, step.arguments)
             results.append((step.tool, result.model_dump(mode="json")))
     except AssistantToolError as error:
         success = False
@@ -138,7 +143,9 @@ async def answer_assistant_query(
                 for item in error.errors(include_url=False, include_input=False)
             }),
         )
-
+    finally:
+        if tool_session is not session:
+            await tool_session.close()
     response = _build_response(request, prepared, results, warnings, failure_code)
     duration_ms = max(0, round((time.monotonic() - started) * 1000))
     settings = get_settings()
@@ -291,7 +298,7 @@ async def _plan_query(
     area = areas[0] if areas else None
     if area is None:
         return await _provider_or_unsupported(
-            request, provider, filters, [], normalized
+            session, request, provider, filters, [], normalized
         )
 
     prefix = _resolve_steps([area])
@@ -367,7 +374,7 @@ async def _plan_query(
         topic = "AREA_DETAIL"
     else:
         return await _provider_or_unsupported(
-            request, provider, filters, [area], normalized
+            session, request, provider, filters, [area], normalized
         )
     intent = AssistantIntent.SHOW_FEATURES if topic in {"FEATURES", "POLYGON_FEATURES"} else AssistantIntent.ANSWER_QUESTION
     return _PreparedPlan(AssistantPlan(intent=intent, steps=prefix + [step]), [area], filters, topic)
@@ -491,6 +498,7 @@ def _statistic_metric_keys(normalized: str) -> list[str]:
 
 
 async def _provider_or_unsupported(
+    session: AsyncSession,
     request: AssistantQueryRequest,
     provider: AssistantLLMProvider | None,
     filters: SearchFilters,
@@ -520,6 +528,7 @@ async def _provider_or_unsupported(
     if areas:
         provider_context.active_area = areas[0]
     try:
+        await close_session(session)
         plan = AssistantPlan.model_validate(
             await provider.plan(request.query, provider_context, tools)
         )

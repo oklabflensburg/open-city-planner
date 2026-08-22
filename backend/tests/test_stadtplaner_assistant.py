@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import AsyncMock
 
 import pytest
 from pydantic import ValidationError
@@ -110,6 +111,45 @@ async def test_poi_count_is_copied_exactly_from_tool(monkeypatch: pytest.MonkeyP
     assert "17 POIs" in response.answer
     assert "18" not in response.answer
     assert response.telemetry.tool_calls == 2
+
+
+@pytest.mark.asyncio
+async def test_llm_plan_releases_db_session_before_external_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = AsyncMock()
+    close_session = AsyncMock()
+    monkeypatch.setattr(assistant, "close_session", close_session)
+
+    async def no_areas(_session: object, _normalized: str) -> list[SearchArea]:
+        return []
+
+    monkeypatch.setattr(assistant, "_mentioned_areas", no_areas)
+    monkeypatch.setattr(
+        assistant,
+        "execute_assistant_tool",
+        AsyncMock(return_value=ToolDataResult(data={"ok": True})),
+    )
+
+    class Provider:
+        name = "groq"
+
+        async def plan(self, _query: str, _context: object, _tools: list[dict]) -> dict:
+            return {
+                "intent": "ANSWER_QUESTION",
+                "steps": [{
+                    "tool": AssistantToolName.GET_AREA_DETAIL,
+                    "arguments": {"slug": "altstadt-15630273"},
+                }],
+                "response_mode": "ANSWER",
+            }
+
+    response = await answer_assistant_query(
+        session,
+        AssistantQueryRequest(query="Warum sind die Daten für Altstadt wichtig?"),
+        provider=Provider(),
+    )
+
+    close_session.assert_awaited_with(session)
+    assert response.telemetry.llm_used is True
 
 
 @pytest.mark.asyncio
