@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cache.keys import build_cache_key
 from app.cache.service import cache_service
 from app.core.config import get_settings
-from app.db.session import AsyncSessionLocal, close_session
+from app.db.session import AsyncSessionLocal
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.polygon_osm_source import PolygonOsmSource
 from app.models.user_polygon import UserPolygon, utcnow
@@ -38,12 +38,6 @@ from app.services.external_links import external_links_from_osm_tags
 from app.services.geometry import from_wkb_element, to_wkb_element
 from app.services.gis_mutations import invalidate_gis_after_mutation
 from app.services.nominatim import NominatimService
-from app.services.notification_policy import DomainEvent, NotificationEventType
-from app.services.notifications import (
-    notify_users,
-    publish_notifications,
-    subscription_recipient_ids,
-)
 from app.services.polygon_filters import polygon_filter_clauses
 
 METRIC_SRID = 25832
@@ -270,9 +264,10 @@ async def enrich_polygon_address(session: AsyncSession, polygon: UserPolygon) ->
 async def create_polygon(
     session: AsyncSession, payload: PolygonCreate, user_id: uuid.UUID | None = None
 ) -> PolygonRead:
-    from app.services.polygon_outbox import enqueue_polygon_mutation_event
     from sqlalchemy import select
     from sqlalchemy.exc import IntegrityError
+
+    from app.services.polygon_outbox import enqueue_polygon_mutation_event
     
     if payload.idempotency_key:
         existing = await session.scalar(select(UserPolygon).where(UserPolygon.idempotency_key == payload.idempotency_key))
@@ -299,7 +294,7 @@ async def create_polygon(
     
     try:
         await session.flush()
-    except IntegrityError as exc:
+    except IntegrityError:
         await session.rollback()
         if payload.idempotency_key:
             existing = await session.scalar(select(UserPolygon).where(UserPolygon.idempotency_key == payload.idempotency_key))
@@ -518,7 +513,6 @@ async def delete_polygon(
     polygon: UserPolygon,
     deleted_by_user_id: uuid.UUID,
 ) -> None:
-    from app.services.social_publishing import cancel_pending_polygon_publications
 
     polygon_id = polygon.uuid
     

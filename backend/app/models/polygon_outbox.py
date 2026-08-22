@@ -15,6 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 
+
 class PolygonOutbox(Base):
     __tablename__ = "polygon_outbox"
 

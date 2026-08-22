@@ -57,13 +57,13 @@ def disable_nominatim_enrichment(monkeypatch) -> None:
         "app.services.osm_import.publish_notifications", lambda _items: None
     )
     monkeypatch.setattr(
-        "app.services.polygons.subscription_recipient_ids", AsyncMock(return_value=[])
+        "app.services.polygon_outbox.subscription_recipient_ids", AsyncMock(return_value=[])
     )
     monkeypatch.setattr(
-        "app.services.polygons.notify_users", AsyncMock(return_value=[])
+        "app.services.polygon_outbox.notify_users", AsyncMock(return_value=[])
     )
     monkeypatch.setattr(
-        "app.services.polygons.publish_notifications", lambda _items: None
+        "app.services.polygon_outbox.publish_notifications", lambda _items: None
     )
 
 
@@ -132,6 +132,7 @@ def test_import_schema_forbids_geometry_claims_and_management_fields() -> None:
 @pytest.mark.asyncio
 async def test_peninsula_cannot_be_imported_as_stadtplaner_polygon() -> None:
     session = AsyncMock()
+    session.add = MagicMock()
     session.execute.return_value = MappingRows(
         source(dimension=2, tags={"name": "Angeln", "natural": "peninsula"})
     )
@@ -148,6 +149,7 @@ async def test_peninsula_cannot_be_imported_as_stadtplaner_polygon() -> None:
 @pytest.mark.asyncio
 async def test_polygon_import_uses_authoritative_geometry_and_osm_vacancy(monkeypatch) -> None:
     session = AsyncMock()
+    session.add = MagicMock()
     session.add = MagicMock()
     session.execute.side_effect = [
         MappingRows(source(dimension=2, tags={"name": "Leerstand", "shop": "vacant"})),
@@ -182,6 +184,7 @@ async def test_point_import_uses_best_containing_area() -> None:
     point = {"type": "Point", "coordinates": [9.435, 54.785]}
     session = AsyncMock()
     session.add = MagicMock()
+    session.add = MagicMock()
     session.execute.side_effect = [
         MappingRows(source(dimension=0, tags={"name": "Laden", "shop": "clothes"}, geometry=point)),
         MappingRows({"osm_type": "way", "osm_id": 9, "tags": {"building": "yes"}, "geometry": POLYGON, "imported_at": datetime(2026, 8, 13, tzinfo=UTC)}),
@@ -207,6 +210,7 @@ async def test_point_without_area_requires_manual_geometry() -> None:
     point = {"type": "Point", "coordinates": [9.435, 54.785]}
     session = AsyncMock()
     session.add = MagicMock()
+    session.add = MagicMock()
     session.execute.side_effect = [
         MappingRows(source(dimension=0, tags={"shop": "books"}, geometry=point)),
         MappingRows(None),
@@ -222,6 +226,7 @@ async def test_point_without_area_requires_manual_geometry() -> None:
 async def test_point_accepts_explicit_manual_area_without_buffer() -> None:
     point = {"type": "Point", "coordinates": [9.435, 54.785]}
     session = AsyncMock()
+    session.add = MagicMock()
     session.add = MagicMock()
     session.execute.side_effect = [
         MappingRows(source(dimension=0, tags={"shop": "books"}, geometry=point)),
@@ -247,6 +252,7 @@ async def test_management_override_marks_occupancy_as_manual(monkeypatch) -> Non
         updated_by_user_id=None,
     )
     session = AsyncMock()
+    session.add = MagicMock()
     expected_result = object()
     monkeypatch.setattr(
         "app.services.polygons.polygon_verwaltung_detail",
