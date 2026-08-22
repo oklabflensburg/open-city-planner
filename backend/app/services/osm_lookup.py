@@ -292,7 +292,7 @@ class OsmLookupService:
         result = await asyncio.shield(task)
         settings = get_settings()
         _cache[key] = (time.monotonic() + settings.osm_lookup_cache_ttl_seconds, result)
-        self._discard_stale_cache_entries(str(polygon.uuid), keep=key)
+        self._discard_stale_cache_entries(polygon_snapshot.polygon_id, keep=key)
         return result
 
     async def _lookup(
