@@ -29,6 +29,19 @@ export const polygonSchema = z.object({
   updated_at: z.string()
 })
 
+export const publicPolygonSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  floor: z.string().nullable().optional(),
+  category: z.string(),
+  geometry: areaGeometrySchema,
+  properties: z.record(z.unknown()).default({}),
+  created_at: z.string(),
+  updated_at: z.string()
+})
+
 export const polygonOverviewSchema = z.object({
   id: z.string(),
   slug: z.string(),

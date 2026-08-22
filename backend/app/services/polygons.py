@@ -28,6 +28,7 @@ from app.schemas.geojson import (
     PolygonVerwaltungRead,
     PolygonVerwaltungUpdate,
     PublicPolygonDetail,
+    PublicPolygonRead,
 )
 from app.schemas.polygon_filters import PolygonFilterParams
 from app.services.analysis_areas import refresh_polygon_area_assignments
@@ -65,9 +66,29 @@ def serialize_polygon(polygon: UserPolygon) -> PolygonRead:
     )
 
 
+def serialize_public_polygon(polygon: UserPolygon) -> PublicPolygonRead:
+    return PublicPolygonRead(
+        id=str(polygon.uuid),
+        slug=polygon.slug,
+        name=polygon.name,
+        description=polygon.description,
+        floor=polygon.floor,
+        category=polygon.category,
+        geometry=from_wkb_element(polygon.geometry),
+        properties=polygon.properties,
+        created_at=polygon.created_at.isoformat(),
+        updated_at=polygon.updated_at.isoformat(),
+    )
+
+
 async def list_polygons(session: AsyncSession) -> list[PolygonRead]:
     rows = await session.scalars(select(UserPolygon).order_by(UserPolygon.created_at.desc()))
     return [serialize_polygon(row) for row in rows]
+
+
+async def list_public_polygons(session: AsyncSession) -> list[PublicPolygonRead]:
+    rows = await session.scalars(select(UserPolygon).order_by(UserPolygon.created_at.desc()))
+    return [serialize_public_polygon(row) for row in rows]
 
 
 async def list_polygon_overview(
@@ -113,6 +134,13 @@ async def read_polygon(session: AsyncSession, polygon_id: uuid.UUID) -> PolygonR
     if polygon is None:
         return None
     return serialize_polygon(polygon)
+
+
+async def read_public_polygon(session: AsyncSession, polygon_id: uuid.UUID) -> PublicPolygonRead | None:
+    polygon = await get_polygon(session, polygon_id)
+    if polygon is None:
+        return None
+    return serialize_public_polygon(polygon)
 
 
 def slugify_polygon_name(name: str) -> str:
@@ -525,7 +553,7 @@ async def delete_polygon(
 
 
 async def _polygons_geojson_uncached(session: AsyncSession) -> FeatureCollection:
-    polygons = await list_polygons(session)
+    polygons = await list_public_polygons(session)
     return FeatureCollection(
         type="FeatureCollection",
         features=[
@@ -539,7 +567,6 @@ async def _polygons_geojson_uncached(session: AsyncSession) -> FeatureCollection
                     "slug": polygon.slug,
                     "name": polygon.name,
                     "category": polygon.category,
-                    "created_by_user_id": polygon.created_by_user_id,
                 },
             )
             for polygon in polygons

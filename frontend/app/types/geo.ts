@@ -44,6 +44,19 @@ export type UserPolygon = {
   updated_at: string
 }
 
+export type PublicPolygonRead = {
+  id: string
+  slug: string
+  name: string
+  description?: string | null
+  floor?: string | null
+  category: string
+  geometry: AreaGeometry
+  properties: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
 export type PolygonOverview = {
   id: string
   slug: string
