@@ -243,7 +243,12 @@ async def enrich_polygon_address(session: AsyncSession, polygon: UserPolygon) ->
             # Update the in-memory object too
             _apply_polygon_address(polygon, address)
             return address is not None
-    except Exception:
+    except Exception as exc:
+        logger.debug(
+            "Address lookup failed for polygon_id=%s",
+            polygon_id,
+            exc_info=exc,
+        )
         try:
             async with AsyncSessionLocal() as write_session:
                 fresh = await get_polygon(write_session, polygon_id)
@@ -252,11 +257,11 @@ async def enrich_polygon_address(session: AsyncSession, polygon: UserPolygon) ->
                     await write_session.commit()
                     await write_session.refresh(fresh)
                     _apply_polygon_address(polygon, None)
-        except Exception:
+        except Exception as address_exc:
             logger.debug(
                 "Failed to persist polygon address failure status for polygon_id=%s",
                 polygon_id,
-                exc_info=True,
+                exc_info=address_exc,
             )
         logger.warning("Polygon address lookup failed for polygon_id=%s", polygon_id)
         return False
@@ -300,7 +305,7 @@ async def create_polygon(
             existing = await session.scalar(select(UserPolygon).where(UserPolygon.idempotency_key == payload.idempotency_key))
             if existing:
                 return serialize_polygon(existing)
-        raise exc
+        raise
 
     await refresh_polygon_area_assignments(session, polygon.id)
     await enqueue_polygon_mutation_event(session, polygon.uuid, "CREATED", {})

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.polygon_outbox import PolygonOutbox
 from app.models.user_polygon import UserPolygon
-from app.models.notification import NotificationEventType, DomainEvent
+from app.services.notification_policy import NotificationEventType, DomainEvent
 from app.services.notifications import notify_users, publish_notifications, subscription_recipient_ids
 from app.services.polygons import enrich_polygon_address
 from app.services.social_publishing import cancel_pending_polygon_publications

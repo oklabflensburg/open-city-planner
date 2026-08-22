@@ -82,6 +82,9 @@ class FakeUpdateSession:
     async def commit(self) -> None:
         pass
 
+    async def flush(self) -> None:
+        pass
+
     async def refresh(self, _item: object) -> None:
         pass
 
@@ -118,6 +121,9 @@ class FakeDeleteSession:
 
     def add(self, item: object) -> None:
         self.added.append(item)
+
+    async def flush(self) -> None:
+        pass
 
     async def delete(self, item: object) -> None:
         self.deleted = item
