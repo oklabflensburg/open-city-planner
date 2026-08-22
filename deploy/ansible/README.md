@@ -206,6 +206,12 @@ Ein Fehler stoppt den Lauf. `serial: 1` und `any_errors_fatal: true` verhindern 
 
 Vor dem Handover prüft Ansible, dass der konfigurierte Service-Benutzer die persistenten Environment-Dateien lesen kann. Anschließend stoppt es die verwalteten primären Dienste und verlangt freie Anwendungsports, bevor es die aktuellen Units startet. Frühere `stadtplanner-*`-Legacy-Units werden nicht mehr durch das Deployment verwaltet und müssen vor dem ersten Handover administrativ entfernt werden.
 
+## Release-Verzeichnisse und Rollback
+
+Jeder Produktionsdeploy baut ein eigenes, unveränderliches Release-Verzeichnis unter `/opt/stadtplaner/releases/<sha>` auf. Die eigentliche Produktivroute wird atomar mit einem Symlink auf `/opt/stadtplaner/current` umgebogen; Systemd-Units referenzieren ausschließlich diesen Pfad. Eine zuvor aktive Release bleibt als direktes Rollback-Ziel erhalten, bis die konfigurierte Retention (`stadtplaner_release_retention`) erreicht ist.
+
+Nach dem Aktivieren der Services führt Ansible als Smoke-Tests lokale Health- und Frontend-Checks aus. Wenn ein solcher Test fehlschlägt, wird der Symlink sofort wieder auf das vorherige Release zurückgesetzt und die Services neu gestartet. So bleibt das nächste funktionierende Release unmittelbar verfügbar, ohne manuell den Checkout erneut zu bauen.
+
 ## Optionale Prüfungen auf dem Server
 
 CI sollte die Hauptqualitätsgrenze bleiben. Für ein besonders sensibles Release können zusätzlich aktiviert werden:

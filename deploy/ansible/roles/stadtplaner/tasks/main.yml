@@ -68,17 +68,59 @@
   become_user: "{{ stadtplaner_service_user }}"
   register: stadtplaner_git
 
-- name: Link persistent backend environment into the checkout
+- name: Record the currently active release before switching
+  ansible.builtin.stat:
+    path: "{{ stadtplaner_current_path }}"
+    follow: false
+  register: stadtplaner_current_release_stat
+
+- name: Capture the previously active release for rollback
+  ansible.builtin.set_fact:
+    stadtplaner_previous_release_path: "{{ stadtplaner_current_release_stat.stat.lnk_source | default('') }}"
+  when: stadtplaner_current_release_stat.stat.exists and stadtplaner_current_release_stat.stat.islnk
+
+- name: Ensure the release root is present
+  ansible.builtin.file:
+    path: "{{ stadtplaner_releases_dir }}"
+    state: directory
+    owner: "{{ stadtplaner_service_user }}"
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0755'
+
+- name: Resolve the target release path
+  ansible.builtin.set_fact:
+    stadtplaner_release_path: >-
+      {{ stadtplaner_releases_dir }}/{{ (stadtplaner_git.after | default(stadtplaner_deploy_ref)) | regex_replace('[^A-Za-z0-9._-]+', '-') }}
+
+- name: Prepare the versioned release tree
+  ansible.builtin.file:
+    path: "{{ stadtplaner_release_path }}"
+    state: directory
+    owner: "{{ stadtplaner_service_user }}"
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0755'
+
+- name: Materialize the ready-to-activate release from the requested ref
+  ansible.builtin.command:
+    cmd: >-
+      bash -lc 'git archive --format=tar "${GIT_REF}" | tar -x -C "${RELEASE_DIR}"'
+    chdir: "{{ stadtplaner_repo_path }}"
+    environment:
+      GIT_REF: "{{ stadtplaner_git.after | default(stadtplaner_deploy_ref) }}"
+      RELEASE_DIR: "{{ stadtplaner_release_path }}"
+  become_user: "{{ stadtplaner_service_user }}"
+
+- name: Link persistent backend environment into the release checkout
   ansible.builtin.file:
     src: "{{ stadtplaner_backend_env_file }}"
-    dest: "{{ stadtplaner_repo_path }}/backend/.env"
+    dest: "{{ stadtplaner_release_path }}/backend/.env"
     state: link
     force: true
 
-- name: Link persistent frontend environment into the checkout
+- name: Link persistent frontend environment into the release checkout
   ansible.builtin.file:
     src: "{{ stadtplaner_frontend_env_file }}"
-    dest: "{{ stadtplaner_repo_path }}/frontend/.env"
+    dest: "{{ stadtplaner_release_path }}/frontend/.env"
     state: link
     force: true
 
@@ -91,14 +133,14 @@
         import os, sys;
         paths = sys.argv[1:];
         raise SystemExit(0 if all(os.path.isfile(path) and os.access(path, os.R_OK) for path in paths) else 1)
-      - "{{ stadtplaner_repo_path }}/backend/.env"
-      - "{{ stadtplaner_repo_path }}/frontend/.env"
+      - "{{ stadtplaner_release_path }}/backend/.env"
+      - "{{ stadtplaner_release_path }}/frontend/.env"
   become_user: "{{ stadtplaner_service_user }}"
   changed_when: false
 
 - name: Ensure backend writable data directory exists
   ansible.builtin.file:
-    path: "{{ stadtplaner_repo_path }}/backend/data"
+    path: "{{ stadtplaner_release_path }}/backend/data"
     state: directory
     owner: "{{ stadtplaner_service_user }}"
     group: "{{ stadtplaner_service_group }}"
@@ -107,21 +149,21 @@
 - name: Create backend virtual environment
   ansible.builtin.command:
     cmd: python3 -m venv .venv
-    chdir: "{{ stadtplaner_repo_path }}/backend"
-    creates: "{{ stadtplaner_repo_path }}/backend/.venv/bin/python"
+    chdir: "{{ stadtplaner_release_path }}/backend"
+    creates: "{{ stadtplaner_release_path }}/backend/.venv/bin/python"
   become_user: "{{ stadtplaner_service_user }}"
 
 - name: Install backend production dependencies
   ansible.builtin.command:
     cmd: .venv/bin/python -m pip install -e .
-    chdir: "{{ stadtplaner_repo_path }}/backend"
+    chdir: "{{ stadtplaner_release_path }}/backend"
   become_user: "{{ stadtplaner_service_user }}"
   notify: Restart Stadtplaner API
 
 - name: Run optional backend test suite before migration
   ansible.builtin.command:
     cmd: .venv/bin/python -m pytest
-    chdir: "{{ stadtplaner_repo_path }}/backend"
+    chdir: "{{ stadtplaner_release_path }}/backend"
   become_user: "{{ stadtplaner_service_user }}"
   when: stadtplaner_run_backend_tests
   changed_when: false
@@ -129,13 +171,13 @@
 - name: Install frontend dependencies from lockfile
   ansible.builtin.command:
     cmd: corepack pnpm install --frozen-lockfile
-    chdir: "{{ stadtplaner_repo_path }}/frontend"
+    chdir: "{{ stadtplaner_release_path }}/frontend"
   become_user: "{{ stadtplaner_service_user }}"
 
 - name: Run optional frontend typecheck
   ansible.builtin.command:
     cmd: corepack pnpm typecheck
-    chdir: "{{ stadtplaner_repo_path }}/frontend"
+    chdir: "{{ stadtplaner_release_path }}/frontend"
   become_user: "{{ stadtplaner_service_user }}"
   when: stadtplaner_run_frontend_typecheck
   changed_when: false
@@ -143,7 +185,7 @@
 - name: Run optional frontend unit tests
   ansible.builtin.command:
     cmd: corepack pnpm test
-    chdir: "{{ stadtplaner_repo_path }}/frontend"
+    chdir: "{{ stadtplaner_release_path }}/frontend"
   become_user: "{{ stadtplaner_service_user }}"
   when: stadtplaner_run_frontend_tests
   changed_when: false
@@ -151,7 +193,7 @@
 - name: Build production frontend
   ansible.builtin.command:
     cmd: corepack pnpm build
-    chdir: "{{ stadtplaner_repo_path }}/frontend"
+    chdir: "{{ stadtplaner_release_path }}/frontend"
   become_user: "{{ stadtplaner_service_user }}"
   environment:
     NODE_ENV: production
@@ -325,9 +367,9 @@
       - name: stadtplaner-osm-update
         description: Stadtplaner OpenStreetMap replication update
         enabled: "{{ stadtplaner_enable_osm_timer }}"
-        working_directory: "{{ stadtplaner_repo_path }}"
+        working_directory: "{{ stadtplaner_current_path }}"
         environment_file: "{{ stadtplaner_osm_env_file }}"
-        exec_start: "{{ stadtplaner_repo_path }}/scripts/osm/update.sh"
+        exec_start: "{{ stadtplaner_current_path }}/scripts/osm/update.sh"
         read_write_paths: ["{{ stadtplaner_data_dir }}"]
         timer_description: Run Stadtplaner OpenStreetMap synchronization hourly
         on_boot: 10m
@@ -338,10 +380,10 @@
       - name: stadtplaner-flensburg-statistics-sync
         description: Stadtplaner Flensburg statistics synchronization
         enabled: "{{ stadtplaner_enable_statistics_timer }}"
-        working_directory: "{{ stadtplaner_repo_path }}/backend"
+        working_directory: "{{ stadtplaner_current_path }}/backend"
         environment_file: "{{ stadtplaner_backend_env_file }}"
-        exec_start: "{{ stadtplaner_repo_path }}/backend/.venv/bin/python -m app.cli.import_flensburg_statistics"
-        read_write_paths: ["{{ stadtplaner_repo_path }}/backend/data"]
+        exec_start: "{{ stadtplaner_current_path }}/backend/.venv/bin/python -m app.cli.import_flensburg_statistics"
+        read_write_paths: ["{{ stadtplaner_current_path }}/backend/data"]
         timer_description: Weekly check for updated Flensburg statistics
         on_boot: ''
         on_unit_active: ''
@@ -351,9 +393,9 @@
       - name: stadtplaner-email-outbox
         description: Stadtplaner E-Mail-Outbox verarbeiten
         enabled: "{{ stadtplaner_enable_email_outbox_timer }}"
-        working_directory: "{{ stadtplaner_repo_path }}/backend"
+        working_directory: "{{ stadtplaner_current_path }}/backend"
         environment_file: "{{ stadtplaner_backend_env_file }}"
-        exec_start: "{{ stadtplaner_repo_path }}/backend/.venv/bin/python -m app.cli.process_email_outbox --limit 20"
+        exec_start: "{{ stadtplaner_current_path }}/backend/.venv/bin/python -m app.cli.process_email_outbox --limit 20"
         read_write_paths: []
         timer_description: Fällige Stadtplaner-E-Mails regelmäßig versenden
         on_boot: 1m
@@ -364,9 +406,9 @@
       - name: stadtplaner-social-publisher
         description: Stadtplaner Mastodon outbox publisher
         enabled: "{{ stadtplaner_enable_social_publisher_timer }}"
-        working_directory: "{{ stadtplaner_repo_path }}/backend"
+        working_directory: "{{ stadtplaner_current_path }}/backend"
         environment_file: "{{ stadtplaner_backend_env_file }}"
-        exec_start: "{{ stadtplaner_repo_path }}/backend/.venv/bin/python -m app.cli.publish_social_outbox --limit 20"
+        exec_start: "{{ stadtplaner_current_path }}/backend/.venv/bin/python -m app.cli.publish_social_outbox --limit 20"
         read_write_paths: ["{{ stadtplaner_social_dir }}"]
         timer_description: Publish due Stadtplaner Mastodon outbox events
         on_boot: 2m
@@ -487,46 +529,94 @@
     - "{{ stadtplaner_frontend_port }}"
   when: stadtplaner_disable_legacy_primary_services
 
-- name: Enable and start primary application services
-  ansible.builtin.systemd_service:
-    name: "{{ item }}"
-    enabled: true
-    state: started
-    daemon_reload: true
-  loop:
-    - stadtplaner-api.service
-    - stadtplaner-frontend.service
+- name: Switch the active release atomically
+  ansible.builtin.file:
+    src: "{{ stadtplaner_release_path }}"
+    dest: "{{ stadtplaner_current_path }}"
+    state: link
+    force: true
 
-- name: Apply pending service and nginx handlers before smoke tests
-  ansible.builtin.meta: flush_handlers
+- name: Activate the release and verify the rollout
+  block:
+    - name: Enable and start primary application services
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+        daemon_reload: true
+      loop:
+        - stadtplaner-api.service
+        - stadtplaner-frontend.service
 
-- name: Wait for local API listener
-  ansible.builtin.wait_for:
-    host: 127.0.0.1
-    port: "{{ stadtplaner_backend_port }}"
-    timeout: 30
+    - name: Apply pending service and nginx handlers before smoke tests
+      ansible.builtin.meta: flush_handlers
 
-- name: Verify API readiness
-  ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/ready"
-    status_code: 200
-    return_content: true
-  register: stadtplaner_health
-  failed_when: >-
-    stadtplaner_health.status != 200 or
-    (stadtplaner_health.json.status | default('')) != 'ok'
+    - name: Wait for local API listener
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ stadtplaner_backend_port }}"
+        timeout: 30
 
-- name: Wait for local frontend listener
-  ansible.builtin.wait_for:
-    host: 127.0.0.1
-    port: "{{ stadtplaner_frontend_port }}"
-    timeout: 30
+    - name: Verify API readiness
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/ready"
+        status_code: 200
+        return_content: true
+      register: stadtplaner_health
+      failed_when: >-
+        stadtplaner_health.status != 200 or
+        (stadtplaner_health.json.status | default('')) != 'ok'
 
-- name: Verify frontend root
-  ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ stadtplaner_frontend_port }}/"
-    status_code: 200
+    - name: Wait for local frontend listener
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ stadtplaner_frontend_port }}"
+        timeout: 30
+
+    - name: Verify frontend root
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ stadtplaner_frontend_port }}/"
+        status_code: 200
+  rescue:
+    - name: Roll back to the previous release
+      ansible.builtin.file:
+        src: "{{ stadtplaner_previous_release_path }}"
+        dest: "{{ stadtplaner_current_path }}"
+        state: link
+        force: true
+      when: stadtplaner_previous_release_path | default('') | length > 0
+
+    - name: Restart the primary services after rollback
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: restarted
+        daemon_reload: true
+      loop:
+        - stadtplaner-api.service
+        - stadtplaner-frontend.service
+      when: stadtplaner_previous_release_path | default('') | length > 0
+
+    - name: Fail after automatic rollback
+      ansible.builtin.fail:
+        msg: "Release {{ stadtplaner_release_path }} failed smoke tests and was rolled back to {{ stadtplaner_previous_release_path }}"
+
+- name: Prune older release directories
+  ansible.builtin.command:
+    argv:
+      - bash
+      - -lc
+      - >-
+        set -euo pipefail
+        if [ ! -d "{{ stadtplaner_releases_dir }}" ]; then
+          exit 0
+        fi
+        mapfile -t releases < <(find "{{ stadtplaner_releases_dir }}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r)
+        keep={{ stadtplaner_release_retention | int }}
+        for old in "${releases[@]:keep}"; do
+          rm -rf "{{ stadtplaner_releases_dir }}/${old}"
+        done
+  changed_when: false
 
 - name: Report deployed revision
   ansible.builtin.debug:
-    msg: "Deployed {{ stadtplaner_git.after | default(stadtplaner_deploy_ref) }} to {{ inventory_hostname }}"
+    msg: "Deployed {{ stadtplaner_git.after | default(stadtplaner_deploy_ref) }} to {{ inventory_hostname }} with active release {{ stadtplaner_current_path }}"
