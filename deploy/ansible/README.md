@@ -204,7 +204,7 @@ Der Ablauf ist:
 
 Ein Fehler stoppt den Lauf. `serial: 1` und `any_errors_fatal: true` verhindern ein Weiterrollen nach einem Fehler.
 
-Beim einmaligen Wechsel von älteren Installationen setzt `stadtplaner_disable_legacy_primary_services=true` die Units `stadtplanner-api.service` und `stadtplanner-frontend.service` außer Betrieb. Ansible löscht ihre Unit-Dateien nicht. Vor dem Handover prüft es, dass der konfigurierte Service-Benutzer die persistenten Environment-Dateien lesen kann; danach müssen die Anwendungsports frei sein, bevor die neuen Units gestartet werden.
+Vor dem Handover prüft Ansible, dass der konfigurierte Service-Benutzer die persistenten Environment-Dateien lesen kann. Anschließend stoppt es die verwalteten primären Dienste und verlangt freie Anwendungsports, bevor es die aktuellen Units startet. Frühere `stadtplanner-*`-Legacy-Units werden nicht mehr durch das Deployment verwaltet und müssen vor dem ersten Handover administrativ entfernt werden.
 
 ## Optionale Prüfungen auf dem Server
 

@@ -59,18 +59,17 @@ describe('Ansible deployment contract', () => {
     expect(publish).toBeLessThan(migrate)
   })
 
-  it('hands legacy services over before starting managed services', () => {
+  it('releases the application ports before starting managed services', () => {
     const tasks = repositoryFile('deploy/ansible/roles/stadtplaner/tasks/main.yml')
     const readable = tasks.indexOf('name: Verify the service user can read persistent environments')
     const stopManaged = tasks.indexOf('name: Stop managed primary services before legacy handover')
-    const stopLegacy = tasks.indexOf('name: Stop and disable legacy primary services')
     const freePorts = tasks.indexOf('name: Require application ports to be free after legacy handover')
     const startManaged = tasks.indexOf('name: Enable and start primary application services')
 
     expect(readable).toBeGreaterThanOrEqual(0)
-    expect(stopManaged).toBeLessThan(stopLegacy)
-    expect(stopLegacy).toBeLessThan(freePorts)
+    expect(stopManaged).toBeLessThan(freePorts)
     expect(freePorts).toBeLessThan(startManaged)
+    expect(tasks).not.toContain('name: Stop and disable legacy primary services')
   })
 
   it('keeps the configured avatar storage writable through systemd hardening', () => {

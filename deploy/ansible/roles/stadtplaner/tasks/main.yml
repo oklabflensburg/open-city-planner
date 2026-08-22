@@ -476,20 +476,6 @@
     - stadtplaner-frontend.service
   when: stadtplaner_disable_legacy_primary_services
 
-- name: Discover installed services before legacy handover
-  ansible.builtin.service_facts:
-  when: stadtplaner_disable_legacy_primary_services
-
-- name: Stop and disable legacy primary services
-  ansible.builtin.systemd_service:
-    name: "{{ item }}"
-    state: stopped
-    enabled: false
-  loop: "{{ stadtplaner_legacy_primary_services }}"
-  when:
-    - stadtplaner_disable_legacy_primary_services
-    - item in ansible_facts.services
-
 - name: Require application ports to be free after legacy handover
   ansible.builtin.wait_for:
     host: 127.0.0.1

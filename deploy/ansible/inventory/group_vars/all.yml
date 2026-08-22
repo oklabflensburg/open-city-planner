@@ -17,9 +17,6 @@ stadtplaner_osm_env_file: /etc/stadtplaner/osm-sync.env
 stadtplaner_manage_nginx: true
 stadtplaner_manage_background_timers: true
 stadtplaner_disable_legacy_primary_services: true
-stadtplaner_legacy_primary_services:
-  - stadtplanner-api.service
-  - stadtplanner-frontend.service
 stadtplaner_enable_osm_timer: true
 stadtplaner_enable_statistics_timer: true
 stadtplaner_enable_email_outbox_timer: true
