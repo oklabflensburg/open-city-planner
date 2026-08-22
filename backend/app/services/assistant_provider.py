@@ -47,6 +47,7 @@ class GroqProvider:
         self._client = client or httpx.AsyncClient(
             base_url=settings.groq_base_url.rstrip("/"),
             timeout=httpx.Timeout(settings.groq_timeout_seconds),
+            limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
         )
         self.usage: dict[str, int] = {}
 

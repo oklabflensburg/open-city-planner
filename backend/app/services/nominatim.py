@@ -45,6 +45,7 @@ class NominatimService:
         endpoint = f"{settings.nominatim_base_url.rstrip('/')}/reverse"
         async with httpx.AsyncClient(
             timeout=settings.nominatim_timeout_seconds,
+            limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
             headers={"User-Agent": settings.nominatim_user_agent},
         ) as client:
             response = await client.get(endpoint, params=params)

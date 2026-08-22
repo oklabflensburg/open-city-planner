@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cache.keys import build_cache_key
 from app.cache.service import cache_service
 from app.core.config import get_settings
+from app.db.session import AsyncSessionLocal, close_session
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.polygon_osm_source import PolygonOsmSource
 from app.models.user_polygon import UserPolygon, utcnow
@@ -212,35 +213,56 @@ async def polygon_point_on_surface(
     return float(row["latitude"]), float(row["longitude"])
 
 
+def _apply_polygon_address(polygon: Any, address: Any) -> None:
+    if address is None:
+        polygon.address_lookup_status = "failed"
+        return
+    polygon.address_display_name = address.display_name
+    polygon.address_street = address.street
+    polygon.address_house_number = address.house_number
+    polygon.address_postal_code = address.postal_code
+    polygon.address_city = address.city
+    polygon.address_country = address.country
+    polygon.address_lookup_status = "resolved"
+
+
 async def enrich_polygon_address(session: AsyncSession, polygon: UserPolygon) -> bool:
     """Best-effort enrichment. Geometry has already been committed when this runs."""
     polygon_id = polygon.uuid
+    released = False
     try:
         point = await polygon_point_on_surface(session, polygon.uuid)
+        await close_session(session)
+        released = True
         address = await NominatimService().reverse(*point) if point else None
-        if address is None:
-            polygon.address_lookup_status = "failed"
-        else:
-            polygon.address_display_name = address.display_name
-            polygon.address_street = address.street
-            polygon.address_house_number = address.house_number
-            polygon.address_postal_code = address.postal_code
-            polygon.address_city = address.city
-            polygon.address_country = address.country
-            polygon.address_lookup_status = "resolved"
-        await session.commit()
-        await session.refresh(polygon)
-        return address is not None
+        _apply_polygon_address(polygon, address)
+
+        async with AsyncSessionLocal() as write_session:
+            fresh = await get_polygon(write_session, polygon_id)
+            if fresh is None:
+                return address is not None
+            _apply_polygon_address(fresh, address)
+            await write_session.commit()
+            await write_session.refresh(fresh)
+            return address is not None
     except Exception:  # noqa: BLE001 - enrichment must never roll back a saved geometry
-        await session.rollback()
+        if not released:
+            await close_session(session)
+            released = True
+        _apply_polygon_address(polygon, None)
         try:
-            fresh = await get_polygon(session, polygon_id)
-            if fresh is not None:
-                fresh.address_lookup_status = "failed"
-                await session.commit()
-                await session.refresh(fresh)
-        except Exception:  # noqa: BLE001 - status persistence is best effort as well
-            await session.rollback()
+            async with AsyncSessionLocal() as write_session:
+                fresh = await get_polygon(write_session, polygon_id)
+                if fresh is not None:
+                    _apply_polygon_address(fresh, None)
+                    await write_session.commit()
+                    await write_session.refresh(fresh)
+        except Exception:
+            logger.debug(
+                "Failed to persist polygon address failure status for polygon_id=%s",
+                polygon_id,
+                exc_info=True,
+            )
         logger.warning("Polygon address lookup failed for polygon_id=%s", polygon_id)
         return False
 

@@ -28,6 +28,21 @@ async def database_health() -> str:
         return "down"
 
 
+async def close_session(session: AsyncSession | None) -> None:
+    if session is None:
+        return
+    if hasattr(session, "rollback"):
+        try:
+            await session.rollback()
+        except SQLAlchemyError:
+            pass
+    if hasattr(session, "close"):
+        try:
+            await session.close()
+        except SQLAlchemyError:
+            pass
+
+
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         yield session

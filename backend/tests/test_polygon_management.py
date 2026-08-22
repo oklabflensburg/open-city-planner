@@ -208,6 +208,21 @@ async def test_address_enrichment_failure_does_not_fail_saved_polygon(
         async def refresh(self, _polygon: object) -> None:
             return None
 
+    class WriteSession:
+        commit_count = 0
+
+        async def __aenter__(self) -> Self:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def commit(self) -> None:
+            self.commit_count += 1
+
+        async def refresh(self, _polygon: object) -> None:
+            return None
+
     async def point(*_args: object) -> tuple[float, float]:
         return 54.78, 9.43
 
@@ -220,12 +235,15 @@ async def test_address_enrichment_failure_does_not_fail_saved_polygon(
     monkeypatch.setattr(polygons, "polygon_point_on_surface", point)
     monkeypatch.setattr(polygons.NominatimService, "reverse", timeout)
     monkeypatch.setattr(polygons, "get_polygon", get_polygon)
+    write_session = WriteSession()
+    monkeypatch.setattr(polygons, "AsyncSessionLocal", lambda: write_session)
     session = Session()
 
     assert await polygons.enrich_polygon_address(session, polygon) is False
     assert polygon.address_lookup_status == "failed"
     assert session.rollback_count == 1
-    assert session.commit_count == 1
+    assert session.commit_count == 0
+    assert write_session.commit_count == 1
 
 
 class PolygonApiSession:
