@@ -90,7 +90,8 @@ test('permanent deletion requires the second explicit confirmation', async ({ pa
   await expect(deleteButton).toBeEnabled()
   await deleteButton.click()
 
-  await expect(page).toHaveURL(/\/login\?account=deleted$/)
+  await expect(page).toHaveURL(/\/login$/)
+  await expect(page.getByText('Das Konto wurde dauerhaft gelöscht.', { exact: true })).toBeVisible()
   expect(requestBody).toEqual({
     confirmation_text: 'löschen',
     current_password: 'current password'

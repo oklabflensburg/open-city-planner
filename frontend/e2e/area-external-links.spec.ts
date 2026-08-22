@@ -1,4 +1,19 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+
+async function expectStructuredData(page: Page, required: string[], forbidden: string[] = []) {
+  await expect.poll(async () => {
+    try {
+      const structuredData = (
+        await page.locator('script[type="application/ld+json"]').allTextContents()
+      ).join('\n')
+      return required.every(value => structuredData.includes(value))
+        && forbidden.every(value => !structuredData.includes(value))
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Execution context was destroyed')) return false
+      throw error
+    }
+  }).toBe(true)
+}
 
 test('municipality renders its own links, sameAs and SSR HTML without Wikimedia requests', async ({ page, request }) => {
   const externalRequests: string[] = []
@@ -15,10 +30,11 @@ test('municipality renders its own links, sameAs and SSR HTML without Wikimedia 
     .toHaveAttribute('href', 'https://de.wikipedia.org/wiki/Flensburg')
   await expect(page.getByRole('link', { name: 'Flensburg bei Wikidata öffnen' }))
     .toHaveAttribute('href', 'https://www.wikidata.org/wiki/Q3798')
-  const structuredData = (await page.locator('script[type="application/ld+json"]').allTextContents()).join('\n')
-  expect(structuredData).toContain('"sameAs"')
-  expect(structuredData).toContain('https://www.wikidata.org/wiki/Q3798')
-  expect(structuredData).toContain('https://de.wikipedia.org/wiki/Flensburg')
+  await expectStructuredData(page, [
+    '"sameAs"',
+    'https://www.wikidata.org/wiki/Q3798',
+    'https://de.wikipedia.org/wiki/Flensburg'
+  ])
   const ssrResponse = await request.get('/gebiete/flensburg-27020')
   const ssrHtml = await ssrResponse.text()
   expect(ssrHtml).toContain('https://www.wikidata.org/wiki/Q3798')
@@ -30,9 +46,7 @@ test('district uses its own Wikidata ID instead of its municipality parent', asy
   await page.goto('/gebiete/altstadt-15630273')
   await expect(page.getByRole('link', { name: 'Altstadt bei Wikidata öffnen' }))
     .toHaveAttribute('href', 'https://www.wikidata.org/wiki/Q16064416')
-  const structuredData = (await page.locator('script[type="application/ld+json"]').allTextContents()).join('\n')
-  expect(structuredData).toContain('Q16064416')
-  expect(structuredData).not.toContain('Q3798')
+  await expectStructuredData(page, ['Q16064416'], ['Q3798'])
 })
 
 test('quarter with its own match renders that match responsively', async ({ page }) => {
@@ -51,9 +65,7 @@ test('quarter with its own match renders that match responsively', async ({ page
 test('unmatched quarter exposes neither links nor its parent Wikidata ID', async ({ page, request }) => {
   await page.goto('/gebiete/kreuz-15652249')
   await expect(page.getByRole('heading', { name: 'Externe Quellen' })).toHaveCount(0)
-  const structuredData = (await page.locator('script[type="application/ld+json"]').allTextContents()).join('\n')
-  expect(structuredData).not.toContain('"sameAs"')
-  expect(structuredData).not.toContain('Q12329230')
+  await expectStructuredData(page, ['Kreuz'], ['"sameAs"', 'Q12329230'])
   const response = await request.get('http://127.0.0.1:8010/api/v1/analysis-areas/by-slug/kreuz-15652249')
   const detail = await response.json()
   expect(detail.external_links).toEqual({ wikidata: null, wikipedia: null })
