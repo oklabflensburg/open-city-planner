@@ -241,7 +241,7 @@ async def test_address_enrichment_failure_does_not_fail_saved_polygon(
 
     assert await polygons.enrich_polygon_address(session, polygon) is False
     assert polygon.address_lookup_status == "failed"
-    assert session.rollback_count == 1
+    assert session.rollback_count == 0
     assert session.commit_count == 0
     assert write_session.commit_count == 1
 

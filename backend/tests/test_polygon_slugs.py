@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+import app.services.polygon_outbox as outbox_service
 import app.services.polygons as polygon_service
 from app.models.user_polygon import UserPolygon
 from app.schemas.geojson import PolygonUpdate
@@ -16,9 +17,9 @@ from app.services.polygons import (
 
 @pytest.fixture(autouse=True)
 def disable_notification_delivery(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(polygon_service, "subscription_recipient_ids", AsyncMock(return_value=[]))
-    monkeypatch.setattr(polygon_service, "notify_users", AsyncMock(return_value=[]))
-    monkeypatch.setattr(polygon_service, "publish_notifications", lambda _items: None)
+    monkeypatch.setattr(outbox_service, "subscription_recipient_ids", AsyncMock(return_value=[]))
+    monkeypatch.setattr(outbox_service, "notify_users", AsyncMock(return_value=[]))
+    monkeypatch.setattr(outbox_service, "publish_notifications", lambda _items: None)
 
 
 @pytest.mark.parametrize(
@@ -79,7 +80,16 @@ async def test_polygon_slug_stays_stable_when_name_changes(
 
 
 class FakeUpdateSession:
+    def __init__(self) -> None:
+        self.added: list[object] = []
+
+    def add(self, item: object) -> None:
+        self.added.append(item)
+
     async def commit(self) -> None:
+        pass
+
+    async def flush(self) -> None:
         pass
 
     async def refresh(self, _item: object) -> None:
@@ -92,21 +102,16 @@ async def test_delete_invalidates_polygon_analytics_and_osm_namespaces(monkeypat
     polygon = UserPolygon(name="Delete me", slug="delete-me", category="custom")
     polygon.uuid = uuid.uuid4()
     bump = AsyncMock(return_value=None)
-    cancel_publications = AsyncMock(return_value=0)
     monkeypatch.setattr(polygon_service, "invalidate_gis_after_mutation", bump)
-    monkeypatch.setattr(
-        "app.services.social_publishing.cancel_pending_polygon_publications",
-        cancel_publications,
-    )
 
     await delete_polygon(session, polygon, uuid.uuid4())  # type: ignore[arg-type]
 
     bump.assert_awaited_once_with(session)
-    cancel_publications.assert_awaited_once_with(session, polygon.uuid)
     assert session.deleted is polygon
     assert session.committed is True
-    assert session.added[0].action == "POLYGON_DELETED"
-    assert session.added[0].event_metadata == {"title": "Delete me"}
+    # The outbox event is also added
+    assert any(getattr(item, "action", None) == "POLYGON_DELETED" for item in session.added)
+    assert any(getattr(item, "event_metadata", None) == {"title": "Delete me"} for item in session.added)
 
 
 class FakeDeleteSession:
@@ -118,6 +123,9 @@ class FakeDeleteSession:
 
     def add(self, item: object) -> None:
         self.added.append(item)
+
+    async def flush(self) -> None:
+        pass
 
     async def delete(self, item: object) -> None:
         self.deleted = item

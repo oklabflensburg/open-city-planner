@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cache.keys import build_cache_key
 from app.cache.service import cache_service
 from app.core.config import get_settings
-from app.db.session import AsyncSessionLocal, close_session
+from app.db.session import AsyncSessionLocal
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.polygon_osm_source import PolygonOsmSource
 from app.models.user_polygon import UserPolygon, utcnow
@@ -38,12 +38,6 @@ from app.services.external_links import external_links_from_osm_tags
 from app.services.geometry import from_wkb_element, to_wkb_element
 from app.services.gis_mutations import invalidate_gis_after_mutation
 from app.services.nominatim import NominatimService
-from app.services.notification_policy import DomainEvent, NotificationEventType
-from app.services.notifications import (
-    notify_users,
-    publish_notifications,
-    subscription_recipient_ids,
-)
 from app.services.polygon_filters import polygon_filter_clauses
 
 METRIC_SRID = 25832
@@ -229,14 +223,10 @@ def _apply_polygon_address(polygon: Any, address: Any) -> None:
 async def enrich_polygon_address(session: AsyncSession, polygon: UserPolygon) -> bool:
     """Best-effort enrichment. Geometry has already been committed when this runs."""
     polygon_id = polygon.uuid
-    released = False
     try:
         point = await polygon_point_on_surface(session, polygon.uuid)
-        await close_session(session)
-        released = True
         address = await NominatimService().reverse(*point) if point else None
-        _apply_polygon_address(polygon, address)
-
+        
         async with AsyncSessionLocal() as write_session:
             fresh = await get_polygon(write_session, polygon_id)
             if fresh is None:
@@ -244,12 +234,15 @@ async def enrich_polygon_address(session: AsyncSession, polygon: UserPolygon) ->
             _apply_polygon_address(fresh, address)
             await write_session.commit()
             await write_session.refresh(fresh)
+            # Update the in-memory object too
+            _apply_polygon_address(polygon, address)
             return address is not None
-    except Exception:  # noqa: BLE001 - enrichment must never roll back a saved geometry
-        if not released:
-            await close_session(session)
-            released = True
-        _apply_polygon_address(polygon, None)
+    except Exception as exc:
+        logger.debug(
+            "Address lookup failed for polygon_id=%s",
+            polygon_id,
+            exc_info=exc,
+        )
         try:
             async with AsyncSessionLocal() as write_session:
                 fresh = await get_polygon(write_session, polygon_id)
@@ -257,11 +250,12 @@ async def enrich_polygon_address(session: AsyncSession, polygon: UserPolygon) ->
                     _apply_polygon_address(fresh, None)
                     await write_session.commit()
                     await write_session.refresh(fresh)
-        except Exception:
+                    _apply_polygon_address(polygon, None)
+        except Exception as address_exc:
             logger.debug(
                 "Failed to persist polygon address failure status for polygon_id=%s",
                 polygon_id,
-                exc_info=True,
+                exc_info=address_exc,
             )
         logger.warning("Polygon address lookup failed for polygon_id=%s", polygon_id)
         return False
@@ -270,9 +264,20 @@ async def enrich_polygon_address(session: AsyncSession, polygon: UserPolygon) ->
 async def create_polygon(
     session: AsyncSession, payload: PolygonCreate, user_id: uuid.UUID | None = None
 ) -> PolygonRead:
+    from sqlalchemy import select
+    from sqlalchemy.exc import IntegrityError
+
+    from app.services.polygon_outbox import enqueue_polygon_mutation_event
+    
+    if payload.idempotency_key:
+        existing = await session.scalar(select(UserPolygon).where(UserPolygon.idempotency_key == payload.idempotency_key))
+        if existing:
+            return serialize_polygon(existing)
+
     polygon_uuid = uuid.uuid4()
     polygon = UserPolygon(
         uuid=polygon_uuid,
+        idempotency_key=payload.idempotency_key,
         name=payload.name,
         slug=await generate_unique_polygon_slug(
             session, f"{payload.floor or 'flaeche'} flaeche {str(polygon_uuid)[:8]}"
@@ -286,15 +291,22 @@ async def create_polygon(
         updated_by_user_id=user_id,
     )
     session.add(polygon)
-    await session.commit()
-    await session.refresh(polygon)
-    if await enrich_polygon_address(session, polygon):
-        polygon.slug = await generate_unique_polygon_slug(session, polygon_slug_source(polygon))
-        await session.commit()
-        await session.refresh(polygon)
+    
+    try:
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        if payload.idempotency_key:
+            existing = await session.scalar(select(UserPolygon).where(UserPolygon.idempotency_key == payload.idempotency_key))
+            if existing:
+                return serialize_polygon(existing)
+        raise
+
     await refresh_polygon_area_assignments(session, polygon.id)
+    await enqueue_polygon_mutation_event(session, polygon.uuid, "CREATED", {})
     await invalidate_gis_after_mutation(session)
     await session.commit()
+    await session.refresh(polygon)
     return serialize_polygon(polygon)
 
 
@@ -438,36 +450,21 @@ async def update_polygon(
         setattr(polygon, key, value)
     polygon.updated_by_user_id = user_id
     polygon.updated_at = utcnow()
+    await session.flush()
+    if geometry_changed:
+        await refresh_polygon_area_assignments(session, polygon.id)
+    
+    from app.services.polygon_outbox import enqueue_polygon_mutation_event
+    await enqueue_polygon_mutation_event(session, polygon.uuid, "UPDATED", {
+        "geometry_changed": geometry_changed,
+        "previous_occupancy_status": previous_occupancy_status,
+        "occupancy_status_changed": "occupancy_status" in data and polygon.occupancy_status != previous_occupancy_status,
+        "actor_user_id": str(user_id) if user_id else None
+    })
+    
+    await invalidate_gis_after_mutation(session)
     await session.commit()
     await session.refresh(polygon)
-    if geometry_changed:
-        await enrich_polygon_address(session, polygon)
-        await refresh_polygon_area_assignments(session, polygon.id)
-    await invalidate_gis_after_mutation(session)
-    event_type = (
-        NotificationEventType.GIS_AREA_STATUS_CHANGED
-        if "occupancy_status" in data and polygon.occupancy_status != previous_occupancy_status
-        else NotificationEventType.GIS_AREA_UPDATED
-    )
-    recipients = await subscription_recipient_ids(
-        session, resource_type="POLYGON", resource_id=str(polygon.uuid), event_type=event_type
-    )
-    if owner_id := getattr(polygon, "created_by_user_id", None):
-        recipients.append(owner_id)
-    notifications = await notify_users(
-        session,
-        recipients,
-        DomainEvent(
-            event_type=event_type,
-            actor_user_id=user_id,
-            resource_type="POLYGON",
-            resource_id=str(polygon.uuid),
-            resource_slug=getattr(polygon, "slug", None),
-            resource_title=getattr(polygon, "name", None),
-        ),
-    )
-    await session.commit()
-    publish_notifications(notifications)
     return serialize_polygon(polygon)
 
 
@@ -491,30 +488,16 @@ async def update_polygon_verwaltung(
     polygon.updated_by_user_id = user_id
     polygon.updated_at = utcnow()
     await invalidate_gis_after_mutation(session)
-    event_type = (
-        NotificationEventType.GIS_AREA_STATUS_CHANGED
-        if "occupancy_status" in data and polygon.occupancy_status != previous_occupancy_status
-        else NotificationEventType.GIS_AREA_UPDATED
-    )
-    recipients = await subscription_recipient_ids(
-        session, resource_type="POLYGON", resource_id=str(polygon.uuid), event_type=event_type
-    )
-    if owner_id := getattr(polygon, "created_by_user_id", None):
-        recipients.append(owner_id)
-    notifications = await notify_users(
-        session,
-        recipients,
-        DomainEvent(
-            event_type=event_type,
-            actor_user_id=user_id,
-            resource_type="POLYGON",
-            resource_id=str(polygon.uuid),
-            resource_slug=getattr(polygon, "slug", None),
-            resource_title=getattr(polygon, "name", None),
-        ),
-    )
+    
+    from app.services.polygon_outbox import enqueue_polygon_mutation_event
+    await enqueue_polygon_mutation_event(session, polygon.uuid, "UPDATED", {
+        "geometry_changed": False,
+        "previous_occupancy_status": previous_occupancy_status,
+        "occupancy_status_changed": "occupancy_status" in data and polygon.occupancy_status != previous_occupancy_status,
+        "actor_user_id": str(user_id) if user_id else None
+    })
+    
     await session.commit()
-    publish_notifications(notifications)
     await session.refresh(polygon)
     logger.info(
         "Polygon management fields changed polygon_id=%s user_id=%s fields=%s",
@@ -530,30 +513,17 @@ async def delete_polygon(
     polygon: UserPolygon,
     deleted_by_user_id: uuid.UUID,
 ) -> None:
-    from app.services.social_publishing import cancel_pending_polygon_publications
 
     polygon_id = polygon.uuid
-    recipients = await subscription_recipient_ids(
-        session,
-        resource_type="POLYGON",
-        resource_id=str(polygon_id),
-        event_type=NotificationEventType.GIS_AREA_DELETED,
-    )
-    if polygon.created_by_user_id:
-        recipients.append(polygon.created_by_user_id)
-    notifications = await notify_users(
-        session,
-        recipients,
-        DomainEvent(
-            event_type=NotificationEventType.GIS_AREA_DELETED,
-            actor_user_id=deleted_by_user_id,
-            resource_type="POLYGON",
-            resource_id=str(polygon_id),
-            resource_slug=polygon.slug,
-            resource_title=polygon.name,
-        ),
-    )
-    await cancel_pending_polygon_publications(session, polygon_id)
+    
+    from app.services.polygon_outbox import enqueue_polygon_mutation_event
+    await enqueue_polygon_mutation_event(session, polygon_id, "DELETED", {
+        "deleted_by_user_id": str(deleted_by_user_id),
+        "slug": polygon.slug,
+        "name": polygon.name,
+        "created_by_user_id": str(polygon.created_by_user_id) if polygon.created_by_user_id else None
+    })
+
     session.add(
         AdminAuditLog(
             actor_user_id=deleted_by_user_id,
@@ -566,7 +536,6 @@ async def delete_polygon(
     await session.delete(polygon)
     await invalidate_gis_after_mutation(session)
     await session.commit()
-    publish_notifications(notifications)
     logger.info(
         "Polygon deleted polygon_id=%s deleted_by_user_id=%s",
         polygon_id,

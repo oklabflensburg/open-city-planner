@@ -87,7 +87,7 @@ class PolygonBase(BaseModel):
 
 
 class PolygonCreate(PolygonBase):
-    pass
+    idempotency_key: str | None = Field(default=None, max_length=255)
 
 
 class PolygonUpdate(BaseModel):

@@ -18,6 +18,7 @@ from app.models.oauth_account import MastodonOAuthInstance, OAuthFlowGrant, User
 from app.models.osm_feature import OsmFeature
 from app.models.password_reset_token import PasswordResetToken
 from app.models.polygon_osm_source import PolygonOsmSource
+from app.models.polygon_outbox import PolygonOutbox
 from app.models.social_publication import (
     SocialPublication,
     SocialPublicationOutbox,
@@ -57,6 +58,7 @@ __all__ = [
     "PasswordResetToken",
     "PolygonAnalysisArea",
     "PolygonOsmSource",
+    "PolygonOutbox",
     "SocialPublication",
     "SocialPublicationOutbox",
     "SocialPublishingSettings",

@@ -60,3 +60,4 @@ Eine neue sichtbare Kernfunktion benötigt:
 4. Tests für neue Slugs, Navigation und zentrale Suchbegriffe.
 
 Änderungen an Environment-Variablen, CLI-Befehlen, Rollen, Routen oder systemd-Units müssen gleichzeitig in den betroffenen Dokumenten aktualisiert werden. Die Dateien `.env.example`, die Pydantic-Settings, die tatsächlichen CLI-Module und `deploy/systemd/` sind dabei maßgeblich.
+- [Polygon API: Konsistenzmodell & Outbox](polygon-consistency.md)
