@@ -438,9 +438,9 @@ test('GIS shell has no body overflow from small mobile through wide desktop', as
 
   const viewports = [
     { width: 320, height: 568 }, { width: 360, height: 800 },
-    { width: 390, height: 844 }, { width: 393, height: 852 },
+    { width: 375, height: 812 }, { width: 390, height: 844 }, { width: 393, height: 852 },
     { width: 412, height: 915 }, { width: 430, height: 932 },
-    { width: 768, height: 1024 }, { width: 1024, height: 768 },
+    { width: 768, height: 1024 }, { width: 1024, height: 768 }, { width: 1180, height: 820 },
     { width: 1280, height: 800 }, { width: 1366, height: 768 }, { width: 1440, height: 900 },
     { width: 1920, height: 1080 }
   ]
@@ -450,9 +450,18 @@ test('GIS shell has no body overflow from small mobile through wide desktop', as
     if (width >= 1280) {
       await expect(page.getByRole('heading', { name: 'Filter', exact: true })).toBeVisible()
       await expect(page.getByRole('heading', { name: 'Analyse', exact: true })).toBeVisible()
+      await expect(page.locator('[data-intelligent-search]:visible')).toHaveCount(1)
+      await expect(page.getByRole('button', { name: 'Suche öffnen' })).toBeHidden()
     } else {
+      await expect(page.locator('[data-intelligent-search]:visible')).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Suche öffnen' })).toBeVisible()
       await expect(page.getByRole('button', { name: 'Filter öffnen' })).toBeVisible()
       await expect(page.getByRole('button', { name: 'Analyse öffnen' })).toBeVisible()
+      const mapBox = await page.locator('.maplibregl-map').boundingBox()
+      const shellBox = await page.locator('.overview-shell').boundingBox()
+      expect(mapBox).not.toBeNull()
+      expect(shellBox).not.toBeNull()
+      expect(mapBox!.y - shellBox!.y).toBeLessThanOrEqual(10)
     }
   }
 })

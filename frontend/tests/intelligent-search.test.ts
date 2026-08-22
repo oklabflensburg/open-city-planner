@@ -208,7 +208,10 @@ describe('Stadtplaner-Assistent', () => {
 
   it('berechnet den Karteninnenabstand abhängig von Desktop- und Mobile-Panels', () => {
     expect(getMapViewportPadding({ viewportWidth: 1440, assistantOpen: true, mobilePanelOpen: false, analysisPanelVisible: true }).left).toBe(56)
-    expect(getMapViewportPadding({ viewportWidth: 390, assistantOpen: true, mobilePanelOpen: true, analysisPanelVisible: false }).bottom).toBe(300)
+    const mobilePanel = getMapViewportPadding({ viewportWidth: 390, assistantOpen: true, mobilePanelOpen: true, analysisPanelVisible: false })
+    expect(mobilePanel).toMatchObject({ top: 56, bottom: 300 })
+    expect(getMapViewportPadding({ viewportWidth: 375, assistantOpen: false, mobilePanelOpen: false, analysisPanelVisible: false }).bottom).toBe(156)
+    expect(getMapViewportPadding({ viewportWidth: 768, assistantOpen: false, mobilePanelOpen: false, analysisPanelVisible: false }).bottom).toBe(120)
   })
 
   it('rendert Knowledge, Datenquellen, Rückfragen und typisierte Folgeaktionen', () => {
@@ -231,7 +234,9 @@ describe('Stadtplaner-Assistent', () => {
     expect(component).not.toContain('return `${label}: ${String(source.path)}`')
     expect(component).not.toContain(':disabled="search.loading')
     const shell = readFileSync(new URL('../app/components/layout/AppShell.vue', import.meta.url), 'utf8')
-    expect(shell).toContain('<IntelligentSearch v-if="!isDesktop" compact @open="openAssistant" />')
+    expect(shell).not.toContain('<IntelligentSearch v-if="!isDesktop" compact')
+    expect(shell).toContain("<IntelligentSearch v-else-if=\"mapStore.activeMobilePanel === 'assistant'\" embedded")
+    expect(shell).toContain('aria-label="Suche öffnen"')
     expect(shell).toContain("data-assistant-open")
   })
 })

@@ -12,15 +12,17 @@
 
     <section class="absolute inset-0 min-h-0 min-w-0 p-2 xl:relative xl:inset-auto xl:p-0" aria-label="Stadtplaner-Karte">
       <LazyMapCanvas hydrate-on-idle />
-      <div class="absolute inset-x-3 top-3 z-30 xl:hidden">
-        <IntelligentSearch v-if="!isDesktop" compact @open="openAssistant" />
-      </div>
 
       <nav
         v-if="mapStore.activeMobilePanel === null"
-        class="absolute bottom-[calc(env(safe-area-inset-bottom)+2.25rem)] left-1/2 z-20 grid max-w-[calc(100%-1rem)] -translate-x-1/2 grid-flow-col auto-cols-max gap-1.5 rounded-2xl border border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur xl:hidden"
+        class="mobile-map-actions absolute left-1/2 z-20 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white/95 p-1.5 shadow-xl backdrop-blur xl:hidden"
         aria-label="Kartenaktionen"
+        data-mobile-map-actions
       >
+        <button class="map-action" :class="{ 'map-action-active': mapStore.activeMobilePanel === 'assistant' }" type="button" aria-label="Suche öffnen" :aria-pressed="mapStore.activeMobilePanel === 'assistant'" @click="openSearch">
+          <Search class="size-4" aria-hidden="true" />
+          <span>Suche</span>
+        </button>
         <button class="map-action" :class="{ 'map-action-active': mapStore.activeMobilePanel === 'filter' }" type="button" aria-label="Filter öffnen" :aria-pressed="mapStore.activeMobilePanel === 'filter'" @click="openFilter">
           <span class="relative">
             <ListFilter class="size-4" aria-hidden="true" />
@@ -72,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { BarChart3, ListFilter, Plus } from 'lucide-vue-next'
+import { BarChart3, ListFilter, Plus, Search } from 'lucide-vue-next'
 
 const mapStore = useMapStore()
 const searchStore = useSearchStore()
@@ -99,7 +101,7 @@ const activePanelTitle = computed(() => {
   return 'Analyse'
 })
 const activePanelCloseLabel = computed(() => {
-  if (mapStore.activeMobilePanel === 'assistant') return 'Assistant schließen'
+  if (mapStore.activeMobilePanel === 'assistant') return 'Suche schließen'
   if (mapStore.activeMobilePanel === 'filter') return 'Filter schließen'
   if (mapStore.activeMobilePanel === 'selection') return 'Auswahl schließen'
   return 'Analyse schließen'
@@ -128,6 +130,9 @@ onMounted(() => {
 
 watch(() => mapStore.activeMobilePanel, (panel, previous) => {
   if (!import.meta.client) return
+  if (previous === 'assistant' && panel !== 'assistant' && searchStore.assistantOpen) {
+    searchStore.closeAssistant()
+  }
   if (panel && !previous) {
     window.history.pushState({ ...window.history.state, mobileGisPanel: true }, '')
     panelHistoryActive = true
@@ -180,7 +185,7 @@ function openAnalysis() {
   void analyticsStore.load()
 }
 
-function openAssistant() {
+function openSearch() {
   searchStore.openAssistant()
   mapStore.openMobilePanel('assistant')
 }
@@ -250,12 +255,40 @@ function handlePopState() {
 .map-action-primary { border-color: #154d73; background: #154d73; color: white; }
 .map-action-primary:hover { background: #0f3f61; }
 
+.mobile-map-actions {
+  bottom: calc(env(safe-area-inset-bottom) + 2.25rem);
+  display: grid;
+  width: min(calc(100% - 1rem), 25rem);
+  max-width: calc(100% - 1rem);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
+.mobile-map-actions .map-action-primary {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+@media (min-width: 480px) {
+  .mobile-map-actions {
+    width: auto;
+    grid-template-columns: repeat(4, max-content);
+  }
+
+  .mobile-map-actions .map-action-primary {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
 
 @supports (height: 100dvh) {
   .overview-shell { height: calc(100dvh - 4rem); }
 }
 
 @media (min-width: 1280px) {
+  .mobile-map-actions { display: none; }
+
   .overview-shell {
     min-height: 620px;
     grid-template-columns: 272px minmax(0, 1fr) 312px;

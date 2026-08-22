@@ -10,9 +10,9 @@ type MapViewportLayout = {
 export function getMapViewportPadding(layout: MapViewportLayout): MapViewportPadding {
   if (layout.viewportWidth < 1280) {
     return {
-      top: 104,
+      top: 56,
       right: 36,
-      bottom: layout.mobilePanelOpen ? 300 : 120,
+      bottom: layout.mobilePanelOpen ? 300 : layout.viewportWidth < 480 ? 156 : 120,
       left: 36
     }
   }

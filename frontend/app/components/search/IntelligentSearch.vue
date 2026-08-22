@@ -21,6 +21,7 @@
           placeholder="Stadtplaner durchsuchen…"
           :aria-expanded="assistantVisible"
           :aria-controls="panelId"
+          :data-sheet-autofocus="embedded ? '' : undefined"
           @focus="focused = true"
           @blur="focused = false"
           @keydown.esc.stop.prevent="handleEscape"

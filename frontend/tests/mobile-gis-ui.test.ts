@@ -14,17 +14,19 @@ describe('mobile GIS interface', () => {
     expect(shell).toContain('env(safe-area-inset-bottom)')
   })
 
-  it('renders filter, analytics and selection through the exact same bottom-sheet component', () => {
+  it('renders search, filter, analytics and selection through the exact same bottom-sheet component', () => {
     const shell = appFile('components/layout/AppShell.vue')
     const map = appFile('components/map/MapCanvas.vue')
     const sheetUses = shell.match(/<AppBottomSheet/g) || []
     expect(sheetUses).toHaveLength(1)
+    expect(shell).toContain('aria-label="Suche öffnen"')
     expect(shell).toContain('aria-label="Filter öffnen"')
     expect(shell).toContain('aria-label="Analyse öffnen"')
     expect(shell).toContain(':title="activePanelTitle"')
     expect(shell).toContain("mapStore.activeMobilePanel === 'filter'")
     expect(shell).toContain("mapStore.activeMobilePanel === 'analytics'")
     expect(shell).toContain("mapStore.activeMobilePanel === 'selection'")
+    expect(shell).toContain("mapStore.activeMobilePanel === 'assistant'")
     expect(shell.match(/initial-snap="medium"/g)).toHaveLength(1)
     expect(shell).toContain('<MapSelectionContent embedded')
     expect(shell).not.toContain('<Drawer')
@@ -38,6 +40,8 @@ describe('mobile GIS interface', () => {
     const filter = appFile('components/layout/LeftSidebar.vue')
     const analysis = appFile('components/layout/RightSidebar.vue')
     expect(shell).toContain('<LazyLeftSidebar embedded')
+    expect(shell).toContain("<IntelligentSearch v-else-if=\"mapStore.activeMobilePanel === 'assistant'\" embedded")
+    expect(filter).toContain('<IntelligentSearch v-if="!embedded"')
     expect(shell).toContain("mapStore.activeMobilePanel === 'analytics'\" embedded")
     expect(filter).toContain('data-filter-summary')
     expect(filter).toContain("? 'border-b border-slate-200 px-4 pb-3'")
@@ -58,6 +62,32 @@ describe('mobile GIS interface', () => {
     expect(shell).toContain("mapStore.openMobilePanel('filter')")
     expect(shell).toContain("mapStore.openMobilePanel('analytics')")
     expect(shell).toContain("mapStore.openMobilePanel('assistant')")
+    expect(shell).toContain("previous === 'assistant' && panel !== 'assistant'")
+  })
+
+  it('keeps permanent search on desktop only and opens mobile search from the action bar', () => {
+    const shell = appFile('components/layout/AppShell.vue')
+    const sidebar = appFile('components/layout/LeftSidebar.vue')
+    const search = appFile('components/search/IntelligentSearch.vue')
+    expect(shell).not.toContain('<IntelligentSearch v-if="!isDesktop" compact')
+    expect(shell).toContain('data-mobile-map-actions')
+    expect(shell).toContain('@click="openSearch"')
+    expect(shell).toContain("'map-action-active': mapStore.activeMobilePanel === 'assistant'")
+    expect(shell).toContain(':aria-pressed="mapStore.activeMobilePanel === \'assistant\'"')
+    expect(sidebar).toContain('<IntelligentSearch v-if="!embedded"')
+    expect(search).toContain(':data-sheet-autofocus="embedded ? \'\' : undefined"')
+    expect(appFile('components/ui/AppBottomSheet.vue')).toContain("querySelector<HTMLElement>('[data-sheet-autofocus]')")
+  })
+
+  it('uses the released map space and keeps the four-action toolbar overflow-safe', () => {
+    const shell = appFile('components/layout/AppShell.vue')
+    const padding = appFile('utils/mapViewportPadding.ts')
+    expect(padding).toContain('top: 56')
+    expect(padding).not.toContain('top: 104')
+    expect(shell).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))')
+    expect(shell).toContain('@media (min-width: 480px)')
+    expect(shell).toContain('grid-template-columns: repeat(4, max-content)')
+    expect(shell).toContain('grid-column: 1 / -1')
   })
 
   it('keeps preview navigation slug-based and OSM data on demand', () => {
@@ -134,6 +164,8 @@ describe('mobile GIS interface', () => {
     const hint = appFile('components/layout/LeftSidebar.vue')
     expect(shell).toContain('aria-label="Filter öffnen"')
     expect(shell).toContain('aria-label="Analyse öffnen"')
+    expect(shell).toContain('aria-label="Suche öffnen"')
+    expect(shell).toContain('aria-label="Neue Fläche anlegen"')
     expect(shell).toContain('aria-pressed="mapStore.activeMobilePanel')
     expect(shell).toContain('height: 2.75rem')
     expect(shell).toContain('border: 1px solid transparent')

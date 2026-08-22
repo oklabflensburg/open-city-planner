@@ -41,7 +41,11 @@ function assistantResponse(query: string, values: Record<string, unknown>) {
 }
 
 async function query(page: Page, value: string) {
-  const search = page.locator('[data-intelligent-search]:visible')
+  let search = page.locator('[data-intelligent-search]:visible')
+  if (!await search.count()) {
+    await page.getByRole('button', { name: 'Suche öffnen' }).click()
+    search = page.getByRole('dialog', { name: 'Stadtplaner durchsuchen' }).locator('[data-intelligent-search]')
+  }
   await search.getByPlaceholder('Stadtplaner durchsuchen…').fill(value)
   await search.getByRole('button', { name: 'Suche ausführen' }).click()
 }
@@ -263,10 +267,23 @@ test('Mobile Antworten öffnen im bestehenden Bottom Sheet', async ({ page }) =>
   }) }))
   await prepare(page)
 
+  await expect(page.locator('[data-intelligent-search]:visible')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Suche öffnen' }).click()
+  const searchDialog = page.getByRole('dialog', { name: 'Stadtplaner durchsuchen' })
+  await expect(searchDialog.locator('[data-search-suggestions]')).toBeVisible()
+  await expect(searchDialog.getByPlaceholder('Stadtplaner durchsuchen…')).toBeFocused()
+
   await query(page, 'Wie viele POIs gibt es in der Altstadt?')
 
   await expect(page.getByRole('dialog', { name: 'Stadtplaner durchsuchen' })).toBeVisible()
   await expect(page.locator('[data-assistant-metric]')).toHaveText('82')
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Stadtplaner durchsuchen' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Suche öffnen' }).click()
+  await expect(page.getByPlaceholder('Stadtplaner durchsuchen…')).toHaveValue('Wie viele POIs gibt es in der Altstadt?')
+  await searchDialog.getByRole('button', { name: 'Verlauf' }).click()
+  await expect(searchDialog.locator('[data-assistant-history]')).toContainText('Wie viele POIs gibt es in der Altstadt?')
+  await page.goBack()
+  await expect(searchDialog).toHaveCount(0)
+  expect(new URL(page.url()).pathname).toBe('/')
 })

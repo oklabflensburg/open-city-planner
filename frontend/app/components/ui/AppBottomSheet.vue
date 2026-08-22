@@ -141,7 +141,10 @@ watch([() => props.open, () => props.contentKey], async ([open, contentKey], [wa
   }
 
   if (shouldResetBottomSheetScroll(open, wasOpen, contentKey, previousContentKey)) await resetScrollPosition()
-  if (!wasOpen) panel.value?.focus()
+  if (!wasOpen) {
+    const preferredFocus = panel.value?.querySelector<HTMLElement>('[data-sheet-autofocus]')
+    ;(preferredFocus || panel.value)?.focus({ preventScroll: true })
+  }
 }, { immediate: true })
 
 onBeforeUnmount(cleanupOpenState)
