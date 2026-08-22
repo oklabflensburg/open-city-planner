@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -107,11 +108,16 @@ async def test_local_match_prevents_external_fallback(monkeypatch: pytest.Monkey
     monkeypatch.setattr(osm_lookup, "get_settings", lambda: settings(
         osm_external_fallback_enabled=True, overpass_api_url="https://overpass.test"
     ))
-    monkeypatch.setattr(service, "_local_matches", AsyncMock(return_value=[local]))
     external = AsyncMock(return_value=[])
     monkeypatch.setattr(service, "_overpass_matches", external)
 
-    result = await service._lookup(AsyncMock(), polygon())
+    record = polygon()
+    key = (str(record.uuid), record.updated_at.isoformat())
+    osm_lookup._inflight_local[key] = [local]
+    try:
+        result = await service._lookup(key, record)
+    finally:
+        osm_lookup._inflight_local.pop(key, None)
 
     assert result.source == "local"
     assert result.primary_match == local
@@ -122,11 +128,16 @@ async def test_local_match_prevents_external_fallback(monkeypatch: pytest.Monkey
 async def test_empty_local_lookup_respects_disabled_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     service = OsmLookupService()
     monkeypatch.setattr(osm_lookup, "get_settings", lambda: settings())
-    monkeypatch.setattr(service, "_local_matches", AsyncMock(return_value=[]))
     external = AsyncMock(return_value=[])
     monkeypatch.setattr(service, "_overpass_matches", external)
 
-    result = await service._lookup(AsyncMock(), polygon())
+    record = polygon()
+    key = (str(record.uuid), record.updated_at.isoformat())
+    osm_lookup._inflight_local[key] = []
+    try:
+        result = await service._lookup(key, record)
+    finally:
+        osm_lookup._inflight_local.pop(key, None)
 
     assert result.source == "none"
     assert result.matches == []
@@ -143,11 +154,16 @@ async def test_configured_fallback_is_used_after_empty_local_lookup(
     monkeypatch.setattr(osm_lookup, "get_settings", lambda: settings(
         osm_external_fallback_enabled=True, overpass_api_url="https://overpass.test"
     ))
-    monkeypatch.setattr(service, "_local_matches", AsyncMock(return_value=[]))
     external = AsyncMock(return_value=[external_match])
     monkeypatch.setattr(service, "_overpass_matches", external)
 
-    result = await service._lookup(AsyncMock(), polygon())
+    record = polygon()
+    key = (str(record.uuid), record.updated_at.isoformat())
+    osm_lookup._inflight_local[key] = []
+    try:
+        result = await service._lookup(key, record)
+    finally:
+        osm_lookup._inflight_local.pop(key, None)
 
     assert result.source == "overpass"
     assert result.primary_match == external_match
@@ -250,6 +266,7 @@ async def test_polygon_version_cache_prevents_repeated_lookup(
 ) -> None:
     osm_lookup._cache.clear()
     osm_lookup._inflight.clear()
+    osm_lookup._inflight_local.clear()
     record = polygon()
     session = AsyncMock()
     session.scalar.return_value = record
@@ -263,6 +280,7 @@ async def test_polygon_version_cache_prevents_repeated_lookup(
         )
     )
     monkeypatch.setattr(service, "_lookup", lookup)
+    monkeypatch.setattr(service, "_local_matches", AsyncMock(return_value=[]))
     monkeypatch.setattr(osm_lookup, "get_settings", lambda: settings())
 
     first = await service.find_osm_objects_for_polygon(session, slug=record.slug)
@@ -271,3 +289,164 @@ async def test_polygon_version_cache_prevents_repeated_lookup(
     assert first == second
     lookup.assert_awaited_once()
     osm_lookup._cache.clear()
+    osm_lookup._inflight_local.clear()
+
+
+@pytest.mark.asyncio
+async def test_no_inflight_task_captures_request_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The globally-stored task must not reference the caller's session."""
+    osm_lookup._cache.clear()
+    osm_lookup._inflight.clear()
+    osm_lookup._inflight_local.clear()
+    record = polygon()
+    session = AsyncMock()
+    session.scalar.return_value = record
+    service = OsmLookupService()
+
+    released_event = asyncio.Event()
+    lookup_started = asyncio.Event()
+
+    async def slow_lookup(key: object, _polygon: object) -> osm_lookup.PolygonOsmInfo:
+        lookup_started.set()
+        await released_event.wait()
+        return osm_lookup.PolygonOsmInfo(
+            polygon_id=str(record.uuid),
+            polygon_slug=record.slug,
+            source="none",
+            matches=[],
+        )
+
+    monkeypatch.setattr(service, "_lookup", slow_lookup)
+    monkeypatch.setattr(service, "_local_matches", AsyncMock(return_value=[]))
+    monkeypatch.setattr(osm_lookup, "get_settings", lambda: settings())
+
+    task_coro = asyncio.create_task(
+        service.find_osm_objects_for_polygon(session, slug=record.slug)
+    )
+    await lookup_started.wait()
+
+    # The session object from the first request must not appear inside the
+    # globally-shared inflight task's closure.
+    key = (str(record.uuid), record.updated_at.isoformat())
+    assert key in osm_lookup._inflight
+    inflight_task = osm_lookup._inflight[key]
+    # The local matches (session-derived data) are plain values, not the session
+    assert inflight_task is not None
+    assert session not in osm_lookup._inflight_local.values()
+
+    released_event.set()
+    await task_coro
+    osm_lookup._cache.clear()
+    osm_lookup._inflight_local.clear()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_requests_share_task_without_sharing_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two simultaneous requests for the same polygon share the inflight task."""
+    osm_lookup._cache.clear()
+    osm_lookup._inflight.clear()
+    osm_lookup._inflight_local.clear()
+    record = polygon()
+
+    def make_session() -> AsyncMock:
+        s = AsyncMock()
+        s.scalar.return_value = record
+        return s
+
+    service = OsmLookupService()
+    released_event = asyncio.Event()
+    lookup_started = asyncio.Event()
+    lookup_call_count = 0
+
+    async def counted_lookup(key: object, _polygon: object) -> osm_lookup.PolygonOsmInfo:
+        nonlocal lookup_call_count
+        lookup_call_count += 1
+        lookup_started.set()
+        await released_event.wait()
+        return osm_lookup.PolygonOsmInfo(
+            polygon_id=str(record.uuid),
+            polygon_slug=record.slug,
+            source="none",
+            matches=[],
+        )
+
+    monkeypatch.setattr(service, "_lookup", counted_lookup)
+    monkeypatch.setattr(service, "_local_matches", AsyncMock(return_value=[]))
+    monkeypatch.setattr(osm_lookup, "get_settings", lambda: settings())
+
+    t1 = asyncio.create_task(
+        service.find_osm_objects_for_polygon(make_session(), slug=record.slug)
+    )
+    # Wait until the first task has actually started the lookup, then launch t2
+    await lookup_started.wait()
+    t2 = asyncio.create_task(
+        service.find_osm_objects_for_polygon(make_session(), slug=record.slug)
+    )
+    await asyncio.sleep(0)
+
+    released_event.set()
+    r1, r2 = await asyncio.gather(t1, t2)
+
+    assert r1 == r2
+    assert lookup_call_count == 1, "lookup must be deduplicated across concurrent requests"
+    osm_lookup._cache.clear()
+    osm_lookup._inflight_local.clear()
+
+
+@pytest.mark.asyncio
+async def test_cancellation_of_first_request_does_not_leave_orphaned_inflight(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cancelling the first request must not strand the _inflight entry."""
+    osm_lookup._cache.clear()
+    osm_lookup._inflight.clear()
+    osm_lookup._inflight_local.clear()
+    record = polygon()
+    session = AsyncMock()
+    session.scalar.return_value = record
+    service = OsmLookupService()
+
+    barrier = asyncio.Event()
+
+    async def blocking_lookup(key: object, _polygon: object) -> osm_lookup.PolygonOsmInfo:
+        await barrier.wait()
+        return osm_lookup.PolygonOsmInfo(
+            polygon_id=str(record.uuid),
+            polygon_slug=record.slug,
+            source="none",
+            matches=[],
+        )
+
+    monkeypatch.setattr(service, "_lookup", blocking_lookup)
+    monkeypatch.setattr(service, "_local_matches", AsyncMock(return_value=[]))
+    monkeypatch.setattr(osm_lookup, "get_settings", lambda: settings())
+
+    t1 = asyncio.create_task(
+        service.find_osm_objects_for_polygon(session, slug=record.slug)
+    )
+    # Yield so the task starts and creates the inflight entry
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    key = (str(record.uuid), record.updated_at.isoformat())
+    assert key in osm_lookup._inflight
+
+    # Cancel the first request; the underlying task completes normally afterward
+    t1.cancel()
+    barrier.set()
+    try:
+        await t1
+    except asyncio.CancelledError:
+        pass
+
+    # Allow the background task to finish
+    await asyncio.sleep(0)
+
+    # _inflight must be cleaned up
+    assert key not in osm_lookup._inflight
+    osm_lookup._cache.clear()
+    osm_lookup._inflight_local.clear()

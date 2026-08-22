@@ -141,6 +141,11 @@ _inflight: dict[tuple[str, str], asyncio.Task[PolygonOsmInfo]] = {}
 _external_lock = asyncio.Lock()
 _last_external_request = 0.0
 
+# Sentinel used by _inflight to carry local matches into a deduplicated task.
+# The task only runs the session-independent Overpass path; local matches are
+# resolved before the task is created and passed via this mapping.
+_inflight_local: dict[tuple[str, str], list[OsmObjectInfo]] = {}
+
 
 def _text_value(tags: Mapping[str, Any], key: str) -> str | None:
     value = tags.get(key)
@@ -243,25 +248,43 @@ class OsmLookupService:
         cached = _cache.get(key)
         if cached and cached[0] > time.monotonic():
             return cached[1]
+
+        # Fetch local DB matches while still inside this request's session.
+        # The result is plain Python values and carries no reference to the
+        # session, so it is safe to hand into a globally-shared task.
+        local_matches = await self._local_matches(session, str(polygon.uuid))
+
         task = _inflight.get(key)
         if task is None:
-            task = asyncio.create_task(self._lookup(session, polygon))
+            # Store the local matches so the task can retrieve them without
+            # needing a session.
+            _inflight_local[key] = local_matches
+            task = asyncio.create_task(self._lookup(key, polygon))
             _inflight[key] = task
-        try:
-            result = await asyncio.shield(task)
-        finally:
-            if task.done():
+
+            def _cleanup(t: asyncio.Task[PolygonOsmInfo]) -> None:
                 _inflight.pop(key, None)
+                _inflight_local.pop(key, None)
+                if not t.cancelled() and t.exception() is not None:
+                    # Consume the exception to prevent "Task exception was never
+                    # retrieved" warnings and log it so errors are observable.
+                    exc = t.exception()
+                    logger.warning(
+                        "OSM lookup task failed for key=%s: %s", key, exc
+                    )
+
+            task.add_done_callback(_cleanup)
+        result = await asyncio.shield(task)
         settings = get_settings()
         _cache[key] = (time.monotonic() + settings.osm_lookup_cache_ttl_seconds, result)
         self._discard_stale_cache_entries(str(polygon.uuid), keep=key)
         return result
 
-    async def _lookup(self, session: AsyncSession, polygon: UserPolygon) -> PolygonOsmInfo:
-        matches = await self._local_matches(session, str(polygon.uuid))
-        source = "local"
+    async def _lookup(self, key: tuple[str, str], polygon: UserPolygon) -> PolygonOsmInfo:
+        """Session-independent lookup. Local DB matches are pre-fetched by the caller."""
+        matches = _inflight_local.get(key, [])
+        source = "local" if matches else "none"
         if not matches:
-            source = "none"
             settings = get_settings()
             if settings.osm_external_fallback_enabled and settings.overpass_api_url:
                 matches = await self._overpass_matches(polygon)

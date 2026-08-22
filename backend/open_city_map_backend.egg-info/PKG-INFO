@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: open-city-map-backend
+Version: 0.1.0
+Summary: FastAPI/PostGIS backend for Open City Map
+Requires-Python: >=3.12
+Requires-Dist: alembic>=1.16.4
+Requires-Dist: asyncpg>=0.30.0
+Requires-Dist: authlib>=1.6.1
+Requires-Dist: cryptography>=45.0.6
+Requires-Dist: email-validator>=2.3.0
+Requires-Dist: fastapi>=0.116.1
+Requires-Dist: geoalchemy2>=0.17.1
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: jinja2>=3.1.6
+Requires-Dist: pillow>=11.3.0
+Requires-Dist: playwright>=1.55.0
+Requires-Dist: pwdlib[argon2]>=0.2.1
+Requires-Dist: pydantic-settings>=2.10.1
+Requires-Dist: pydantic>=2.11.7
+Requires-Dist: pyjwt>=2.10.1
+Requires-Dist: pyotp>=2.9.0
+Requires-Dist: python-multipart>=0.0.20
+Requires-Dist: redis<7,>=5.2
+Requires-Dist: shapely>=2.1.1
+Requires-Dist: sqlalchemy>=2.0.42
+Requires-Dist: uvicorn[standard]>=0.35.0
+Requires-Dist: webauthn<4,>=3.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.4.1; extra == "dev"
+Requires-Dist: pytest-asyncio>=1.1.0; extra == "dev"
+Requires-Dist: ruff>=0.12.8; extra == "dev"
