@@ -166,6 +166,7 @@ class Settings(BaseSettings):
     flensburg_superset_dashboard_id: str = "3b53ff0b-6e8c-435e-83f6-666f8a7cc158"
     flensburg_superset_timeout_seconds: float = 60.0
     polygon_cache_ttl: int = 60
+    public_polygon_response_limit: int = Field(default=1_000, ge=10, le=10_000)
     comparable_cache_ttl: int = 600
     cache_payload_warning_bytes: int = 2_000_000
     database_pool_size: int = 10
