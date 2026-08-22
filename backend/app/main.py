@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.cache.redis import close_redis, initialize_redis, redis_health
 from app.core.config import get_settings
+from app.db.session import database_health
 from app.security.request_limits import RequestBodyLimitMiddleware
 from app.services.assistant_provider import close_assistant_provider
 
@@ -154,6 +155,37 @@ async def security_headers(request: Request, call_next) -> Response:
     return response
 
 
+async def health_status() -> tuple[bool, dict[str, str]]:
+    database = await database_health()
+    redis = await redis_health()
+
+    database_ok = database == "ok"
+    redis_ok = True
+    if settings.redis_required:
+        redis_ok = redis == "ok"
+    elif settings.redis_enabled:
+        redis_ok = redis in {"ok", "degraded", "disabled"}
+    elif settings.redis_required:
+        redis_ok = False
+
+    ready = database_ok and redis_ok
+    payload = {"status": "ok" if ready else "not_ready", "database": database, "redis": redis}
+    return ready, payload
+
+
+@app.get("/health/live", tags=["health"])
+async def health_live() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/health/ready", tags=["health"])
+async def health_ready() -> Response:
+    ready, payload = await health_status()
+    if ready:
+        return JSONResponse(status_code=200, content=payload)
+    return JSONResponse(status_code=503, content=payload)
+
+
 @app.get("/health", tags=["health"])
-async def health() -> dict[str, str]:
-    return {"status": "ok", "database": "ok", "redis": await redis_health()}
+async def health() -> Response:
+    return await health_ready()

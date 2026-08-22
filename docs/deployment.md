@@ -5,7 +5,7 @@ Diese Anleitung bündelt den produktiven Betrieb des aktuellen Repositorys. Spez
 ## Architektur
 
 - Das Nuxt-Frontend wird als eigener Produktionsprozess betrieben.
-- FastAPI stellt die API und `/health` bereit.
+- FastAPI stellt die API, `/health/live` und `/health/ready` bereit.
 - PostgreSQL mit PostGIS ist die fachliche Datenbank.
 - Redis dient als Cache und als gemeinsames Backend für produktive Sicherheitszähler. Er ist keine fachliche Datenquelle.
 - Ein Reverse Proxy veröffentlicht Frontend und API über HTTPS.
@@ -181,12 +181,13 @@ Installieren Sie nur Integrationen, die konfiguriert und benötigt werden. Die `
 ## Sichere Smoke Tests
 
 ```bash
-curl --fail --silent https://<api-origin>/health
+curl --fail --silent https://<api-origin>/health/live
+curl --fail --silent https://<api-origin>/health/ready
 curl --fail --silent https://<frontend-origin>/
 curl --fail --silent https://<frontend-origin>/dokumentation
 ```
 
-Prüfen Sie anschließend im Browser Karte, Gebietsseite, Dokumentationssuche und ausschließlich lesende Suchanfragen wie „Alle Stadtteile anzeigen“ oder „Wie viele POIs gibt es in der Altstadt?“. Führen Sie keine mutierenden E2E-Tests gegen Produktion aus.
+`/health/live` prüft ausschließlich den Prozesszustand, `/health/ready` prüft PostgreSQL und alle gemäß Konfiguration erforderlichen Abhängigkeiten. Der Readiness-Endpunkt liefert nur strukturierte Zustände, keine Verbindungsdetails oder Secrets. Prüfen Sie anschließend im Browser Karte, Gebietsseite, Dokumentationssuche und ausschließlich lesende Suchanfragen wie „Alle Stadtteile anzeigen“ oder „Wie viele POIs gibt es in der Altstadt?“. Führen Sie keine mutierenden E2E-Tests gegen Produktion aus.
 
 ## Rollback
 
