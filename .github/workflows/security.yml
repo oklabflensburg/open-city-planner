@@ -5,6 +5,17 @@ on:
   pull_request:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      dependency_review:
+        description: Whether to run the dependency review gate.
+        required: false
+        type: boolean
+        default: false
+      frontend_audit:
+        description: Whether to run the frontend dependency audit.
+        required: false
+        type: boolean
+        default: false
   schedule:
     - cron: "23 4 * * 1"
 
@@ -18,7 +29,7 @@ concurrency:
 jobs:
   dependency-review:
     name: Dependency review
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_call'
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || inputs.dependency_review
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -30,7 +41,7 @@ jobs:
 
   frontend-audit:
     name: Scheduled frontend dependency audit
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.frontend_audit
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

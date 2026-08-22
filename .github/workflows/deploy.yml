@@ -45,22 +45,28 @@ jobs:
 
           repo, sha, ref_name = sys.argv[1], sys.argv[2], sys.argv[3]
           token = os.environ["GITHUB_TOKEN"]
-          request = urllib.request.Request(
-              f"https://api.github.com/repos/{repo}/actions/workflows/release-gate.yml/runs?branch={ref_name}&status=completed&per_page=20",
-              headers={
-                  "Authorization": f"Bearer {token}",
-                  "Accept": "application/vnd.github+json",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              },
-          )
-          with urllib.request.urlopen(request) as response:
-              payload = json.load(response)
+          page = 1
+          while True:
+              request = urllib.request.Request(
+                  f"https://api.github.com/repos/{repo}/actions/workflows/release-gate.yml/runs?branch={ref_name}&status=completed&per_page=100&page={page}",
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Accept": "application/vnd.github+json",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with urllib.request.urlopen(request) as response:
+                  payload = json.load(response)
 
-          runs = payload.get("workflow_runs", [])
-          if not any(run.get("head_sha") == sha and run.get("conclusion") == "success" for run in runs):
-              raise SystemExit(f"No successful Release Gate exists for {sha} on {ref_name}. Manual deploy is blocked until the gate passes.")
+              runs = payload.get("workflow_runs", [])
+              if any(run.get("head_sha") == sha and run.get("conclusion") == "success" for run in runs):
+                  print(f"Validated successful Release Gate for {sha}")
+                  break
 
-          print(f"Validated successful Release Gate for {sha}")
+              if len(runs) < 100:
+                  raise SystemExit(f"No successful Release Gate exists for {sha} on {ref_name}. Manual deploy is blocked until the gate passes.")
+
+              page += 1
           PY
       - name: Release gate already passed for workflow_run
         if: github.event_name == 'workflow_run'

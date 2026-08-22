@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: release-gate-${{ github.workflow }}-${{ github.ref }}
@@ -30,6 +31,9 @@ jobs:
   security:
     name: Security gate
     uses: ./.github/workflows/security.yml
+    with:
+      dependency_review: true
+      frontend_audit: true
 
   gate:
     name: Release gate
