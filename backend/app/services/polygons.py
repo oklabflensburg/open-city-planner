@@ -232,9 +232,8 @@ async def enrich_polygon_address(session: AsyncSession, polygon: UserPolygon) ->
     released = False
     try:
         point = await polygon_point_on_surface(session, polygon.uuid)
-        if not released:
-            await close_session(session)
-            released = True
+        await close_session(session)
+        released = True
         address = await NominatimService().reverse(*point) if point else None
         _apply_polygon_address(polygon, address)
 
@@ -258,15 +257,12 @@ async def enrich_polygon_address(session: AsyncSession, polygon: UserPolygon) ->
                     _apply_polygon_address(fresh, None)
                     await write_session.commit()
                     await write_session.refresh(fresh)
-        except Exception:  # noqa: BLE001 - status persistence is best effort as well
-            try:
-                fresh = await get_polygon(session, polygon_id)
-                if fresh is not None:
-                    _apply_polygon_address(fresh, None)
-                    await session.commit()
-                    await session.refresh(fresh)
-            except Exception:  # noqa: BLE001 - status persistence is best effort as well
-                logger.warning("Polygon address lookup failed for polygon_id=%s", polygon_id)
+        except Exception:
+            logger.debug(
+                "Failed to persist polygon address failure status for polygon_id=%s",
+                polygon_id,
+                exc_info=True,
+            )
         logger.warning("Polygon address lookup failed for polygon_id=%s", polygon_id)
         return False
 
