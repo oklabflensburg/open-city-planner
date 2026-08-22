@@ -293,6 +293,54 @@ async def test_polygon_version_cache_prevents_repeated_lookup(
 
 
 @pytest.mark.asyncio
+async def test_lookup_uses_polygon_snapshot_after_request_session_is_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    osm_lookup._cache.clear()
+    osm_lookup._inflight.clear()
+    osm_lookup._inflight_local.clear()
+
+    class DetachablePolygon:
+        def __init__(self) -> None:
+            self.uuid = uuid.uuid4()
+            self.updated_at = datetime.now(UTC)
+            self._slug = "eg-holm-42"
+            self._geometry = object()
+            self.detached = False
+
+        @property
+        def slug(self) -> str:
+            if self.detached:
+                raise RuntimeError("slug should not be read from detached ORM state")
+            return self._slug
+
+        @property
+        def geometry(self) -> object:
+            if self.detached:
+                raise RuntimeError("geometry should not be read from detached ORM state")
+            return self._geometry
+
+    record = DetachablePolygon()
+    session = AsyncMock()
+    session.scalar.return_value = record
+    service = OsmLookupService()
+    monkeypatch.setattr(service, "_local_matches", AsyncMock(return_value=[]))
+    monkeypatch.setattr(osm_lookup, "get_settings", lambda: settings())
+
+    async def detach_session(_session: object) -> None:
+        record.detached = True
+
+    monkeypatch.setattr(osm_lookup, "close_session", detach_session)
+
+    result = await service.find_osm_objects_for_polygon(session, slug=record.slug)
+
+    assert result.polygon_id == str(record.uuid)
+    assert result.polygon_slug == "eg-holm-42"
+    osm_lookup._cache.clear()
+    osm_lookup._inflight_local.clear()
+
+
+@pytest.mark.asyncio
 async def test_no_inflight_task_captures_request_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
