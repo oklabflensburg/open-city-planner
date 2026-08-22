@@ -150,12 +150,15 @@ Den Host-Key vor dem Hochladen gegen einen bereits vertrauenswürdig bekannten F
 
 Vor `alembic upgrade head` erstellt Ansible standardmäßig einen Custom-Format-Dump unter `/var/backups/stadtplaner`. `pg_dump` läuft als lokaler PostgreSQL-Systembenutzer `postgres` über Peer-Authentifizierung und liest die Datenbank nur; Datenbankzugangsdaten werden weder ausgelesen noch auf der Kommandozeile offengelegt. Ein 30-sekündiges Lock-Limit verhindert unbegrenztes Warten auf konkurrierende DDL. Der Lauf schreibt zunächst eine restriktiv berechtigte `.partial`-Datei, verlangt einen nicht leeren Dump, validiert ihn mit `pg_restore --list` und benennt ihn erst danach atomar zum endgültigen Archiv um. Nur ein erfolgreich veröffentlichtes Archiv gibt die Migration frei.
 
+Standardmäßig werden die drei neuesten validierten Dumps aufbewahrt (`stadtplaner_database_backup_retention`). Vor einem neuen Dump werden ältere Archive so bereinigt, dass bei einem fehlgeschlagenen Backup noch zwei validierte Sicherungen verbleiben. Verwaiste `.partial`-Dateien entfernt Ansible nach zehn Minuten.
+
 Die Standardkonfiguration lautet:
 
 ```yaml
 stadtplaner_database_backup_mode: managed
 stadtplaner_database_name: open_city_map
 stadtplaner_database_backup_dir: /var/backups/stadtplaner
+stadtplaner_database_backup_retention: 3
 ```
 
 Für eine externe Backup-Lösung kann stattdessen bewusst `custom` gewählt werden. Der Befehl muss mit einem Fehlercode ungleich null abbrechen, wenn kein verifiziertes Backup erzeugt wurde:
@@ -182,10 +185,14 @@ git fetch origin
 SHA=$(git rev-parse origin/main)
 cd deploy/ansible
 ANSIBLE_REMOTE_USER=DEPLOY_USER ansible-playbook playbooks/deploy.yml \
-  -e stadtplaner_deploy_ref="$SHA" \
   -e @~/stadtplaner-vault.yml \
-  --ask-vault-pass
+  --ask-vault-pass \
+  -e stadtplaner_deploy_ref="$SHA"
 ```
+
+Der konkrete Deploy-Ref steht absichtlich hinter der Vault-Datei. So kann ein
+veralteter `stadtplaner_deploy_ref` im Vault den ausgewählten Commit nicht
+überschreiben.
 
 Der Ablauf ist:
 

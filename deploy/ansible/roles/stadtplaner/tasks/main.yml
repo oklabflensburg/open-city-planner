@@ -87,6 +87,100 @@
     group: "{{ stadtplaner_service_group }}"
     mode: '0755'
 
+- name: Ensure managed database backup directory exists
+  ansible.builtin.file:
+    path: "{{ stadtplaner_database_backup_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0750'
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Require a safe managed database backup retention
+  ansible.builtin.assert:
+    that:
+      - stadtplaner_database_backup_retention | int >= 2
+    fail_msg: "stadtplaner_database_backup_retention must retain at least two validated backups."
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Find stale partial managed database backups
+  ansible.builtin.find:
+    paths: "{{ stadtplaner_database_backup_dir }}"
+    patterns: '.stadtplaner-*.dump.partial'
+    file_type: file
+    age: 10m
+  register: stadtplaner_stale_partial_backups
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Remove stale partial managed database backups
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ stadtplaner_stale_partial_backups.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Find validated managed database backups
+  ansible.builtin.find:
+    paths: "{{ stadtplaner_database_backup_dir }}"
+    patterns: 'stadtplaner-*.dump'
+    file_type: file
+  register: stadtplaner_validated_backups
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Prune validated backups to make room for the new backup
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: >-
+    {{ (stadtplaner_validated_backups.files | default([]) | sort(attribute='mtime', reverse=true))
+       [(stadtplaner_database_backup_retention | int - 1):] }}
+  loop_control:
+    label: "{{ item.path }}"
+  when:
+    - stadtplaner_run_migrations
+    - stadtplaner_require_pre_migration_backup | default(true)
+    - stadtplaner_database_backup_mode == 'managed'
+
+- name: Read free space available for release assembly
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - >-
+        import os, sys;
+        stats = os.statvfs(sys.argv[1]);
+        print(stats.f_bavail * stats.f_frsize)
+      - "{{ stadtplaner_releases_dir }}"
+  register: stadtplaner_release_free_space
+  changed_when: false
+
+- name: Require enough free space to assemble a release
+  ansible.builtin.assert:
+    that:
+      - stadtplaner_release_free_space.stdout | int >= stadtplaner_min_release_free_bytes | int
+    fail_msg: >-
+      Cannot assemble a release: only {{ stadtplaner_release_free_space.stdout | int }} bytes are free
+      on the filesystem containing {{ stadtplaner_releases_dir }}, but
+      {{ stadtplaner_min_release_free_bytes | int }} bytes are required. Free disk space and rerun
+      the complete playbook.
+
 - name: Resolve the target release path
   ansible.builtin.set_fact:
     stadtplaner_release_path: >-
@@ -105,9 +199,9 @@
     cmd: >-
       bash -lc 'git archive --format=tar "${GIT_REF}" | tar -x -C "${RELEASE_DIR}"'
     chdir: "{{ stadtplaner_repo_path }}"
-    environment:
-      GIT_REF: "{{ stadtplaner_git.after | default(stadtplaner_deploy_ref) }}"
-      RELEASE_DIR: "{{ stadtplaner_release_path }}"
+  environment:
+    GIT_REF: "{{ stadtplaner_git.after | default(stadtplaner_deploy_ref) }}"
+    RELEASE_DIR: "{{ stadtplaner_release_path }}"
   become_user: "{{ stadtplaner_service_user }}"
 
 - name: Link persistent backend environment into the release checkout
@@ -150,7 +244,7 @@
   ansible.builtin.command:
     cmd: python3 -m venv .venv
     chdir: "{{ stadtplaner_release_path }}/backend"
-    creates: "{{ stadtplaner_release_path }}/backend/.venv/bin/python"
+    creates: "{{ stadtplaner_release_path }}/backend/.venv/bin/pip"
   become_user: "{{ stadtplaner_service_user }}"
 
 - name: Install backend production dependencies
@@ -210,18 +304,6 @@
   when:
     - stadtplaner_run_migrations
     - stadtplaner_require_pre_migration_backup | default(true)
-
-- name: Ensure managed database backup directory exists
-  ansible.builtin.file:
-    path: "{{ stadtplaner_database_backup_dir }}"
-    state: directory
-    owner: postgres
-    group: postgres
-    mode: '0750'
-  when:
-    - stadtplaner_run_migrations
-    - stadtplaner_require_pre_migration_backup | default(true)
-    - stadtplaner_database_backup_mode == 'managed'
 
 - name: Define managed pre-migration backup path
   ansible.builtin.set_fact:
@@ -341,7 +423,7 @@
 - name: Apply Alembic migrations
   ansible.builtin.command:
     cmd: .venv/bin/alembic upgrade head
-    chdir: "{{ stadtplaner_repo_path }}/backend"
+    chdir: "{{ stadtplaner_release_path }}/backend"
   become_user: "{{ stadtplaner_service_user }}"
   when: stadtplaner_run_migrations
   notify: Restart Stadtplaner API
@@ -600,22 +682,29 @@
       ansible.builtin.fail:
         msg: "Release {{ stadtplaner_release_path }} failed smoke tests and was rolled back to {{ stadtplaner_previous_release_path }}"
 
-- name: Prune older release directories
-  ansible.builtin.command:
-    argv:
-      - bash
-      - -lc
-      - >-
-        set -euo pipefail
-        if [ ! -d "{{ stadtplaner_releases_dir }}" ]; then
-          exit 0
-        fi
-        mapfile -t releases < <(find "{{ stadtplaner_releases_dir }}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r)
-        keep={{ stadtplaner_release_retention | int }}
-        for old in "${releases[@]:keep}"; do
-          rm -rf "{{ stadtplaner_releases_dir }}/${old}"
-        done
-  changed_when: false
+- name: Require a safe release retention
+  ansible.builtin.assert:
+    that:
+      - stadtplaner_release_retention | int >= 2
+    fail_msg: "stadtplaner_release_retention must retain the active release and at least one rollback release."
+
+- name: Find versioned release directories
+  ansible.builtin.find:
+    paths: "{{ stadtplaner_releases_dir }}"
+    file_type: directory
+    recurse: false
+  register: stadtplaner_release_directories
+
+- name: Prune older inactive release directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: >-
+    {{ ((stadtplaner_release_directories.files | sort(attribute='mtime', reverse=true))
+        | rejectattr('path', 'equalto', stadtplaner_release_path) | list)
+       [(stadtplaner_release_retention | int - 1):] }}
+  loop_control:
+    label: "{{ item.path }}"
 
 - name: Report deployed revision
   ansible.builtin.debug:
