@@ -54,6 +54,7 @@ class UserPolygon(Base):
     occupancy_source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     business_structure: Mapped[str] = mapped_column(String(16), default="UNKNOWN", nullable=False)
     category: Mapped[str] = mapped_column(String(80), default="custom", nullable=False)
+    idempotency_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     geometry: Mapped[object] = mapped_column(Geometry("GEOMETRY", srid=4326, spatial_index=False), nullable=False)
     properties: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
     user_id: Mapped[str | None] = mapped_column(String(120))

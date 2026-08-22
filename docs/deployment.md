@@ -156,9 +156,10 @@ ASSISTANT_QUERY_LOGGING=false
 
 ## Mastodon und E-Mail-Outbox
 
-Social Publishing ist optional und wird in [social-publishing.md](social-publishing.md) beschrieben. Die E-Mail-Outbox verarbeitet unter anderem retryfähige Willkommensmails. Mitgelieferte Timer:
+Social Publishing ist optional und wird in [social-publishing.md](social-publishing.md) beschrieben. Die E-Mail-Outbox verarbeitet unter anderem retryfähige Willkommensmails. Die Polygon-Outbox verarbeitet Seiteneffekte nach Flächenmutationen (Adressanreicherung, Cache-Invalidierung, Benachrichtigungen) zuverlässig asynchron. Mitgelieferte Timer:
 
 ```bash
+sudo systemctl enable --now stadtplaner-polygon-outbox.timer
 sudo systemctl enable --now stadtplaner-social-publisher.timer
 sudo systemctl enable --now stadtplaner-email-outbox.timer
 systemctl list-timers 'stadtplaner-*'
@@ -202,6 +203,7 @@ curl --fail --silent https://<frontend-origin>/dokumentation
 sudo journalctl -u <api-service> -n 200 --no-pager
 sudo journalctl -u <frontend-service> -n 200 --no-pager
 sudo journalctl -u stadtplaner-email-outbox.service -n 100 --no-pager
+sudo journalctl -u stadtplaner-polygon-outbox.service -n 100 --no-pager
 sudo journalctl -u stadtplaner-social-publisher.service -n 100 --no-pager
 sudo systemctl list-timers 'stadtplaner-*'
 ```
