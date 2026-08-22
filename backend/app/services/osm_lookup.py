@@ -2,6 +2,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -17,6 +18,14 @@ from app.services.geometry import from_wkb_element
 from app.services.osm_occupancy import detect_osm_occupancy_status
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _LookupPolygonSnapshot:
+    polygon_id: str
+    polygon_slug: str
+    geometry: Any
+
 
 RELEVANT_TAGS = (
     "name",
@@ -254,6 +263,11 @@ class OsmLookupService:
         # The result is plain Python values and carries no reference to the
         # session, so it is safe to hand into a globally-shared task.
         local_matches = await self._local_matches(session, str(polygon.uuid))
+        polygon_snapshot = _LookupPolygonSnapshot(
+            polygon_id=str(polygon.uuid),
+            polygon_slug=polygon.slug,
+            geometry=polygon.geometry,
+        )
         await close_session(session)
 
         task = _inflight.get(key)
@@ -261,7 +275,7 @@ class OsmLookupService:
             # Store the local matches so the task can retrieve them without
             # needing a session.
             _inflight_local[key] = local_matches
-            task = asyncio.create_task(self._lookup(key, polygon))
+            task = asyncio.create_task(self._lookup(key, polygon_snapshot))
             _inflight[key] = task
 
             def _cleanup(t: asyncio.Task[PolygonOsmInfo]) -> None:
@@ -279,10 +293,12 @@ class OsmLookupService:
         result = await asyncio.shield(task)
         settings = get_settings()
         _cache[key] = (time.monotonic() + settings.osm_lookup_cache_ttl_seconds, result)
-        self._discard_stale_cache_entries(str(polygon.uuid), keep=key)
+        self._discard_stale_cache_entries(polygon_snapshot.polygon_id, keep=key)
         return result
 
-    async def _lookup(self, key: tuple[str, str], polygon: UserPolygon) -> PolygonOsmInfo:
+    async def _lookup(
+        self, key: tuple[str, str], polygon: _LookupPolygonSnapshot
+    ) -> PolygonOsmInfo:
         """Session-independent lookup. Local DB matches are pre-fetched by the caller."""
         matches = _inflight_local.get(key, [])
         source = "local" if matches else "none"
@@ -293,8 +309,8 @@ class OsmLookupService:
                 source = "overpass" if matches else "none"
         ranked = rank_osm_matches(matches)
         return PolygonOsmInfo(
-            polygon_id=str(polygon.uuid),
-            polygon_slug=polygon.slug,
+            polygon_id=polygon.polygon_id,
+            polygon_slug=polygon.polygon_slug,
             source=source,
             matches=ranked,
             primary_match=ranked[0] if ranked else None,
@@ -329,7 +345,9 @@ class OsmLookupService:
             for row in rows[: settings.osm_lookup_max_matches]
         ]
 
-    async def _overpass_matches(self, polygon: UserPolygon) -> list[OsmObjectInfo]:
+    async def _overpass_matches(
+        self, polygon: _LookupPolygonSnapshot
+    ) -> list[OsmObjectInfo]:
         settings = get_settings()
         geometry = from_wkb_element(polygon.geometry)
         coordinates = geometry.get("coordinates")
@@ -367,7 +385,7 @@ class OsmLookupService:
             status_code = getattr(getattr(exc, "response", None), "status_code", None)
             logger.warning(
                 "Configured Overpass lookup failed for polygon_id=%s status=%s",
-                polygon.uuid,
+                polygon.polygon_id,
                 status_code or "unavailable",
             )
             raise OsmLookupError("OpenStreetMap lookup failed") from exc

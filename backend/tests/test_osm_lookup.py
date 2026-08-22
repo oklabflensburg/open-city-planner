@@ -26,6 +26,14 @@ def polygon() -> UserPolygon:
     )
 
 
+def snapshot(record: UserPolygon) -> osm_lookup._LookupPolygonSnapshot:
+    return osm_lookup._LookupPolygonSnapshot(
+        polygon_id=str(record.uuid),
+        polygon_slug=record.slug,
+        geometry=record.geometry,
+    )
+
+
 def settings(**overrides: object) -> SimpleNamespace:
     values: dict[str, object] = {
         "osm_external_fallback_enabled": False,
@@ -115,7 +123,7 @@ async def test_local_match_prevents_external_fallback(monkeypatch: pytest.Monkey
     key = (str(record.uuid), record.updated_at.isoformat())
     osm_lookup._inflight_local[key] = [local]
     try:
-        result = await service._lookup(key, record)
+        result = await service._lookup(key, snapshot(record))
     finally:
         osm_lookup._inflight_local.pop(key, None)
 
@@ -135,7 +143,7 @@ async def test_empty_local_lookup_respects_disabled_fallback(monkeypatch: pytest
     key = (str(record.uuid), record.updated_at.isoformat())
     osm_lookup._inflight_local[key] = []
     try:
-        result = await service._lookup(key, record)
+        result = await service._lookup(key, snapshot(record))
     finally:
         osm_lookup._inflight_local.pop(key, None)
 
@@ -161,7 +169,7 @@ async def test_configured_fallback_is_used_after_empty_local_lookup(
     key = (str(record.uuid), record.updated_at.isoformat())
     osm_lookup._inflight_local[key] = []
     try:
-        result = await service._lookup(key, record)
+        result = await service._lookup(key, snapshot(record))
     finally:
         osm_lookup._inflight_local.pop(key, None)
 
@@ -194,7 +202,7 @@ async def test_overpass_timeout_becomes_controlled_lookup_error(
     })
 
     with pytest.raises(osm_lookup.OsmLookupError):
-        await OsmLookupService()._overpass_matches(polygon())
+        await OsmLookupService()._overpass_matches(snapshot(polygon()))
 
 
 @pytest.mark.asyncio
@@ -244,7 +252,7 @@ async def test_overpass_uses_geojson_mapping_and_normalizes_response(
         "coordinates": [[(9.43, 54.78), (9.44, 54.78), (9.43, 54.79), (9.43, 54.78)]],
     })
 
-    matches = await OsmLookupService()._overpass_matches(polygon())
+    matches = await OsmLookupService()._overpass_matches(snapshot(polygon()))
 
     assert len(matches) == 1
     assert matches[0].name == "Testladen"
@@ -288,6 +296,58 @@ async def test_polygon_version_cache_prevents_repeated_lookup(
 
     assert first == second
     lookup.assert_awaited_once()
+    osm_lookup._cache.clear()
+    osm_lookup._inflight_local.clear()
+
+
+@pytest.mark.asyncio
+async def test_lookup_uses_polygon_snapshot_after_request_session_is_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    osm_lookup._cache.clear()
+    osm_lookup._inflight.clear()
+    osm_lookup._inflight_local.clear()
+
+    class DetachablePolygon:
+        def __init__(self) -> None:
+            self.uuid = uuid.uuid4()
+            self.updated_at = datetime.now(UTC)
+            self._slug = "eg-holm-42"
+            self._geometry = object()
+            self.detached = False
+
+        @property
+        def slug(self) -> str:
+            if self.detached:
+                raise RuntimeError("slug should not be read from detached ORM state")
+            return self._slug
+
+        @property
+        def geometry(self) -> object:
+            if self.detached:
+                raise RuntimeError("geometry should not be read from detached ORM state")
+            return self._geometry
+
+    record = DetachablePolygon()
+    session = AsyncMock()
+    session.scalar.return_value = record
+    service = OsmLookupService()
+    monkeypatch.setattr(service, "_local_matches", AsyncMock(return_value=[]))
+    external = AsyncMock(return_value=[])
+    monkeypatch.setattr(service, "_overpass_matches", external)
+    monkeypatch.setattr(osm_lookup, "get_settings", lambda: settings())
+
+    async def detach_session(_session: object) -> None:
+        record.detached = True
+
+    monkeypatch.setattr(osm_lookup, "close_session", detach_session)
+
+    result = await service.find_osm_objects_for_polygon(session, slug=record.slug)
+
+    assert record.detached is True
+    assert result.polygon_id == str(record.uuid)
+    assert result.polygon_slug == "eg-holm-42"
+    external.assert_not_awaited()
     osm_lookup._cache.clear()
     osm_lookup._inflight_local.clear()
 
