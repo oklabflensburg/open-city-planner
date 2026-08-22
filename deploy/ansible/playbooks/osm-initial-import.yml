@@ -22,9 +22,8 @@
         fail_msg: "Missing {{ stadtplaner_osm_env_file }}"
 
     - name: Run repository initial import script
-      ansible.builtin.command:
-        cmd: "{{ stadtplaner_repo_path }}/scripts/osm/initial-import.sh"
+      ansible.builtin.shell:
+        cmd: >-
+          OSM_ENV_FILE='{{ stadtplaner_osm_env_file }}' "{{ stadtplaner_repo_path }}/scripts/osm/initial-import.sh"
         chdir: "{{ stadtplaner_repo_path }}"
       become_user: "{{ stadtplaner_service_user }}"
-      environment:
-        OSM_ENV_FILE: "{{ stadtplaner_osm_env_file }}"

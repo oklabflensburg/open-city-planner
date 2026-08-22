@@ -101,13 +101,12 @@
     mode: '0755'
 
 - name: Materialize the ready-to-activate release from the requested ref
-  ansible.builtin.command:
+  ansible.builtin.shell:
     cmd: >-
+      GIT_REF='{{ stadtplaner_git.after | default(stadtplaner_deploy_ref) }}'
+      RELEASE_DIR='{{ stadtplaner_release_path }}'
       bash -lc 'git archive --format=tar "${GIT_REF}" | tar -x -C "${RELEASE_DIR}"'
     chdir: "{{ stadtplaner_repo_path }}"
-    environment:
-      GIT_REF: "{{ stadtplaner_git.after | default(stadtplaner_deploy_ref) }}"
-      RELEASE_DIR: "{{ stadtplaner_release_path }}"
   become_user: "{{ stadtplaner_service_user }}"
 
 - name: Link persistent backend environment into the release checkout
@@ -191,12 +190,11 @@
   changed_when: false
 
 - name: Build production frontend
-  ansible.builtin.command:
-    cmd: corepack pnpm build
+  ansible.builtin.shell:
+    cmd: >-
+      NODE_ENV=production corepack pnpm build
     chdir: "{{ stadtplaner_release_path }}/frontend"
   become_user: "{{ stadtplaner_service_user }}"
-  environment:
-    NODE_ENV: production
   notify: Restart Stadtplaner frontend
 
 - name: Require configured backup before migrations
