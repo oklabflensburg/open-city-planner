@@ -102,7 +102,7 @@ ansible-playbook playbooks/deploy.yml \
 
 ## Automatischer Deploy über GitHub Actions
 
-`.github/workflows/deploy.yml` deployt einen Push auf `main` automatisch, sobald der zugehörige Workflow **E2E Tests** erfolgreich beendet wurde, und kann zusätzlich über `workflow_dispatch` auf `main` manuell gestartet werden. Für automatische Läufe verwendet er `workflow_run.head_sha`, sodass exakt der erfolgreich getestete Commit ausgerollt wird. Fehlgeschlagene E2E-Läufe lösen keinen Deploy aus. Eine Concurrency-Gruppe lässt nie zwei Produktionsdeployments gleichzeitig laufen.
+`.github/workflows/deploy.yml` deployt einen Push auf `main` automatisch, sobald der zugehörige Workflow **Release Gate** erfolgreich beendet wurde. Dieses Gate bündelt Backend-, Frontend-, E2E- und Security-Prüfungen; nur ein erfolgreicher Gate-Lauf für einen `push` auf `main` löst den automatischen Produktionsdeploy aus. Für automatische Läufe verwendet der Workflow `workflow_run.head_sha`, sodass exakt der erfolgreich gegatete Commit ausgerollt wird. Ein manueller Start per `workflow_dispatch` ist weiterhin nur auf `main` möglich, wird aber zusätzlich blockiert, bis für denselben Commit bereits ein erfolgreicher Release-Gate-Lauf existiert. Eine Concurrency-Gruppe lässt nie zwei Produktionsdeployments gleichzeitig laufen.
 
 Lege im Repository unter **Settings → Environments** die Environment `production` an und beschränke sie auf den Branch `main`. Ein Required Reviewer ist optional: Ohne Reviewer läuft der Deploy vollautomatisch; mit Reviewer wartet er vor dem Zugriff auf die Secrets auf eine Freigabe.
 
