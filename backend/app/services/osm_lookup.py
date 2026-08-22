@@ -26,6 +26,7 @@ class _LookupPolygonSnapshot:
     polygon_slug: str
     geometry: Any
 
+
 RELEVANT_TAGS = (
     "name",
     "name:de",

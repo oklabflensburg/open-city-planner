@@ -333,6 +333,8 @@ async def test_lookup_uses_polygon_snapshot_after_request_session_is_closed(
     session.scalar.return_value = record
     service = OsmLookupService()
     monkeypatch.setattr(service, "_local_matches", AsyncMock(return_value=[]))
+    external = AsyncMock(return_value=[])
+    monkeypatch.setattr(service, "_overpass_matches", external)
     monkeypatch.setattr(osm_lookup, "get_settings", lambda: settings())
 
     async def detach_session(_session: object) -> None:
@@ -344,6 +346,7 @@ async def test_lookup_uses_polygon_snapshot_after_request_session_is_closed(
 
     assert result.polygon_id == str(record.uuid)
     assert result.polygon_slug == "eg-holm-42"
+    external.assert_not_awaited()
     osm_lookup._cache.clear()
     osm_lookup._inflight_local.clear()
 
