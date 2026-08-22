@@ -39,8 +39,25 @@ export function getIndustry(category: string | null | undefined) {
   return industries.find(industry => industry.key === category)
 }
 
+const additionalIndustryLabels: Readonly<Record<string, string>> = {
+  custom: 'Benutzerdefinierte Fläche'
+}
+
+function humanizeIndustryKey(category: string) {
+  const value = category
+    .trim()
+    .replace(/([a-z\d])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+  if (!value) return 'Nicht angegeben'
+  return value.charAt(0).toLocaleUpperCase('de-DE') + value.slice(1)
+}
+
 export function getIndustryLabel(category: string | null | undefined) {
-  return getIndustry(category)?.label || category || 'Nicht angegeben'
+  if (!category?.trim()) return 'Nicht angegeben'
+  return getIndustry(category)?.label
+    || additionalIndustryLabels[category]
+    || humanizeIndustryKey(category)
 }
 
 export function getIndustryColor(category: string | null | undefined) {

@@ -88,8 +88,9 @@ describe('central category presentation', () => {
     }
   })
 
-  it('preserves an unknown category label with a neutral fallback color', () => {
-    expect(getIndustryLabel('historical-category')).toBe('historical-category')
+  it('turns an unknown category key into a readable label with a neutral fallback color', () => {
+    expect(getIndustryLabel('historical-category')).toBe('Historical category')
+    expect(getIndustryLabel('custom')).toBe('Benutzerdefinierte Fläche')
     expect(getIndustryColor('historical-category')).toBe(fallbackIndustryColor)
   })
 
