@@ -344,6 +344,7 @@ async def test_lookup_uses_polygon_snapshot_after_request_session_is_closed(
 
     result = await service.find_osm_objects_for_polygon(session, slug=record.slug)
 
+    assert record.detached is True
     assert result.polygon_id == str(record.uuid)
     assert result.polygon_slug == "eg-holm-42"
     external.assert_not_awaited()
