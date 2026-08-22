@@ -13,6 +13,7 @@ from app.auth.dependencies import (
     get_verified_user,
     require_verwaltung_user,
 )
+from app.core.config import get_settings
 from app.db.session import get_session
 from app.models.user import User
 from app.schemas.analytics import ComparableResult, LocationAnalysis
@@ -66,8 +67,11 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
 @router.get("", response_model=list[PublicPolygonRead])
-async def get_polygons(session: SessionDep) -> list[PublicPolygonRead]:
-    return await list_public_polygons(session)
+async def get_polygons(
+    session: SessionDep,
+    limit: Annotated[int, Query(ge=1)] = get_settings().public_polygon_response_limit,
+) -> list[PublicPolygonRead]:
+    return await list_public_polygons(session, limit=limit)
 
 
 @router.post("", response_model=PolygonRead, status_code=status.HTTP_201_CREATED)
@@ -162,16 +166,20 @@ async def post_polygon_from_osm(
 
 
 @router.get("/geojson", response_model=FeatureCollection)
-async def get_geojson(session: SessionDep) -> FeatureCollection:
-    return await polygons_geojson(session)
+async def get_geojson(
+    session: SessionDep,
+    limit: Annotated[int, Query(ge=1)] = get_settings().public_polygon_response_limit,
+) -> FeatureCollection:
+    return await polygons_geojson(session, limit=limit)
 
 
 @router.get("/overview", response_model=list[PolygonOverviewRead])
 async def get_polygon_overview(
     session: SessionDep,
     filters: Annotated[PolygonFilterParams, Depends(polygon_filter_query)],
+    limit: Annotated[int, Query(ge=1)] = get_settings().public_polygon_response_limit,
 ) -> list[PolygonOverviewRead]:
-    return await list_polygon_overview(session, filters)
+    return await list_polygon_overview(session, filters, limit=limit)
 
 
 @router.get("/sitemap", response_model=list[PolygonSitemapEntry])

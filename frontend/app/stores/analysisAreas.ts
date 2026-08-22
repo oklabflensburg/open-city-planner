@@ -37,7 +37,7 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
         const api = useApi()
         const [areas, featureCollection] = await Promise.all([
           api.request<AnalysisArea[]>('/analysis-areas'),
-          api.request<AnalysisAreaFeatureCollection>('/analysis-areas/geojson')
+          api.request<AnalysisAreaFeatureCollection>('/analysis-areas/geojson?limit=1000')
         ])
         this.areas = markRaw(areas)
         this.featureCollection = markRaw(featureCollection)

@@ -152,13 +152,15 @@ async def _area_detail_by_slug_uncached(session: AsyncSession, slug: str) -> Ana
     )
 
 
-async def _areas_geojson_uncached(session: AsyncSession) -> dict:
+async def _areas_geojson_uncached(session: AsyncSession, *, limit: int | None = None) -> dict:
+    effective_limit = min(limit or get_settings().public_polygon_response_limit, get_settings().public_polygon_response_limit)
     rows = (await session.execute(text("""
       SELECT uuid::text AS id, slug, name, area_type, parent_id, area_m2, source,
              source_osm_type, source_osm_id, source_admin_level,
              ST_AsGeoJSON(geometry,6)::json AS geometry
       FROM analysis_areas ORDER BY CASE area_type WHEN 'MUNICIPALITY' THEN 1 WHEN 'DISTRICT' THEN 2 ELSE 3 END,name
-    """))).mappings().all()
+      LIMIT :limit
+    """), {"limit": effective_limit})).mappings().all()
     return {"type": "FeatureCollection", "features": [
         {"type": "Feature", "id": row["id"], "geometry": row["geometry"],
          "properties": {key: value for key, value in row.items() if key != "geometry"}}
@@ -315,14 +317,15 @@ async def area_uuid_by_slug(session: AsyncSession, slug: str) -> uuid.UUID | Non
     return await session.scalar(select(AnalysisArea.uuid).where(AnalysisArea.slug == slug))
 
 
-async def areas_geojson(session: AsyncSession) -> dict:
+async def areas_geojson(session: AsyncSession, *, limit: int | None = None) -> dict:
+    effective_limit = min(limit or get_settings().public_polygon_response_limit, get_settings().public_polygon_response_limit)
     version = await cache_version(session, "analysis-areas")
-    key = build_cache_key("analysis-area:geojson", {}, version=version)
+    key = build_cache_key("analysis-area:geojson", {"limit": effective_limit}, version=version)
     data, _status = await cache_service.get_or_compute(
         key,
         ttl=get_settings().analysis_area_cache_ttl,
         resource="analysis-area-geojson",
-        compute=lambda: _areas_geojson_uncached(session),
+        compute=lambda: _areas_geojson_uncached(session, limit=effective_limit),
     )
     return data
 

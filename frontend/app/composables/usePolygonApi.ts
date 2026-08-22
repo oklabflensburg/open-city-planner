@@ -27,7 +27,9 @@ export const usePolygonApi = () => {
       return polygons.map((polygon) => polygonSchema.parse(polygon))
     },
     async overview(query = '', signal?: AbortSignal) {
-      const polygons = await request<unknown[]>(`/polygons/overview${query ? `?${query}` : ''}`, { signal })
+      const limit = 1000
+      const suffix = query ? `${query}&limit=${limit}` : `?limit=${limit}`
+      const polygons = await request<unknown[]>(`/polygons/overview${suffix}`, { signal })
       return polygons.map(polygon => polygonOverviewSchema.parse(polygon)) as PolygonOverview[]
     },
     async create(payload: PolygonPayload) {
@@ -91,7 +93,7 @@ export const usePolygonApi = () => {
       return polygon
     },
     async geojson() {
-      return await request('/polygons/geojson')
+      return await request('/polygons/geojson?limit=1000')
     }
   }
 }

@@ -81,20 +81,32 @@ async def list_polygons(session: AsyncSession) -> list[PolygonRead]:
     return [serialize_polygon(row) for row in rows]
 
 
-async def list_public_polygons(session: AsyncSession) -> list[PublicPolygonRead]:
-    rows = await session.scalars(select(UserPolygon).order_by(UserPolygon.created_at.desc()))
+def _bounded_public_limit(limit: int | None) -> int:
+    server_limit = get_settings().public_polygon_response_limit
+    requested = server_limit if limit is None else limit
+    return min(requested, server_limit)
+
+
+async def list_public_polygons(session: AsyncSession, *, limit: int | None = None) -> list[PublicPolygonRead]:
+    effective_limit = _bounded_public_limit(limit)
+    rows = await session.scalars(
+        select(UserPolygon).order_by(UserPolygon.created_at.desc()).limit(effective_limit)
+    )
     return [serialize_public_polygon(row) for row in rows]
 
 
 async def list_polygon_overview(
     session: AsyncSession,
     filters: PolygonFilterParams | None = None,
+    *,
+    limit: int | None = None,
 ) -> list[PolygonOverviewRead]:
     statement = (
         select(UserPolygon)
         .where(*polygon_filter_clauses(filters or PolygonFilterParams()))
         .order_by(UserPolygon.created_at.desc())
     )
+    statement = statement.limit(_bounded_public_limit(limit))
     rows = await session.scalars(statement)
     return [
         PolygonOverviewRead(
@@ -543,8 +555,8 @@ async def delete_polygon(
     )
 
 
-async def _polygons_geojson_uncached(session: AsyncSession) -> FeatureCollection:
-    polygons = await list_public_polygons(session)
+async def _polygons_geojson_uncached(session: AsyncSession, *, limit: int | None = None) -> FeatureCollection:
+    polygons = await list_public_polygons(session, limit=limit)
     return FeatureCollection(
         type="FeatureCollection",
         features=[
@@ -565,12 +577,13 @@ async def _polygons_geojson_uncached(session: AsyncSession) -> FeatureCollection
     )
 
 
-async def polygons_geojson(session: AsyncSession) -> FeatureCollection:
+async def polygons_geojson(session: AsyncSession, *, limit: int | None = None) -> FeatureCollection:
     version = await cache_version(session, "polygons")
-    key = build_cache_key("polygons:geojson", {"scope": "public"}, version=version)
+    key = build_cache_key("polygons:geojson", {"scope": "public", "limit": _bounded_public_limit(limit)}, version=version)
+    effective_limit = _bounded_public_limit(limit)
 
     async def compute() -> dict:
-        result = await _polygons_geojson_uncached(session)
+        result = await _polygons_geojson_uncached(session, limit=effective_limit)
         return result.model_dump(mode="json")
 
     data, _status = await cache_service.get_or_compute(
