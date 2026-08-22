@@ -1,0 +1,60 @@
+name: Release Gate
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend gate
+    uses: ./.github/workflows/backend.yml
+
+  frontend:
+    name: Frontend gate
+    uses: ./.github/workflows/frontend.yml
+
+  e2e:
+    name: E2E gate
+    uses: ./.github/workflows/e2e.yml
+
+  security:
+    name: Security gate
+    uses: ./.github/workflows/security.yml
+
+  gate:
+    name: Release gate
+    needs: [backend, frontend, e2e, security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ always() }}
+    steps:
+      - name: Require all required checks to pass
+        shell: bash
+        env:
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+          SECURITY_RESULT: ${{ needs.security.result }}
+        run: |
+          set -euo pipefail
+
+          for name in BACKEND_RESULT FRONTEND_RESULT E2E_RESULT SECURITY_RESULT; do
+            value="${!name}"
+            echo "${name}=${value}"
+            if [[ "${value}" != "success" ]]; then
+              echo "Release gate is blocked because ${name} is ${value}." >&2
+              exit 1
+            fi
+          done
+
+          echo "Release gate passed for ${{ github.sha }}"
