@@ -332,9 +332,12 @@ async def test_no_inflight_task_captures_request_session(
     key = (str(record.uuid), record.updated_at.isoformat())
     assert key in osm_lookup._inflight
     inflight_task = osm_lookup._inflight[key]
-    # The local matches (session-derived data) are plain values, not the session
     assert inflight_task is not None
-    assert session not in osm_lookup._inflight_local.values()
+
+    coro = inflight_task.get_coro()
+    frame = getattr(coro, "cr_frame", None)
+    assert frame is not None
+    assert session not in frame.f_locals.values()
 
     released_event.set()
     await task_coro
