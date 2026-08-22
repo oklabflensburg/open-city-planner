@@ -86,6 +86,12 @@ describe('Ansible deployment contract', () => {
     expect(unit).toContain('{{ stadtplaner_avatar_upload_dir }}')
   })
 
+  it('allows avatar uploads through the managed API vhost', () => {
+    const nginx = repositoryFile('deploy/ansible/roles/stadtplaner/templates/stadtplaner.nginx.conf.j2')
+
+    expect(nginx).toMatch(/server_name \{\{ stadtplaner_api_host \}\};\s+client_max_body_size 10m;/)
+  })
+
   it('deploys the exact main commit without weakening SSH verification', () => {
     const workflow = repositoryFile('.github/workflows/deploy.yml')
 
