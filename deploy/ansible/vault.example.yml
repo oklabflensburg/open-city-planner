@@ -239,6 +239,9 @@ stadtplaner_pnpm_version: 11.22.0
 # Deployment paths, services and feature switches. These mirror inventory/group_vars/all.yml.
 stadtplaner_repo_url: https://github.com/oklabflensburg/open-city-planner.git
 stadtplaner_repo_path: /opt/git/open-city-planner
+stadtplaner_releases_dir: /opt/stadtplaner/releases
+stadtplaner_current_path: /opt/stadtplaner/current
+stadtplaner_release_retention: 3
 stadtplaner_deploy_ref: main
 stadtplaner_service_user: oklab
 stadtplaner_service_group: oklab
