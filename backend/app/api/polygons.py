@@ -28,6 +28,7 @@ from app.schemas.geojson import (
     PolygonVerwaltungRead,
     PolygonVerwaltungUpdate,
     PublicPolygonDetail,
+    PublicPolygonRead,
 )
 from app.schemas.osm import OsmPolygonImportRead, OsmPolygonImportRequest, PolygonOsmInfo
 from app.schemas.polygon_filters import PolygonFilterParams, polygon_filter_query
@@ -47,14 +48,14 @@ from app.services.polygons import (
     delete_polygon,
     get_polygon,
     list_polygon_overview,
-    list_polygons,
+    list_public_polygons,
     polygon_editor_detail,
     polygon_metrics,
     polygon_sitemap_entries,
     polygon_verwaltung_detail,
     polygons_geojson,
     public_polygon_by_slug,
-    read_polygon,
+    read_public_polygon,
     update_polygon,
     update_polygon_verwaltung,
 )
@@ -64,9 +65,9 @@ router = APIRouter(prefix="/polygons", tags=["Polygons"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
-@router.get("", response_model=list[PolygonRead])
-async def get_polygons(session: SessionDep) -> list[PolygonRead]:
-    return await list_polygons(session)
+@router.get("", response_model=list[PublicPolygonRead])
+async def get_polygons(session: SessionDep) -> list[PublicPolygonRead]:
+    return await list_public_polygons(session)
 
 
 @router.post("", response_model=PolygonRead, status_code=status.HTTP_201_CREATED)
@@ -250,9 +251,9 @@ async def get_polygon_osm_by_id(polygon_id: uuid.UUID, session: SessionDep) -> P
     return result
 
 
-@router.get("/{polygon_id}", response_model=PolygonRead)
-async def get_polygon_by_id(polygon_id: uuid.UUID, session: SessionDep) -> PolygonRead:
-    polygon = await read_polygon(session, polygon_id)
+@router.get("/{polygon_id}", response_model=PublicPolygonRead)
+async def get_polygon_by_id(polygon_id: uuid.UUID, session: SessionDep) -> PublicPolygonRead:
+    polygon = await read_public_polygon(session, polygon_id)
     if polygon is None:
         raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     return polygon

@@ -24,6 +24,7 @@ from app.schemas.geojson import (
     PolygonUpdate,
     PolygonVerwaltungUpdate,
     PublicPolygonDetail,
+    PublicPolygonRead,
 )
 from app.services import nominatim, polygons
 from app.services.nominatim import NominatimAddress, NominatimService
@@ -77,6 +78,8 @@ def test_public_polygon_schema_has_no_management_fields() -> None:
     assert not public_fields.intersection(
         {"owner_name", "owner_street", "owner_city", "price_per_sqm", "updated_by_user_id"}
     )
+    public_read_fields = set(PublicPolygonRead.model_fields)
+    assert not public_read_fields.intersection({"created_by_user_id", "updated_by_user_id"})
 
 
 def test_management_price_uses_decimal_and_rejects_negative_values() -> None:
