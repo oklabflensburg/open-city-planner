@@ -28,7 +28,7 @@
     </div>
     <div v-else-if="showEmptyState" class="absolute bottom-3 left-3 z-10 flex max-w-[calc(100%-1.5rem)] items-center gap-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-700 shadow lg:bottom-4 lg:max-w-[360px]" role="status" aria-live="polite">
       <span class="font-semibold">0 Treffer für die aktuelle Auswahl</span>
-      <button class="min-h-8 shrink-0 cursor-pointer rounded-md px-2 font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="filterStore.reset()">Filter aufheben</button>
+      <button class="min-h-8 shrink-0 cursor-pointer rounded-md px-2 font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="resetVisibleFilters">Filter aufheben</button>
     </div>
   </div>
 </template>
@@ -41,6 +41,7 @@ import type { OsmViewportResult } from '~/types/osm'
 import { getIndustryColor, industryColorExpression } from '~/utils/industries'
 import { thematicColor, thematicColorExpression } from '~/utils/mapThemes'
 import { osmCategoryColors, osmColorExpression } from '~/utils/osmCategories'
+import { isPoiCategoryToken, withoutPoiQuery } from '~/utils/poiCategories'
 import { shouldExcludeOsmFeature } from '~/utils/osmExclusions'
 import { pickMapEntityAtPoint, type InteractivePolygonFeature } from '~/utils/mapFeaturePicking'
 import { ensureStadtplanerLayerOrder, getStadtplanerLayerOrder, hasValidStadtplanerLayerOrder } from '~/utils/mapLayerOrder'
@@ -57,6 +58,7 @@ const osmStore = useOsmViewportStore()
 const analysisAreasStore = useAnalysisAreasStore()
 const mapSelection = useMapSelection()
 const route = useRoute()
+const router = useRouter()
 const socialPreview = computed(() => route.query['social-preview'] === '1')
 const gisPreviewReady = ref(false)
 const mapEl = ref<HTMLDivElement | null>(null)
@@ -85,7 +87,9 @@ const performanceCounters = {
 const performanceDebugEnabled = import.meta.dev || config.public.mapPerformanceDebug
 
 const visibleFeatureCollection = computed<FeatureCollection>(() => polygonStore.featureCollection as FeatureCollection)
-const showEmptyState = computed(() => filterStore.activeFilterCount > 0 && filterStore.selectedSources.length > 0
+const showEmptyState = computed(() => osmStore.areaPoiFilter
+  ? !osmStore.loading && (osmStore.data?.meta.count || 0) === 0
+  : filterStore.activeFilterCount > 0 && filterStore.selectedSources.length > 0
   && !polygonStore.loading && !osmStore.loading
   && polygonStore.polygons.length === 0 && (osmStore.data?.meta.business_count || 0) === 0)
 
@@ -120,7 +124,7 @@ onMounted(async () => {
       ensureMapInfrastructure(instance)
       mapStore.mapLoaded = true
       mapError.value = ''
-      const osmRefresh = refreshOsmViewportForCurrentMap({ force: true })
+      applyRequestedPoiFilter()
       await polygonStore.loadPolygons()
       updateSource(visibleFeatureCollection.value)
       const requested = typeof route.query.polygon === 'string' ? route.query.polygon : ''
@@ -129,7 +133,7 @@ onMounted(async () => {
       } else {
         await selectRequestedArea(instance)
       }
-      await osmRefresh
+      await refreshOsmViewportForCurrentMap({ force: true })
       mapStore.markGisDataFresh()
       if (socialPreview.value && requested && polygonStore.selectedPolygonId === requested) {
         await waitForGisPreviewReady(instance)
@@ -233,9 +237,15 @@ watch(
   scheduleMapLayoutResize
 )
 watch(
-  () => [osmStore.showPois, osmStore.showAreas, osmStore.showBuildings, osmStore.activeCategories.join(',')],
+  () => [osmStore.showPois, osmStore.showAreas, osmStore.showBuildings, osmStore.activeCategories.join(','), osmStore.areaPoiFilter?.areaSlug, osmStore.areaPoiFilter?.category],
   () => scheduleOsmViewportRefresh(0)
 )
+watch(() => [route.query.area, route.query.poi], async () => {
+  if (!mapStore.mapLoaded || !map.value) return
+  applyRequestedPoiFilter()
+  await selectRequestedArea(map.value)
+  await refreshOsmViewportForCurrentMap({ force: true })
+})
 
 function ensureOsmInfrastructure(instance: Map) {
   const empty: FeatureCollection = { type: 'FeatureCollection', features: [] }
@@ -715,6 +725,26 @@ async function selectRequestedArea(instance: Map) {
   const bounds = feature ? geometryBounds(feature.geometry.coordinates) : null
   if (bounds) instance.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: currentViewportPadding(), maxZoom: 16, duration: 0 })
   await request
+}
+
+function applyRequestedPoiFilter() {
+  const areaSlug = typeof route.query.area === 'string' ? route.query.area : ''
+  const poiCategory = route.query.poi
+  const areaExists = analysisAreasStore.areas.some(area => area.slug === areaSlug)
+  if (areaExists && isPoiCategoryToken(poiCategory)) {
+    osmStore.setAreaPoiFilter(areaSlug, poiCategory)
+  } else if (osmStore.areaPoiFilter) {
+    osmStore.clearAreaPoiFilter()
+  }
+}
+
+function resetVisibleFilters() {
+  if (!osmStore.areaPoiFilter) {
+    filterStore.reset()
+    return
+  }
+  osmStore.clearAreaPoiFilter()
+  void router.push({ query: withoutPoiQuery(route.query) })
 }
 
 function geometryBounds(coordinates: unknown): [number, number, number, number] | null {

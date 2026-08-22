@@ -29,7 +29,7 @@
         <div class="rounded-xl bg-white p-3"><dt class="text-xs font-bold text-slate-500">Flächen</dt><dd class="mt-1 text-xl font-black">{{ formatNumber(analytics.metrics.polygon_count) }}</dd></div>
         <div class="rounded-xl bg-white p-3"><dt class="text-xs font-bold text-slate-500">Leerstand</dt><dd class="mt-1 text-xl font-black">{{ formatPercent(analytics.metrics.vacancy_rate) }}</dd></div>
         <div class="rounded-xl bg-white p-3"><dt class="text-xs font-bold text-slate-500">Gesamtfläche</dt><dd class="mt-1 text-xl font-black">{{ formatSquareMetres(analytics.metrics.total_area_m2) }}</dd></div>
-        <div class="rounded-xl bg-white p-3"><dt class="text-xs font-bold text-slate-500">POIs</dt><dd class="mt-1 text-xl font-black">{{ previewPois ? formatNumber(analytics.poi_count) : '–' }}</dd></div>
+        <div class="rounded-xl bg-white p-3"><dt class="text-xs font-bold text-slate-500">Orte</dt><dd class="mt-1 text-xl font-black">{{ previewPois ? formatNumber(analytics.poi_count) : '–' }}</dd></div>
       </dl>
       <AnalysisAreaDetailMap v-if="previewMap" :area="area" @ready="mapReady = true" />
     </section>
@@ -45,7 +45,7 @@
         <div><PolygonMetricCard label="Filialisierungsgrad" :value="formatPercent(analytics.metrics.chain_store_rate)" /><p class="mt-1 px-1 text-xs text-slate-500">{{ rateHint(analytics.metrics.known_business_structure_count) }}</p></div>
         <div><PolygonMetricCard label="Ø Flächengröße" :value="formatSquareMetres(analytics.metrics.average_area_m2)" /></div>
         <div><PolygonMetricCard label="Median Flächengröße" :value="formatSquareMetres(analytics.metrics.median_area_m2)" /></div>
-        <div><PolygonMetricCard label="POIs im Gebiet" :value="formatNumber(analytics.poi_count)" /></div>
+        <div><PolygonMetricCard label="Orte und Einrichtungen" :value="formatNumber(analytics.poi_count)" /></div>
         <div><PolygonMetricCard label="Verkaufsflächendichte" :value="analytics.retail_area_density_m2_per_km2 == null ? '—' : `${formatNumber(analytics.retail_area_density_m2_per_km2)} m²/km²`" /></div>
         <div><PolygonMetricCard label="Gebietsfläche" :value="`${formatNumber(area.area_m2 / 1_000_000)} km²`" /></div>
       </dl>
@@ -78,20 +78,29 @@
         <h2 id="branchen" class="text-xl font-black text-slate-950">Branchenverteilung</h2>
         <p v-if="!analytics.industry_distribution.length" class="mt-4 text-slate-500">Keine Branchendaten verfügbar.</p>
         <ul v-else class="mt-4 space-y-3">
-          <li v-for="item in analytics.industry_distribution" :key="item.category" class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 text-sm">
+          <li v-for="item in analytics.industry_distribution" :key="item.category" class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 text-sm" :aria-label="`${getIndustryLabel(item.category)}: ${formatNumber(item.count)} Flächen`">
             <span>{{ getIndustryLabel(item.category) }}</span><strong>{{ formatNumber(item.count) }}</strong>
-            <span class="col-span-2 h-2 overflow-hidden rounded-full bg-slate-100"><span class="block h-full rounded-full bg-[#154d73]" :style="{ width: `${industryShare(item.count)}%` }" /></span>
+            <span class="col-span-2 h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true"><span class="block h-full rounded-full" :style="{ width: `${industryShare(item.count)}%`, backgroundColor: getIndustryColor(item.category) }" /></span>
           </li>
         </ul>
       </section>
       <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="pois">
-        <h2 id="pois" class="text-xl font-black text-slate-950">OpenStreetMap im Gebiet</h2>
-        <p v-if="!analytics.poi_categories.length" class="mt-4 text-slate-500">Keine POI-Daten verfügbar.</p>
-        <dl v-else class="mt-4 grid grid-cols-2 gap-3">
-          <div v-for="item in analytics.poi_categories" :key="item.category" class="rounded-xl bg-slate-50 p-3">
-            <dt class="text-sm text-slate-600">{{ item.category }}</dt><dd class="mt-1 text-xl font-black">{{ formatNumber(item.count) }}</dd>
-          </div>
-        </dl>
+        <h2 id="pois" class="text-xl font-black text-slate-950">Orte und Einrichtungen im Gebiet</h2>
+        <p class="mt-2 text-sm leading-6 text-slate-600">In OpenStreetMap erfasste Orte, Einrichtungen und Angebote innerhalb von {{ area.name }}.</p>
+        <p v-if="!analytics.poi_categories.length" class="mt-4 text-slate-500">Keine Orte oder Einrichtungen verfügbar.</p>
+        <ul v-else class="mt-4 grid grid-cols-2 gap-3">
+          <li v-for="item in analytics.poi_categories" :key="item.category">
+            <NuxtLink
+              class="group flex min-h-28 flex-col rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-[#154d73] hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
+              :to="areaPoiMapLink(area.slug, item.category)"
+              :aria-label="`${formatNumber(item.count)} ${getPoiCategoryLabel(item.category)} im Gebiet ${area.name} auf der Karte anzeigen`"
+            >
+              <span class="text-sm font-semibold text-slate-700">{{ getPoiCategoryLabel(item.category) }}</span>
+              <strong class="mt-1 text-xl font-black text-slate-950">{{ formatNumber(item.count) }}</strong>
+              <span class="mt-auto pt-2 text-xs font-bold text-[#154d73] group-hover:underline">Auf Karte anzeigen <span aria-hidden="true">→</span></span>
+            </NuxtLink>
+          </li>
+        </ul>
       </section>
     </div>
 
@@ -130,7 +139,8 @@
 </template>
 
 <script setup lang="ts">
-import { getIndustryLabel } from '~/utils/industries'
+import { getIndustryColor, getIndustryLabel } from '~/utils/industries'
+import { areaPoiMapLink, getPoiCategoryLabel } from '~/utils/poiCategories'
 
 const route = useRoute()
 const authStore = useAuthStore()

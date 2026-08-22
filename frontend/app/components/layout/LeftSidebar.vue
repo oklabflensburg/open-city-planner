@@ -14,8 +14,8 @@
         <div v-if="!embedded" class="flex items-center gap-2">
           <ListFilter class="size-4 text-[#154d73]" aria-hidden="true" />
           <h2 class="text-sm font-bold text-slate-800">Filter</h2>
-          <span v-if="filter.activeFilterCount" class="rounded-full bg-[#e2edf4] px-2 py-0.5 text-[11px] font-black text-[#154d73]">{{ filter.activeFilterCount }} aktiv</span>
-          <button v-if="filter.canReset" class="ml-auto min-h-8 cursor-pointer rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="filter.reset()">Zurücksetzen</button>
+          <span v-if="activeFilterCount" class="rounded-full bg-[#e2edf4] px-2 py-0.5 text-[11px] font-black text-[#154d73]">{{ activeFilterCount }} aktiv</span>
+          <button v-if="filter.canReset || osmStore.areaPoiFilter" class="ml-auto min-h-8 cursor-pointer rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="resetAll">Zurücksetzen</button>
         </div>
         <p :class="embedded ? '' : 'mt-2'" class="text-[11px] font-semibold leading-4 text-slate-600">{{ filterStatus }}</p>
         <p v-if="!filter.selectedSources.length" class="mt-1 text-[11px] font-semibold leading-4 text-amber-700">Keine Fachdatenquelle ausgewählt. Die Basiskarte bleibt sichtbar.</p>
@@ -76,6 +76,7 @@
 <script setup lang="ts">
 import { Info, ListFilter } from 'lucide-vue-next'
 import { mapThemes } from '~/utils/mapThemes'
+import { getPoiCategoryLabel, withoutPoiQuery } from '~/utils/poiCategories'
 
 withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 
@@ -84,15 +85,19 @@ const filter = useFilterStore()
 const analysisAreasStore = useAnalysisAreasStore()
 const polygonStore = usePolygonStore()
 const osmStore = useOsmViewportStore()
+const router = useRouter()
+const route = useRoute()
+const activeFilterCount = computed(() => filter.activeFilterCount + (osmStore.areaPoiFilter ? 1 : 0))
 const filterStatus = computed(() => {
-  const descriptions = filter.activeFilterDescriptions
+  const descriptions = [...filter.activeFilterDescriptions]
+  if (osmStore.areaPoiFilter) descriptions.push(`Orte: ${getPoiCategoryLabel(osmStore.areaPoiFilter.category)}`)
   return descriptions.length
     ? `${descriptions.length} Filter aktiv · ${descriptions.join(' · ')}`
     : 'Alle passenden Objekte werden angezeigt.'
 })
 const resultSummary = computed(() => {
   const polygonCount = polygonStore.polygons.length
-  const osmCount = osmStore.data?.meta.business_count || 0
+  const osmCount = osmStore.areaPoiFilter ? osmStore.data?.meta.count || 0 : osmStore.data?.meta.business_count || 0
   return `${polygonCount} Stadtplaner · ${osmCount} OSM im Ausschnitt`
 })
 const areaLayers = [
@@ -100,4 +105,11 @@ const areaLayers = [
   { type: 'DISTRICT' as const, label: 'Stadtteile', activeColor: '#15803d' },
   { type: 'QUARTER' as const, label: 'Quartiere', activeColor: '#b45309' }
 ]
+
+function resetAll() {
+  filter.reset()
+  osmStore.reset()
+  if (!route.query.poi) return
+  void router.push({ query: withoutPoiQuery(route.query) })
+}
 </script>

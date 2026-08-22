@@ -2,8 +2,11 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
+from starlette.requests import Request
 
+from app.api import osm as osm_api
 from app.api.osm import router as osm_router
 from app.schemas.osm import OsmViewportQuery
 from app.schemas.polygon_filters import PolygonFilterParams
@@ -49,6 +52,10 @@ def test_bbox_and_zoom_validation_rejects_invalid_or_excessive_requests() -> Non
         query(west=9.0, east=10.0, zoom=17)
     with pytest.raises(ValidationError):
         query(zoom=25)
+    with pytest.raises(ValidationError):
+        query(analysis_area="altstadt-15630273")
+    with pytest.raises(ValidationError):
+        query(analysis_area="altstadt-15630273", poi_category="drop table")
 
 
 def test_category_filter_is_allowlisted() -> None:
@@ -149,6 +156,48 @@ def test_viewport_sql_preserves_spatial_index_and_zoom_policy() -> None:
     assert "canonical_status" in sql
     assert "polygon_osm_sources" in sql
     assert "ST_Area(ST_Transform(osm.geometry, 25832))" in sql
+    assert "osm.geometry && area.geometry" in sql
+    assert "ST_Covers(area.geometry, ST_PointOnSurface(osm.geometry))" in sql
+    assert "poi_category" in sql
+
+
+@pytest.mark.asyncio
+async def test_area_poi_filter_is_bound_to_the_viewport_query() -> None:
+    imported_at = datetime(2026, 8, 13, tzinfo=UTC)
+    session = AsyncMock()
+    session.execute.return_value = MappingRows([{
+        "osm_type": "node", "osm_id": 30, "tags": {"amenity": "restaurant"},
+        "category": "gastronomy", "dimension": 0, "imported_at": imported_at,
+        "geometry": {"type": "Point", "coordinates": [9.43, 54.78]},
+        "primary_type": "restaurant",
+    }])
+
+    result = await viewport_features(session, query(
+        limit=10, analysis_area="altstadt-15630273", poi_category="restaurant"
+    ))
+
+    params = session.execute.await_args.args[1]
+    assert params["analysis_area"] == "altstadt-15630273"
+    assert params["poi_category"] == "restaurant"
+    assert [feature.id for feature in result.features] == ["node/30"]
+
+
+@pytest.mark.asyncio
+async def test_unknown_area_poi_viewport_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = AsyncMock()
+    session.scalar.return_value = None
+    monkeypatch.setattr(osm_api, "check_rate_limit", AsyncMock(return_value=None))
+    request = Request({"type": "http", "method": "GET", "path": "/", "headers": []})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await osm_api.get_osm_viewport_features(
+            request,
+            session,
+            query(analysis_area="nicht-vorhanden", poi_category="restaurant"),
+            PolygonFilterParams(),
+        )
+
+    assert exc_info.value.status_code == 404
 
 
 @pytest.mark.asyncio

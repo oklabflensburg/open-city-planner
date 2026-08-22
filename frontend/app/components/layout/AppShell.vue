@@ -86,8 +86,9 @@ const authStore = useAuthStore()
 const mapSelection = useMapSelection()
 useGisFilterHistory()
 const isDesktop = ref(false)
-const activeFilterCount = computed(() => filterStore.activeFilterCount)
-const mobileResultCount = computed(() => usePolygonStore().polygons.length + (osmStore.data?.meta.business_count || 0))
+const activeFilterCount = computed(() => filterStore.activeFilterCount + (osmStore.areaPoiFilter ? 1 : 0))
+const mobileResultCount = computed(() => usePolygonStore().polygons.length
+  + (osmStore.areaPoiFilter ? osmStore.data?.meta.count || 0 : osmStore.data?.meta.business_count || 0))
 const mobileResultLabel = computed(() => mobileResultCount.value ? `${mobileResultCount.value} Ergebnisse anzeigen` : 'Keine Ergebnisse')
 const activePanelTitle = computed(() => {
   if (mapStore.activeMobilePanel === 'assistant') return 'Stadtplaner durchsuchen'

@@ -107,7 +107,7 @@ describe('dynamic OSM viewport layer', () => {
     const sidebar = appFile('components/layout/LeftSidebar.vue')
     const filter = appFile('components/filters/OsmFeatureFilter.vue')
     expect(sidebar).toContain('<OsmFeatureFilter')
-    expect(filter).toContain('POIs anzeigen')
+    expect(filter).toContain('Orte und Einrichtungen anzeigen')
     expect(filter).toContain('Flächenobjekte anzeigen')
     expect(filter).toContain('Gebäude ab Zoom 17')
     expect(filter).toContain('osm.toggleCategory')

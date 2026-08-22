@@ -18,6 +18,18 @@ POI_CATEGORY_LABELS: dict[str, str] = {
     "landuse": "Flächennutzung",
 }
 
+# This concrete OSM type is used by area analytics and deep links into the map.
+# Keep its precedence aligned with AREA_POI_ANALYTICS_SQL.
+AREA_POI_CATEGORY_SQL = """
+coalesce(
+  tags->>'shop',
+  tags->>'amenity',
+  tags->>'tourism',
+  tags->>'leisure',
+  'other'
+)
+"""
+
 # One canonical mapping shared by count and nearest-neighbour queries.
 POI_CATEGORY_SQL = """
 CASE

@@ -99,7 +99,7 @@ const categoryLabel = computed(() => feature.value?.properties.canonical_categor
   : feature.value ? osmCategoryLabels[feature.value.properties.category] : '')
 const typeLabel = computed(() => detail.value
   ? detailCategory.value.value
-  : categoryLabel.value || (feature.value?.properties.feature_type === 'point' ? 'POI' : 'Flächenobjekt'))
+  : categoryLabel.value || (feature.value?.properties.feature_type === 'point' ? 'Ort oder Einrichtung' : 'Flächenobjekt'))
 const isVacant = computed(() => detail.value?.occupancy_status === 'VACANT' || feature.value?.properties.occupancy_status === 'VACANT')
 const address = computed(() => {
   const value = detail.value?.address

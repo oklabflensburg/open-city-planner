@@ -28,9 +28,13 @@ from app.services.osm_canonical import (
 from app.services.osm_exclusions import should_exclude_osm_feature
 from app.services.osm_lookup import normalize_osm_tags
 from app.services.osm_occupancy import detect_osm_occupancy_status
-from app.services.poi_categories import OSM_FEATURE_CATEGORIES, OSM_FEATURE_CATEGORY_SQL
+from app.services.poi_categories import (
+    AREA_POI_CATEGORY_SQL,
+    OSM_FEATURE_CATEGORIES,
+    OSM_FEATURE_CATEGORY_SQL,
+)
 
-OSM_VIEWPORT_CACHE_RESOURCE = "osm:viewport:v4"
+OSM_VIEWPORT_CACHE_RESOURCE = "osm:viewport:v5"
 
 CANONICAL_CATEGORY_SQL = osm_business_category_sql()
 CANONICAL_FLOOR_SQL = osm_floor_group_sql()
@@ -39,6 +43,8 @@ CANONICAL_STATUS_SQL = osm_status_sql()
 VIEWPORT_SQL = text(f"""
 WITH bounds AS (
   SELECT ST_MakeEnvelope(:west, :south, :east, :north, 4326) AS geometry
+), target_area AS (
+  SELECT geometry FROM analysis_areas WHERE slug = CAST(:analysis_area AS text)
 ), categorized AS (
   SELECT osm.osm_type, osm.osm_id, osm.tags, osm.geometry, osm.imported_at,
          ST_Dimension(osm.geometry) AS dimension,
@@ -55,6 +61,12 @@ WITH bounds AS (
   FROM osm_features osm CROSS JOIN bounds
   WHERE osm.geometry && bounds.geometry
     AND ST_Intersects(osm.geometry, bounds.geometry)
+    AND (CAST(:analysis_area AS text) IS NULL OR EXISTS (
+      SELECT 1 FROM target_area area
+      WHERE osm.geometry && area.geometry
+        AND ST_Covers(area.geometry, ST_PointOnSurface(osm.geometry))
+    ))
+    AND (CAST(:poi_category AS text) IS NULL OR ({AREA_POI_CATEGORY_SQL}) = CAST(:poi_category AS text))
     AND ST_IsValid(osm.geometry)
     AND osm.tags->>'natural' IS DISTINCT FROM 'peninsula'
 ), facet_counts AS (
@@ -168,6 +180,8 @@ def osm_viewport_cache_params(
         "y_range": [bucket["y_min"], bucket["y_max"]],
         "zoom": round(query.zoom, 1),
         "categories": sorted(categories),
+        "analysis_area": query.analysis_area,
+        "poi_category": query.poi_category,
         "buildings": query.buildings,
         "limit": query.limit,
         "filters": filters.cache_params(),
@@ -257,6 +271,8 @@ async def viewport_features_json(
                     "east": bucket["east"],
                     "north": bucket["north"],
                     "zoom": query.zoom,
+                    "analysis_area": query.analysis_area,
+                    "poi_category": query.poi_category,
                     "osm_categories": list(categories),
                     "gis_categories": list(filters.categories),
                     "floors": list(filters.floors),

@@ -25,6 +25,7 @@ from app.schemas.analytics import IndustryCount
 from app.schemas.external_links import WikidataExternalLink, WikipediaExternalLink
 from app.services.analytics import _base_filters, _benchmark_metrics, _counts
 from app.services.cache_versions import cache_version
+from app.services.poi_categories import AREA_POI_CATEGORY_SQL
 
 AREA_SELECT = text("""
 SELECT area.uuid::text AS id, area.slug, area.name, area.area_type, parent.uuid::text AS parent_id,
@@ -54,13 +55,7 @@ WITH target AS (
   WHERE id = :id
 )
 SELECT
-  coalesce(
-    osm.tags->>'shop',
-    osm.tags->>'amenity',
-    osm.tags->>'tourism',
-    osm.tags->>'leisure',
-    'other'
-  ) AS category,
+  {AREA_POI_CATEGORY_SQL} AS category,
   count(*) AS count
 FROM osm_features osm
 CROSS JOIN target

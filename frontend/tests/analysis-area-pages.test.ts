@@ -17,7 +17,7 @@ describe('public analysis area pages', () => {
 
   it('renders real metrics, comparison, hierarchy and missing values as a dash', () => {
     const page = appFile('pages/gebiete/[slug].vue')
-    for (const content of ['Kennzahlen', 'Leerstandsquote', 'Filialisierungsgrad', 'Branchenverteilung', 'OpenStreetMap im Gebiet', 'Untergeordnete Gebiete', 'Flächen im Gebiet']) {
+    for (const content of ['Kennzahlen', 'Leerstandsquote', 'Filialisierungsgrad', 'Branchenverteilung', 'Orte und Einrichtungen im Gebiet', 'Untergeordnete Gebiete', 'Flächen im Gebiet']) {
       expect(page).toContain(content)
     }
     expect(page).toContain("value == null ? '—'")
@@ -57,5 +57,14 @@ describe('public analysis area pages', () => {
     const map = appFile('components/map/MapCanvas.vue')
     expect(map).toContain('route.query.area')
     expect(map).toContain('selectRequestedArea')
+  })
+
+  it('uses central industry colors and accessible links for localized places', () => {
+    const page = appFile('pages/gebiete/[slug].vue')
+    expect(page).toContain('getIndustryColor(item.category)')
+    expect(page).toContain('getPoiCategoryLabel(item.category)')
+    expect(page).toContain('areaPoiMapLink(area.slug, item.category)')
+    expect(page).toContain('im Gebiet ${area.name} auf der Karte anzeigen')
+    expect(page).not.toContain('{{ item.category }}')
   })
 })

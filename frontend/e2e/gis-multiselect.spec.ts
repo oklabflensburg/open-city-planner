@@ -287,7 +287,7 @@ test('binary layer switches stay independent and the OSM master preserves its ch
 
   const sources = group(page, 'Datenquellen')
   const osmMaster = sources.getByRole('switch', { name: /Datenquellen OpenStreetMap:/ })
-  const pois = page.getByRole('switch', { name: /OpenStreetMap-POIs anzeigen:/ })
+  const pois = page.getByRole('switch', { name: /Orte und Einrichtungen aus OpenStreetMap anzeigen:/ })
   const areas = page.getByRole('switch', { name: /OpenStreetMap-Flächenobjekte anzeigen:/ })
 
   await areas.click()
