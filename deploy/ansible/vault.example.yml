@@ -112,7 +112,7 @@ stadtplaner_backend_env_content: |
 
   AVATAR_OUTPUT_SIZE=512
   AVATAR_WEBP_QUALITY=85
-  MEDIA_BASE_URL=https://api.stadtplaner.oklabflensburg.de/media
+  MEDIA_BASE_URL=https://api.stadtplaner.oklabflensburg.de
   NOMINATIM_BASE_URL=
   NOMINATIM_USER_AGENT="OpenCityPlanner/0.1"
   NOMINATIM_EMAIL=
@@ -185,7 +185,7 @@ stadtplaner_frontend_env_content: |
   NUXT_PUBLIC_API_BASE_URL=https://api.stadtplaner.oklabflensburg.de/api/v1
   NUXT_PUBLIC_SITE_URL=https://stadtplaner.oklabflensburg.de
   NUXT_PUBLIC_DEFAULT_OG_IMAGE=
-  NUXT_PUBLIC_MEDIA_BASE_URL=https://api.stadtplaner.oklabflensburg.de/media
+  NUXT_PUBLIC_MEDIA_BASE_URL=https://api.stadtplaner.oklabflensburg.de
   NUXT_PUBLIC_AVATAR_MAX_UPLOAD_BYTES=5242880
   NUXT_PUBLIC_MAP_STYLE_URL=
   NUXT_PUBLIC_MAP_CENTER_LNG=9.435

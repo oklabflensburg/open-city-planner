@@ -60,7 +60,14 @@ def build_avatar_url(filename: str, settings: Settings | None = None) -> str:
     active_settings = settings or get_settings()
     path = f"{AVATAR_ROUTE_PREFIX}/{filename}"
     if active_settings.media_base_url:
-        return f"{active_settings.media_base_url.rstrip('/')}{path}"
+        # MEDIA_BASE_URL is the origin (or an optional proxy prefix), while
+        # AVATAR_ROUTE_PREFIX already contains the complete media route.  An
+        # older production example included a trailing `/media`; tolerate it
+        # so deployments using that value do not generate `/media/api/...`.
+        base_url = active_settings.media_base_url.rstrip("/")
+        if base_url.endswith("/media"):
+            base_url = base_url.removesuffix("/media")
+        return f"{base_url}{path}"
     return path
 
 
@@ -69,6 +76,9 @@ def local_avatar_path(avatar_url: str | None, settings: Settings | None = None) 
         return None
     parsed_path = urlparse(avatar_url).path
     prefix = f"{AVATAR_ROUTE_PREFIX}/"
+    legacy_prefix = f"/media{prefix}"
+    if parsed_path.startswith(legacy_prefix):
+        parsed_path = parsed_path.removeprefix("/media")
     if not parsed_path.startswith(prefix):
         return None
     filename = parsed_path.removeprefix(prefix)

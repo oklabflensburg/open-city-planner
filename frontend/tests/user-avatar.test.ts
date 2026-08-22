@@ -40,4 +40,21 @@ describe('user avatar utilities', () => {
       mediaBaseUrl: 'https://media.example.org'
     })).toBe('https://media.example.org/api/v1/media/avatars/a.webp')
   })
+
+  it('does not duplicate a legacy media base path', () => {
+    expect(resolveAvatarUrl('/api/v1/media/avatars/a.webp', {
+      mediaBaseUrl: 'https://api.example.org/media'
+    })).toBe('https://api.example.org/api/v1/media/avatars/a.webp')
+  })
+
+  it('keeps local blob preview URLs unchanged', () => {
+    expect(resolveAvatarUrl('blob:https://stadtplaner.example/avatar-preview', {
+      mediaBaseUrl: 'https://api.example.org/media'
+    })).toBe('blob:https://stadtplaner.example/avatar-preview')
+  })
+
+  it('repairs avatar URLs saved with the duplicated legacy media path', () => {
+    expect(resolveAvatarUrl('https://api.example.org/media/api/v1/media/avatars/a.webp'))
+      .toBe('https://api.example.org/api/v1/media/avatars/a.webp')
+  })
 })

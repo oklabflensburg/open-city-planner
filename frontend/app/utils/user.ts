@@ -16,8 +16,12 @@ export function getUserInitials(user: Pick<AuthUser, 'display_name' | 'first_nam
 
 export function resolveAvatarUrl(avatarUrl: string | null | undefined, options: AvatarUrlOptions = {}) {
   if (!avatarUrl) return ''
-  if (/^https?:\/\//i.test(avatarUrl)) return avatarUrl
-  if (options.mediaBaseUrl) return `${options.mediaBaseUrl.replace(/\/$/, '')}${avatarUrl}`
+  if (/^blob:/i.test(avatarUrl)) return avatarUrl
+  if (/^https?:\/\//i.test(avatarUrl)) return repairLegacyMediaPath(avatarUrl)
+  if (options.mediaBaseUrl) {
+    const mediaBaseUrl = options.mediaBaseUrl.replace(/\/$/, '').replace(/\/media$/, '')
+    return `${mediaBaseUrl}${avatarUrl}`
+  }
   if (options.apiBaseUrl && avatarUrl.startsWith('/api/')) {
     try {
       const origin = new URL(options.apiBaseUrl).origin
@@ -27,6 +31,10 @@ export function resolveAvatarUrl(avatarUrl: string | null | undefined, options: 
     }
   }
   return avatarUrl
+}
+
+function repairLegacyMediaPath(value: string) {
+  return value.replace('/media/api/v1/media/avatars/', '/api/v1/media/avatars/')
 }
 
 function initialsFromWords(value: string) {

@@ -7,7 +7,12 @@ from PIL import Image
 from starlette.datastructures import Headers
 
 from app.core.config import Settings
-from app.services.avatar_service import delete_avatar_file, local_avatar_path, save_avatar
+from app.services.avatar_service import (
+    build_avatar_url,
+    delete_avatar_file,
+    local_avatar_path,
+    save_avatar,
+)
 
 
 def upload_file(raw: bytes, content_type: str, filename: str = "avatar.png") -> UploadFile:
@@ -124,3 +129,25 @@ async def test_avatar_filename_is_random_and_delete_removes_file(tmp_path: Path)
     delete_avatar_file(first_url, settings)
 
     assert not first_path.exists()
+
+
+def test_avatar_url_does_not_duplicate_legacy_media_base_path(tmp_path: Path) -> None:
+    settings = avatar_settings(
+        tmp_path,
+        media_base_url="https://api.example.org/media",
+    )
+
+    assert build_avatar_url("avatar.webp", settings) == (
+        "https://api.example.org/api/v1/media/avatars/avatar.webp"
+    )
+
+
+def test_local_avatar_path_accepts_legacy_duplicated_media_url(tmp_path: Path) -> None:
+    settings = avatar_settings(tmp_path)
+
+    path = local_avatar_path(
+        "https://api.example.org/media/api/v1/media/avatars/avatar.webp",
+        settings,
+    )
+
+    assert path == tmp_path / "avatars" / "avatar.webp"
