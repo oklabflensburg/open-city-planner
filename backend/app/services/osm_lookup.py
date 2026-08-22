@@ -296,7 +296,7 @@ class OsmLookupService:
         return result
 
     async def _lookup(
-        self, key: tuple[str, str], polygon: UserPolygon | _LookupPolygonSnapshot
+        self, key: tuple[str, str], polygon: _LookupPolygonSnapshot
     ) -> PolygonOsmInfo:
         """Session-independent lookup. Local DB matches are pre-fetched by the caller."""
         matches = _inflight_local.get(key, [])
@@ -308,16 +308,8 @@ class OsmLookupService:
                 source = "overpass" if matches else "none"
         ranked = rank_osm_matches(matches)
         return PolygonOsmInfo(
-            polygon_id=(
-                polygon.polygon_id
-                if isinstance(polygon, _LookupPolygonSnapshot)
-                else str(polygon.uuid)
-            ),
-            polygon_slug=(
-                polygon.polygon_slug
-                if isinstance(polygon, _LookupPolygonSnapshot)
-                else polygon.slug
-            ),
+            polygon_id=polygon.polygon_id,
+            polygon_slug=polygon.polygon_slug,
             source=source,
             matches=ranked,
             primary_match=ranked[0] if ranked else None,
@@ -353,7 +345,7 @@ class OsmLookupService:
         ]
 
     async def _overpass_matches(
-        self, polygon: UserPolygon | _LookupPolygonSnapshot
+        self, polygon: _LookupPolygonSnapshot
     ) -> list[OsmObjectInfo]:
         settings = get_settings()
         geometry = from_wkb_element(polygon.geometry)
@@ -392,7 +384,7 @@ class OsmLookupService:
             status_code = getattr(getattr(exc, "response", None), "status_code", None)
             logger.warning(
                 "Configured Overpass lookup failed for polygon_id=%s status=%s",
-                polygon.uuid,
+                polygon.polygon_id,
                 status_code or "unavailable",
             )
             raise OsmLookupError("OpenStreetMap lookup failed") from exc
