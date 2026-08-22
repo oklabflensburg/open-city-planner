@@ -16,3 +16,4 @@ test-results/
 reports/
 *.log
 data/
+*.egg-info/
