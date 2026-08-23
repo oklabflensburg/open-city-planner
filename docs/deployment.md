@@ -13,9 +13,9 @@ Diese Anleitung bündelt den produktiven Betrieb des aktuellen Repositorys. Spez
 
 ## Voraussetzungen
 
-- Python 3.12 oder neuer gemäß `backend/pyproject.toml`;
-- Node.js 22 als in der CI verwendete Version;
-- pnpm 11 gemäß `frontend/package.json` und CI;
+- uv 0.12.5; Ansible installiert damit die verwaltete Python-Version 3.12.14;
+- Node.js 22.23.2 als in der CI verwendete Version;
+- pnpm 11.22.0 gemäß `frontend/package.json` und CI;
 - PostgreSQL mit PostGIS; die CI prüft derzeit PostgreSQL 16 mit PostGIS 3.5;
 - Redis für die empfohlene Produktionskonfiguration;
 - für den OSM-Import zusätzlich die in [osm-hourly-sync.md](osm-hourly-sync.md) genannten Werkzeuge und Kapazitäten.
@@ -45,13 +45,18 @@ Prüfen Sie vor `git pull`, dass der Produktionscheckout keine unbeabsichtigten 
 
 ```bash
 cd /opt/git/open-city-planner/backend
-python3 -m venv .venv
-.venv/bin/python -m pip install -e "."
-.venv/bin/alembic heads
-.venv/bin/alembic upgrade head
+python3 -m pip install 'uv==0.12.5'
+uv python install 3.12.14
+uv sync --frozen --no-dev --no-editable --python 3.12.14 --managed-python
+uv run alembic heads
+uv run alembic upgrade head
 ```
 
-Die produktive Installation verwendet keine Development-Extras. CI und lokale Vorabprüfungen installieren dagegen `.[dev]` für Pytest und Ruff.
+Die produktive Installation verwendet keine Development-Extras. CI und lokale
+Vorabprüfungen ergänzen dagegen `--extra dev` für Pytest und Ruff. Beide Pfade
+verwenden dasselbe `backend/uv.lock`; eine Auflösung auf dem Produktionsserver
+findet nicht statt. Der unterstützte manuelle Produktionsweg bleibt das
+Ansible-Playbook, das auch uv und Python exakt bereitstellt.
 
 Vor einer Migration mit Schema- oder Datenänderungen ist ein Datenbankbackup erforderlich. Prüfen Sie die konkrete Migration und ihren erwarteten Laufzeitbedarf. Ein pauschales `alembic downgrade` ist kein sicherer Produktionsrollback. Legen Sie für riskante Änderungen einen gezielten Rollback- oder Vorwärtskorrekturplan fest.
 

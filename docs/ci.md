@@ -1,6 +1,6 @@
 # Continuous Integration
 
-Die CI ist in vier getrennte GitHub-Actions-Workflows gegliedert. Alle Workflows
+Die CI ist in fünf getrennte GitHub-Actions-Workflows gegliedert. Alle Workflows
 lassen sich manuell starten. Backend, Frontend und E2E laufen zusätzlich bei jedem
 Push und Pull Request, ohne Pfadfilter. Dadurch verschwinden Required Checks auch
 bei reinen Dokumentationsänderungen nicht.
@@ -17,10 +17,14 @@ bei reinen Dokumentationsänderungen nicht.
 | Frontend CI | `frontend-build` | produktiver Nuxt-Build |
 | Frontend CI | `frontend-language-audit` | Audit der sichtbaren Sprache |
 | E2E Tests | `e2e` | vollständige Playwright-Suite mit echtem Frontend, Backend und frischer PostGIS-Datenbank |
+| Supply Chain | `verify` | Lockfile-Konsistenz, SHA-/Digest-Pins und negative Policy-Regressionstests |
+| Supply Chain | `sbom` | transitive CycloneDX-SBOMs für Backend und Frontend |
 
-Die Workflows verwenden Python 3.12, Node.js 22 LTS und die in
-`frontend/package.json` festgelegte pnpm-Version. pnpm installiert ausschließlich
-mit `--frozen-lockfile`. Redis wird nicht gestartet, weil die Tests den optionalen
+Die Workflows verwenden exakt Python 3.12.14 aus `.python-version`, Node.js 22.23.2
+aus `.node-version`, uv 0.12.5 und die in `frontend/package.json` festgelegte
+pnpm-Version 11.22.0. Backend-Abhängigkeiten stammen ausschließlich aus
+`backend/uv.lock`; Frontend-Abhängigkeiten werden ausschließlich mit
+`--frozen-lockfile` installiert. Redis wird nicht gestartet, weil die Tests den optionalen
 Cache nicht benötigen. Netzwerkzugriffe zu Mastodon, OSM, Wikidata, Wikipedia,
 Nominatim oder Superset sind in der E2E-Umgebung deaktiviert beziehungsweise in
 den betroffenen Tests gemockt.
@@ -40,13 +44,14 @@ Backend:
 
 ```bash
 cd backend
-source .venv/bin/activate
-python -m pip install -e ".[dev]"
-ruff check app tests
-pytest
-python -c "from app.main import app; assert app.title"
-alembic heads
-alembic upgrade head
+python3 -m pip install 'uv==0.12.5'
+uv lock --check
+uv sync --frozen --extra dev --no-editable
+uv run ruff check app tests
+uv run pytest
+uv run python -c "from app.main import app; assert app.title"
+uv run alembic heads
+uv run alembic upgrade head
 ```
 
 Frontend:
@@ -65,9 +70,9 @@ Testdatenbank zeigen:
 
 ```bash
 cd backend
-source .venv/bin/activate
-alembic upgrade head
-python tests/e2e_seed.py
+uv sync --frozen --extra dev --no-editable
+uv run alembic upgrade head
+uv run python tests/e2e_seed.py
 cd ../frontend
 pnpm exec playwright install chromium
 pnpm test:e2e
@@ -91,11 +96,10 @@ bei manuellem Start. Es ist bewusst kein Required Check: Änderungen oder Ausfä
 externer Advisory-Datenbanken sollen reproduzierbare Pull-Request-Prüfungen nicht
 zufällig blockieren, bleiben im eigenen Workflow aber sichtbar und fehlschlagend.
 
-Ein Python-Paket-Audit ist noch nicht Teil der Automation, weil das Backend derzeit
-keinen vollständig aufgelösten Lockfile besitzt. Ein Audit gegen lose
-Versionsbereiche wäre nicht identisch mit der später installierten Umgebung. Wenn
-ein Python-Lockfile eingeführt wird, sollte ein geplanter Audit desselben Lockfiles
-ergänzt werden.
+Dependabot aktualisiert GitHub Actions, `backend/uv.lock` und
+`frontend/pnpm-lock.yaml` ausschließlich per Pull Request. Jeder dieser Pull
+Requests durchläuft das vollständige Release Gate. Weitere Details stehen in
+[supply-chain.md](supply-chain.md).
 
 ## Empfohlene Branch Protection für `main`
 
@@ -110,6 +114,9 @@ Checks aus:
 - `frontend-build`
 - `frontend-language-audit`
 - `e2e`
+- `verify`
+- `sbom`
+- `gate`
 
 Zusätzlich empfehlen sich mindestens eine Freigabe, „Require conversation
 resolution before merging“ und „Require branches to be up to date before merging“.
