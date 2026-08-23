@@ -30,6 +30,18 @@ def test_openapi_documents_public_area_routes_and_unique_operations() -> None:
     assert paths["/api/v1/polygons"]["post"]["security"] == [{"AccessCookie": []}]
 
 
+def test_public_polygon_and_geojson_routes_expose_a_cap_limit() -> None:
+    schema = app.openapi()
+    for path in (
+        "/api/v1/polygons",
+        "/api/v1/polygons/overview",
+        "/api/v1/polygons/geojson",
+        "/api/v1/analysis-areas/geojson",
+    ):
+        params = schema["paths"][path]["get"]["parameters"]
+        assert any(parameter["name"] == "limit" for parameter in params)
+
+
 def test_public_area_dtos_exclude_confidential_management_fields() -> None:
     now = datetime.now(UTC)
     detail = AnalysisAreaDetail(

@@ -31,7 +31,7 @@ async function mockOverview(page: Page) {
     prime_rents: { unit: 'EUR_PER_SQM', period: null, rows: [] }
   } }))
   await page.route('**/api/v1/analysis-areas', route => route.fulfill({ json: [] }))
-  await page.route('**/api/v1/analysis-areas/geojson', route => route.fulfill({ json: { type: 'FeatureCollection', features: [] } }))
+  await page.route(/\/api\/v1\/analysis-areas\/geojson(?:\?.*)?$/, route => route.fulfill({ json: { type: 'FeatureCollection', features: [] } }))
   await page.route('**/api/v1/osm/features?**', route => route.fulfill({ json: {
     type: 'FeatureCollection', features: [], meta: { count: 0, summary: {}, canonical_summary: {}, canonical_facets: {}, business_count: 0, context_count: 0, deduplicated_linked_count: 0, truncated: false, zoom: 17, osm_data_updated_at: null }
   } }))

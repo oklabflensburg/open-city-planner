@@ -64,9 +64,13 @@ async def get_areas(
 
 
 @router.get("/geojson", summary="Analysegebiete als GeoJSON laden")
-async def get_areas_geojson(session: SessionDep, response: Response) -> dict:
+async def get_areas_geojson(
+    session: SessionDep,
+    response: Response,
+    limit: Annotated[int, Query(ge=1)] = get_settings().public_polygon_response_limit,
+) -> dict:
     response.headers["Cache-Control"] = "public, max-age=300"
-    result = await areas_geojson(session)
+    result = await areas_geojson(session, limit=limit)
     if get_settings().cache_debug_headers and (status := last_cache_status()):
         response.headers["X-Cache"] = status
     return result
