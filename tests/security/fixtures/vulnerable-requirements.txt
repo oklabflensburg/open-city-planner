@@ -1,0 +1,3 @@
+# This isolated fixture is never installed by the application.
+# pip-audit must report known vulnerabilities and return a non-zero status.
+urllib3==1.24.1
