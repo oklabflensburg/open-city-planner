@@ -1,0 +1,10 @@
+title = "Open City Planner secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "ocm-artificial-test-secret"
+description = "Synthetic credential used only by the secret-gate regression test"
+regex = '''OCM_TEST_SECRET_[A-Z0-9]{20}'''
+keywords = ["OCM_TEST_SECRET_"]

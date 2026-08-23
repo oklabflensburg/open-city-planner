@@ -52,6 +52,7 @@ Die Anwendung setzt ihre eigenen Größenlimits auch dann durch, wenn `Content-L
 - [ ] Backend-Tests und Ruff sind erfolgreich.
 - [ ] Frontend-Tests, Typprüfung und Produktions-Build sind erfolgreich.
 - [ ] Die bestehenden Playwright-Tests sind in einer isolierten Umgebung erfolgreich.
-- [ ] `pnpm audit --prod` und eine Python-Abhängigkeitsprüfung wurden ausgewertet.
+- [ ] Release Gate, Backend-/Frontend-Dependency-Audits, CodeQL-SAST,
+      Gitleaks und Security-Exception-Validierung sind für den Release-Commit grün.
 - [ ] Anmeldung, OAuth mit MFA, Passwortzurücksetzung, Abmeldung nach Passwortänderung, Rotation der Aktualisierungstokens, Admin-MFA und verifizierte GIS-Schreibzugriffe wurden durch Funktionstests geprüft.
 - [ ] Die Sicherheitsheader wurden anhand der tatsächlich öffentlich ausgelieferten Frontend- und API-Antworten geprüft.

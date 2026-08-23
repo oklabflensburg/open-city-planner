@@ -7,12 +7,7 @@ on:
   workflow_call:
     inputs:
       dependency_review:
-        description: Whether to run the dependency review gate.
-        required: false
-        type: boolean
-        default: false
-      frontend_audit:
-        description: Whether to run the frontend dependency audit.
+        description: Whether to run the dependency review diff gate.
         required: false
         type: boolean
         default: false
@@ -35,9 +30,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security-policy-validation:
+    name: Security policy validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@18cc8b4cd5f7b04a173a5b59e5a1f82efceb1f59 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - name: Install pinned security policy dependencies
+        working-directory: backend
+        run: |
+          python -m pip install 'uv==0.12.5'
+          uv sync --frozen --extra security --no-editable
+      - name: Validate time-bounded exceptions
+        run: backend/.venv/bin/python scripts/security/validate_security_exceptions.py
+      - name: Run security gate policy tests
+        run: backend/.venv/bin/python -m unittest scripts.security.tests.test_security_gates
+
   dependency-review:
     name: Dependency review
-    if: github.event_name == 'push' || github.event_name == 'pull_request' || inputs.dependency_review
+    if: github.event_name == 'pull_request' || inputs.dependency_review
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -47,16 +61,45 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
-          base-ref: ${{ inputs.base_ref || github.event.pull_request.base.sha || github.event.before || github.event.repository.default_branch }}
+          base-ref: ${{ inputs.base_ref || github.event.pull_request.base.sha }}
           head-ref: ${{ inputs.head_ref || github.event.pull_request.head.sha || github.sha }}
+          fail-on-severity: high
 
-  frontend-audit:
-    name: Scheduled frontend dependency audit
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || inputs.frontend_audit
+  backend-audit:
+    name: Backend production dependency audit
+    needs: security-policy-validation
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@18cc8b4cd5f7b04a173a5b59e5a1f82efceb1f59 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - name: Install the locked Python audit environment
+        working-directory: backend
+        run: |
+          python -m pip install 'uv==0.12.5'
+          uv sync --frozen --extra security --no-editable
+      - name: Audit frozen production dependencies
+        run: backend/.venv/bin/python scripts/security/audit_backend.py
+      - name: Prove the audit blocks a vulnerable dependency fixture
+        run: backend/.venv/bin/python scripts/security/test_backend_audit_gate.py
+
+  frontend-audit:
+    name: Frontend production dependency audit
+    needs: security-policy-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@18cc8b4cd5f7b04a173a5b59e5a1f82efceb1f59 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - name: Install locked security policy dependencies
+        working-directory: backend
+        run: |
+          python -m pip install 'uv==0.12.5'
+          uv sync --frozen --extra security --no-editable
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.2
         with:
           version: 11.22.0
@@ -69,5 +112,92 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
       - name: Check production dependencies
-        working-directory: frontend
-        run: pnpm audit --prod --audit-level high
+        run: backend/.venv/bin/python scripts/security/audit_frontend.py
+
+  sast:
+    name: CodeQL SAST (${{ matrix.language }})
+    needs: security-policy-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@18cc8b4cd5f7b04a173a5b59e5a1f82efceb1f59 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - name: Install locked security policy dependencies
+        working-directory: backend
+        run: |
+          python -m pip install 'uv==0.12.5'
+          uv sync --frozen --extra security --no-editable
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+      - name: Analyze and upload SARIF
+        id: codeql-analyze
+        uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        with:
+          category: /language:${{ matrix.language }}
+          output: codeql-results
+          upload: always
+      - name: Enforce High/Critical CodeQL policy
+        env:
+          SARIF_DIRECTORY: ${{ steps.codeql-analyze.outputs.sarif-output }}
+        run: |
+          mapfile -d '' sarif_files < <(find "${SARIF_DIRECTORY}" -type f -name '*.sarif' -print0)
+          if (( ${#sarif_files[@]} == 0 )); then
+            echo "CodeQL did not produce a SARIF report." >&2
+            exit 1
+          fi
+          backend/.venv/bin/python scripts/security/enforce_sarif.py \
+            --scanner codeql "${sarif_files[@]}"
+
+  secret-scan:
+    name: Repository secret scan
+    needs: security-policy-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@18cc8b4cd5f7b04a173a5b59e5a1f82efceb1f59 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - name: Install locked security policy dependencies
+        working-directory: backend
+        run: |
+          python -m pip install 'uv==0.12.5'
+          uv sync --frozen --extra security --no-editable
+      - name: Install checksum-verified Gitleaks
+        run: |
+          scripts/security/install_gitleaks.sh "${RUNNER_TEMP}/gitleaks-bin"
+          echo "${RUNNER_TEMP}/gitleaks-bin" >> "${GITHUB_PATH}"
+      - name: Scan complete repository history with redacted output
+        run: |
+          gitleaks git --no-banner --redact=100 --exit-code 0 \
+            --config .gitleaks.toml --report-format sarif \
+            --report-path gitleaks.sarif .
+      - name: Upload secret findings to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
+      - name: Enforce High/Critical secret policy
+        run: backend/.venv/bin/python scripts/security/enforce_sarif.py --scanner secret-scan gitleaks.sarif
+      - name: Prove secret detection and inline test allowlisting
+        run: scripts/security/test_gitleaks_gate.sh

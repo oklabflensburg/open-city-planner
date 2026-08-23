@@ -8,6 +8,66 @@ Sicherheitskorrekturen werden für den aktuellen Stand des Branches `main` berei
 
 Bitte veröffentlichen Sie Sicherheitslücken nicht in einem öffentlichen Issue. Nutzen Sie die [Kontaktseite des Stadtplaners](https://stadtplaner.oklabflensburg.de/kontakt) und übermitteln Sie zunächst nur die technischen Angaben, die zur Reproduktion und Bewertung des Problems erforderlich sind. Geben Sie den Verantwortlichen ausreichend Zeit, das Problem zu untersuchen und eine Korrektur bereitzustellen, bevor Sie es veröffentlichen. Greifen Sie bei Sicherheitsuntersuchungen nicht auf Daten anderer Personen zu und speichern Sie solche Daten nicht.
 
+## Automatisierte Sicherheitsprüfungen
+
+Der zentrale Security-Workflow läuft für Pull Requests, jeden Push, manuelle
+Aufrufe und montags zeitgesteuert. Das Release Gate ruft denselben Workflow
+verpflichtend auf. Er umfasst:
+
+- GitHub Dependency Review als Diff-Prüfung für Pull Requests;
+- `pip-audit 2.10.1` gegen den mit `uv export --frozen` aus
+  `backend/uv.lock` abgeleiteten Produktionssatz;
+- `pnpm audit --prod` gegen das unveränderte `frontend/pnpm-lock.yaml`;
+- CodeQL `4.37.8` mit `security-extended` für Python und
+  JavaScript/TypeScript;
+- Gitleaks `8.30.1` gegen die vollständige Git-Historie, mit vollständig
+  redigierter Konsolenausgabe;
+- Validierung aller zeitlich begrenzten Ausnahmen und negative Gate-Tests.
+
+CodeQL- und Gitleaks-Ergebnisse werden als SARIF in GitHub Code Scanning
+veröffentlicht. Pull Requests aus Forks laufen im normalen `pull_request`-
+Kontext und erhalten keine Produktionsgeheimnisse oder privilegierten
+Maintainer-Token.
+
+## Schweregrade und Blockierregeln
+
+Critical und High blockieren einen Release. Medium wird innerhalb der regulären
+Security-Triage bewertet; Low ist zunächst informativ. Die Werkzeuge werden
+folgendermaßen auf diese gemeinsame Policy abgebildet:
+
+- Dependency Review und pnpm: `critical` und `high` blockieren.
+- CodeQL: Security Score ab 9,0 ist Critical, ab 7,0 High. SARIF-`error`
+  ohne numerischen Score wird vorsorglich als High behandelt.
+- Gitleaks: Jeder nicht ausgenommene Fund gilt als High.
+- `pip-audit`: Da die Advisory-Quellen nicht durchgängig einen stabilen,
+  normalisierten Schweregrad liefern, blockiert vorsorglich jede bekannte
+  Schwachstelle.
+
+Critical-Funde werden innerhalb von 24 Stunden triagiert und unverzüglich
+behoben oder mitigiert. High-Funde werden innerhalb von drei Werktagen triagiert
+und innerhalb von 14 Kalendertagen behoben oder mitigiert. Medium und Low werden
+im regulären Wartungszyklus bewertet.
+
+## Befristete Ausnahmen
+
+Ausnahmen stehen ausschließlich in
+`.github/security-exceptions.yml`. Ein Eintrag benötigt Finding-/CVE-/Rule-ID,
+Scanner, Begründung, verantwortliches Team, Ablaufdatum, Mitigation und
+Review-Datum. Er darf nur nach Review durch eine für Security verantwortliche
+Maintainerin oder einen verantwortlichen Maintainer gemergt werden. Globale oder
+unbefristete Ignore-Regeln sind unzulässig.
+
+Vor Ablauf wird der Fund erneut bewertet, behoben oder über einen neuen Pull
+Request mit aktualisierter Begründung befristet verlängert. Fehlende,
+doppelte, ungültige oder abgelaufene Einträge lassen den Security-Workflow und
+damit das Release Gate fehlschlagen. Der Validator kann lokal ausgeführt werden:
+
+```bash
+cd backend
+uv sync --frozen --extra security --no-editable
+uv run --frozen --extra security python ../scripts/security/validate_security_exceptions.py
+```
+
 ## Sicherheitsarchitektur
 
 - Zugriffs- und Aktualisierungstokens werden in `HttpOnly`-Cookies gespeichert. Kurzlebige Zugriffs-JWTs sind an einen Aussteller, eine Zielgruppe und einen festgelegten Algorithmus gebunden. Aktualisierungstokens werden regelmäßig ersetzt; serverseitige Sitzungsfamilien erkennen eine Wiederverwendung.
