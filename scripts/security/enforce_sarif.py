@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -40,6 +41,11 @@ def _secret_finding_id(rule_id: str, result: dict[str, Any]) -> str:
     line = location.get("region", {}).get("startLine", 0)
     commit = result.get("partialFingerprints", {}).get("commitSha", "working-tree")
     return f"{rule_id}@{commit}:{uri}:{line}"
+
+
+def _redact_finding_id(finding_id: str) -> str:
+    digest = hashlib.sha256(finding_id.encode("utf-8")).hexdigest()
+    return f"id:{digest[:12]}"
 
 
 def blocking_findings(
@@ -81,7 +87,7 @@ def main() -> int:
     if findings:
         print("Blocking SARIF findings:", file=sys.stderr)
         for rule_id, finding_severity in sorted(set(findings)):
-            print(f"- {rule_id}: {finding_severity}", file=sys.stderr)
+            print(f"- {_redact_finding_id(rule_id)}: {finding_severity}", file=sys.stderr)
         return 1
     print(f"SARIF policy passed for {args.scanner}.")
     return 0
