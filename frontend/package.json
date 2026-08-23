@@ -2,6 +2,7 @@
   "name": "open-city-map-frontend",
   "type": "module",
   "private": true,
+  "license": "AGPL-3.0-only",
   "scripts": {
     "postinstall": "nuxt prepare",
     "dev": "nuxt dev",
