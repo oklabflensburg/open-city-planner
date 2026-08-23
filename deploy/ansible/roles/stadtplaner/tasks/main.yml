@@ -240,17 +240,25 @@
     group: "{{ stadtplaner_service_group }}"
     mode: '0750'
 
-- name: Create backend virtual environment
+- name: Require a current backend lockfile
   ansible.builtin.command:
-    cmd: python3 -m venv .venv
+    cmd: "{{ stadtplaner_uv_venv }}/bin/uv lock --check"
     chdir: "{{ stadtplaner_release_path }}/backend"
-    creates: "{{ stadtplaner_release_path }}/backend/.venv/bin/pip"
+  environment:
+    UV_PYTHON_INSTALL_DIR: "{{ stadtplaner_uv_python_dir }}"
   become_user: "{{ stadtplaner_service_user }}"
+  changed_when: false
 
-- name: Install backend production dependencies
+- name: Synchronize backend from the frozen production lock
   ansible.builtin.command:
-    cmd: .venv/bin/python -m pip install -e .
+    cmd: >-
+      {{ stadtplaner_uv_venv }}/bin/uv sync
+      --frozen --no-editable --managed-python --no-python-downloads
+      --python {{ stadtplaner_python_version }}
+      {{ '--extra dev' if stadtplaner_run_backend_tests else '--no-dev' }}
     chdir: "{{ stadtplaner_release_path }}/backend"
+  environment:
+    UV_PYTHON_INSTALL_DIR: "{{ stadtplaner_uv_python_dir }}"
   become_user: "{{ stadtplaner_service_user }}"
   notify: Restart Stadtplaner API
 

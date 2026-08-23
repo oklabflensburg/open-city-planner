@@ -46,6 +46,11 @@ stadtplaner_run_frontend_typecheck: false
 stadtplaner_run_backend_tests: false
 stadtplaner_run_frontend_tests: false
 stadtplaner_require_clean_checkout: true
+stadtplaner_python_version: 3.12.14
+stadtplaner_uv_version: 0.12.5
+stadtplaner_toolchains_dir: /opt/stadtplaner/toolchains
+stadtplaner_uv_venv: "{{ stadtplaner_toolchains_dir }}/uv-{{ stadtplaner_uv_version }}"
+stadtplaner_uv_python_dir: "{{ stadtplaner_toolchains_dir }}/python"
 
 # Managed mode uses local peer authentication as the postgres system user and
 # validates the custom-format archive before Alembic runs.
