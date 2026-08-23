@@ -1,6 +1,6 @@
 # Continuous Integration
 
-Die CI ist in fünf getrennte GitHub-Actions-Workflows gegliedert. Alle Workflows
+Die CI ist in getrennte GitHub-Actions-Workflows gegliedert. Alle Workflows
 lassen sich manuell starten. Backend, Frontend und E2E laufen zusätzlich bei jedem
 Push und Pull Request, ohne Pfadfilter. Dadurch verschwinden Required Checks auch
 bei reinen Dokumentationsänderungen nicht.
@@ -17,6 +17,11 @@ bei reinen Dokumentationsänderungen nicht.
 | Frontend CI | `frontend-build` | produktiver Nuxt-Build |
 | Frontend CI | `frontend-language-audit` | Audit der sichtbaren Sprache |
 | E2E Tests | `e2e` | vollständige Playwright-Suite mit echtem Frontend, Backend und frischer PostGIS-Datenbank |
+| Security | `security-policy-validation` | Format, Vollständigkeit und Ablauf befristeter Security-Ausnahmen sowie negative Policy-Tests |
+| Security | `backend-audit` | `pip-audit 2.10.1` gegen den eingefrorenen Python-Produktionssatz |
+| Security | `frontend-audit` | `pnpm audit --prod` gegen das eingefrorene Frontend-Lockfile |
+| Security | `sast` | CodeQL-SAST für Python und JavaScript/TypeScript mit SARIF-Upload und High/Critical-Gate |
+| Security | `secret-scan` | Gitleaks gegen die vollständige Historie mit redigierter Ausgabe und SARIF-Upload |
 | Supply Chain | `verify` | Lockfile-Konsistenz, SHA-/Digest-Pins und negative Policy-Regressionstests |
 | Supply Chain | `sbom` | transitive CycloneDX-SBOMs für Backend und Frontend |
 
@@ -90,11 +95,55 @@ bereinigt sind, prüft CI deshalb den eindeutigen Head und das vollständige Upg
 
 ## Security-Workflow
 
-Bei Pull Requests prüft GitHubs Dependency Review neu hinzugekommene
-Abhängigkeiten. Das netzabhängige `pnpm audit` läuft wöchentlich montagmorgens und
-bei manuellem Start. Es ist bewusst kein Required Check: Änderungen oder Ausfälle
-externer Advisory-Datenbanken sollen reproduzierbare Pull-Request-Prüfungen nicht
-zufällig blockieren, bleiben im eigenen Workflow aber sichtbar und fehlschlagend.
+Der Security-Workflow läuft vollständig bei Pull Requests, Pushes, manuellen
+Starts, montags um 04:23 UTC und bei jedem Aufruf durch das Release Gate.
+Backend- und Frontend-Audit, beide CodeQL-Sprachen, Secret Scan und
+Policy-Validierung laufen dabei immer. Dependency Review ist bewusst das
+zusätzliche PR-Diff-Gate; vollständige Audits übernehmen Push und Schedule.
+
+Alle Security-Jobs sind über den reusable Workflow Teil des verpflichtenden
+Release Gate. High/Critical-Funde blockieren, ebenso ungültige oder abgelaufene
+Ausnahmen. `pip-audit` blockiert vorsorglich alle bekannten Advisories, weil
+dessen Quellen nicht für jeden Fund einen vergleichbaren Schweregrad liefern.
+Die genaue Severity-, SLA- und Ausnahme-Policy steht in [SECURITY.md](../SECURITY.md).
+
+CodeQL und Gitleaks laden SARIF nach GitHub Security / Code Scanning hoch. Nur
+diese Jobs erhalten `security-events: write`; ansonsten gilt `contents: read`.
+CodeQL erhält zusätzlich `packages: read` für das offizielle Bundle. Es gibt
+kein `pull_request_target`, keine Produktions-Secrets und kein `write-all`.
+
+Lokale Security-Prüfung:
+
+```bash
+cd backend
+python3 -m pip install 'uv==0.12.5'
+uv sync --frozen --extra security --no-editable
+uv run --frozen --extra security python ../scripts/security/audit_backend.py
+uv run --frozen --extra security python ../scripts/security/validate_security_exceptions.py
+cd ..
+backend/.venv/bin/python -m unittest scripts.security.tests.test_security_gates
+
+cd frontend
+pnpm install --frozen-lockfile
+../backend/.venv/bin/python ../scripts/security/audit_frontend.py
+```
+
+Gitleaks wird in CI über `scripts/security/install_gitleaks.sh` als Version
+8.30.1 mit geprüftem SHA-256 installiert. Anschließend:
+
+```bash
+scripts/security/install_gitleaks.sh /tmp/ocm-gitleaks
+PATH="/tmp/ocm-gitleaks:${PATH}" scripts/security/test_gitleaks_gate.sh
+PATH="/tmp/ocm-gitleaks:${PATH}" gitleaks git --redact=100 --config .gitleaks.toml .
+```
+
+Die negative Backend-Dependency-Fixture wird von
+`scripts/security/test_backend_audit_gate.py` ausschließlich in einem
+temporären Verzeichnis erzeugt und niemals installiert oder als
+Produktionsmanifest eingecheckt. Sie beweist, dass `pip-audit` non-zero
+liefert. Der SARIF-Policy-Test beweist dasselbe für einen künstlichen
+High-CodeQL-Fund, der Gitleaks-Test für ein zusammengesetztes synthetisches
+Secret.
 
 Dependabot aktualisiert GitHub Actions, `backend/uv.lock` und
 `frontend/pnpm-lock.yaml` ausschließlich per Pull Request. Jeder dieser Pull
@@ -114,11 +163,16 @@ Checks aus:
 - `frontend-build`
 - `frontend-language-audit`
 - `e2e`
+- `security-policy-validation`
+- `backend-audit`
+- `frontend-audit`
+- `sast`
+- `secret-scan`
 - `verify`
 - `sbom`
 - `gate`
 
 Zusätzlich empfehlen sich mindestens eine Freigabe, „Require conversation
 resolution before merging“ und „Require branches to be up to date before merging“.
-Der geplante Security-Audit bleibt beobachtbar, aber absichtlich außerhalb der
-Required Checks.
+Der zusammenfassende `gate`-Job verlangt den erfolgreichen reusable
+Security-Workflow und blockiert dadurch auch Production Deployments.

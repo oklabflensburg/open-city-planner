@@ -41,6 +41,10 @@ dev = [
   "pytest-asyncio>=1.1.0",
   "ruff>=0.12.8"
 ]
+security = [
+  "pip-audit==2.10.1",
+  "pyyaml==6.0.3"
+]
 
 [tool.ruff]
 line-length = 100
