@@ -71,6 +71,7 @@ let osmViewportTimer: ReturnType<typeof setTimeout> | undefined
 let forceNextOsmRefresh = false
 let hoverFrame: number | undefined
 let layoutFrame: number | undefined
+let resizeObserver: ResizeObserver | undefined
 let mapDragging = false
 let pendingHoverPoint: { x: number, y: number } | null = null
 let hoveredPolygonId: string | null = null
@@ -115,6 +116,8 @@ onMounted(async () => {
       canvasContextAttributes: { powerPreference: 'high-performance' }
     })
     map.value = markRaw(instance)
+    resizeObserver = new ResizeObserver(scheduleMapLayoutResize)
+    resizeObserver.observe(container)
     setMapCursor(instance, 'pan')
     installPerformanceDebug(instance)
     instance.touchZoomRotate.enable()
@@ -192,6 +195,7 @@ onBeforeUnmount(() => {
   clearTimeout(polygonFilterTimer)
   if (hoverFrame !== undefined) cancelAnimationFrame(hoverFrame)
   if (layoutFrame !== undefined) cancelAnimationFrame(layoutFrame)
+  resizeObserver?.disconnect()
   osmStore.dispose()
   mapStore.mapLoaded = false
   window.removeEventListener('resize', resizeMap)
@@ -232,10 +236,6 @@ watch(() => mapStore.thematicStyle, () => {
 watch(() => analysisAreasStore.visibility, setAnalysisAreaVisibility, { deep: true })
 watch(() => mapStore.polygonsVisible, setPolygonVisibility)
 watch(() => mapStore.searchActionGeneration, scheduleSearchMapAction)
-watch(
-  () => [searchStore.assistantOpen, mapStore.activeMobilePanel],
-  scheduleMapLayoutResize
-)
 watch(
   () => [osmStore.showPois, osmStore.showAreas, osmStore.showBuildings, osmStore.activeCategories.join(','), osmStore.areaPoiFilter?.areaSlug, osmStore.areaPoiFilter?.category],
   () => scheduleOsmViewportRefresh(0)
@@ -393,7 +393,7 @@ async function handleMapClick(instance: Map, event: MapMouseEvent) {
   const picked = pickMapEntityAtPoint(instance, event.point, tolerance)
   if (!picked) {
     mapSelection.clearSelection()
-    mapStore.closeMobilePanels()
+    mapStore.closeGisPanels()
     return
   }
 
@@ -402,7 +402,7 @@ async function handleMapClick(instance: Map, event: MapMouseEvent) {
     const feature = osmStore.data?.features.find(item => item.id === featureId)
     if (!feature) return
     const detailRequest = mapSelection.selectOsm(feature)
-    if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openMobilePanel('selection')
+    if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openGisPanel('selection')
     await detailRequest
     return
   }
@@ -606,7 +606,7 @@ function ensureSelectionInfrastructure(instance: Map) {
 }
 
 async function selectInteractivePolygon(polygon: InteractivePolygonFeature) {
-  if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openMobilePanel('selection')
+  if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openGisPanel('selection')
   if (polygon.target.type === 'polygon') {
     await selectPolygon(polygon.id)
     return
@@ -704,7 +704,7 @@ function interactivePolygonColor(polygon: InteractivePolygonFeature) {
 
 async function selectPolygon(id: string, fitSelection = false) {
   const selectionRequest = mapSelection.selectPolygon(id)
-  if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openMobilePanel('selection')
+  if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openGisPanel('selection')
   await selectionRequest
   if (mapStore.selectedMapEntity?.type !== 'polygon' || mapStore.selectedMapEntity.id !== id) return
   const bbox = polygonStore.selectedMetrics?.bbox
@@ -720,7 +720,7 @@ async function selectRequestedArea(instance: Map) {
   const area = analysisAreasStore.areas.find(candidate => candidate.slug === slug)
   if (!area) return
   const request = mapSelection.selectAnalysisArea(area.id)
-  if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openMobilePanel('selection')
+  if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openGisPanel('selection')
   const feature = analysisAreasStore.featureCollection.features.find(candidate => candidate.properties.id === area.id)
   const bounds = feature ? geometryBounds(feature.geometry.coordinates) : null
   if (bounds) instance.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: currentViewportPadding(), maxZoom: 16, duration: 0 })
@@ -895,10 +895,13 @@ function resetView() {
 }
 
 function currentViewportPadding() {
+  const compactPanel = window.matchMedia('(min-width: 900px) and (max-width: 1279px) and (min-height: 560px)').matches
   return getMapViewportPadding({
     viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
     assistantOpen: searchStore.assistantOpen,
-    mobilePanelOpen: mapStore.activeMobilePanel !== null,
+    bottomSheetOpen: !compactPanel && window.innerWidth < 1280 && mapStore.activeGisPanel !== null,
+    compactPanelOpen: compactPanel && mapStore.activeGisPanel !== null,
     analysisPanelVisible: window.innerWidth >= 1280
   })
 }

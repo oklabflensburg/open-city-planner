@@ -2,19 +2,31 @@ export type MapViewportPadding = { top: number, right: number, bottom: number, l
 
 type MapViewportLayout = {
   viewportWidth: number
+  viewportHeight: number
   assistantOpen: boolean
-  mobilePanelOpen: boolean
+  bottomSheetOpen: boolean
+  compactPanelOpen: boolean
   analysisPanelVisible: boolean
 }
 
 export function getMapViewportPadding(layout: MapViewportLayout): MapViewportPadding {
-  if (layout.viewportWidth < 1280) {
+  const compactWorkbench = layout.viewportWidth >= 900
+    && layout.viewportWidth < 1280
+    && layout.viewportHeight >= 560
+
+  if (layout.viewportWidth < 1280 && !compactWorkbench) {
     return {
       top: 56,
       right: 36,
-      bottom: layout.mobilePanelOpen ? 300 : layout.viewportWidth < 480 ? 156 : 120,
+      bottom: layout.bottomSheetOpen ? 300 : layout.viewportWidth < 480 ? 156 : 120,
       left: 36
     }
+  }
+
+  if (compactWorkbench) {
+    // The grid removes the tool panel from MapLibre's actual container. These
+    // insets therefore apply to the remaining, fully visible map viewport.
+    return { top: 40, right: layout.compactPanelOpen ? 48 : 40, bottom: 96, left: 40 }
   }
 
   return {

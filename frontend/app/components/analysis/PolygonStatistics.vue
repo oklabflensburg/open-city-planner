@@ -57,6 +57,6 @@ function retryOsm() {
 
 function closeSelection() {
   mapSelection.clearSelection()
-  mapStore.closeMobilePanels()
+  mapStore.closeGisPanels()
 }
 </script>

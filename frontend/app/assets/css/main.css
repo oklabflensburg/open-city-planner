@@ -2,6 +2,7 @@
 
 :root {
   color-scheme: light;
+  --app-header-height: 4rem;
   --c-primary-900: #073f49;
   --c-primary-800: #075562;
   --c-primary-700: #086b78;

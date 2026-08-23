@@ -111,6 +111,6 @@ const safeWebsite = computed(() => safeOsmWebsite(detail.value?.website))
 
 function closeSelection() {
   mapSelection.clearSelection()
-  mapStore.closeMobilePanels()
+  mapStore.closeGisPanels()
 }
 </script>

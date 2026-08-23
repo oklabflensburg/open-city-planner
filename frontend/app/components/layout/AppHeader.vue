@@ -1,6 +1,6 @@
 <template>
   <header class="fixed inset-x-0 top-0 z-[80] w-full border-b border-slate-200/70 bg-white/95 shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur">
-    <div class="mx-auto flex h-16 w-full max-w-[1920px] items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+    <div class="mx-auto flex h-[var(--app-header-height)] w-full max-w-[1920px] items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
       <div class="flex min-w-0 items-center gap-8 lg:gap-10">
         <NuxtLink class="group flex min-h-11 shrink-0 items-center rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#154d73]" to="/" @click="closeMenu">
           <OKLabLogo size="compact" />

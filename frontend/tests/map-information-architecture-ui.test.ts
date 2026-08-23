@@ -43,23 +43,26 @@ describe('map information architecture', () => {
     expect(selection.indexOf('mapStore.selectedMapEntity = {')).toBeLessThan(selection.indexOf('await polygonStore.loadSelection(id)'))
   })
 
-  it('selects OSM features, clears both selections on empty map clicks and opens the mobile selection sheet', () => {
+  it('selects OSM features, clears both selections on empty map clicks and opens the responsive selection panel', () => {
     const map = appFile('components/map/MapCanvas.vue')
     expect(map).toContain('mapSelection.selectOsm(feature)')
     expect(map).toContain('mapSelection.clearSelection()')
-    expect(map).toContain("mapStore.openMobilePanel('selection')")
+    expect(map).toContain("mapStore.openGisPanel('selection')")
     expect(map).toContain('mapSelection.selectPolygon(id)')
   })
 
-  it('puts the legend in the mobile filter sheet and OSM details in the selection sheet', () => {
+  it('puts legend and selection details in the shared responsive panel content', () => {
     const shell = appFile('components/layout/AppShell.vue')
+    const content = appFile('components/layout/GisPanelContent.vue')
     const left = appFile('components/layout/LeftSidebar.vue')
     const right = appFile('components/layout/RightSidebar.vue')
-    expect(shell).toContain("mapStore.activeMobilePanel === 'filter'")
-    expect(shell).toContain("mapStore.activeMobilePanel === 'analytics'")
-    expect(shell).toContain("mapStore.activeMobilePanel === 'selection'")
-    expect(shell).toContain('<LazyLeftSidebar')
-    expect(shell).toContain('<MapSelectionContent embedded')
+    expect(shell).toContain('<GisPanelContent compact')
+    expect(shell).toContain('<GisPanelContent :result-label')
+    expect(content).toContain("mapStore.activeGisPanel === 'filter'")
+    expect(content).toContain("mapStore.activeGisPanel === 'analytics'")
+    expect(content).toContain("mapStore.activeGisPanel === 'selection'")
+    expect(content).toContain('<LazyLeftSidebar embedded')
+    expect(content).toContain('<MapSelectionContent embedded')
     expect(left).toContain('<MapLegend')
     expect(right).toContain('<MapSelectionContent')
   })

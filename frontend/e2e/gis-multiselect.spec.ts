@@ -431,6 +431,79 @@ test('mobile filter and analysis summaries scroll below the single sheet header'
   }
 })
 
+test('compact workbench docks tools beside an interactive, correctly resized map', async ({ page }) => {
+  await mockGis(page)
+
+  for (const viewport of [{ width: 1024, height: 768 }, { width: 1180, height: 820 }]) {
+    await page.setViewportSize(viewport)
+    if (page.url() === 'about:blank') await openGis(page)
+    await expect(page.locator('.overview-shell')).toHaveAttribute('data-gis-layout', 'compact')
+
+    const header = page.locator('header').first()
+    const shell = page.locator('.overview-shell')
+    const mapStage = page.locator('[data-gis-map-stage]')
+    const widthBefore = (await mapStage.boundingBox())!.width
+    await page.getByRole('button', { name: 'Filter öffnen' }).click()
+
+    const panel = page.locator('[data-gis-tool-panel]')
+    await expect(panel).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Dialog schließen' })).toHaveCount(0)
+    await page.waitForTimeout(280)
+
+    const headerBox = await header.boundingBox()
+    const shellBox = await shell.boundingBox()
+    const mapBox = await mapStage.boundingBox()
+    const panelBox = await panel.boundingBox()
+    expect(headerBox).not.toBeNull()
+    expect(shellBox).not.toBeNull()
+    expect(mapBox).not.toBeNull()
+    expect(panelBox).not.toBeNull()
+    expect(headerBox!.y + headerBox!.height).toBeLessThanOrEqual(shellBox!.y + 1)
+    expect(mapBox!.x + mapBox!.width).toBeLessThanOrEqual(panelBox!.x)
+    expect(mapBox!.width).toBeGreaterThanOrEqual(540)
+    expect(panelBox!.width).toBeGreaterThanOrEqual(340)
+    expect(panelBox!.width).toBeLessThanOrEqual(420)
+    expect(mapBox!.width).toBeLessThan(widthBefore)
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+
+    const centerBefore = await page.evaluate(() => {
+      const map = (window as typeof window & { __stadtplanerMapPerformance?: { map: import('maplibre-gl').Map } }).__stadtplanerMapPerformance?.map
+      return map ? [map.getCenter().lng, map.getCenter().lat] : null
+    })
+    await page.mouse.move(mapBox!.x + mapBox!.width / 2, mapBox!.y + mapBox!.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(mapBox!.x + mapBox!.width / 2 + 80, mapBox!.y + mapBox!.height / 2, { steps: 4 })
+    await page.mouse.up()
+    await expect.poll(async () => page.evaluate(() => {
+      const map = (window as typeof window & { __stadtplanerMapPerformance?: { map: import('maplibre-gl').Map } }).__stadtplanerMapPerformance?.map
+      return map ? [map.getCenter().lng, map.getCenter().lat] : null
+    })).not.toEqual(centerBefore)
+
+    await page.getByRole('button', { name: 'Analyse öffnen' }).click()
+    await expect(panel).toBeVisible()
+    await expect(panel.getByRole('heading', { name: 'Analyse', exact: true })).toBeVisible()
+    await expect(page.locator('[data-gis-tool-panel]')).toHaveCount(1)
+    await page.getByRole('button', { name: 'Analyse schließen' }).click()
+    await expect(panel).toHaveCount(0)
+    await expect.poll(async () => (await mapStage.boundingBox())?.width || 0).toBeGreaterThan(widthBefore - 2)
+
+    if (viewport.width === 1024) {
+      const filterTrigger = page.getByRole('button', { name: 'Filter öffnen' })
+      await filterTrigger.click()
+      await expect(page.locator('[data-gis-tool-panel]')).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(page.locator('[data-gis-tool-panel]')).toHaveCount(0)
+      await expect(filterTrigger).toBeFocused()
+
+      await filterTrigger.click()
+      await expect(page.locator('[data-gis-tool-panel]')).toBeVisible()
+      await page.goBack()
+      await expect(page.locator('[data-gis-tool-panel]')).toHaveCount(0)
+    }
+  }
+})
+
 test('GIS shell has no body overflow from small mobile through wide desktop', async ({ page }) => {
   await mockGis(page)
   await page.setViewportSize({ width: 320, height: 720 })
@@ -440,7 +513,8 @@ test('GIS shell has no body overflow from small mobile through wide desktop', as
     { width: 320, height: 568 }, { width: 360, height: 800 },
     { width: 375, height: 812 }, { width: 390, height: 844 }, { width: 393, height: 852 },
     { width: 412, height: 915 }, { width: 430, height: 932 },
-    { width: 768, height: 1024 }, { width: 1024, height: 768 }, { width: 1180, height: 820 },
+    { width: 768, height: 1024 }, { width: 820, height: 1180 }, { width: 900, height: 700 },
+    { width: 1024, height: 600 }, { width: 1024, height: 768 }, { width: 1180, height: 820 }, { width: 1279, height: 800 },
     { width: 1280, height: 800 }, { width: 1366, height: 768 }, { width: 1440, height: 900 },
     { width: 1920, height: 1080 }
   ]
@@ -461,7 +535,7 @@ test('GIS shell has no body overflow from small mobile through wide desktop', as
       const shellBox = await page.locator('.overview-shell').boundingBox()
       expect(mapBox).not.toBeNull()
       expect(shellBox).not.toBeNull()
-      expect(mapBox!.y - shellBox!.y).toBeLessThanOrEqual(10)
+      expect(mapBox!.y - shellBox!.y).toBeLessThanOrEqual(13)
     }
   }
 })

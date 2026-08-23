@@ -39,10 +39,11 @@ function analytics(adopted: boolean) {
 }
 
 test('OSM adoption invalidates the same viewport and shows the persisted polygon after route return', async ({ page }) => {
-  test.setTimeout(90_000)
+  test.setTimeout(180_000)
   let adopted = false
   let countReturnRequests = false
   let adoptionRequests = 0
+  let adoptedFloor: string | null | undefined
   let polygonRequestsAfterAdoption = 0
   let osmRequestsAfterAdoption = 0
 
@@ -57,9 +58,11 @@ test('OSM adoption invalidates the same viewport and shows the persisted polygon
     centroid: { longitude: 9.435, latitude: 54.783 }, occupancy_status: 'UNKNOWN', occupancy_source: null,
     external_links: { wikidata: null, wikipedia: null }
   } }))
-  await page.route('**/api/v1/polygons/from-osm', route => {
+  await page.route('**/api/v1/polygons/from-osm', async (route) => {
     adoptionRequests += 1
+    adoptedFloor = route.request().postDataJSON().floor
     adopted = true
+    await new Promise(resolve => setTimeout(resolve, 250))
     return route.fulfill({ status: 201, json: {
       id: polygonId, slug: polygon.slug, geometry_source: 'containing_osm_area', source_osm_type: 'node', source_osm_id: 123,
       occupancy_status: 'UNKNOWN', occupancy_source: 'UNKNOWN'
@@ -83,27 +86,59 @@ test('OSM adoption invalidates the same viewport and shows the persisted polygon
   })
   await page.route('**/api/v1/analytics/overview**', route => route.fulfill({ json: analytics(adopted) }))
 
-  await page.goto('/?categories=fashion&floors=EG')
-  await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 30_000 })
-  await expect.poll(() => page.evaluate(() => {
-    const map = window.__stadtplanerMapPerformance?.map
-    if (!map?.getLayer('osm-poi-circle')) return false
-    const point = map.project([9.435, 54.783])
-    return map.queryRenderedFeatures(point, { layers: ['osm-poi-circle'] }).some(feature => feature.properties.feature_id === 'node/123')
-  })).toBe(true)
-  const before = await page.evaluate(() => {
-    const map = window.__stadtplanerMapPerformance!.map
-    const point = map.project([9.435, 54.783])
-    const rect = map.getCanvas().getBoundingClientRect()
-    return { x: rect.left + point.x, y: rect.top + point.y, center: [map.getCenter().lng, map.getCenter().lat], zoom: map.getZoom() }
-  })
-  await page.mouse.click(before.x, before.y)
-  await page.getByRole('button', { name: 'Als Fläche übernehmen' }).click()
-  await page.getByRole('dialog', { name: 'OpenStreetMap-Objekt übernehmen?' }).getByRole('button', { name: 'Fläche übernehmen' }).click()
+  let before!: { x: number, y: number, center: number[], zoom: number }
+  const viewports = [{ width: 1024, height: 768 }, { width: 390, height: 844 }, { width: 1440, height: 900 }]
+  for (const [index, viewport] of viewports.entries()) {
+    await page.setViewportSize(viewport)
+    await page.goto('/?categories=fashion&floors=EG')
+    await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 30_000 })
+    await expect.poll(() => page.evaluate(() => {
+      const map = window.__stadtplanerMapPerformance?.map
+      if (!map?.getLayer('osm-poi-circle')) return false
+      const point = map.project([9.435, 54.783])
+      return map.queryRenderedFeatures(point, { layers: ['osm-poi-circle'] }).some(feature => feature.properties.feature_id === 'node/123')
+    })).toBe(true)
+    before = await page.evaluate(() => {
+      const map = window.__stadtplanerMapPerformance!.map
+      const point = map.project([9.435, 54.783])
+      const rect = map.getCanvas().getBoundingClientRect()
+      return { x: rect.left + point.x, y: rect.top + point.y, center: [map.getCenter().lng, map.getCenter().lat], zoom: map.getZoom() }
+    })
+    await page.mouse.click(before.x, before.y)
+    await page.getByRole('button', { name: 'Als Fläche übernehmen' }).click()
+    const modal = page.getByRole('dialog', { name: 'OpenStreetMap-Objekt übernehmen?' })
+    const content = modal.locator('[data-app-modal-content]')
+    const footer = modal.locator('[data-app-modal-footer]')
+    const cancelButton = footer.getByRole('button', { name: 'Abbrechen' })
+    const importButton = footer.getByRole('button', { name: 'Fläche übernehmen' })
+
+    await expect(modal).toBeVisible()
+    await expect(cancelButton).toBeVisible()
+    await expect(importButton).toBeVisible()
+    expect(await content.evaluate((element, candidate) => element.contains(candidate), await footer.elementHandle())).toBe(false)
+    const [modalBox, footerBox] = await Promise.all([modal.boundingBox(), footer.boundingBox()])
+    expect(footerBox!.y).toBeGreaterThanOrEqual(modalBox!.y)
+    expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(modalBox!.y + modalBox!.height + 1)
+    expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(viewport.height)
+    if (viewport.width >= 1440) {
+      expect(await content.evaluate(element => element.scrollHeight <= element.clientHeight)).toBe(true)
+    }
+    if (index < viewports.length - 1) {
+      await cancelButton.click()
+      await expect(modal).toBeHidden()
+      continue
+    }
+    await modal.getByLabel('Etage').selectOption('1OG')
+    await importButton.click()
+    await expect(footer.getByRole('button', { name: 'Wird übernommen …' })).toBeDisabled()
+    await expect(cancelButton).toBeDisabled()
+    await expect(modal.getByRole('button', { name: 'OpenStreetMap-Objekt übernehmen? schließen' })).toBeDisabled()
+  }
 
   await expect(page).toHaveURL(`/flaechen/${polygon.slug}`)
   await expect(page.getByRole('status').filter({ hasText: 'Fläche wurde in den Stadtplaner übernommen.' })).toBeVisible()
   expect(adoptionRequests).toBe(1)
+  expect(adoptedFloor).toBe('1OG')
   countReturnRequests = true
   await page.goBack()
 

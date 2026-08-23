@@ -25,8 +25,8 @@
     </div>
     <template #footer>
       <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <button class="page-button-secondary" type="button" :disabled="importing" @click="$emit('update:open', false)">Abbrechen</button>
-        <button class="page-button-primary" type="button" :disabled="importing" @click="confirmImport">
+        <button class="page-button-secondary w-full sm:w-auto" type="button" :disabled="importing" @click="$emit('update:open', false)">Abbrechen</button>
+        <button class="page-button-primary w-full sm:w-auto" type="button" :disabled="importing" @click="confirmImport">
           <LoaderCircle v-if="importing" class="size-4 animate-spin" aria-hidden="true" />
           {{ importing ? 'Wird übernommen …' : 'Fläche übernehmen' }}
         </button>
@@ -59,6 +59,7 @@ const address = computed(() => {
 })
 
 async function confirmImport() {
+  if (importing.value) return
   try {
     const created = await importFeature({
       osm_type: props.feature.properties.osm_type,

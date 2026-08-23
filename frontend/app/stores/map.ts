@@ -5,7 +5,7 @@ import type { FeatureCollection } from 'geojson'
 import type { AssistantMapActionType, SearchMapActionType } from '~/types/search'
 
 export type DrawingMode = 'select' | 'polygon' | 'edit' | 'delete'
-export type MobilePanel = 'assistant' | 'filter' | 'analytics' | 'selection' | null
+export type GisPanel = 'assistant' | 'filter' | 'analytics' | 'selection' | null
 
 export const useMapStore = defineStore('map', {
   state: () => ({
@@ -15,7 +15,7 @@ export const useMapStore = defineStore('map', {
     pitch: 0,
     activeMode: 'select' as DrawingMode,
     mapLoaded: false,
-    activeMobilePanel: null as MobilePanel,
+    activeGisPanel: null as GisPanel,
     selectedMapEntity: null as SelectedMapEntity,
     polygonsVisible: true,
     categoryHighlight: null as string | null,
@@ -50,14 +50,14 @@ export const useMapStore = defineStore('map', {
       this.bearing = 0
       this.pitch = 0
     },
-    openMobilePanel(panel: Exclude<MobilePanel, null>) {
-      this.activeMobilePanel = panel
+    openGisPanel(panel: Exclude<GisPanel, null>) {
+      this.activeGisPanel = panel
     },
-    closeMobilePanel() {
-      this.activeMobilePanel = null
+    closeGisPanel() {
+      this.activeGisPanel = null
     },
-    closeMobilePanels() {
-      this.activeMobilePanel = null
+    closeGisPanels() {
+      this.activeGisPanel = null
     },
     markGisDataDirty() {
       this.gisDataGeneration += 1

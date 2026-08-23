@@ -37,11 +37,11 @@
             </button>
           </header>
 
-          <div class="min-h-0 min-w-0 max-w-full flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6">
+          <div class="min-h-0 min-w-0 max-w-full flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6" data-app-modal-content>
             <slot />
           </div>
 
-          <footer v-if="$slots.footer" class="shrink-0 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
+          <footer v-if="$slots.footer" class="shrink-0 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6" data-app-modal-footer>
             <slot name="footer" />
           </footer>
         </section>

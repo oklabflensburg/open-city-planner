@@ -206,12 +206,14 @@ describe('Stadtplaner-Assistent', () => {
     expect(filter.allCategoriesActive).toBe(true)
   })
 
-  it('berechnet den Karteninnenabstand abhängig von Desktop- und Mobile-Panels', () => {
-    expect(getMapViewportPadding({ viewportWidth: 1440, assistantOpen: true, mobilePanelOpen: false, analysisPanelVisible: true }).left).toBe(56)
-    const mobilePanel = getMapViewportPadding({ viewportWidth: 390, assistantOpen: true, mobilePanelOpen: true, analysisPanelVisible: false })
+  it('berechnet den Karteninnenabstand abhängig von Desktop-, Kompakt- und Mobile-Panels', () => {
+    expect(getMapViewportPadding({ viewportWidth: 1440, viewportHeight: 900, assistantOpen: true, bottomSheetOpen: false, compactPanelOpen: false, analysisPanelVisible: true }).left).toBe(56)
+    const mobilePanel = getMapViewportPadding({ viewportWidth: 390, viewportHeight: 844, assistantOpen: true, bottomSheetOpen: true, compactPanelOpen: false, analysisPanelVisible: false })
     expect(mobilePanel).toMatchObject({ top: 56, bottom: 300 })
-    expect(getMapViewportPadding({ viewportWidth: 375, assistantOpen: false, mobilePanelOpen: false, analysisPanelVisible: false }).bottom).toBe(156)
-    expect(getMapViewportPadding({ viewportWidth: 768, assistantOpen: false, mobilePanelOpen: false, analysisPanelVisible: false }).bottom).toBe(120)
+    expect(getMapViewportPadding({ viewportWidth: 375, viewportHeight: 812, assistantOpen: false, bottomSheetOpen: false, compactPanelOpen: false, analysisPanelVisible: false }).bottom).toBe(156)
+    expect(getMapViewportPadding({ viewportWidth: 768, viewportHeight: 1024, assistantOpen: false, bottomSheetOpen: false, compactPanelOpen: false, analysisPanelVisible: false }).bottom).toBe(120)
+    expect(getMapViewportPadding({ viewportWidth: 1024, viewportHeight: 768, assistantOpen: false, bottomSheetOpen: false, compactPanelOpen: true, analysisPanelVisible: false })).toMatchObject({ top: 40, right: 48, bottom: 96 })
+    expect(getMapViewportPadding({ viewportWidth: 1024, viewportHeight: 520, assistantOpen: false, bottomSheetOpen: true, compactPanelOpen: false, analysisPanelVisible: false }).bottom).toBe(300)
   })
 
   it('rendert Knowledge, Datenquellen, Rückfragen und typisierte Folgeaktionen', () => {
@@ -234,8 +236,9 @@ describe('Stadtplaner-Assistent', () => {
     expect(component).not.toContain('return `${label}: ${String(source.path)}`')
     expect(component).not.toContain(':disabled="search.loading')
     const shell = readFileSync(new URL('../app/components/layout/AppShell.vue', import.meta.url), 'utf8')
+    const content = readFileSync(new URL('../app/components/layout/GisPanelContent.vue', import.meta.url), 'utf8')
     expect(shell).not.toContain('<IntelligentSearch v-if="!isDesktop" compact')
-    expect(shell).toContain("<IntelligentSearch v-else-if=\"mapStore.activeMobilePanel === 'assistant'\" embedded")
+    expect(content).toContain("<IntelligentSearch v-else-if=\"mapStore.activeGisPanel === 'assistant'\" embedded")
     expect(shell).toContain('aria-label="Suche öffnen"')
     expect(shell).toContain("data-assistant-open")
   })

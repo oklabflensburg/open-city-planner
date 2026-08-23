@@ -22,8 +22,19 @@ describe('central modal architecture', () => {
     expect(modal).toContain("type ModalSize = 'sm' | 'md' | 'lg' | 'xl'")
     expect(modal).toContain('max-h-[calc(100dvh-2rem)]')
     expect(modal).toContain('overflow-y-auto overscroll-contain')
+    expect(modal).toContain('data-app-modal-content')
+    expect(modal).toContain('data-app-modal-footer')
+    expect(modal).toContain('<footer v-if="$slots.footer" class="shrink-0')
     expect(modal).toContain('env(safe-area-inset-top)')
     expect(modal).toContain('env(safe-area-inset-bottom)')
+  })
+
+  it('keeps modal footers separate from scrolling content without hiding semantic footers globally', () => {
+    const modal = appFile('components/ui/AppModal.vue')
+    const css = appFile('assets/css/main.css')
+    expect(modal.indexOf('data-app-modal-content')).toBeLessThan(modal.indexOf('data-app-modal-footer'))
+    expect(css).not.toContain('gis-workspace-open')
+    expect(css).not.toMatch(/body[^}]*footer[^}]*display:\s*none/)
   })
 
   it('closes consistently and blocks closing while busy', () => {

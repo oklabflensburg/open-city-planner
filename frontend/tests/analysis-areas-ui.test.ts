@@ -29,6 +29,6 @@ describe('hierarchical analysis areas', () => {
     expect(left).toContain('analysisAreasStore.visibility')
     expect(right).toContain('<MapSelectionContent />')
     expect(content).toContain('<AnalysisAreaCard')
-    expect(shell).toContain("mapStore.openMobilePanel('analytics')")
+    expect(shell).toContain("mapStore.openGisPanel('analytics')")
   })
 })

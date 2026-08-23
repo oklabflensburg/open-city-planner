@@ -48,6 +48,20 @@ describe('OSM import and contribution journeys', () => {
     expect(createPage).toContain('geometry: geometry.value')
   })
 
+  it('renders the import confirmation in the fixed modal footer and preserves every outcome', () => {
+    const dialog = appFile('components/osm/OsmImportDialog.vue')
+    expect(dialog).toContain('<template #footer>')
+    expect(dialog).toContain('Abbrechen')
+    expect(dialog).toContain("'Fläche übernehmen'")
+    expect(dialog).toContain("'Wird übernommen …'")
+    expect(dialog).toContain('@click="confirmImport"')
+    expect(dialog).toContain('if (importing.value) return')
+    expect(dialog).toContain("cause.code === 'OSM_GEOMETRY_REQUIRED'")
+    expect(dialog).toContain("cause.code === 'OSM_FEATURE_ALREADY_IMPORTED'")
+    expect(dialog).toContain("emit('update:open', false)")
+    expect(dialog).toContain("navigateTo(`/flaechen/${created.slug}`)")
+  })
+
   it('keeps linked Stadtplaner areas visible and OSM references read-only', () => {
     const preview = appFile('components/osm/OsmFeatureSidebar.vue')
     const detail = appFile('pages/flaechen/[slug].vue')
