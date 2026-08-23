@@ -10,6 +10,8 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  packages: read
+  security-events: write
   id-token: write
   attestations: write
 
@@ -34,8 +36,7 @@ jobs:
     name: Security gate
     uses: ./.github/workflows/security.yml
     with:
-      dependency_review: true
-      frontend_audit: true
+      dependency_review: ${{ github.event_name == 'pull_request' }}
       base_ref: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
       head_ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
