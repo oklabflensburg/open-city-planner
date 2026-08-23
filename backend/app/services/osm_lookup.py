@@ -378,7 +378,14 @@ class OsmLookupService:
                     "Accept": "application/json",
                 },
             ) as client:
-                response = await client.post(settings.overpass_api_url, data={"data": query})
+                response = await instrumented_httpx_request(
+                    client,
+                    "POST",
+                    settings.overpass_api_url,
+                    provider="overpass",
+                    operation="polygon_lookup",
+                    data={"data": query},
+                )
                 response.raise_for_status()
                 payload = response.json()
         except (httpx.HTTPError, ValueError) as exc:
@@ -426,3 +433,4 @@ class OsmLookupService:
         for key in list(_cache):
             if key[0] == polygon_id and key != keep:
                 _cache.pop(key, None)
+from app.observability.external import instrumented_httpx_request

@@ -310,7 +310,7 @@ async def test_provider_failure_is_visible_in_privacy_safe_telemetry(
 
 
 @pytest.mark.asyncio
-async def test_groq_provider_rejects_empty_and_malformed_output_after_one_repair(
+async def test_groq_provider_rejects_output_without_logging_raw_provider_content(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.WARNING, logger="app.services.assistant_provider")
@@ -330,8 +330,9 @@ async def test_groq_provider_rejects_empty_and_malformed_output_after_one_repair
     assert raised.value.code == "ASSISTANT_INVALID_PLAN"
     assert calls == 2
     assert "assistant_provider_invalid_plan" in caplog.text
-    assert "response={}" in caplog.text
-    assert "response=kein json" in caplog.text
+    assert "response=[REDACTED]" in caplog.text
+    assert "response={}" not in caplog.text
+    assert "response=kein json" not in caplog.text
 
 
 @pytest.mark.asyncio

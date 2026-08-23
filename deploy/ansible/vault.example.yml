@@ -15,6 +15,14 @@ stadtplaner_backend_env_content: |
   DATABASE_URL=REPLACE_WITH_PRODUCTION_DATABASE_URL
   CORS_ORIGINS=https://stadtplaner.oklabflensburg.de
   LOG_LEVEL=INFO
+  LOG_FORMAT=json
+  METRICS_ENABLED=true
+  METRICS_PATH=/metrics
+  OBSERVABILITY_TEXTFILE_DIR=/data/stadtplaner/observability
+  OTEL_ENABLED=false
+  OTEL_SERVICE_NAME=stadtplaner-api
+  OTEL_EXPORTER_OTLP_ENDPOINT=
+  OTEL_EXPORTER_OTLP_PROTOCOL=grpc
   APP_ENVIRONMENT=production
   APP_BASE_URL=https://stadtplaner.oklabflensburg.de
   API_BASE_URL=https://api.stadtplaner.oklabflensburg.de
@@ -108,7 +116,7 @@ stadtplaner_backend_env_content: |
   GROQ_TIMEOUT_SECONDS=8
   GROQ_MAX_RETRIES=1
   GROQ_TEMPERATURE=0.1
-  ASSISTANT_QUERY_LOGGING=true
+  ASSISTANT_QUERY_LOGGING=false
 
   AVATAR_OUTPUT_SIZE=512
   AVATAR_WEBP_QUALITY=85
@@ -255,6 +263,8 @@ stadtplaner_config_dir: /etc/stadtplaner
 stadtplaner_data_dir: /data/stadtplaner
 stadtplaner_social_dir: /data/stadtplaner-social
 stadtplaner_avatar_upload_dir: /data/uploads
+stadtplaner_observability_dir: /data/stadtplaner/observability
+stadtplaner_metrics_allowed_cidrs: []
 stadtplaner_backend_port: 8008
 stadtplaner_frontend_port: 3008
 stadtplaner_backend_env_file: /etc/stadtplaner/backend.env

@@ -9,6 +9,8 @@ User={{ stadtplaner_service_user }}
 Group={{ stadtplaner_service_group }}
 WorkingDirectory={{ stadtplaner_current_path }}/frontend
 EnvironmentFile={{ stadtplaner_frontend_env_file }}
+Environment=STADTPLANER_RELEASE_SHA={{ stadtplaner_release_sha }}
+Environment=APP_ENVIRONMENT=production
 Environment=NODE_ENV=production
 Environment=HOST=127.0.0.1
 Environment=PORT={{ stadtplaner_frontend_port }}

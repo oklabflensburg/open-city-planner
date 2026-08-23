@@ -7,6 +7,8 @@ from time import monotonic
 from sqlalchemy import text
 
 from app.db.session import AsyncSessionLocal
+from app.observability.jobs import observed_job
+from app.observability.metrics import OSM_REPLICATION_LAG
 from app.services.analysis_areas import sync_osm_analysis_areas
 from app.services.cache_versions import bump_cache_versions
 from app.services.wikidata_enrichment import WikidataEnrichmentService
@@ -111,6 +113,7 @@ def progress(enabled: bool, started_at: float, phase: str, **values: object) -> 
     )
 
 
+@observed_job("osm_replication")
 async def run(
     sequence: int | None,
     osm_timestamp: datetime,
@@ -119,6 +122,7 @@ async def run(
     verbose: bool = False,
 ) -> None:
     started_at = monotonic()
+    OSM_REPLICATION_LAG.set(max(0.0, (datetime.now(UTC) - osm_timestamp).total_seconds()))
     progress(verbose, started_at, "start", sequence=sequence, timestamp=osm_timestamp.isoformat())
     async with AsyncSessionLocal() as session:
         progress(verbose, started_at, "validate_region")

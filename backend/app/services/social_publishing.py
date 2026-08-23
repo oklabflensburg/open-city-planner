@@ -13,6 +13,8 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.analysis_area import AnalysisArea
 from app.models.social_publication import SocialPublication, SocialPublicationOutbox
 from app.models.user_polygon import UserPolygon
+from app.observability.metrics import OUTBOX_FAILED, OUTBOX_PROCESSED, OUTBOX_RETRY
+from app.observability.outbox import update_outbox_gauges
 from app.schemas.social import PublicAdoptedPolygonSnapshot
 from app.services.notification_policy import DomainEvent, NotificationEventType
 from app.services.notifications import notify_superusers, publish_notifications
@@ -700,6 +702,15 @@ async def publish_due_events(
                 notifications = []
             await session.commit()
             publish_notifications(notifications)
+    OUTBOX_PROCESSED.labels("social").inc(result["published"] + result["dry_run"])
+    OUTBOX_FAILED.labels("social").inc(result["failed"])
+    OUTBOX_RETRY.labels("social").inc(result["retried"])
+    await update_outbox_gauges(
+        session,
+        SocialPublicationOutbox,
+        outbox_type="social",
+        pending_statuses=("PENDING", "PENDING_APPROVAL", "PROCESSING"),
+    )
     return result
 
 

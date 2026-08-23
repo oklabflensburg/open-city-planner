@@ -36,6 +36,7 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 ## Betrieb und Integrationen
 
 - [Deployment und Betrieb](deployment.md)
+- [Production Observability, SLOs und Runbooks](observability.md)
 - [Wiederholbares Ansible-Deployment](../deploy/ansible/README.md)
 - [Nginx-Hardening und Rate Limits](../deploy/nginx/README.md)
 - [Social Publishing mit Mastodon](social-publishing.md)

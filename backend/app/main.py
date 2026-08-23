@@ -8,17 +8,34 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.responses import Response as FastAPIResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.api.router import api_router
 from app.cache.redis import close_redis, initialize_redis, redis_health
 from app.core.config import get_settings
-from app.db.session import database_health
+from app.db.session import database_health, engine
+from app.observability.logging import configure_logging
+from app.observability.metrics import REDIS_AVAILABLE, REGISTRY, set_build_info
+from app.observability.middleware import ObservabilityMiddleware
+from app.observability.tracing import configure_tracing
 from app.security.request_limits import RequestBodyLimitMiddleware
 from app.services.assistant_provider import close_assistant_provider
 
 settings = get_settings()
-logging.basicConfig(level=settings.log_level)
+configure_logging(
+    level=settings.log_level,
+    service="stadtplaner-api",
+    environment=settings.app_environment,
+    release_sha=settings.release_sha,
+    json_logs=settings.log_format == "json",
+)
 logger = logging.getLogger(__name__)
+set_build_info(
+    release_sha=settings.release_sha,
+    version=settings.api_version,
+    environment=settings.app_environment,
+)
 
 if settings.configured_oauth_providers:
     logger.info("Enabled OAuth providers: %s", ", ".join(settings.configured_oauth_providers))
@@ -34,6 +51,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     finally:
         await close_assistant_provider()
         await close_redis()
+        tracing_runtime.shutdown()
 
 
 OPENAPI_TAGS = [
@@ -88,6 +106,11 @@ app = FastAPI(
 
 app.add_middleware(GZipMiddleware, minimum_size=1_000, compresslevel=5)
 app.add_middleware(RequestBodyLimitMiddleware)
+app.add_middleware(
+    ObservabilityMiddleware,
+    metrics_enabled=settings.metrics_enabled,
+    metrics_path=settings.metrics_path,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -95,7 +118,8 @@ app.add_middleware(
     allow_origin_regex=settings.cors_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID"],
+    expose_headers=["X-Request-ID"],
 )
 
 app.include_router(api_router)
@@ -158,6 +182,7 @@ async def security_headers(request: Request, call_next) -> Response:
 async def health_status() -> tuple[bool, dict[str, str]]:
     database = await database_health()
     redis = await redis_health()
+    REDIS_AVAILABLE.set(1 if redis == "ok" else 0)
 
     database_ok = database == "ok"
     redis_ok = True
@@ -189,3 +214,22 @@ async def health_ready() -> Response:
 @app.get("/health", tags=["health"])
 async def health() -> Response:
     return await health_ready()
+
+
+@app.get("/health/info", tags=["health"])
+async def health_info() -> dict[str, str]:
+    return {
+        "version": settings.api_version,
+        "release_sha": settings.release_sha,
+        "environment": settings.app_environment,
+    }
+
+
+if settings.metrics_enabled:
+
+    @app.get(settings.metrics_path, include_in_schema=False)
+    async def metrics() -> FastAPIResponse:
+        return FastAPIResponse(generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
+
+
+tracing_runtime = configure_tracing(app, engine, settings)

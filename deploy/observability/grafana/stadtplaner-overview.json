@@ -1,0 +1,30 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {"id": 1, "title": "Request Rate", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0}, "targets": [{"expr": "sum(rate(http_requests_total[5m]))", "legendFormat": "requests/s"}]},
+    {"id": 2, "title": "5xx Rate", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0}, "targets": [{"expr": "sum(rate(http_requests_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(http_requests_total[5m])), 0.001)", "legendFormat": "5xx ratio"}]},
+    {"id": 3, "title": "API Latency p50/p95/p99", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0}, "targets": [{"expr": "histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))", "legendFormat": "p50"}, {"expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))", "legendFormat": "p95"}, {"expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))", "legendFormat": "p99"}]},
+    {"id": 4, "title": "Requests in Flight", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8}, "targets": [{"expr": "sum(http_requests_in_progress)", "legendFormat": "requests"}]},
+    {"id": 5, "title": "DB Pool Usage", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8}, "targets": [{"expr": "db_pool_checked_out", "legendFormat": "checked out"}, {"expr": "db_pool_capacity", "legendFormat": "capacity"}, {"expr": "db_pool_checked_in", "legendFormat": "available"}]},
+    {"id": 6, "title": "Redis Availability", "type": "stat", "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8}, "targets": [{"expr": "redis_available", "legendFormat": "available"}]},
+    {"id": 7, "title": "External Provider Latency p95", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}, "targets": [{"expr": "histogram_quantile(0.95, sum by (provider, le) (rate(external_request_duration_seconds_bucket[10m])))", "legendFormat": "{{provider}}"}]},
+    {"id": 8, "title": "Outbox Pending", "type": "timeseries", "gridPos": {"h": 8, "w": 6, "x": 12, "y": 16}, "targets": [{"expr": "outbox_pending", "legendFormat": "{{outbox_type}}"}]},
+    {"id": 9, "title": "Outbox Oldest Age", "type": "timeseries", "gridPos": {"h": 8, "w": 6, "x": 18, "y": 16}, "targets": [{"expr": "outbox_oldest_age_seconds", "legendFormat": "{{outbox_type}}"}]},
+    {"id": 10, "title": "Background Job Failures", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 0, "y": 24}, "targets": [{"expr": "increase(job_failures_total[1h])", "legendFormat": "{{job_name}}"}]},
+    {"id": 11, "title": "OSM Replication Lag", "type": "timeseries", "gridPos": {"h": 8, "w": 8, "x": 8, "y": 24}, "targets": [{"expr": "osm_replication_lag_seconds", "legendFormat": "lag"}]},
+    {"id": 12, "title": "Release SHA", "type": "table", "gridPos": {"h": 8, "w": 8, "x": 16, "y": 24}, "targets": [{"expr": "build_info", "format": "table", "instant": true}]},
+    {"id": 13, "title": "Redis Cache Hit Ratio", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32}, "targets": [{"expr": "rate(redis_cache_hits_total[5m]) / clamp_min(rate(redis_cache_hits_total[5m]) + rate(redis_cache_misses_total[5m]), 0.001)", "legendFormat": "hit ratio"}]},
+    {"id": 14, "title": "External Provider Errors", "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32}, "targets": [{"expr": "sum by (provider) (rate(external_request_errors_total[5m]))", "legendFormat": "{{provider}}"}]}
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["stadtplaner", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "Stadtplaner Production Overview",
+  "uid": "stadtplaner-overview",
+  "version": 1
+}

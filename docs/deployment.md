@@ -222,6 +222,30 @@ Typische Prüfungen:
 - Assistant fällt zurück: `AI_SEARCH_ENABLED`, Modell, Backend-Key und bereinigte Provider-Warnings prüfen.
 - E-Mail oder Mastodon bleibt liegen: Timer, Outboxstatus und letzte Worker-Logs prüfen.
 
+## Observability anbinden
+
+Ansible injiziert den exakt ausgecheckten Git-SHA als `STADTPLANER_RELEASE_SHA` in API, Frontend und One-shot-Jobs. Behalten Sie `LOG_FORMAT=json`, `METRICS_ENABLED=true` und `ASSISTANT_QUERY_LOGGING=false` in Produktion. Ein OTLP-Collector ist optional; setzen Sie dessen Adresse ausschließlich über `OTEL_EXPORTER_OTLP_ENDPOINT`.
+
+Der Nginx-vHost erzeugt `X-Request-ID`, schreibt datensparsame JSON-Access-Logs und schützt `/metrics` mit `allow`/`deny`. Tragen Sie das Netz des Monitoring-Hosts in `stadtplaner_metrics_allowed_cidrs` ein; veröffentlichen Sie keine Basic-Auth-Credentials in Templates. Der Prometheus-Scraper verwendet HTTPS und benötigt eine erlaubte Quelladresse.
+
+```yaml
+stadtplaner_metrics_allowed_cidrs:
+  - 10.20.0.15/32
+```
+
+Die Beispielkonfiguration liegt unter `deploy/observability/prometheus/`. Importieren Sie anschließend `deploy/observability/grafana/stadtplaner-overview.json`. Für timerbasierte Jobs konfigurieren Sie node_exporter mit `--collector.textfile.directory=/data/stadtplaner/observability`; die atomisch aktualisierten `.prom`-Dateien enthalten keine Empfänger oder Payloads.
+
+Nach einem Deployment prüfen Sie:
+
+```bash
+curl -i https://<api-origin>/health/info
+curl -i -H 'X-Request-ID: deploy-smoke' https://<api-origin>/health/live
+curl --fail http://127.0.0.1:<backend-port>/metrics | grep build_info
+journalctl -u stadtplaner-api -o cat | jq 'select(.request_id == "deploy-smoke")'
+```
+
+Prometheus-, Grafana- und Collector-Ausfälle dürfen weder Readiness noch Requests beeinflussen. Architektur, Datenschutz, SLOs, Alerts und Runbooks sind in [observability.md](observability.md) beschrieben.
+
 ## Sicherheitscheckliste
 
 - [ ] Keine Produktions-Secrets oder `.env`-Dateien sind im Repository.

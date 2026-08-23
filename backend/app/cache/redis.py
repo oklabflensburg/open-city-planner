@@ -1,8 +1,10 @@
 import logging
+import time
 
 from redis.asyncio import Redis
 
 from app.core.config import get_settings
+from app.observability.metrics import REDIS_AVAILABLE, REDIS_ERRORS, observe_redis
 
 logger = logging.getLogger(__name__)
 _client: Redis | None = None
@@ -28,14 +30,20 @@ async def initialize_redis() -> None:
         health_check_interval=30,
     )
     try:
+        started = time.perf_counter()
         await client.ping()
     except Exception as exc:
+        REDIS_AVAILABLE.set(0)
+        REDIS_ERRORS.labels("connect").inc()
+        observe_redis("connect", started, result="error")
         await client.aclose()
         logger.warning("Redis unavailable, database fallback remains active: %s", type(exc).__name__)
         if settings.redis_required:
             raise RuntimeError("Redis is required but unavailable") from exc
         return
     _client = client
+    REDIS_AVAILABLE.set(1)
+    observe_redis("connect", started, result="success")
     logger.info("Redis cache connected")
 
 
@@ -51,8 +59,16 @@ async def redis_health() -> str:
         return "disabled"
     client = _client
     if client is None:
+        REDIS_AVAILABLE.set(0)
         return "degraded"
+    started = time.perf_counter()
     try:
-        return "ok" if await client.ping() else "degraded"
+        available = bool(await client.ping())
+        REDIS_AVAILABLE.set(1 if available else 0)
+        observe_redis("ping", started, result="success" if available else "error")
+        return "ok" if available else "degraded"
     except Exception:  # noqa: BLE001 - health must not affect readiness
+        REDIS_AVAILABLE.set(0)
+        REDIS_ERRORS.labels("ping").inc()
+        observe_redis("ping", started, result="error")
         return "degraded"

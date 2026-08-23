@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  - job_name: stadtplaner-api
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: [api.stadtplaner.oklabflensburg.de:443]
+
+  # Requires the Prometheus blackbox exporter.
+  - job_name: stadtplaner-readiness
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: [https://api.stadtplaner.oklabflensburg.de/health/ready]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115

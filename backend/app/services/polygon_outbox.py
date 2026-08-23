@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.polygon_outbox import PolygonOutbox
 from app.models.user_polygon import UserPolygon
+from app.observability.metrics import OUTBOX_FAILED, OUTBOX_PROCESSED, OUTBOX_RETRY
+from app.observability.outbox import update_outbox_gauges
 from app.services.notification_policy import DomainEvent, NotificationEventType
 from app.services.notifications import (
     notify_users,
@@ -136,6 +138,12 @@ async def process_due_polygon_outbox(session: AsyncSession, *, limit: int = 50) 
     )
     events = result.all()
     if not events:
+        await update_outbox_gauges(
+            session,
+            PolygonOutbox,
+            outbox_type="polygon",
+            pending_statuses=("PENDING", "PROCESSING"),
+        )
         return {"processed": 0, "failed": 0, "dead_letter": 0}
 
     stats = {"processed": 0, "failed": 0, "dead_letter": 0}
@@ -174,4 +182,13 @@ async def process_due_polygon_outbox(session: AsyncSession, *, limit: int = 50) 
                 
         await session.commit()
         
+    OUTBOX_PROCESSED.labels("polygon").inc(stats["processed"])
+    OUTBOX_FAILED.labels("polygon").inc(stats["dead_letter"])
+    OUTBOX_RETRY.labels("polygon").inc(stats["failed"])
+    await update_outbox_gauges(
+        session,
+        PolygonOutbox,
+        outbox_type="polygon",
+        pending_statuses=("PENDING", "PROCESSING"),
+    )
     return stats

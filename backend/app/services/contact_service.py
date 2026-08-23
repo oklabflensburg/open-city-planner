@@ -10,6 +10,7 @@ import jwt
 from fastapi import HTTPException, Request, status
 
 from app.core.config import get_settings
+from app.observability.external import instrumented_httpx_request
 from app.schemas.contact import ContactMessageCreate
 
 logger = logging.getLogger(__name__)
@@ -137,8 +138,12 @@ async def verify_turnstile(token: str | None, remote_ip: str) -> None:
         )
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.post(
+            response = await instrumented_httpx_request(
+                client,
+                "POST",
                 "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+                provider="cloudflare_turnstile",
+                operation="verify",
                 data={
                     "secret": settings.turnstile_secret_key,
                     "response": token,

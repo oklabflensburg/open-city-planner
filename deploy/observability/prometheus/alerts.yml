@@ -1,0 +1,81 @@
+groups:
+  - name: stadtplaner-production
+    rules:
+      - alert: StadtplanerReadinessDown
+        expr: probe_success{job="stadtplaner-readiness"} == 0
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: Stadtplaner readiness has failed for ten minutes
+          runbook_url: docs/runbooks/readiness-down.md
+
+      - alert: StadtplanerHigh5xxRate
+        expr: >-
+          sum(rate(http_requests_total{status_class="5xx"}[10m]))
+          / clamp_min(sum(rate(http_requests_total[10m])), 0.001) > 0.05
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: More than 5% of API requests return 5xx
+          runbook_url: docs/runbooks/high-5xx-rate.md
+
+      - alert: StadtplanerCritical5xxRate
+        expr: >-
+          sum(rate(http_requests_total{status_class="5xx"}[5m]))
+          / clamp_min(sum(rate(http_requests_total[5m])), 0.001) > 0.15
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: More than 15% of API requests return 5xx
+          runbook_url: docs/runbooks/high-5xx-rate.md
+
+      - alert: StadtplanerHighLatency
+        expr: >-
+          histogram_quantile(0.95,
+          sum by (le) (rate(http_request_duration_seconds_bucket[10m]))) > 2
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: API p95 latency is above two seconds
+          runbook_url: docs/runbooks/high-5xx-rate.md
+
+      - alert: StadtplanerDatabasePoolSaturated
+        expr: db_pool_checked_out / clamp_min(db_pool_capacity, 1) > 0.9
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: More than 90% of database connection capacity is in use
+          runbook_url: docs/runbooks/db-pool-saturation.md
+
+      - alert: StadtplanerRedisDown
+        expr: redis_available == 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: Redis has been unavailable for ten minutes
+          runbook_url: docs/runbooks/redis-down.md
+
+      - alert: StadtplanerOutboxBacklog
+        expr: outbox_pending > 100 or outbox_oldest_age_seconds > 3600
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: A Stadtplaner outbox is large or more than one hour old
+          runbook_url: docs/runbooks/outbox-backlog.md
+
+      - alert: StadtplanerBackgroundJobFailures
+        expr: increase(job_failures_total[15m]) > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: A Stadtplaner background job failed
+          runbook_url: docs/runbooks/background-job-failure.md
+
+      - alert: StadtplanerOsmReplicationStale
+        expr: osm_replication_lag_seconds > 7200
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: Local OpenStreetMap data is more than two hours behind
+          runbook_url: docs/runbooks/osm-replication-stale.md
+

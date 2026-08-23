@@ -11,6 +11,8 @@ stadtplaner_config_dir: /etc/stadtplaner
 stadtplaner_data_dir: /data/stadtplaner
 stadtplaner_social_dir: /data/stadtplaner-social
 stadtplaner_avatar_upload_dir: /data/uploads
+stadtplaner_observability_dir: /data/stadtplaner/observability
+stadtplaner_metrics_allowed_cidrs: []
 
 stadtplaner_backend_port: 8008
 stadtplaner_frontend_port: 3008

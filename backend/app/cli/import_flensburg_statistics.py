@@ -3,10 +3,12 @@ import asyncio
 import json
 
 from app.db.session import AsyncSessionLocal
+from app.observability.jobs import observed_job
 from app.services.flensburg_statistics_import import import_flensburg_statistics
 from app.services.flensburg_superset import FlensburgSupersetClient
 
 
+@observed_job("flensburg_statistics_sync")
 async def run(discover_only: bool) -> None:
     client = FlensburgSupersetClient()
     if discover_only:

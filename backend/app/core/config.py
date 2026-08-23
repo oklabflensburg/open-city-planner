@@ -3,7 +3,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from cryptography.fernet import Fernet
-from pydantic import Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
@@ -21,7 +21,18 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://localhost:3001"
     cors_origin_regex: str | None = None
     log_level: str = "INFO"
+    log_format: str = "json"
     app_environment: str = "development"
+    release_sha: str = Field(
+        default="dev", validation_alias=AliasChoices("STADTPLANER_RELEASE_SHA", "release_sha")
+    )
+    metrics_enabled: bool = True
+    metrics_path: str = "/metrics"
+    observability_textfile_dir: str = ""
+    otel_enabled: bool = False
+    otel_service_name: str = "stadtplaner-api"
+    otel_exporter_otlp_endpoint: str | None = None
+    otel_exporter_otlp_protocol: str = "grpc"
     app_base_url: str = "http://localhost:3000"
     api_base_url: str = "http://localhost:8000"
     jwt_secret_key: str = DEVELOPMENT_JWT_SECRET
@@ -207,6 +218,12 @@ class Settings(BaseSettings):
         return [value.strip() for value in self.trusted_proxies.split(",") if value.strip()]
 
     def validate_security(self) -> None:
+        if not self.metrics_path.startswith("/") or "?" in self.metrics_path:
+            raise RuntimeError("METRICS_PATH must be an absolute path without a query")
+        if self.log_format not in {"json", "text"}:
+            raise RuntimeError("LOG_FORMAT must be json or text")
+        if self.otel_exporter_otlp_protocol != "grpc":
+            raise RuntimeError("Only the grpc OTLP protocol is currently supported")
         if self.production and (
             self.jwt_secret_key == DEVELOPMENT_JWT_SECRET
             or len(self.jwt_secret_key.strip()) < MINIMUM_JWT_SECRET_LENGTH

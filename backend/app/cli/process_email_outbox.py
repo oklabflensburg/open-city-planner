@@ -1,15 +1,16 @@
 import argparse
 import asyncio
-import json
 
 from app.db.session import AsyncSessionLocal
+from app.observability.jobs import observed_job
 from app.services.email_outbox import process_due_email_outbox
 
 
+@observed_job("email_outbox")
 async def run(limit: int) -> None:
     async with AsyncSessionLocal() as session:
         result = await process_due_email_outbox(session, limit=limit)
-    print(json.dumps(result, ensure_ascii=False))
+    return result
 
 
 def main() -> None:

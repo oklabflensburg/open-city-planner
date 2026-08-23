@@ -63,6 +63,8 @@ export default defineNuxtConfig({
   ],
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
+    environment: process.env.APP_ENVIRONMENT || process.env.NODE_ENV || 'development',
+    releaseSha: process.env.STADTPLANER_RELEASE_SHA || 'dev',
     public: {
       siteName: 'OK Lab Flensburg',
       siteUrl: configuredSiteUrl || 'http://localhost:3000',

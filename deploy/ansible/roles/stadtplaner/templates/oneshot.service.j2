@@ -9,7 +9,8 @@ User={{ stadtplaner_service_user }}
 Group={{ stadtplaner_service_group }}
 WorkingDirectory={{ unit_working_directory }}
 {% if unit_environment_file %}EnvironmentFile={{ unit_environment_file }}
-{% endif %}ExecStart={{ unit_exec_start }}
+{% endif %}Environment=STADTPLANER_RELEASE_SHA={{ stadtplaner_release_sha }}
+ExecStart={{ unit_exec_start }}
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

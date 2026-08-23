@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import httpx
 
 from app.core.config import get_settings
+from app.observability.external import instrumented_httpx_request
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +49,9 @@ class NominatimService:
             limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
             headers={"User-Agent": settings.nominatim_user_agent},
         ) as client:
-            response = await client.get(endpoint, params=params)
+            response = await instrumented_httpx_request(
+                client, "GET", endpoint, provider="nominatim", operation="reverse", params=params
+            )
             response.raise_for_status()
             payload = response.json()
 

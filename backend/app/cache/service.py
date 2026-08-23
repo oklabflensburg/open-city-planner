@@ -9,6 +9,12 @@ from typing import Any, TypeVar
 
 from app.cache.redis import get_redis
 from app.core.config import get_settings
+from app.observability.metrics import (
+    REDIS_ERRORS,
+    REDIS_HITS,
+    REDIS_MISSES,
+    observe_redis,
+)
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -27,9 +33,18 @@ class CacheService:
         client = get_redis()
         if client is None:
             return None
+        started = time.perf_counter()
         try:
-            return await client.get(key)
+            value = await client.get(key)
+            if value is None:
+                REDIS_MISSES.inc()
+            else:
+                REDIS_HITS.inc()
+            observe_redis("get", started, result="hit" if value is not None else "miss", payload=value)
+            return value
         except Exception as exc:  # noqa: BLE001
+            REDIS_ERRORS.labels("get").inc()
+            observe_redis("get", started, result="error")
             logger.warning("cache_error operation=get error=%s", type(exc).__name__)
             return None
 
@@ -37,10 +52,14 @@ class CacheService:
         client = get_redis()
         if client is None:
             return False
+        started = time.perf_counter()
         try:
             await client.set(key, value, ex=ttl)
+            observe_redis("set", started, result="success", payload=value)
             return True
         except Exception as exc:  # noqa: BLE001
+            REDIS_ERRORS.labels("set").inc()
+            observe_redis("set", started, result="error")
             logger.warning("cache_error operation=set error=%s", type(exc).__name__)
             return False
 
@@ -48,9 +67,14 @@ class CacheService:
         client = get_redis()
         if client is None or not keys:
             return 0
+        started = time.perf_counter()
         try:
-            return int(await client.delete(*keys))
+            deleted = int(await client.delete(*keys))
+            observe_redis("delete", started, result="success")
+            return deleted
         except Exception as exc:  # noqa: BLE001
+            REDIS_ERRORS.labels("delete").inc()
+            observe_redis("delete", started, result="error")
             logger.warning("cache_error operation=delete error=%s", type(exc).__name__)
             return 0
 
@@ -76,9 +100,16 @@ class CacheService:
         client = get_redis()
         if client is None or not keys:
             return [None] * len(keys)
+        started = time.perf_counter()
         try:
-            return list(await client.mget(list(keys)))
+            values = list(await client.mget(list(keys)))
+            REDIS_HITS.inc(sum(value is not None for value in values))
+            REDIS_MISSES.inc(sum(value is None for value in values))
+            observe_redis("mget", started, result="success")
+            return values
         except Exception as exc:  # noqa: BLE001
+            REDIS_ERRORS.labels("mget").inc()
+            observe_redis("mget", started, result="error")
             logger.warning("cache_error operation=mget error=%s", type(exc).__name__)
             return [None] * len(keys)
 

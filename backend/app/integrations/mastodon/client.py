@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 import httpx
 
+from app.observability.external import instrumented_httpx_request
+
 
 @dataclass(frozen=True)
 class MastodonStatus:
@@ -101,7 +103,15 @@ class MastodonClient:
             headers["Authorization"] = f"Bearer {self.access_token}"
         try:
             async with httpx.AsyncClient(timeout=self.timeout, transport=self.transport) as client:
-                response = await client.request(method, f"{self.base_url}{path}", headers=headers, **kwargs)
+                response = await instrumented_httpx_request(
+                    client,
+                    method,
+                    f"{self.base_url}{path}",
+                    provider="mastodon",
+                    operation=path,
+                    headers=headers,
+                    **kwargs,
+                )
         except (httpx.TimeoutException, httpx.NetworkError) as exc:
             raise MastodonError("Mastodon ist vorübergehend nicht erreichbar.", retryable=True) from exc
         if response.is_success:
