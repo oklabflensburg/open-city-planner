@@ -69,6 +69,12 @@ def verify(root: Path, *, check_lock: bool = True) -> list[str]:
     if not pnpm_match:
         errors.append("frontend/package.json: packageManager must pin an exact pnpm version")
     pnpm_version = pnpm_match.group(1) if pnpm_match else ""
+    for path in workflow_files:
+        text = path.read_text()
+        setup_count = text.count("pnpm/action-setup@")
+        version_count = len(re.findall(rf"^\s+version:\s*{re.escape(pnpm_version)}\s*$", text, re.MULTILINE))
+        if setup_count != version_count:
+            errors.append(f"{path.relative_to(root)}: every pnpm setup must use packageManager version {pnpm_version}")
 
     requirements = (root / "deploy/ansible/requirements.txt").read_text().strip().splitlines()
     ansible_input = (root / "deploy/ansible/requirements.in").read_text().strip()
