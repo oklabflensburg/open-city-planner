@@ -53,30 +53,39 @@
     <p v-if="error" id="mfa-error" class="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" role="alert" aria-live="assertive">{{ error }}</p>
 
     <div v-if="otherMethods.length" class="border-t border-slate-200 pt-4" aria-labelledby="other-mfa-methods">
-      <p id="other-mfa-methods" class="mb-2 text-sm font-semibold text-slate-700">
-        {{ activeMethod === 'recovery_code' ? 'Andere Methode verwenden' : 'Keinen Zugriff auf diese Sicherheitsmethode?' }}
-      </p>
-      <div class="grid gap-2 sm:grid-cols-2">
+      <p id="other-mfa-methods" class="mb-3 text-sm font-semibold text-slate-700">Andere Sicherheitsmethode verwenden</p>
+      <div class="grid gap-2" data-mfa-method-options>
         <button
           v-for="method in otherMethods"
           :key="method"
-          class="page-button-secondary min-h-11 text-left"
+          class="group flex min-h-16 w-full cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:border-[#8baabd] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] disabled:cursor-not-allowed disabled:opacity-50"
           type="button"
           :disabled="busy"
+          :aria-label="methodLabel(method)"
+          :aria-describedby="methodDescriptionId(method)"
+          data-mfa-method-option
           @click="selectMethod(method)"
         >
-          {{ methodLabel(method) }}
+          <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-[#154d73] transition-colors group-hover:bg-[#e2edf4]" aria-hidden="true">
+            <component :is="methodIcon(method)" class="size-5" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-bold text-slate-950">{{ methodTitle(method) }}</span>
+            <span :id="methodDescriptionId(method)" class="mt-0.5 block text-xs leading-5 text-slate-600">{{ methodDescription(method) }}</span>
+          </span>
+          <ChevronRight class="size-5 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-[#154d73]" aria-hidden="true" />
         </button>
       </div>
     </div>
 
-    <button class="min-h-11 text-sm font-semibold text-slate-600" type="button" :disabled="busy" @click="$emit('back')">
-      Zurück zur Anmeldung
+    <button class="inline-flex min-h-11 items-center justify-center gap-2 text-sm font-semibold text-slate-600 hover:text-[#154d73] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] disabled:cursor-not-allowed disabled:opacity-50" type="button" :disabled="busy" @click="$emit('back')">
+      <ArrowLeft class="size-4" aria-hidden="true" /> Zurück zur Anmeldung
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ArrowLeft, ChevronRight, KeyRound, LifeBuoy, ShieldCheck } from 'lucide-vue-next'
 import { ApiError } from '~/composables/useApi'
 import type { MfaMethod } from '~/types/auth'
 import { formatRecoveryCode, normalizeRecoveryCode, preferredAvailableMethod } from '~/utils/mfa'
@@ -140,6 +149,30 @@ function methodLabel(method: MfaMethod): string {
     totp: 'Authenticator-App verwenden',
     recovery_code: 'Wiederherstellungscode verwenden'
   }[method]
+}
+
+function methodTitle(method: MfaMethod): string {
+  return {
+    passkey: 'Passkey',
+    totp: 'Authenticator-App',
+    recovery_code: 'Wiederherstellungscode'
+  }[method]
+}
+
+function methodDescription(method: MfaMethod): string {
+  return {
+    passkey: 'Mit Gerät oder Sicherheitsschlüssel bestätigen',
+    totp: 'Sechsstelligen Code aus Ihrer Authenticator-App eingeben',
+    recovery_code: 'Einen gespeicherten Wiederherstellungscode verwenden'
+  }[method]
+}
+
+function methodIcon(method: MfaMethod) {
+  return { passkey: KeyRound, totp: ShieldCheck, recovery_code: LifeBuoy }[method]
+}
+
+function methodDescriptionId(method: MfaMethod): string {
+  return `mfa-method-${method}-description`
 }
 
 function focusActiveInput() {

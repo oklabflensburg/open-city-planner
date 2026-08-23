@@ -59,7 +59,7 @@ test('invalid TOTP remains logged out and recovery code can finish login', async
 })
 
 test('cancelled passkey keeps TOTP and recovery alternatives available', async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 700 })
+  await page.setViewportSize({ width: 375, height: 812 })
   let passkeyVerifyRequests = 0
   page.on('request', (request) => {
     if (request.url().endsWith('/api/v1/auth/mfa/passkey/verify')) passkeyVerifyRequests += 1
@@ -67,7 +67,10 @@ test('cancelled passkey keeps TOTP and recovery alternatives available', async (
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'credentials', {
       configurable: true,
-      value: { get: async () => { throw new DOMException('cancelled', 'NotAllowedError') } }
+      value: { get: async () => {
+        await new Promise(resolve => setTimeout(resolve, 300))
+        throw new DOMException('cancelled', 'NotAllowedError')
+      } }
     })
   })
   await unauthenticated(page)
@@ -93,15 +96,42 @@ test('cancelled passkey keeps TOTP and recovery alternatives available', async (
   await page.getByRole('button', { name: 'Anmelden', exact: true }).click()
   await page.getByRole('button', { name: 'Passkey verwenden', exact: true }).click()
 
+  await expect(page.getByRole('button', { name: 'Passkey wird geprüft …' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Authenticator-App verwenden' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Wiederherstellungscode verwenden' })).toBeDisabled()
+
   await expect(page.getByRole('status')).toContainText('Passkey-Anmeldung nicht abgeschlossen')
   await expect(page.getByRole('button', { name: 'Passkey erneut versuchen' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Authenticator-App verwenden' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Wiederherstellungscode verwenden' })).toBeVisible()
+  await expect(page.getByText('Sechsstelligen Code aus Ihrer Authenticator-App eingeben')).toBeVisible()
+  await expect(page.getByText('Einen gespeicherten Wiederherstellungscode verwenden')).toBeVisible()
+  const methodOptions = page.locator('[data-mfa-method-option]')
+  await expect(methodOptions).toHaveCount(2)
+  for (const viewport of [
+    { width: 375, height: 812 }, { width: 390, height: 844 },
+    { width: 1280, height: 800 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 }
+  ]) {
+    await page.setViewportSize(viewport)
+    const boxes = await methodOptions.evaluateAll(elements => elements.map(element => {
+      const rect = element.getBoundingClientRect()
+      return { width: rect.width, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth }
+    }))
+    expect(boxes[0]!.width).toBeCloseTo(boxes[1]!.width, 0)
+    expect(boxes.every(box => box.scrollWidth <= box.clientWidth)).toBe(true)
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+  }
   expect(passkeyVerifyRequests).toBe(0)
-  await expect.poll(() => page.evaluate(() =>
-    document.documentElement.scrollWidth <= document.documentElement.clientWidth
-  )).toBe(true)
 
+  await page.getByRole('button', { name: 'Authenticator-App verwenden' }).click()
+  await expect(page.getByRole('heading', { name: 'Authenticator-App' })).toBeVisible()
+  await expect(page.getByLabel('Sechsstelliger Authenticator-Code')).toBeFocused()
+  await expect(page.getByRole('button', { name: 'Passkey verwenden' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Wiederherstellungscode verwenden' })).toBeVisible()
+  await page.getByRole('button', { name: 'Wiederherstellungscode verwenden' }).click()
+  await expect(page.getByLabel('Zwölfstelliger Wiederherstellungscode')).toBeFocused()
+  await expect(page.getByRole('button', { name: 'Passkey verwenden' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Authenticator-App verwenden' })).toBeVisible()
   await page.getByRole('button', { name: 'Authenticator-App verwenden' }).click()
   await expect(page.getByLabel('Sechsstelliger Authenticator-Code')).toBeFocused()
   await page.getByLabel('Sechsstelliger Authenticator-Code').fill('123456')
