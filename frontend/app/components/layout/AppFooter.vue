@@ -28,6 +28,14 @@
           <NuxtLink v-for="item in legalNavigation" :key="item.to" class="text-sm font-medium text-slate-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#9ed0dd]" :to="item.to">
             {{ item.label }}
           </NuxtLink>
+          <a
+            class="text-sm font-medium text-slate-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#9ed0dd]"
+            :href="licenseUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Quellcode · AGPL-3.0
+          </a>
         </nav>
 
         <nav aria-label="Weitere Links" class="grid content-start gap-3 lg:col-span-3">
@@ -42,15 +50,18 @@
 
       <div class="mt-8 flex flex-col gap-2 border-t border-white/10 pt-5 text-xs font-semibold text-slate-400 md:flex-row md:items-center md:justify-between">
         <span>© {{ currentYear }} OK Lab Flensburg</span>
-        <span>Open Data · Civic Tech</span>
+        <span>Open Data · Civic Tech · AGPL-3.0</span>
       </div>
     </div>
   </footer>
 </template>
 
 <script setup lang="ts">
+import { projectConfig } from '~/config/project'
+
 const { primaryNavigation, legalNavigation } = useSiteNavigation()
 const currentYear = new Date().getFullYear()
+const licenseUrl = `${projectConfig.github.url}/blob/main/LICENSE`
 const additionalNavigation = [
   { label: 'Open Data', to: '/open-data' },
   { label: 'Kontakt', to: '/kontakt' }
