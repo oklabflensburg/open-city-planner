@@ -1,5 +1,5 @@
 <template>
-  <div class="grid gap-5">
+  <div class="grid min-w-0 gap-5" data-mfa-challenge>
     <p class="text-sm leading-6 text-slate-600">
       Wählen Sie eine Ihrer eingerichteten Sicherheitsmethoden.
     </p>
@@ -58,7 +58,7 @@
         <button
           v-for="method in otherMethods"
           :key="method"
-          class="group flex min-h-16 w-full cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:border-[#8baabd] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] disabled:cursor-not-allowed disabled:opacity-50"
+          class="group flex min-h-16 min-w-0 w-full cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition-colors hover:border-[#8baabd] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73] disabled:cursor-not-allowed disabled:opacity-50"
           type="button"
           :disabled="busy"
           :aria-label="methodLabel(method)"

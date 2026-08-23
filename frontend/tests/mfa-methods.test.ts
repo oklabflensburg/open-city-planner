@@ -33,11 +33,13 @@ describe('MFA method selection', () => {
   })
 
   it('presents alternative methods as one-column accessible selection cards', () => {
+    expect(component).toContain('data-mfa-challenge')
+    expect(component).toContain('grid min-w-0 gap-5')
     expect(component).toContain('data-mfa-method-options')
     expect(component).toContain('data-mfa-method-option')
     expect(component).toContain('class="grid gap-2" data-mfa-method-options')
     expect(component).not.toContain('sm:grid-cols-2')
-    expect(component).toContain('min-h-16 w-full')
+    expect(component).toContain('min-h-16 min-w-0 w-full')
     expect(component).toContain(':disabled="busy"')
     expect(component).toContain(':aria-label="methodLabel(method)"')
     expect(component).toContain(':aria-describedby="methodDescriptionId(method)"')

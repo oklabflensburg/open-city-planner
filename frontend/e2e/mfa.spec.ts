@@ -7,8 +7,13 @@ const user = {
   created_at: new Date().toISOString(), updated_at: new Date().toISOString(), last_login_at: null
 }
 
-async function unauthenticated(page: Page) {
-  await page.route('**/api/v1/auth/session', route => route.fulfill({ status: 401, json: { detail: { error: { code: 'AUTH_REQUIRED', message: 'Bitte anmelden.' } } } }))
+async function unauthenticated(page: Page, session?: { authenticated: boolean, csrfToken: string }) {
+  await page.route('**/api/v1/auth/session', route => session?.authenticated
+    ? route.fulfill({ json: { status: 'authenticated', user, csrf_token: session.csrfToken } })
+    : route.fulfill({ status: 401, json: { detail: { error: { code: 'AUTH_REQUIRED', message: 'Bitte anmelden.' } } } }))
+  await page.route('**/api/v1/auth/refresh', route => session?.authenticated
+    ? route.fulfill({ json: { status: 'authenticated', user, csrf_token: session.csrfToken } })
+    : route.fulfill({ status: 401, json: { detail: { error: { code: 'REFRESH_TOKEN_MISSING', message: 'Keine Sitzung vorhanden.' } } } }))
   await quietBackgroundApis(page)
 }
 
@@ -19,9 +24,13 @@ async function quietBackgroundApis(page: Page) {
 }
 
 test('password login creates an MFA step and authenticates only after TOTP', async ({ page }) => {
-  await unauthenticated(page)
+  const session = { authenticated: false, csrfToken: 'csrf-mfa' }
+  await unauthenticated(page, session)
   await page.route('**/api/v1/auth/login', route => route.fulfill({ json: { status: 'mfa_required', challenge_token: 'opaque-challenge-token-value-1234567890', method: 'totp', preferred_method: 'totp', methods: ['totp'], expires_in: 300 } }))
-  await page.route('**/api/v1/auth/mfa/verify', route => route.fulfill({ json: { status: 'authenticated', user, csrf_token: 'csrf-mfa' } }))
+  await page.route('**/api/v1/auth/mfa/verify', route => {
+    session.authenticated = true
+    return route.fulfill({ json: { status: 'authenticated', user, csrf_token: session.csrfToken } })
+  })
 
   await page.goto('/login')
   await page.getByLabel('E-Mail').fill(user.email)
@@ -34,13 +43,15 @@ test('password login creates an MFA step and authenticates only after TOTP', asy
 })
 
 test('invalid TOTP remains logged out and recovery code can finish login', async ({ page }) => {
-  await unauthenticated(page)
+  const session = { authenticated: false, csrfToken: 'csrf-recovery' }
+  await unauthenticated(page, session)
   await page.route('**/api/v1/auth/login', route => route.fulfill({ json: { status: 'mfa_required', challenge_token: 'opaque-challenge-token-value-1234567890', method: 'totp', preferred_method: 'totp', methods: ['totp', 'recovery_code'], expires_in: 300 } }))
   let attempts = 0
   await page.route('**/api/v1/auth/mfa/verify', async (route) => {
     attempts += 1
     if (attempts === 1) return route.fulfill({ status: 401, json: { detail: { error: { code: 'MFA_CODE_INVALID', message: 'Der eingegebene Code ist nicht gültig.' } } } })
-    return route.fulfill({ json: { status: 'authenticated', user, csrf_token: 'csrf-recovery' } })
+    session.authenticated = true
+    return route.fulfill({ json: { status: 'authenticated', user, csrf_token: session.csrfToken } })
   })
   await page.goto('/login')
   await page.getByLabel('E-Mail').fill(user.email)
@@ -61,6 +72,7 @@ test('invalid TOTP remains logged out and recovery code can finish login', async
 test('cancelled passkey keeps TOTP and recovery alternatives available', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   let passkeyVerifyRequests = 0
+  const session = { authenticated: false, csrfToken: 'csrf-after-cancel' }
   page.on('request', (request) => {
     if (request.url().endsWith('/api/v1/auth/mfa/passkey/verify')) passkeyVerifyRequests += 1
   })
@@ -73,7 +85,7 @@ test('cancelled passkey keeps TOTP and recovery alternatives available', async (
       } }
     })
   })
-  await unauthenticated(page)
+  await unauthenticated(page, session)
   await page.route('**/api/v1/auth/login', route => route.fulfill({ json: {
     status: 'mfa_required',
     challenge_token: 'opaque-challenge-token-value-1234567890',
@@ -86,9 +98,10 @@ test('cancelled passkey keeps TOTP and recovery alternatives available', async (
     ceremony_token: 'mfa-ceremony-token-value-1234567890',
     options: { challenge: 'AQID', rpId: 'localhost', allowCredentials: [] }
   } }))
-  await page.route('**/api/v1/auth/mfa/verify', route => route.fulfill({ json: {
-    status: 'authenticated', user, csrf_token: 'csrf-after-cancel'
-  } }))
+  await page.route('**/api/v1/auth/mfa/verify', route => {
+    session.authenticated = true
+    return route.fulfill({ json: { status: 'authenticated', user, csrf_token: session.csrfToken } })
+  })
 
   await page.goto('/login')
   await page.getByLabel('E-Mail').fill(user.email)
@@ -106,6 +119,7 @@ test('cancelled passkey keeps TOTP and recovery alternatives available', async (
   await expect(page.getByRole('button', { name: 'Wiederherstellungscode verwenden' })).toBeVisible()
   await expect(page.getByText('Sechsstelligen Code aus Ihrer Authenticator-App eingeben')).toBeVisible()
   await expect(page.getByText('Einen gespeicherten Wiederherstellungscode verwenden')).toBeVisible()
+  const challenge = page.locator('[data-mfa-challenge]')
   const methodOptions = page.locator('[data-mfa-method-option]')
   await expect(methodOptions).toHaveCount(2)
   for (const viewport of [
@@ -119,7 +133,18 @@ test('cancelled passkey keeps TOTP and recovery alternatives available', async (
     }))
     expect(boxes[0]!.width).toBeCloseTo(boxes[1]!.width, 0)
     expect(boxes.every(box => box.scrollWidth <= box.clientWidth)).toBe(true)
-    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+    const challengeLayout = await challenge.evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      return {
+        fitsContent: element.scrollWidth <= element.clientWidth,
+        insideViewport: rect.left >= 0 && rect.right <= window.innerWidth,
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth
+      }
+    })
+    if (!challengeLayout.fitsContent || !challengeLayout.insideViewport) {
+      throw new Error(`MFA layout overflow at ${viewport.width}x${viewport.height}: ${JSON.stringify(challengeLayout)}`)
+    }
   }
   expect(passkeyVerifyRequests).toBe(0)
 
