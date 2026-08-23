@@ -28,7 +28,7 @@ export const usePolygonApi = () => {
     },
     async overview(query = '', signal?: AbortSignal) {
       const limit = 1000
-      const suffix = query ? `${query}&limit=${limit}` : `?limit=${limit}`
+      const suffix = query ? `?${query}&limit=${limit}` : `?limit=${limit}`
       const polygons = await request<unknown[]>(`/polygons/overview${suffix}`, { signal })
       return polygons.map(polygon => polygonOverviewSchema.parse(polygon)) as PolygonOverview[]
     },

@@ -98,7 +98,7 @@ async function mockGis(page: Page) {
     } })
   })
   await page.route('**/api/v1/analysis-areas', route => route.fulfill({ json: [] }))
-  await page.route('**/api/v1/analysis-areas/geojson', route => route.fulfill({ json: { type: 'FeatureCollection', features: [] } }))
+  await page.route(/\/api\/v1\/analysis-areas\/geojson(?:\?.*)?$/, route => route.fulfill({ json: { type: 'FeatureCollection', features: [] } }))
 }
 
 function group(page: Page, title: string) {
