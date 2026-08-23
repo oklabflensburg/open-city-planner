@@ -2,7 +2,7 @@
 name = "open-city-map-backend"
 version = "0.1.0"
 description = "FastAPI/PostGIS backend for Open City Map"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = [
   "alembic>=1.16.4",
   "asyncpg>=0.30.0",
@@ -29,7 +29,7 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["setuptools>=80"]
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -49,3 +49,7 @@ target-version = "py312"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.uv]
+required-version = "==0.12.5"
+build-constraint-dependencies = ["setuptools==84.0.0"]
