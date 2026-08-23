@@ -68,7 +68,20 @@ verwenden. Für ein Update:
 2. Tag und Commit im Upstream-Repository verifizieren;
 3. Full SHA im Workflow eintragen;
 4. lesbaren Versionskommentar wie `# v6.1.0` beibehalten;
-5. `python scripts/verify-supply-chain.py` und das vollständige Release Gate ausführen.
+5. die Zuordnung von Versionskommentar und SHA online prüfen;
+6. die lokalen Policy-Tests und das vollständige Release Gate ausführen.
+
+```bash
+python scripts/verify-supply-chain.py --verify-action-refs
+python -m unittest scripts.tests.test_verify_supply_chain
+```
+
+Ohne `--verify-action-refs` arbeitet der Validator rein lokal und erzwingt Full
+SHAs, exakte Versionskommentare und die Ablehnung von Null-SHAs.
+Die optionale Online-Prüfung löst jeden kommentierten Tag über die GitHub API
+auf, folgt dabei auch annotierten Tags und vergleicht den resultierenden Commit
+mit dem Workflow-Pin. Sie ist bewusst kein Netzwerkzugriff in jedem normalen
+Build, sondern ein verpflichtender Review-Schritt für Action-Update-PRs.
 
 Major-Tags wie `@v6` sind nicht zulässig.
 
@@ -90,6 +103,12 @@ gegen eine frische Datenbank und E2E vollständig auszuführen.
 Actions, Python/uv und npm/pnpm. Es gibt keine direkten Dependency-Commits auf
 `main`; die Pull Requests durchlaufen Backend, Frontend, E2E, Security,
 Supply-Chain und Release Gate.
+
+Dependabot erhält die vollständigen Action-SHA-Pins. Bei jedem GitHub-Actions-PR
+muss im Review zusätzlich geprüft werden, dass Dependabot auch den lesbaren
+Versionskommentar aktualisiert hat. Vor dem Merge ist deshalb
+`python scripts/verify-supply-chain.py --verify-action-refs` auszuführen; ein
+veralteter Kommentar lässt diese Prüfung fehlschlagen.
 
 ## SBOM und Provenance
 
@@ -122,9 +141,11 @@ Rollback bleiben unverändert.
 
 ```bash
 python scripts/verify-supply-chain.py
+python scripts/verify-supply-chain.py --verify-action-refs
 python -m unittest scripts.tests.test_verify_supply_chain
 ```
 
-Die Regressionstests beweisen insbesondere, dass Action-Major-Tags,
+Die Regressionstests beweisen insbesondere, dass Action-Major-Tags, Null-SHAs,
+fehlende Versionskommentare, Tag/SHA-Abweichungen,
 undigestierte Images, Ansible-Versionsbereiche und ein veraltetes uv-Lockfile
 abgelehnt werden.
