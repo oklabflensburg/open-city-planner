@@ -137,11 +137,13 @@ PATH="/tmp/ocm-gitleaks:${PATH}" scripts/security/test_gitleaks_gate.sh
 PATH="/tmp/ocm-gitleaks:${PATH}" gitleaks git --redact=100 --config .gitleaks.toml .
 ```
 
-Die verwundbare Dependency-Fixture unter
-`tests/security/fixtures/vulnerable-requirements.txt` wird niemals installiert;
-sie beweist ausschließlich, dass `pip-audit` non-zero liefert. Der
-SARIF-Policy-Test beweist dasselbe für einen künstlichen High-CodeQL-Fund, der
-Gitleaks-Test für ein zusammengesetztes synthetisches Secret.
+Die negative Backend-Dependency-Fixture wird von
+`scripts/security/test_backend_audit_gate.py` ausschließlich in einem
+temporären Verzeichnis erzeugt und niemals installiert oder als
+Produktionsmanifest eingecheckt. Sie beweist, dass `pip-audit` non-zero
+liefert. Der SARIF-Policy-Test beweist dasselbe für einen künstlichen
+High-CodeQL-Fund, der Gitleaks-Test für ein zusammengesetztes synthetisches
+Secret.
 
 Dependabot aktualisiert GitHub Actions, `backend/uv.lock` und
 `frontend/pnpm-lock.yaml` ausschließlich per Pull Request. Jeder dieser Pull

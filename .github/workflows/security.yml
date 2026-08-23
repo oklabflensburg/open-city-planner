@@ -83,14 +83,7 @@ jobs:
       - name: Audit frozen production dependencies
         run: backend/.venv/bin/python scripts/security/audit_backend.py
       - name: Prove the audit blocks a vulnerable dependency fixture
-        working-directory: backend
-        run: |
-          if uv run --frozen --extra security pip-audit \
-            --requirement ../tests/security/fixtures/vulnerable-requirements.txt \
-            --no-deps --disable-pip --progress-spinner off; then
-            echo "pip-audit accepted the intentionally vulnerable fixture." >&2
-            exit 1
-          fi
+        run: backend/.venv/bin/python scripts/security/test_backend_audit_gate.py
 
   frontend-audit:
     name: Frontend production dependency audit
