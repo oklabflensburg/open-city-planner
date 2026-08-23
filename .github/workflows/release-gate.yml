@@ -10,6 +10,8 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  id-token: write
+  attestations: write
 
 concurrency:
   group: release-gate-${{ github.workflow }}-${{ github.ref }}
@@ -37,9 +39,13 @@ jobs:
       base_ref: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
       head_ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+  supply-chain:
+    name: Supply-chain gate
+    uses: ./.github/workflows/supply-chain.yml
+
   gate:
     name: Release gate
-    needs: [backend, frontend, e2e, security]
+    needs: [backend, frontend, e2e, security, supply-chain]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: ${{ always() }}
@@ -51,10 +57,11 @@ jobs:
           FRONTEND_RESULT: ${{ needs.frontend.result }}
           E2E_RESULT: ${{ needs.e2e.result }}
           SECURITY_RESULT: ${{ needs.security.result }}
+          SUPPLY_CHAIN_RESULT: ${{ needs.supply-chain.result }}
         run: |
           set -euo pipefail
 
-          for name in BACKEND_RESULT FRONTEND_RESULT E2E_RESULT SECURITY_RESULT; do
+          for name in BACKEND_RESULT FRONTEND_RESULT E2E_RESULT SECURITY_RESULT SUPPLY_CHAIN_RESULT; do
             value="${!name}"
             echo "${name}=${value}"
             if [[ "${value}" != "success" ]]; then

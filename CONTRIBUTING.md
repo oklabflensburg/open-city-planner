@@ -15,8 +15,8 @@ Sicherheitslücken gehören nicht in ein öffentliches Issue. Melde sie vertraul
 
 Benötigt werden:
 
-- Node.js mit `pnpm` 11
-- Python 3.12 oder neuer
+- Node.js und Python in den Versionen aus `.node-version` und `.python-version`
+- pnpm gemäß `frontend/package.json` und uv 0.12.5
 - PostgreSQL mit PostGIS
 - optional Redis für den gemeinsam genutzten Read-Cache
 
@@ -25,7 +25,7 @@ Frontend einrichten:
 ```bash
 cd frontend
 cp .env.example .env
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
@@ -34,11 +34,10 @@ Backend einrichten:
 ```bash
 cd backend
 cp .env.example .env
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev]"
-alembic upgrade head
-uvicorn app.main:app --reload
+python -m pip install 'uv==0.12.5'
+uv sync --frozen --extra dev
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
 ```
 
 Die lokalen Standardadressen stehen im [README](README.md); alle Variablen sind in den jeweiligen `.env.example`-Dateien beschrieben. Echte Secrets gehören ausschließlich in die nicht versionierte `.env`-Datei. Maintainer finden den produktiven Ablauf in [docs/deployment.md](docs/deployment.md).

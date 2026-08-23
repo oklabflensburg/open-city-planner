@@ -10,7 +10,7 @@ Reproduktion stehen in
 
 ```bash
 cp .env.example .env
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 pnpm test
 pnpm typecheck

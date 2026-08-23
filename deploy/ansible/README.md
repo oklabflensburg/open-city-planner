@@ -32,7 +32,7 @@ Auf Debian/Ubuntu beispielsweise:
 
 ```bash
 python3 -m venv ~/.venvs/stadtplaner-ansible
-~/.venvs/stadtplaner-ansible/bin/pip install 'ansible-core>=2.17,<2.20'
+~/.venvs/stadtplaner-ansible/bin/pip install --require-hashes --requirement requirements.txt
 cd /pfad/zum/open-city-planner/deploy/ansible
 ```
 
@@ -72,13 +72,22 @@ stadtplaner_expected_dns_addresses:
 
 ## Einmalige Voraussetzungen
 
-`bootstrap.yml` richtet die vorhandene, über `/usr/share/keyrings/nodesource.gpg` verifizierte NodeSource-Paketquelle auf Node 22 aus, aktualisiert Node innerhalb dieser Hauptversion und installiert die für das Projekt gepinnten Corepack-/pnpm-Versionen. Außerdem prüft es den Shared Host und legt Stadtplaner-Verzeichnisse an. Die globale Nginx-/PostgreSQL-/Redis-Konfiguration bleibt unverändert.
+`bootstrap.yml` richtet die vorhandene, über `/usr/share/keyrings/nodesource.gpg`
+verifizierte NodeSource-Paketquelle ein und installiert die festgelegten Node-,
+Corepack- und pnpm-Versionen. Außerdem installiert es uv 0.12.5 isoliert und damit
+die verwaltete Python-Version 3.12.14. Die globale
+Nginx-/PostgreSQL-/Redis-Konfiguration bleibt unverändert.
 
 ```bash
 ansible-playbook playbooks/bootstrap.yml
 ```
 
-Erwartet werden unter anderem Python 3.12+, der vorhandene NodeSource-Schlüsselbund, Nginx, Certbot, PostgreSQL-Client, Redis-CLI, `osm2pgsql` und `osmium`. Ansible verwaltet Node.js 22.22.2 oder neuer, Corepack 0.35.0 und pnpm 11.22.0. Mit `stadtplaner_manage_node_runtime=false` kann die globale Runtime-Verwaltung bewusst abgeschaltet werden; die Versionsprüfung bleibt aktiv.
+Erwartet werden unter anderem ein Bootstrap-Python 3.12+, der vorhandene
+NodeSource-Schlüsselbund, Nginx, Certbot, PostgreSQL-Client, Redis-CLI,
+`osm2pgsql` und `osmium`. Ansible verwaltet exakt Python 3.12.14, uv 0.12.5,
+Node.js 22.23.2, Corepack 0.35.0 und pnpm 11.22.0. Mit
+`stadtplaner_manage_node_runtime=false` kann die globale Node-Verwaltung bewusst
+abgeschaltet werden; die exakte Versionsprüfung bleibt aktiv.
 
 ## Secrets und Environment
 
@@ -196,10 +205,10 @@ veralteter `stadtplaner_deploy_ref` im Vault den ausgewählten Commit nicht
 
 Der Ablauf ist:
 
-1. NodeSource-22-Paketquelle, Node.js, Corepack und pnpm aktualisieren beziehungsweise prüfen.
+1. die gepinnten Python-, uv-, Node-, Corepack- und pnpm-Toolchains installieren beziehungsweise prüfen;
 2. persistente Env-Dateien prüfen/schreiben;
 3. Git auf exakt den gewünschten Ref aktualisieren, ohne lokale Änderungen zu verwerfen;
-4. Backend-Venv und Python-Abhängigkeiten aktualisieren;
+4. Backend-Venv per `uv sync --frozen` exakt aus `backend/uv.lock` materialisieren;
 5. Frontend-Abhängigkeiten per Lockfile installieren und Nuxt bauen;
 6. optional Tests/Typecheck ausführen;
 7. Backup-Guard und Alembic-Migrationen;

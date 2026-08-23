@@ -231,10 +231,15 @@ stadtplaner_osm_env_content: |
 stadtplaner_manage_node_runtime: true
 stadtplaner_nodesource_keyring: /usr/share/keyrings/nodesource.gpg
 stadtplaner_nodesource_repository_file: /etc/apt/sources.list.d/nodesource.list
-stadtplaner_node_major_version: 22
-stadtplaner_node_minimum_version: 22.22.2
+stadtplaner_node_version: 22.23.2
+stadtplaner_nodesource_package_version: 22.23.2-1nodesource1
 stadtplaner_corepack_version: 0.35.0
 stadtplaner_pnpm_version: 11.22.0
+stadtplaner_python_version: 3.12.14
+stadtplaner_uv_version: 0.12.5
+stadtplaner_toolchains_dir: /opt/stadtplaner/toolchains
+stadtplaner_uv_venv: "{{ stadtplaner_toolchains_dir }}/uv-{{ stadtplaner_uv_version }}"
+stadtplaner_uv_python_dir: "{{ stadtplaner_toolchains_dir }}/python"
 
 # Deployment paths, services and feature switches. These mirror inventory/group_vars/all.yml.
 stadtplaner_repo_url: https://github.com/oklabflensburg/open-city-planner.git

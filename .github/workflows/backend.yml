@@ -25,39 +25,41 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/pyproject.toml
-      - name: Install dependencies
+          python-version-file: .python-version
+      - name: Install pinned uv
+        run: python -m pip install 'uv==0.12.5'
+      - name: Verify and install locked dependencies
         working-directory: backend
-        run: python -m pip install -e ".[dev]"
+        run: |
+          uv lock --check
+          uv sync --frozen --extra dev --no-editable
       - name: Run Ruff
         working-directory: backend
-        run: ruff check app tests
+        run: uv run ruff check app tests
       - name: Import application
         working-directory: backend
-        run: python -c "from app.main import app; assert app.title"
+        run: uv run python -c "from app.main import app; assert app.title"
 
   backend-tests:
     name: Backend tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/pyproject.toml
-      - name: Install dependencies
+          python-version-file: .python-version
+      - name: Install pinned uv
+        run: python -m pip install 'uv==0.12.5'
+      - name: Install locked dependencies
         working-directory: backend
-        run: python -m pip install -e ".[dev]"
+        run: uv sync --frozen --extra dev --no-editable
       - name: Run pytest
         working-directory: backend
-        run: pytest
+        run: uv run pytest
 
   backend-migrations:
     name: Backend migrations
@@ -65,7 +67,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgis/postgis:16-3.5
+        image: postgis/postgis:16-3.5@sha256:19b6ffa248d2f864d29d6c338459f02d63c0d7ce341fa86b3bcba8484a130bff
         env:
           POSTGRES_DB: open_city_map_test
           POSTGRES_PASSWORD: postgres
@@ -78,20 +80,20 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/pyproject.toml
-      - name: Install dependencies
+          python-version-file: .python-version
+      - name: Install pinned uv
+        run: python -m pip install 'uv==0.12.5'
+      - name: Install locked dependencies
         working-directory: backend
-        run: python -m pip install -e ".[dev]"
+        run: uv sync --frozen --extra dev --no-editable
       - name: Verify single migration head
         working-directory: backend
         run: |
-          alembic heads
-          test "$(alembic heads | sed '/^$/d' | wc -l)" -eq 1
+          uv run alembic heads
+          test "$(uv run alembic heads | sed '/^$/d' | wc -l)" -eq 1
       - name: Upgrade fresh database
         working-directory: backend
-        run: alembic upgrade head
+        run: uv run alembic upgrade head

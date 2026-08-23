@@ -1,5 +1,5 @@
 ---
-- name: Validate Python 3.12+
+- name: Validate bootstrap Python 3.12+
   ansible.builtin.command:
     argv: [python3, -c, "import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)"]
   changed_when: false
@@ -22,11 +22,11 @@
           {{ stadtplaner_nodesource_keyring }}. Install and verify the key before
           allowing this application-specific playbook to manage the NodeSource repository.
 
-    - name: Configure the NodeSource Node.js 22 repository
+    - name: Configure the NodeSource Node.js repository
       ansible.builtin.copy:
         content: >-
           deb [arch={{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_architecture, ansible_architecture) }} signed-by={{ stadtplaner_nodesource_keyring }}]
-          https://deb.nodesource.com/node_{{ stadtplaner_node_major_version }}.x nodistro main
+          https://deb.nodesource.com/node_{{ stadtplaner_node_version.split('.')[0] }}.x nodistro main
         dest: "{{ stadtplaner_nodesource_repository_file }}"
         owner: root
         group: root
@@ -38,10 +38,11 @@
         update_cache: true
       when: stadtplaner_nodesource_repository.changed
 
-    - name: Install the current Node.js 22 package
+    - name: Install the pinned Node.js package
       ansible.builtin.apt:
-        name: nodejs
-        state: latest
+        name: "nodejs={{ stadtplaner_nodesource_package_version }}"
+        state: present
+        allow_downgrade: true
         update_cache: true
         cache_valid_time: 3600
 
@@ -73,18 +74,16 @@
 
 - name: Read Node version
   ansible.builtin.command: node --version
-  register: stadtplaner_node_version
+  register: stadtplaner_node_version_result
   changed_when: false
 
-- name: Require the supported Node.js 22 patch level
+- name: Require the pinned Node.js release
   ansible.builtin.assert:
     that:
-      - stadtplaner_node_version.stdout is match('^v' ~ stadtplaner_node_major_version ~ '\\.')
-      - stadtplaner_node_version.stdout[1:] is version(stadtplaner_node_minimum_version, '>=')
+      - stadtplaner_node_version_result.stdout == 'v' ~ stadtplaner_node_version
     fail_msg: >-
-      Node.js {{ stadtplaner_node_major_version }} at version
-      {{ stadtplaner_node_minimum_version }} or newer is required; found
-      {{ stadtplaner_node_version.stdout }}.
+      Node.js {{ stadtplaner_node_version }} is required; found
+      {{ stadtplaner_node_version_result.stdout }}.
 
 - name: Read final Corepack version
   ansible.builtin.command: corepack --version
@@ -109,3 +108,77 @@
     fail_msg: >-
       pnpm {{ stadtplaner_pnpm_version }} is required; found
       {{ stadtplaner_pnpm_version_result.stdout | default('not installed') }}.
+
+- name: Ensure the pinned toolchain directory exists
+  ansible.builtin.file:
+    path: "{{ stadtplaner_toolchains_dir }}"
+    state: directory
+    owner: "{{ stadtplaner_service_user }}"
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0755'
+
+- name: Create the isolated uv tool environment
+  ansible.builtin.command:
+    argv: [python3, -m, venv, "{{ stadtplaner_uv_venv }}"]
+    creates: "{{ stadtplaner_uv_venv }}/bin/pip"
+  become_user: "{{ stadtplaner_service_user }}"
+
+- name: Read installed uv version
+  ansible.builtin.command: "{{ stadtplaner_uv_venv }}/bin/uv --version"
+  register: stadtplaner_installed_uv
+  become_user: "{{ stadtplaner_service_user }}"
+  changed_when: false
+  failed_when: false
+
+- name: Install the pinned uv release
+  ansible.builtin.command:
+    argv:
+      - "{{ stadtplaner_uv_venv }}/bin/python"
+      - -m
+      - pip
+      - install
+      - "uv=={{ stadtplaner_uv_version }}"
+  become_user: "{{ stadtplaner_service_user }}"
+  when: stadtplaner_installed_uv.stdout | trim != 'uv ' ~ stadtplaner_uv_version
+
+- name: Find the pinned uv-managed Python release
+  ansible.builtin.command:
+    argv:
+      - "{{ stadtplaner_uv_venv }}/bin/uv"
+      - python
+      - find
+      - --managed-python
+      - --no-python-downloads
+      - "{{ stadtplaner_python_version }}"
+  environment:
+    UV_PYTHON_INSTALL_DIR: "{{ stadtplaner_uv_python_dir }}"
+  register: stadtplaner_managed_python
+  become_user: "{{ stadtplaner_service_user }}"
+  changed_when: false
+  failed_when: false
+
+- name: Install the pinned uv-managed Python release
+  ansible.builtin.command:
+    argv:
+      - "{{ stadtplaner_uv_venv }}/bin/uv"
+      - python
+      - install
+      - --install-dir
+      - "{{ stadtplaner_uv_python_dir }}"
+      - "{{ stadtplaner_python_version }}"
+  become_user: "{{ stadtplaner_service_user }}"
+  when: stadtplaner_managed_python.rc != 0
+
+- name: Require the pinned uv-managed Python release
+  ansible.builtin.command:
+    argv:
+      - "{{ stadtplaner_uv_venv }}/bin/uv"
+      - python
+      - find
+      - --managed-python
+      - --no-python-downloads
+      - "{{ stadtplaner_python_version }}"
+  environment:
+    UV_PYTHON_INSTALL_DIR: "{{ stadtplaner_uv_python_dir }}"
+  become_user: "{{ stadtplaner_service_user }}"
+  changed_when: false

@@ -6,11 +6,10 @@ Das FastAPI-Backend stellt öffentliche GIS-, Polygon-, OSM-, Analytics- und Ana
 
 ```bash
 cp .env.example .env
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-alembic upgrade head
-uvicorn app.main:app --reload
+python3 -m pip install 'uv==0.12.5'
+uv sync --frozen --extra dev
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
 ```
 
 Mindestens `DATABASE_URL`, eine sichere `JWT_SECRET_KEY` und die erlaubten `CORS_ORIGINS` konfigurieren. Redis ist in der lokalen Entwicklung bei `REDIS_REQUIRED=false` optional. Die vollständige Variablenliste steht in `.env.example`; produktive Installation, persistente Secrets und Service-Konfiguration sind zentral in [Deployment und Betrieb](../docs/deployment.md) sowie der [Produktions-Sicherheitscheckliste](../docs/security/production-checklist.md) dokumentiert.
@@ -42,10 +41,10 @@ Der strukturierte Import aus dem öffentlichen Flensburger Superset-Zahlenspiege
 - OpenAPI: `/openapi.json`
 
 ```bash
-.venv/bin/python -m pytest
-.venv/bin/python -m ruff check app tests
+uv run pytest
+uv run ruff check app tests
 ```
 
-Migrationen werden mit `alembic upgrade head` eingespielt. Cache-Versionen werden nach Area-Sync, Polygonänderungen, Kennzahlenpflege und OSM-Import durch die Services erhöht.
+Migrationen werden mit `uv run alembic upgrade head` eingespielt. Cache-Versionen werden nach Area-Sync, Polygonänderungen, Kennzahlenpflege und OSM-Import durch die Services erhöht.
 
 Produktionsdeployment, Worker und Timer gehören nicht in diesen Entwicklungs-Quickstart. Dafür gilt [docs/deployment.md](../docs/deployment.md).

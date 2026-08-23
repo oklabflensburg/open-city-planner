@@ -32,18 +32,18 @@ scripts/osm/      initialer OSM-Import und Replikationsupdate
 
 ## Lokales Schnellsetup
 
-Vorausgesetzt werden Python 3.12 oder neuer, Node.js mit pnpm 11 sowie PostgreSQL mit PostGIS.
+Die exakten Entwicklungsruntimes stehen in `.python-version`, `.node-version` und
+`frontend/package.json`. Zusätzlich werden uv 0.12.5 und PostgreSQL mit PostGIS benötigt.
 
 Backend:
 
 ```bash
 cd backend
 cp .env.example .env
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev]"
-alembic upgrade head
-uvicorn app.main:app --reload
+python3 -m pip install 'uv==0.12.5'
+uv sync --frozen --extra dev
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
 ```
 
 Frontend in einem zweiten Terminal:
@@ -51,7 +51,7 @@ Frontend in einem zweiten Terminal:
 ```bash
 cd frontend
 cp .env.example .env
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
@@ -87,6 +87,7 @@ Die vollständigen CI-Jobs und stabilen Check-Namen stehen in [docs/ci.md](docs/
 - Das öffentliche Benutzerhandbuch ist in der Anwendung unter `/dokumentation` erreichbar und wird aus `frontend/app/config/documentation.ts` erzeugt.
 - [Technische Dokumentation](docs/README.md)
 - [Deployment und Betrieb](docs/deployment.md)
+- [Reproduzierbare Supply Chain](docs/supply-chain.md)
 - [Ansible-Deployment](deploy/ansible/README.md)
 - [Nginx-Hardening und Rate Limits](deploy/nginx/README.md)
 - [OpenStreetMap-Daten](docs/osm-data.md)
