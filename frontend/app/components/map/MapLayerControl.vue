@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { Layers } from 'lucide-vue-next'
+import { Layers } from '@lucide/vue'
 import { mapThemes } from '~/utils/mapThemes'
 
 const open = ref(false)

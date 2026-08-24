@@ -106,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { Database, ExternalLink, Handshake, SearchX, Shapes } from 'lucide-vue-next'
+import { Database, ExternalLink, Handshake, SearchX, Shapes } from '@lucide/vue'
 import {
   filterOKLabProjects,
   OK_LAB_PROJECT_LICENSE_URL,

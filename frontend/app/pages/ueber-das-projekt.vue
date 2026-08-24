@@ -92,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowRight, BarChart3, Database, Map, Shapes } from 'lucide-vue-next'
+import { ArrowRight, BarChart3, Database, Map, Shapes } from '@lucide/vue'
 import { projectConfig } from '~/config/project'
 import { buildAbsoluteUrl, buildWebPageStructuredData } from '~/utils/seo'
 

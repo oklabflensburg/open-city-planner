@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { LoaderCircle, X } from 'lucide-vue-next'
+import { LoaderCircle, X } from '@lucide/vue'
 import { osmCategoryLabels } from '~/utils/osmCategories'
 import { getIndustryLabel } from '~/utils/industries'
 import { osmObjectTags, safeOsmWebsite } from '~/utils/osm'

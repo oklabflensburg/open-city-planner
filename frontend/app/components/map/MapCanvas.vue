@@ -36,7 +36,7 @@
 <script setup lang="ts">
 import type { FeatureCollection, Geometry } from 'geojson'
 import type { FillLayerSpecification, GeoJSONSource, Map, MapMouseEvent } from 'maplibre-gl'
-import { LoaderCircle, RefreshCw } from 'lucide-vue-next'
+import { LoaderCircle, RefreshCw } from '@lucide/vue'
 import type { OsmViewportResult } from '~/types/osm'
 import { getIndustryColor, industryColorExpression } from '~/utils/industries'
 import { thematicColor, thematicColorExpression } from '~/utils/mapThemes'
@@ -67,6 +67,8 @@ const mapError = ref('')
 const initialCenter: [number, number] = [Number(config.public.mapCenterLng), Number(config.public.mapCenterLat)]
 const initialZoom = Number(config.public.mapZoom)
 let disposed = false
+let layersReady = false
+let initialMapLoadComplete = false
 let osmViewportTimer: ReturnType<typeof setTimeout> | undefined
 let forceNextOsmRefresh = false
 let hoverFrame: number | undefined
@@ -98,13 +100,15 @@ onMounted(async () => {
   if (!mapEl.value) return
   mapStore.mapLoaded = false
   try {
-    const [maplibregl, mapStyle] = await Promise.all([
+    const [maplibregl, mapStyle, , worker] = await Promise.all([
       import('maplibre-gl'),
       loadMapStyle(String(config.public.mapStyleUrl || '')),
-      import('maplibre-gl/dist/maplibre-gl.css')
+      import('maplibre-gl/dist/maplibre-gl.css'),
+      import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url')
     ])
     const container = mapEl.value
     if (disposed || !container?.isConnected) return
+    maplibregl.setWorkerUrl(worker.default)
     const instance = new maplibregl.Map({
       container,
       style: mapStyle,
@@ -125,6 +129,7 @@ onMounted(async () => {
     instance.on('load', async () => {
       await analysisAreasStore.load()
       ensureMapInfrastructure(instance)
+      layersReady = true
       mapStore.mapLoaded = true
       mapError.value = ''
       applyRequestedPoiFilter()
@@ -138,14 +143,19 @@ onMounted(async () => {
       }
       await refreshOsmViewportForCurrentMap({ force: true })
       mapStore.markGisDataFresh()
+      initialMapLoadComplete = true
       if (socialPreview.value && requested && polygonStore.selectedPolygonId === requested) {
         await waitForGisPreviewReady(instance)
         gisPreviewReady.value = true
       }
     })
     instance.on('style.load', () => {
-      if (!mapStore.mapLoaded || disposed) return
+      if (disposed) return
       ensureMapInfrastructure(instance)
+      layersReady = true
+      mapStore.mapLoaded = true
+      mapError.value = ''
+      if (!initialMapLoadComplete) return
       updateSource(visibleFeatureCollection.value)
       void refreshOsmViewportForCurrentMap({ force: true })
     })
@@ -173,7 +183,7 @@ onMounted(async () => {
     instance.on('error', (event) => {
       if (disposed) return
       console.warn('MapLibre resource error', event.error)
-      if (!mapStore.mapLoaded) mapError.value = 'Die Kartenbasis konnte nicht vollständig geladen werden.'
+      if (!layersReady) mapError.value = 'Die Kartenbasis konnte nicht vollständig geladen werden.'
     })
     instance.on('webglcontextlost', () => {
       if (!disposed) mapError.value = 'Der Grafik-Kontext wurde unterbrochen. Die Kartenanzeige wird wiederhergestellt.'
@@ -308,9 +318,9 @@ function ensureOsmInfrastructure(instance: Map) {
 }
 
 function scheduleOsmViewportRefresh(delay = 220, force = false) {
-  forceNextOsmRefresh ||= force
   clearTimeout(osmViewportTimer)
-  if (!map.value || disposed) return
+  if (!initialMapLoadComplete || !map.value || disposed) return
+  forceNextOsmRefresh ||= force
   osmViewportTimer = setTimeout(() => {
     const forceRefresh = forceNextOsmRefresh
     forceNextOsmRefresh = false
@@ -514,7 +524,9 @@ function geometryCoordinateTree(geometry: Geometry | null): unknown {
 }
 
 function ensureAnalysisAreaInfrastructure(instance: Map) {
-  if (!instance.getSource('analysis-areas')) instance.addSource('analysis-areas', { type: 'geojson', data: analysisAreasStore.featureCollection })
+  const source = instance.getSource('analysis-areas') as GeoJSONSource | undefined
+  if (source) source.setData(analysisAreasStore.featureCollection)
+  else instance.addSource('analysis-areas', { type: 'geojson', data: analysisAreasStore.featureCollection })
   const layers = [
     { id: 'analysis-areas-municipality', type: 'MUNICIPALITY', minzoom: 7, maxzoom: 10.5, color: '#2563eb', opacity: 0.035, width: 2.2 },
     { id: 'analysis-areas-district', type: 'DISTRICT', minzoom: 9.5, maxzoom: 13.5, color: '#15803d', opacity: 0.045, width: 1.5 },

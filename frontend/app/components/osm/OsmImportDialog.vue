@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { LoaderCircle } from 'lucide-vue-next'
+import { LoaderCircle } from '@lucide/vue'
 import { ApiError } from '~/composables/useApi'
 import type { OsmFeatureDetail, OsmViewportFeature } from '~/types/osm'
 import { osmObjectTags } from '~/utils/osm'

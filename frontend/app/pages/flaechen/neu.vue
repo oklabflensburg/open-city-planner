@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { LoaderCircle, Plus } from 'lucide-vue-next'
+import { LoaderCircle, Plus } from '@lucide/vue'
 import type { PolygonGeometry } from '~/types/geo'
 import type { OsmFeatureDetail } from '~/types/osm'
 import type { IndustryKey } from '~/utils/industries'

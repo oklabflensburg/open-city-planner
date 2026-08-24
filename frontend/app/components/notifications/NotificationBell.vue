@@ -25,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { Bell, X } from 'lucide-vue-next'
+import { Bell, X } from '@lucide/vue'
 
 const props = defineProps<{ mode: 'desktop' | 'mobile' }>()
 const store = useNotificationsStore()

@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowRight, X } from 'lucide-vue-next'
+import { ArrowRight, X } from '@lucide/vue'
 import { getIndustryLabel } from '~/utils/industries'
 
 const store = usePolygonStore()

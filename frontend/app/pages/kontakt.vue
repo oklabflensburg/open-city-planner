@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { CircleCheck, LoaderCircle, Send } from 'lucide-vue-next'
+import { CircleCheck, LoaderCircle, Send } from '@lucide/vue'
 import { buildWebPageStructuredData } from '~/utils/seo'
 import { contactFieldErrors, contactFormSchema, type ContactFormFields } from '~/utils/contact'
 

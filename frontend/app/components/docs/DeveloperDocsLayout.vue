@@ -64,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, ArrowRight, Menu } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, Menu } from '@lucide/vue'
 import type { DocumentationPage } from '~/types/documentation'
 import { developerDocumentationPages } from '~/config/developerDocumentation'
 import { projectConfig } from '~/config/project'

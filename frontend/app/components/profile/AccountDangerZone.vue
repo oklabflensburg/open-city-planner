@@ -88,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { LoaderCircle, Trash2, UserRoundX } from 'lucide-vue-next'
+import { LoaderCircle, Trash2, UserRoundX } from '@lucide/vue'
 import { ApiError } from '~/composables/useApi'
 
 const authStore = useAuthStore()

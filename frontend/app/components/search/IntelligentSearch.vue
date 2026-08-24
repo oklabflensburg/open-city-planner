@@ -175,7 +175,7 @@
 </template>
 
 <script setup lang="ts">
-import { CheckCircle2, ChevronRight, LoaderCircle, Search, X } from 'lucide-vue-next'
+import { CheckCircle2, ChevronRight, LoaderCircle, Search, X } from '@lucide/vue'
 
 const props = withDefaults(defineProps<{ compact?: boolean, embedded?: boolean }>(), {
   compact: false,

@@ -87,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import { Info, ListFilter } from 'lucide-vue-next'
+import { Info, ListFilter } from '@lucide/vue'
 import { mapThemes } from '~/utils/mapThemes'
 import { getPoiCategoryLabel, withoutPoiQuery } from '~/utils/poiCategories'
 

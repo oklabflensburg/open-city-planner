@@ -129,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronDown, Menu, Plus, X } from 'lucide-vue-next'
+import { ChevronDown, Menu, Plus, X } from '@lucide/vue'
 import { hasVerwaltungRole } from '~/utils/roles'
 
 const route = useRoute()

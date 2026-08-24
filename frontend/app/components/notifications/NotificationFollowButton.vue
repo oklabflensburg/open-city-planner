@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { BellPlus, BellRing } from 'lucide-vue-next'
+import { BellPlus, BellRing } from '@lucide/vue'
 
 const props = withDefaults(defineProps<{
   resourceType: 'POLYGON' | 'AREA'

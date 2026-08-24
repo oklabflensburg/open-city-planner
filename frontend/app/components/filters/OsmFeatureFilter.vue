@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { X } from 'lucide-vue-next'
+import { X } from '@lucide/vue'
 import { osmPoiCategories } from '~/utils/osmCategories'
 import { getPoiCategoryLabel, withoutPoiQuery } from '~/utils/poiCategories'
 

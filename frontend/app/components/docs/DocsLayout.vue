@@ -54,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, ArrowRight, List, Menu } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, List, Menu } from '@lucide/vue'
 import type { DocumentationPage } from '~/types/documentation'
 import { documentationPath, getDocumentationNeighbors } from '~/utils/documentation'
 

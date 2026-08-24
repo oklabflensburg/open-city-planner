@@ -179,7 +179,7 @@
 </template>
 
 <script setup lang="ts">
-import { Ban, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, ExternalLink, Eye, LoaderCircle, RefreshCw, RotateCcw, Send } from 'lucide-vue-next'
+import { Ban, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, ExternalLink, Eye, LoaderCircle, RefreshCw, RotateCcw, Send } from '@lucide/vue'
 import type { SocialPublicationAction, SocialPublicationItem, SocialPublicationPreview, SocialPublicationStatus, SocialPublishingSettings, SocialPublishingSettingsPatch } from '~/types/admin'
 import { buildApiUrl } from '~/utils/apiUrl'
 

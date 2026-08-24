@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { Info } from 'lucide-vue-next'
+import { Info } from '@lucide/vue'
 
 const sizes = ['S', 'M', 'L', 'XL']
 const sizeKeys = ['s', 'm', 'l', 'xl'] as const

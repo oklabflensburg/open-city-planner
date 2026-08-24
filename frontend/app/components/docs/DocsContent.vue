@@ -51,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowRight, ExternalLink } from 'lucide-vue-next'
+import { ArrowRight, ExternalLink } from '@lucide/vue'
 import type { DocumentationPage } from '~/types/documentation'
 defineProps<{ page: DocumentationPage }>()
 

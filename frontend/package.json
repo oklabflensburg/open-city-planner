@@ -15,34 +15,34 @@
     "map-style:build": "node scripts/build-map-style.mjs"
   },
   "dependencies": {
-    "@pinia/nuxt": "^0.11.2",
+    "@pinia/nuxt": "^1.0.2",
     "@tailwindcss/vite": "^4.1.12",
     "@turf/area": "^7.2.0",
     "@turf/centroid": "^7.2.0",
     "@turf/length": "^7.2.0",
     "chart.js": "^4.5.1",
-    "lucide-vue-next": "^0.468.0",
-    "maplibre-gl": "^5.6.2",
+    "@lucide/vue": "^1.33.0",
+    "maplibre-gl": "^6.4.1",
     "nuxt": "^4.0.0",
-    "pinia": "^3.0.3",
+    "pinia": "^4.0.3",
     "qrcode": "^1.5.4",
     "terra-draw": "^1.32.3",
     "terra-draw-maplibre-gl-adapter": "^1.4.1",
     "vue": "^3.5.18",
     "vue-chartjs": "^5.3.4",
-    "zod": "^3.25.76"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@nuxt/test-utils": "^3.19.2",
+    "@nuxt/test-utils": "^4.1.0",
     "@playwright/test": "^1.62.1",
     "@types/geojson": "^7946.0.16",
-    "@types/node": "^24.3.0",
+    "@types/node": "^26.2.0",
     "@types/qrcode": "^1.5.6",
     "@vue/test-utils": "^2.4.6",
-    "typescript": "5.9.3",
-    "vite": "^7.3.6",
-    "vitest": "^3.2.4",
-    "vue-tsc": "^2.2.12"
+    "typescript": "6.0.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11",
+    "vue-tsc": "^3.3.11"
   },
   "packageManager": "pnpm@11.22.0+sha512.1ff870c4c6133dfd88fb2afc46dd13d47f09c9794b438c6fdb47ca98caf3bc16381ee0be93a091b8e3824cf01f889f46d7d9e20910fb0be1ab0fb5baa80dd621"
 }

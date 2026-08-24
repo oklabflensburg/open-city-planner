@@ -72,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { X } from 'lucide-vue-next'
+import { X } from '@lucide/vue'
 import { resetBottomSheetScroll, shouldResetBottomSheetScroll, type BottomSheetContentKey } from '~/utils/bottomSheetScroll'
 
 type SheetSnap = 'medium' | 'expanded'

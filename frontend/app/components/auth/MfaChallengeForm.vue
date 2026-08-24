@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, ChevronRight, KeyRound, LifeBuoy, ShieldCheck } from 'lucide-vue-next'
+import { ArrowLeft, ChevronRight, KeyRound, LifeBuoy, ShieldCheck } from '@lucide/vue'
 import { ApiError } from '~/composables/useApi'
 import type { MfaMethod } from '~/types/auth'
 import { formatRecoveryCode, normalizeRecoveryCode, preferredAvailableMethod } from '~/utils/mfa'

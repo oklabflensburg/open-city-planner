@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { AlertTriangle, BellOff, Database, MapPin, Settings, Share2, ShieldCheck } from 'lucide-vue-next'
+import { AlertTriangle, BellOff, Database, MapPin, Settings, Share2, ShieldCheck } from '@lucide/vue'
 import type { Component } from 'vue'
 import type { AppNotification, NotificationCategory } from '~/types/notification'
 import { formatNotificationTime, safeNotificationTarget } from '~/utils/notifications'

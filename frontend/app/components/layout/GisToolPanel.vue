@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { X } from 'lucide-vue-next'
+import { X } from '@lucide/vue'
 
 const props = defineProps<{ title: string, closeLabel: string, contentKey: string }>()
 const emit = defineEmits<{ close: [] }>()
