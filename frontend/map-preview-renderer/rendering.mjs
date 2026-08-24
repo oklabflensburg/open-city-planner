@@ -52,7 +52,16 @@ export function attributionFromStyle(style) {
   const values = Object.values(style.sources || {})
     .map(source => source?.attribution)
     .filter(Boolean)
-    .map(value => String(value).replace(/[<>]/g, '').replace(/\s+/g, ' ').trim())
+    .map((value) => {
+      let text = ''
+      let insideTag = false
+      for (const character of String(value)) {
+        if (character === '<') insideTag = true
+        else if (character === '>') insideTag = false
+        else if (!insideTag) text += character
+      }
+      return text.replace(/\s+/g, ' ').trim()
+    })
   return [...new Set(values)].join(' · ') || '© OpenStreetMap contributors'
 }
 
