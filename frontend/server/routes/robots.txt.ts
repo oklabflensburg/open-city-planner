@@ -10,7 +10,7 @@ export default defineEventHandler((event) => {
     'Disallow: /registrieren',
     'Disallow: /profil',
     'Disallow: /meine-flaechen',
-    'Disallow: /flaechen/neu',
+    'Disallow: /flaechen/neu/',
     'Disallow: /passwort-',
     'Disallow: /email-bestaetigen',
     'Disallow: /email-abmelden',
