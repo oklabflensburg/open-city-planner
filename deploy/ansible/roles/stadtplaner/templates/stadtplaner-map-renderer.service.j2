@@ -1,0 +1,48 @@
+[Unit]
+Description=Stadtplaner MapLibre Native preview renderer
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists={{ stadtplaner_current_path }}/frontend/map-preview-renderer/server.mjs
+
+[Service]
+Type=simple
+User={{ stadtplaner_map_renderer_service_user }}
+Group={{ stadtplaner_map_renderer_service_group }}
+WorkingDirectory={{ stadtplaner_current_path }}/frontend
+Environment=NODE_ENV=production
+Environment=LIBGL_ALWAYS_SOFTWARE=1
+Environment=GALLIUM_DRIVER=llvmpipe
+Environment=MAP_PREVIEW_HOST={{ stadtplaner_map_renderer_bind_address }}
+Environment=MAP_PREVIEW_PORT={{ stadtplaner_map_renderer_port }}
+Environment=MAP_PREVIEW_STYLE_PATH={{ stadtplaner_current_path }}/frontend/public/map-styles/stadtplaner-light.json
+Environment=MAP_PREVIEW_MAX_CONCURRENT={{ stadtplaner_map_renderer_max_concurrency }}
+Environment=STADTPLANER_RELEASE_ROOT={{ stadtplaner_current_path }}
+ExecStart=/usr/bin/xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp" /usr/bin/node {{ stadtplaner_current_path }}/frontend/map-preview-renderer/server.mjs
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=45
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadOnlyPaths={{ stadtplaner_current_path }}/frontend/map-preview-renderer {{ stadtplaner_current_path }}/frontend/public/map-styles/stadtplaner-light.json {{ stadtplaner_current_path }}/frontend/app/config/industries.json
+MemoryHigh={{ stadtplaner_map_renderer_memory_high }}
+MemoryMax={{ stadtplaner_map_renderer_memory_max }}
+CPUQuota={{ stadtplaner_map_renderer_cpu_quota }}
+TasksMax={{ stadtplaner_map_renderer_tasks_max }}
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

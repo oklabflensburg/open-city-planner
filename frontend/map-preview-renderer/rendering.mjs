@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import sharp from 'sharp'
@@ -8,6 +9,7 @@ const require = createRequire(import.meta.url)
 const TILE_SIZE = 512
 const FALLBACK_COLOR = '#789098'
 const AREA_COLOR = '#086b78'
+const VERSATILES_SOURCE = 'versatiles-shortbread'
 
 export function cameraForBounds(bbox, width, height) {
   const [west, south, east, north] = bbox.map(Number)
@@ -46,7 +48,7 @@ export function styleWithHighlight(style, { geometry, category, featureKind }) {
   return result
 }
 
-function attributionFromStyle(style) {
+export function attributionFromStyle(style) {
   const values = Object.values(style.sources || {})
     .map(source => source?.attribution)
     .filter(Boolean)
@@ -63,13 +65,23 @@ function attributionOverlay(style, width, height) {
   return Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="${height - 25}" width="${width}" height="25" fill="#fff" fill-opacity="0.9"/><text x="${width - 8}" y="${height - 8}" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#263238">${text}</text></svg>`)
 }
 
-function allowedResource(url) {
+export function allowedResource(url) {
   try {
     const parsed = new URL(url)
     return parsed.protocol === 'https:' && parsed.hostname === 'tiles.versatiles.org'
       && (parsed.pathname.startsWith('/tiles/osm/') || parsed.pathname.startsWith('/assets/glyphs/'))
       && !parsed.username && !parsed.password
   } catch { return false }
+}
+
+export function validateStyle(style) {
+  if (!style || style.version !== 8 || !Array.isArray(style.layers)) throw new Error('Map preview style must use Style Specification version 8')
+  const source = style.sources?.[VERSATILES_SOURCE]
+  if (source?.type !== 'vector' || !Array.isArray(source.tiles) || source.tiles.length === 0) throw new Error(`Map preview style must define vector source ${VERSATILES_SOURCE}`)
+  if (!source.tiles.every(allowedResource)) throw new Error('Map preview style contains a disallowed tile URL')
+  if (typeof style.glyphs !== 'string' || !allowedResource(style.glyphs)) throw new Error('Map preview style must define the approved VersaTiles glyph URL')
+  if (!source.attribution) throw new Error('Map preview style source must define attribution')
+  return style
 }
 
 function requestResource(request, callback) {
@@ -91,9 +103,11 @@ function requestResource(request, callback) {
 }
 
 export async function createNativeRenderer(stylePath) {
-  const baseStyle = JSON.parse(await readFile(path.resolve(stylePath), 'utf8'))
+  const styleBytes = await readFile(path.resolve(stylePath))
+  const baseStyle = validateStyle(JSON.parse(styleBytes.toString('utf8')))
   const mbgl = require('@maplibre/maplibre-gl-native')
-  return async function render(payload) {
+  const nativePackage = require('@maplibre/maplibre-gl-native/package.json')
+  const render = async function render(payload) {
     const map = new mbgl.Map({ request: requestResource, ratio: 1 })
     try {
       map.load(styleWithHighlight(baseStyle, payload))
@@ -105,5 +119,10 @@ export async function createNativeRenderer(stylePath) {
         .webp({ quality: 84, effort: 4 })
         .toBuffer()
     } finally { map.release() }
+  }
+  return {
+    render,
+    rendererVersion: nativePackage.version,
+    styleHash: createHash('sha256').update(styleBytes).digest('hex')
   }
 }

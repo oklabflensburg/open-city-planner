@@ -104,6 +104,9 @@ class MapPreviewService:
         )
 
     def _style_hash(self) -> str:
+        configured_hash = getattr(self.settings, "map_preview_style_hash", None)
+        if configured_hash:
+            return configured_hash
         try:
             return hashlib.sha256(Path(self.settings.map_preview_style_path).read_bytes()).hexdigest()
         except OSError as exc:
@@ -160,10 +163,21 @@ class MapPreviewService:
                 feature_kind=feature_kind,
             )
             cache_path.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
-            temporary = cache_path.with_suffix(f".{os.getpid()}.tmp")
-            temporary.write_bytes(rendered)
-            temporary.chmod(0o640)
-            temporary.replace(cache_path)
+            temporary = cache_path.with_suffix(f".{os.getpid()}.partial")
+            try:
+                with temporary.open("wb") as output:
+                    output.write(rendered)
+                    output.flush()
+                    os.fsync(output.fileno())
+                temporary.chmod(0o640)
+                temporary.replace(cache_path)
+                directory_fd = os.open(cache_path.parent, os.O_RDONLY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+            finally:
+                temporary.unlink(missing_ok=True)
             return MapPreview(rendered, etag, False)
 
 

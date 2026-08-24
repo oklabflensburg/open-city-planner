@@ -74,6 +74,29 @@ async def test_preview_cache_uses_version_style_and_dimensions(tmp_path) -> None
     assert second.etag == first.etag
     assert changed.etag != first.etag
     assert renderer.calls == 2
+    assert not list((tmp_path / "cache").rglob("*.partial"))
+
+
+@pytest.mark.asyncio
+async def test_preview_cache_uses_deployed_style_hash_without_reading_style(tmp_path) -> None:
+    settings = SimpleNamespace(
+        map_preview_style_path=str(tmp_path / "missing-style.json"),
+        map_preview_style_hash="a" * 64,
+        map_preview_cache_dir=str(tmp_path / "cache"),
+    )
+    renderer = RecordingRenderer()
+    preview = await MapPreviewService(settings, renderer).get(
+        slug="testflaeche",
+        updated_at=datetime(2026, 8, 24, tzinfo=UTC),
+        geometry=GEOMETRY,
+        bbox=(9.43, 54.78, 9.44, 54.79),
+        width=640,
+        height=360,
+        category="food",
+        feature_kind="polygon",
+    )
+    assert preview.etag
+    assert renderer.calls == 1
 
 
 @pytest.mark.asyncio

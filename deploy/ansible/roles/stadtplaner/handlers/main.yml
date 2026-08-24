@@ -15,9 +15,9 @@
     state: restarted
     daemon_reload: true
 
-- name: Restart Stadtplaner map preview
+- name: Restart Stadtplaner map renderer
   ansible.builtin.systemd_service:
-    name: stadtplaner-map-preview.service
+    name: stadtplaner-map-renderer.service
     state: restarted
     daemon_reload: true
 

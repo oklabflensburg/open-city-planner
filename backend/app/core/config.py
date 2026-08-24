@@ -184,6 +184,7 @@ class Settings(BaseSettings):
     map_preview_renderer_timeout_seconds: float = Field(default=20.0, ge=1.0, le=60.0)
     map_preview_cache_dir: str = "data/map-previews"
     map_preview_style_path: str = "../frontend/public/map-styles/stadtplaner-light.json"
+    map_preview_style_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     comparable_cache_ttl: int = 600
     cache_payload_warning_bytes: int = 2_000_000
     database_pool_size: int = 10

@@ -1,0 +1,35 @@
+---
+stadtplaner_map_renderer_enabled: true
+stadtplaner_map_renderer_required: true
+stadtplaner_map_renderer_bind_address: 127.0.0.1
+stadtplaner_map_renderer_port: 3020
+stadtplaner_map_renderer_service_user: stadtplaner-map-renderer
+stadtplaner_map_renderer_service_group: stadtplaner-map-renderer
+stadtplaner_map_renderer_version: 6.4.1
+stadtplaner_map_renderer_integrity: sha512-eiJnCOIea2PrGmxZnocP61kEJO4IAhNS/yvkdNh+PR50qdR4khAGU/dBA0IV+uXEQCu33Fux//J1wOQ5srYVGQ==
+stadtplaner_map_renderer_node_abi: 127
+stadtplaner_map_renderer_archive_checksums:
+  x86_64: d04c0ddf89387a20a9cff93b57443ce756d34529dd83dc434bde1031b128ee59
+  aarch64: 82fdf555198711908fb3362316148f38b13f1df054fb381d4ee864c1a9762767
+stadtplaner_map_renderer_max_concurrency: 2
+stadtplaner_map_renderer_timeout_seconds: 20
+stadtplaner_map_renderer_memory_high: 1G
+stadtplaner_map_renderer_memory_max: 1536M
+stadtplaner_map_renderer_cpu_quota: 200%
+stadtplaner_map_renderer_tasks_max: 128
+stadtplaner_map_renderer_toolchain_root: "{{ stadtplaner_toolchains_dir }}/map-renderer/{{ stadtplaner_map_renderer_version }}"
+stadtplaner_map_renderer_runtime_packages:
+  - libcurl4t64
+  - libgl1-mesa-dri
+  - libglx0
+  - libicu74
+  - libjpeg-turbo8
+  - libopengl0
+  - libpng16-16t64
+  - libuv1t64
+  - libwebp7
+  - libx11-6
+  - libxext6
+  - xauth
+  - xvfb
+  - zlib1g

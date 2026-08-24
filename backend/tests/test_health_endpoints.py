@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock
+
 import httpx
 import pytest
 
@@ -87,3 +89,32 @@ async def test_health_ready_allows_optional_redis_degradation(monkeypatch: pytes
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "database": "ok", "redis": "degraded"}
+
+
+@pytest.mark.asyncio
+async def test_internal_map_preview_health_proves_backend_renderer_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    render = AsyncMock(return_value=b"RIFFxxxxWEBP")
+    monkeypatch.setattr(main_module.map_preview_service.renderer, "render", render)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=main_module.app, client=("127.0.0.1", 12345)),
+        base_url="http://127.0.0.1",
+    ) as client:
+        response = await client.get("/health/map-preview.webp")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/webp"
+    assert response.content == b"RIFFxxxxWEBP"
+    render.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_internal_map_preview_health_is_hidden_from_public_clients() -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=main_module.app, client=("203.0.113.10", 12345)),
+        base_url="https://api.stadtplaner.oklabflensburg.de",
+    ) as client:
+        response = await client.get("/health/map-preview.webp")
+
+    assert response.status_code == 404

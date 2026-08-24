@@ -15,6 +15,23 @@
     - { path: "{{ stadtplaner_observability_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_map_preview_cache_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
 
+- name: Find stale incomplete map preview cache writes
+  ansible.builtin.find:
+    paths: "{{ stadtplaner_map_preview_cache_dir }}"
+    patterns: '*.partial'
+    file_type: file
+    recurse: true
+    age: 1h
+  register: stadtplaner_stale_map_preview_partials
+
+- name: Remove stale incomplete map preview cache writes
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ stadtplaner_stale_map_preview_partials.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+
 - name: Install backend environment from encrypted variable when supplied
   ansible.builtin.copy:
     content: "{{ stadtplaner_backend_env_content }}"
@@ -348,6 +365,69 @@
     NODE_ENV: production
   notify: Restart Stadtplaner frontend
 
+- name: Validate release style, package integrity, and native module loading
+  ansible.builtin.command:
+    argv:
+      - node
+      - map-preview-renderer/preflight.mjs
+      - "{{ stadtplaner_release_path }}/frontend/public/map-styles/stadtplaner-light.json"
+      - "{{ stadtplaner_map_renderer_version }}"
+      - "{{ stadtplaner_map_renderer_integrity }}"
+      - "{{ stadtplaner_release_sha }}"
+    chdir: "{{ stadtplaner_release_path }}/frontend"
+  become_user: "{{ stadtplaner_map_renderer_service_user }}"
+  register: stadtplaner_map_renderer_preflight
+  changed_when: false
+  when: stadtplaner_map_renderer_enabled | bool
+
+- name: Record the validated release style hash and native module path
+  ansible.builtin.set_fact:
+    stadtplaner_map_preview_style_hash: "{{ (stadtplaner_map_renderer_preflight.stdout | from_json).styleHash }}"
+    stadtplaner_map_renderer_native_module_path: "{{ (stadtplaner_map_renderer_preflight.stdout | from_json).nativeModulePath }}"
+  when: stadtplaner_map_renderer_enabled | bool
+
+- name: Require all native renderer shared libraries to resolve
+  ansible.builtin.command:
+    argv: [ldd, "{{ stadtplaner_map_renderer_native_module_path }}"]
+  become_user: "{{ stadtplaner_map_renderer_service_user }}"
+  register: stadtplaner_map_renderer_ldd
+  changed_when: false
+  failed_when: stadtplaner_map_renderer_ldd.rc != 0 or 'not found' in stadtplaner_map_renderer_ldd.stdout
+  when: stadtplaner_map_renderer_enabled | bool
+
+- name: Match the release-installed native binary to the verified archive
+  ansible.builtin.command:
+    argv:
+      - cmp
+      - --silent
+      - "{{ stadtplaner_map_renderer_native_module_path }}"
+      - "{{ stadtplaner_map_renderer_toolchain_root }}/node-v{{ stadtplaner_map_renderer_node_abi }}/mbgl.node"
+  become_user: "{{ stadtplaner_map_renderer_service_user }}"
+  changed_when: false
+  when: stadtplaner_map_renderer_enabled | bool
+
+- name: Prove the renderer user can initialize an isolated virtual display
+  ansible.builtin.command:
+    argv:
+      - xvfb-run
+      - -a
+      - -s
+      - -screen 0 1280x720x24 -nolisten tcp
+      - node
+      - -e
+      - "if (!process.env.DISPLAY) process.exit(1)"
+  become_user: "{{ stadtplaner_map_renderer_service_user }}"
+  changed_when: false
+  when: stadtplaner_map_renderer_enabled | bool
+
+- name: Report validated renderer release metadata
+  ansible.builtin.debug:
+    msg: >-
+      Renderer {{ stadtplaner_map_renderer_version }}, release
+      {{ stadtplaner_release_sha }}, style SHA-256
+      {{ stadtplaner_map_preview_style_hash }} passed runtime preflight.
+  when: stadtplaner_map_renderer_enabled | bool
+
 - name: Require configured backup before migrations
   ansible.builtin.assert:
     that:
@@ -483,7 +563,7 @@
   when: stadtplaner_run_migrations
   notify: Restart Stadtplaner API
 
-- name: Install primary systemd units
+- name: Install API and frontend systemd units
   ansible.builtin.template:
     src: "{{ item.src }}"
     dest: "/etc/systemd/system/{{ item.dest }}"
@@ -493,12 +573,42 @@
   loop:
     - { src: stadtplaner-api.service.j2, dest: stadtplaner-api.service }
     - { src: stadtplaner-frontend.service.j2, dest: stadtplaner-frontend.service }
-    - { src: stadtplaner-map-preview.service.j2, dest: stadtplaner-map-preview.service }
   notify:
     - Reload systemd
     - Restart Stadtplaner API
     - Restart Stadtplaner frontend
-    - Restart Stadtplaner map preview
+
+- name: Install map renderer systemd unit
+  ansible.builtin.template:
+    src: stadtplaner-map-renderer.service.j2
+    dest: /etc/systemd/system/stadtplaner-map-renderer.service
+    owner: root
+    group: root
+    mode: '0644'
+  when: stadtplaner_map_renderer_enabled | bool
+  notify:
+    - Reload systemd
+    - Restart Stadtplaner map renderer
+
+- name: Detect the superseded map preview unit name
+  ansible.builtin.stat:
+    path: /etc/systemd/system/stadtplaner-map-preview.service
+  register: stadtplaner_legacy_map_preview_unit
+
+- name: Disable the superseded map preview unit name
+  ansible.builtin.systemd_service:
+    name: stadtplaner-map-preview.service
+    enabled: false
+    state: stopped
+    daemon_reload: true
+  when: stadtplaner_legacy_map_preview_unit.stat.exists
+
+- name: Remove the superseded map preview unit file
+  ansible.builtin.file:
+    path: /etc/systemd/system/stadtplaner-map-preview.service
+    state: absent
+  when: stadtplaner_legacy_map_preview_unit.stat.exists
+  notify: Reload systemd
 
 - name: Define background services
   ansible.builtin.set_fact:
@@ -655,7 +765,7 @@
   loop:
     - stadtplaner-api.service
     - stadtplaner-frontend.service
-    - stadtplaner-map-preview.service
+    - stadtplaner-map-renderer.service
   when: stadtplaner_disable_legacy_primary_services
 
 - name: Require application ports to be free after legacy handover
@@ -667,7 +777,7 @@
   loop:
     - "{{ stadtplaner_backend_port }}"
     - "{{ stadtplaner_frontend_port }}"
-    - "{{ stadtplaner_map_preview_port }}"
+    - "{{ stadtplaner_map_renderer_port }}"
   when: stadtplaner_disable_legacy_primary_services
 
 - name: Switch the active release atomically
@@ -676,6 +786,10 @@
     dest: "{{ stadtplaner_current_path }}"
     state: link
     force: true
+  notify:
+    - Restart Stadtplaner API
+    - Restart Stadtplaner frontend
+    - Restart Stadtplaner map renderer
 
 - name: Activate the release and verify the rollout
   block:
@@ -688,7 +802,7 @@
       loop:
         - stadtplaner-api.service
         - stadtplaner-frontend.service
-        - stadtplaner-map-preview.service
+        - stadtplaner-map-renderer.service
 
     - name: Apply pending service and nginx handlers before smoke tests
       ansible.builtin.meta: flush_handlers
@@ -699,18 +813,34 @@
         port: "{{ stadtplaner_backend_port }}"
         timeout: 30
 
-    - name: Verify native map preview renderer
+    - name: Wait for native map renderer readiness
       ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ stadtplaner_map_preview_port }}/health"
+        url: "http://{{ stadtplaner_map_renderer_bind_address }}:{{ stadtplaner_map_renderer_port }}/health/ready"
         status_code: 200
         return_content: true
-      register: stadtplaner_map_preview_health
+      register: stadtplaner_map_renderer_health
       failed_when: >-
-        stadtplaner_map_preview_health.status != 200 or
-        (stadtplaner_map_preview_health.json.renderer | default('')) != 'maplibre-native'
-      retries: 15
+        stadtplaner_map_renderer_health.status != 200 or
+        (stadtplaner_map_renderer_health.json.renderer | default('')) != 'maplibre-native' or
+        (stadtplaner_map_renderer_health.json.rendererVersion | default('')) != stadtplaner_map_renderer_version or
+        (stadtplaner_map_renderer_health.json.releaseSha | default('')) != stadtplaner_release_sha or
+        (stadtplaner_map_renderer_health.json.styleHash | default('')) != stadtplaner_map_preview_style_hash
+      retries: 20
       delay: 2
-      until: stadtplaner_map_preview_health.status == 200
+      until: stadtplaner_map_renderer_health.status == 200
+      when: stadtplaner_map_renderer_enabled | bool
+
+    - name: Fetch deterministic native render smoke image
+      ansible.builtin.uri:
+        url: "http://{{ stadtplaner_map_renderer_bind_address }}:{{ stadtplaner_map_renderer_port }}/health/smoke.webp"
+        status_code: 200
+        return_content: true
+      register: stadtplaner_map_renderer_smoke
+      failed_when: >-
+        stadtplaner_map_renderer_smoke.status != 200 or
+        (stadtplaner_map_renderer_smoke.content_type | default('')) != 'image/webp' or
+        not (stadtplaner_map_renderer_smoke.content | default('') | b64encode).startswith('UklGR')
+      when: stadtplaner_map_renderer_enabled | bool
 
     - name: Verify API readiness
       ansible.builtin.uri:
@@ -721,6 +851,18 @@
       failed_when: >-
         stadtplaner_health.status != 200 or
         (stadtplaner_health.json.status | default('')) != 'ok'
+
+    - name: Verify the FastAPI preview renderer path
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/map-preview.webp"
+        status_code: 200
+        return_content: true
+      register: stadtplaner_map_preview_api_smoke
+      failed_when: >-
+        stadtplaner_map_preview_api_smoke.status != 200 or
+        (stadtplaner_map_preview_api_smoke.content_type | default('')) != 'image/webp' or
+        not (stadtplaner_map_preview_api_smoke.content | default('') | b64encode).startswith('UklGR')
+      when: stadtplaner_map_renderer_enabled | bool
 
     - name: Generate sampled production trace through readiness and database
       ansible.builtin.uri:
@@ -770,6 +912,21 @@
         force: true
       when: stadtplaner_previous_release_path | default('') | length > 0
 
+    - name: Detect whether the previous release contains the renderer
+      ansible.builtin.stat:
+        path: "{{ stadtplaner_previous_release_path }}/frontend/map-preview-renderer/server.mjs"
+      register: stadtplaner_previous_renderer
+      when: stadtplaner_previous_release_path | default('') | length > 0
+
+    - name: Stop renderer when rolling back across its first deployment
+      ansible.builtin.systemd_service:
+        name: stadtplaner-map-renderer.service
+        enabled: false
+        state: stopped
+      when:
+        - stadtplaner_previous_release_path | default('') | length > 0
+        - not stadtplaner_previous_renderer.stat.exists
+
     - name: Restart the primary services after rollback
       ansible.builtin.systemd_service:
         name: "{{ item }}"
@@ -778,7 +935,70 @@
       loop:
         - stadtplaner-api.service
         - stadtplaner-frontend.service
-        - stadtplaner-map-preview.service
+        - stadtplaner-map-renderer.service
+      when:
+        - stadtplaner_previous_release_path | default('') | length > 0
+        - item != 'stadtplaner-map-renderer.service' or stadtplaner_previous_renderer.stat.exists
+
+    - name: Verify renderer returned to the previous release
+      ansible.builtin.uri:
+        url: "http://{{ stadtplaner_map_renderer_bind_address }}:{{ stadtplaner_map_renderer_port }}/health/ready"
+        status_code: [200, 404, 503]
+        return_content: true
+      register: stadtplaner_rollback_renderer_health
+      retries: 15
+      delay: 2
+      until: >-
+        stadtplaner_rollback_renderer_health.status in [200, 404]
+      when:
+        - stadtplaner_map_renderer_enabled | bool
+        - stadtplaner_previous_release_path | default('') | length > 0
+        - stadtplaner_previous_renderer.stat.exists
+
+    - name: Require current-format rollback renderer metadata to match
+      ansible.builtin.assert:
+        that:
+          - (stadtplaner_rollback_renderer_health.json.releaseSha | default('')) == (stadtplaner_previous_release_path | basename)
+        fail_msg: "Renderer did not return to the previous release SHA."
+      when:
+        - stadtplaner_map_renderer_enabled | bool
+        - stadtplaner_previous_release_path | default('') | length > 0
+        - stadtplaner_previous_renderer.stat.exists
+        - stadtplaner_rollback_renderer_health.status == 200
+
+    - name: Verify legacy renderer health during the one-time unit transition
+      ansible.builtin.uri:
+        url: "http://{{ stadtplaner_map_renderer_bind_address }}:{{ stadtplaner_map_renderer_port }}/health"
+        status_code: 200
+        return_content: true
+      register: stadtplaner_rollback_legacy_renderer_health
+      failed_when: >-
+        stadtplaner_rollback_legacy_renderer_health.status != 200 or
+        (stadtplaner_rollback_legacy_renderer_health.json.renderer | default('')) != 'maplibre-native'
+      when:
+        - stadtplaner_map_renderer_enabled | bool
+        - stadtplaner_previous_release_path | default('') | length > 0
+        - stadtplaner_previous_renderer.stat.exists
+        - stadtplaner_rollback_renderer_health.status == 404
+
+    - name: Verify API after rollback
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/ready"
+        status_code: 200
+      register: stadtplaner_rollback_api_health
+      retries: 15
+      delay: 2
+      until: stadtplaner_rollback_api_health.status == 200
+      when: stadtplaner_previous_release_path | default('') | length > 0
+
+    - name: Verify frontend after rollback
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ stadtplaner_frontend_port }}/"
+        status_code: 200
+      register: stadtplaner_rollback_frontend_health
+      retries: 15
+      delay: 2
+      until: stadtplaner_rollback_frontend_health.status == 200
       when: stadtplaner_previous_release_path | default('') | length > 0
 
     - name: Fail after automatic rollback
