@@ -2,8 +2,9 @@
 
 Dieses Verzeichnis automatisiert den produktiven Betrieb des Open City Planner auf dem bestehenden Shared Host. Es ersetzt bewusst nicht die globale Serververwaltung aller OK-Lab-Projekte. Nginx, PostgreSQL, Redis und Node können weitere Anwendungen bedienen; die Playbooks verändern deshalb überwiegend Stadtplaner-spezifische Dateien. Die ausdrücklich verwaltete NodeSource-22-Paketquelle und die gepinnten Corepack-/pnpm-Versionen bilden die gemeinsame JavaScript-Runtime-Ausnahme. `/etc/nginx/nginx.conf`, PostgreSQL und Redis werden nicht blind neu konfiguriert.
 
-Prometheus und Grafana werden nicht durch einen normalen Applikationsdeploy
-verändert. Dafür existiert das separate Opt-in-Playbook
+Der verpflichtende lokale Trace-Pfad aus OpenTelemetry Collector und Tempo wird
+durch den normalen Applikationsdeploy verwaltet. Prometheus und Grafana werden
+nicht durch einen normalen Applikationsdeploy verändert. Dafür existiert das separate Opt-in-Playbook
 `playbooks/monitoring.yml`; die vollständige Betriebsanleitung steht unter
 [`docs/monitoring-deployment.md`](../../docs/monitoring-deployment.md).
 
@@ -26,6 +27,8 @@ Für diesen Server ist ein idempotenter Deployment-Ablauf sicherer als wiederhol
 - Kommunale Statistik: wöchentlicher Import-Timer
 - E-Mail-Outbox: minütlicher Timer
 - Mastodon Publisher: optionaler minütlicher Timer
+- OpenTelemetry Collector: OTLP/gRPC nur auf `127.0.0.1:4317`, Health auf `127.0.0.1:13133`
+- Grafana Tempo: lokales Trace-Backend auf `127.0.0.1:3200`, 14 Tage Retention
 
 Backend-Settings werden aus `backend/.env` geladen. Ansible verlinkt diese Datei auf `/etc/stadtplaner/backend.env`, damit Secrets nicht im Git-Checkout liegen. Für das Frontend wird analog `/etc/stadtplaner/frontend.env` verwendet. Der OSM-Sync liest `/etc/stadtplaner/osm-sync.env`.
 
@@ -130,6 +133,13 @@ Lege unter **Environment variables** drei mehrzeilige Konfigurationswerte an:
 
 Die drei Blöcke müssen alle zugehörigen Schlüssel aus `vault.example.yml` enthalten. Aus dem Backend-Block müssen `DATABASE_URL`, `JWT_SECRET_KEY`, `OAUTH_STATE_SECRET`, `MFA_RECOVERY_PEPPER`, `MFA_ENCRYPTION_KEY`, `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `CONTACT_TO_EMAIL`, `CONTACT_TO_NAME`, `REDIS_URL`, `TURNSTILE_SECRET_KEY`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `MASTODON_SSO_ENCRYPTION_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `NOMINATIM_BASE_URL`, `NOMINATIM_EMAIL` und `MASTODON_ACCESS_TOKEN` entfernt werden. Der Workflow lehnt doppelte, fehlende, zusätzliche oder versehentlich offen eingetragene Secret-Schlüssel ab.
 
+`STADTPLANER_BACKEND_ENV_CONFIG` muss für Produktion außerdem exakt die
+OpenTelemetry-Werte aus `vault.example.yml` enthalten: Tracing aktiviert,
+Service `stadtplaner-api`, gRPC und `http://127.0.0.1:4317`. Der Builder prüft
+Scheme, Host, expliziten Port sowie das Fehlen von Credentials, Pfad, Query und
+Fragment, bevor SSH verwendet wird. Der Endpoint selbst ist kein Secret; der
+gesamte Environment-Block bleibt dennoch gemäß der Deployment-Policy geschützt.
+
 Unter **Environment secrets** gehören die vier Deployment-Zugangsdaten:
 
 - `STADTPLANER_ANSIBLE_REMOTE_USER`
@@ -211,17 +221,18 @@ veralteter `stadtplaner_deploy_ref` im Vault den ausgewählten Commit nicht
 Der Ablauf ist:
 
 1. die gepinnten Python-, uv-, Node-, Corepack- und pnpm-Toolchains installieren beziehungsweise prüfen;
-2. persistente Env-Dateien prüfen/schreiben;
-3. Git auf exakt den gewünschten Ref aktualisieren, ohne lokale Änderungen zu verwerfen;
-4. Backend-Venv per `uv sync --frozen` exakt aus `backend/uv.lock` materialisieren;
-5. Frontend-Abhängigkeiten per Lockfile installieren und Nuxt bauen;
-6. optional Tests/Typecheck ausführen;
-7. Backup-Guard und Alembic-Migrationen;
-8. systemd-Units installieren/aktualisieren;
-9. Hintergrund-Timer synchronisieren;
-10. Stadtplaner-Nginx-Konfiguration installieren und mit `nginx -t` validieren;
-11. gegebenenfalls die alten `stadtplanner-*`-Units kontrolliert stoppen und deaktivieren, Ports freigeben sowie API und Frontend unter den verwalteten `stadtplaner-*`-Units starten;
-12. lokale Health-/HTTP-Smoke-Tests durchführen.
+2. gepinnte Collector-/Tempo-Binaries samt Checksummen installieren, beide Dienste starten und OTLP-, Health- und Tempo-Readiness vorprüfen;
+3. persistente Env-Dateien prüfen/schreiben und die produktive OpenTelemetry-Policy erzwingen;
+4. Git auf exakt den gewünschten Ref aktualisieren, ohne lokale Änderungen zu verwerfen;
+5. Backend-Venv per `uv sync --frozen` exakt aus `backend/uv.lock` materialisieren;
+6. Frontend-Abhängigkeiten per Lockfile installieren, Nuxt bauen und optional Tests/Typecheck ausführen;
+7. das versionierte Release vollständig assemblieren;
+8. Backup-Guard und Alembic-Migrationen;
+9. systemd-Units installieren/aktualisieren;
+10. Hintergrund-Timer synchronisieren;
+11. Stadtplaner-Nginx-Konfiguration installieren und mit `nginx -t` validieren;
+12. gegebenenfalls die alten `stadtplanner-*`-Units kontrolliert stoppen und deaktivieren, Ports freigeben sowie API und Frontend unter den verwalteten `stadtplaner-*`-Units starten;
+13. lokale Health-/HTTP-Smoke-Tests und einen echten Trace-Nachweis in Tempo durchführen.
 
 Ein Fehler stoppt den Lauf. `serial: 1` und `any_errors_fatal: true` verhindern ein Weiterrollen nach einem Fehler.
 
@@ -231,7 +242,12 @@ Vor dem Handover prüft Ansible, dass der konfigurierte Service-Benutzer die per
 
 Jeder Produktionsdeploy baut ein eigenes, unveränderliches Release-Verzeichnis unter `/opt/stadtplaner/releases/<sha>` auf. Die eigentliche Produktivroute wird atomar mit einem Symlink auf `/opt/stadtplaner/current` umgebogen; Systemd-Units referenzieren ausschließlich diesen Pfad. Eine zuvor aktive Release bleibt als direktes Rollback-Ziel erhalten, bis die konfigurierte Retention (`stadtplaner_release_retention`) erreicht ist.
 
-Nach dem Aktivieren der Services führt Ansible als Smoke-Tests lokale Health- und Frontend-Checks aus. Wenn ein solcher Test fehlschlägt, wird der Symlink sofort wieder auf das vorherige Release zurückgesetzt und die Services neu gestartet. So bleibt das nächste funktionierende Release unmittelbar verfügbar, ohne manuell den Checkout erneut zu bauen.
+Nach dem Aktivieren der Services führt Ansible als Smoke-Tests lokale Health-
+und Frontend-Checks sowie einen gepollten Trace-Nachweis in Tempo aus. Wenn ein
+solcher Test fehlschlägt, wird der Symlink sofort wieder auf das vorherige
+Release zurückgesetzt und die Services werden neu gestartet. Der Collector ist
+über `Wants`/`After`, aber bewusst nicht über `Requires` an die API gekoppelt:
+Ein späterer Telemetrieausfall stoppt keine Nutzeranfragen.
 
 ## Optionale Prüfungen auf dem Server
 

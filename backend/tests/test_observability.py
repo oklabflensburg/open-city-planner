@@ -7,14 +7,18 @@ import pytest
 from fastapi import FastAPI
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import AsyncOpenTelemetryTransport
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from prometheus_client import generate_latest
+from sqlalchemy import create_engine, text
 from starlette.requests import Request
 
 from app import main as main_module
 from app.cache.service import CacheService
+from app.core.config import Settings
 from app.observability.external import instrumented_httpx_request
 from app.observability.logging import JsonFormatter
 from app.observability.metrics import (
@@ -43,6 +47,27 @@ def test_recursive_redaction_removes_secrets_and_pii() -> None:
         assert secret not in rendered
     assert redact(source)["password"] == REDACTED
     assert REDACTED in rendered
+
+
+def test_development_can_start_without_otel() -> None:
+    settings = Settings(_env_file=None, otel_enabled=False, app_environment="development")
+    settings.validate_security()
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    ("", "localhost:4317", "http://user:secret@localhost:4317", "http://localhost:4317?q=x"),
+)
+def test_enabled_otel_rejects_empty_or_unsafe_endpoint(endpoint: str) -> None:
+    settings = Settings(
+        _env_file=None,
+        otel_enabled=True,
+        otel_exporter_otlp_endpoint=endpoint,
+        app_environment="development",
+    )
+
+    with pytest.raises(RuntimeError, match="OTEL_EXPORTER_OTLP_ENDPOINT"):
+        settings.validate_security()
 
 
 def test_json_formatter_redacts_security_and_assistant_fields() -> None:
@@ -152,12 +177,24 @@ async def test_request_id_response_log_metrics_and_route_cardinality() -> None:
 @pytest.mark.asyncio
 async def test_fastapi_trace_contains_child_span_and_trace_id_in_log() -> None:
     exporter = InMemorySpanExporter()
-    provider = TracerProvider()
+    provider = TracerProvider(
+        resource=Resource.create(
+            {
+                "service.name": "stadtplaner-api",
+                "service.version": "release-sha",
+                "deployment.environment.name": "test",
+            }
+        )
+    )
     provider.add_span_processor(SimpleSpanProcessor(exporter))
+    db_engine = create_engine("sqlite:///:memory:")
+    SQLAlchemyInstrumentor().instrument(engine=db_engine, tracer_provider=provider)
     app = FastAPI()
     app.add_middleware(ObservabilityMiddleware, metrics_enabled=False, metrics_path="/metrics")
     @app.get("/trace")
     async def traced() -> dict[str, bool]:
+        with db_engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
         async with httpx.AsyncClient(
             transport=AsyncOpenTelemetryTransport(
                 httpx.MockTransport(lambda _request: httpx.Response(200)),
@@ -183,12 +220,18 @@ async def test_fastapi_trace_contains_child_span_and_trace_id_in_log() -> None:
         middleware_logger.removeHandler(handler)
         middleware_logger.propagate = True
         FastAPIInstrumentor.uninstrument_app(app)
+        SQLAlchemyInstrumentor().uninstrument()
+        db_engine.dispose()
         provider.shutdown()
 
     spans = exporter.get_finished_spans()
     names = {span.name for span in spans}
     assert "GET" in names
     assert any("/trace" in name for name in names)
+    assert any(name.startswith("SELECT") for name in names)
+    assert all("password" not in str(span.attributes).lower() for span in spans)
+    assert spans[0].resource.attributes["service.name"] == "stadtplaner-api"
+    assert spans[0].resource.attributes["service.version"] == "release-sha"
     request_log = json.loads(stream.getvalue().splitlines()[-1])
     assert request_log["trace_id"] == f"{spans[0].context.trace_id:032x}"
 

@@ -1,0 +1,39 @@
+extensions:
+  health_check:
+    endpoint: "{{ stadtplaner_otel_collector_health_host }}:{{ stadtplaner_otel_collector_health_port }}"
+    path: "{{ stadtplaner_otel_collector_health_path }}"
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "{{ stadtplaner_otel_endpoint_host }}:{{ stadtplaner_otel_endpoint_port }}"
+
+processors:
+  batch:
+    send_batch_size: 512
+    timeout: 5s
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 256
+    spike_limit_mib: 64
+
+exporters:
+  otlp/tempo:
+    endpoint: "{{ stadtplaner_tempo_otlp_grpc_host }}:{{ stadtplaner_tempo_otlp_grpc_port }}"
+    tls:
+      insecure: true
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 60s
+    sending_queue:
+      enabled: true
+      queue_size: 2048
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/tempo]

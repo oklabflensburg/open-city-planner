@@ -224,7 +224,24 @@ Typische Prüfungen:
 
 ## Observability anbinden
 
-Ansible injiziert den exakt ausgecheckten Git-SHA als `STADTPLANER_RELEASE_SHA` in API, Frontend und One-shot-Jobs. Behalten Sie `LOG_FORMAT=json`, `METRICS_ENABLED=true` und `ASSISTANT_QUERY_LOGGING=false` in Produktion. Ein OTLP-Collector ist optional; setzen Sie dessen Adresse ausschließlich über `OTEL_EXPORTER_OTLP_ENDPOINT`.
+Ansible injiziert den exakt ausgecheckten Git-SHA als `STADTPLANER_RELEASE_SHA` in API, Frontend und One-shot-Jobs. Behalten Sie `LOG_FORMAT=json`, `METRICS_ENABLED=true` und `ASSISTANT_QUERY_LOGGING=false` in Produktion. OpenTelemetry ist für den produktiven Deploy verpflichtend:
+
+```env
+OTEL_ENABLED=true
+OTEL_SERVICE_NAME=stadtplaner-api
+OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_TRACES_SAMPLER=parentbased_traceidratio
+OTEL_TRACES_SAMPLER_ARG=0.1
+```
+
+Der normale Ansible-Deploy verwaltet OpenTelemetry Collector Contrib 0.153.0
+und Grafana Tempo 2.10.7 mit geprüften SHA-256-Summen. OTLP (`4317`), Collector-
+Health (`13133`), die interne Tempo-Ingest-Strecke (`4319`) und Tempo (`3200`)
+lauschen nur auf Loopback. Vor dem Umschalten des `current`-Symlinks müssen
+Collector und Tempo erreichbar sein. Nach dem API-Start erzeugt Ansible einen
+gesampelten `/health/ready`-Trace und pollt Tempo bis zum Nachweis des aktuellen
+Release-SHA; ein Fehler nutzt das bestehende atomare Rollback.
 
 Der Nginx-vHost erzeugt `X-Request-ID`, schreibt datensparsame JSON-Access-Logs und schützt `/metrics` mit `allow`/`deny`. Tragen Sie das Netz des Monitoring-Hosts in `stadtplaner_metrics_allowed_cidrs` ein; veröffentlichen Sie keine Basic-Auth-Credentials in Templates. Der Prometheus-Scraper verwendet HTTPS und benötigt eine erlaubte Quelladresse.
 
@@ -251,7 +268,10 @@ curl --fail http://127.0.0.1:<backend-port>/metrics | grep build_info
 journalctl -u stadtplaner-api -o cat | jq 'select(.request_id == "deploy-smoke")'
 ```
 
-Prometheus-, Grafana- und Collector-Ausfälle dürfen weder Readiness noch Requests beeinflussen. Architektur, Datenschutz, SLOs, Alerts und Runbooks sind in [observability.md](observability.md) beschrieben.
+Prometheus-, Grafana-, Tempo- und Collector-Ausfälle nach einer erfolgreichen
+Aktivierung dürfen weder Readiness noch Requests beeinflussen. Neue Deployments
+bleiben dagegen bewusst fail-closed. Architektur, Datenschutz, SLOs, Alerts und
+Runbooks sind in [observability.md](observability.md) beschrieben.
 
 ## Sicherheitscheckliste
 

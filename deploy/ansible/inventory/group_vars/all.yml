@@ -14,6 +14,17 @@ stadtplaner_avatar_upload_dir: /data/uploads
 stadtplaner_observability_dir: /data/stadtplaner/observability
 stadtplaner_metrics_allowed_cidrs: []
 
+# Production tracing is mandatory. The managed single-host collector and Tempo
+# backend bind only to loopback.
+stadtplaner_otel_required: true
+stadtplaner_otel_enabled: true
+stadtplaner_otel_endpoint: http://127.0.0.1:4317
+stadtplaner_otel_endpoint_host: 127.0.0.1
+stadtplaner_otel_endpoint_port: 4317
+stadtplaner_otel_protocol: grpc
+stadtplaner_otel_service_name: stadtplaner-api
+stadtplaner_manage_otel_collector: true
+
 stadtplaner_backend_port: 8008
 stadtplaner_frontend_port: 3008
 stadtplaner_backend_env_file: /etc/stadtplaner/backend.env
@@ -81,6 +92,8 @@ monitoring_prometheus_retention_size: 10GB
 monitoring_prometheus_api_scheme: http
 monitoring_prometheus_api_target: "127.0.0.1:{{ stadtplaner_backend_port }}"
 monitoring_readiness_url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/ready"
+monitoring_otel_health_url: http://127.0.0.1:13133/health/status
+monitoring_tempo_url: http://127.0.0.1:3200
 monitoring_alertmanager_targets: []
 monitoring_manage_certificates: false
 monitoring_certbot_email: ''

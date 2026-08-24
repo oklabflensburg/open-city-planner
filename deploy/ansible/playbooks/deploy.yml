@@ -7,4 +7,5 @@
   roles:
     - role: stadtplaner_dns_preflight
     - role: stadtplaner_runtime
+    - role: stadtplaner_otel
     - role: stadtplaner

@@ -3,6 +3,8 @@ apiVersion: 1
 deleteDatasources:
   - name: Stadtplaner Prometheus
     orgId: 1
+  - name: Stadtplaner Tempo
+    orgId: 1
 
 datasources:
   - name: Stadtplaner Prometheus
@@ -14,3 +16,16 @@ datasources:
     editable: false
     jsonData:
       timeInterval: {{ monitoring_prometheus_scrape_interval }}
+
+  - name: Stadtplaner Tempo
+    uid: stadtplaner-tempo
+    type: tempo
+    access: proxy
+    url: {{ monitoring_tempo_url }}
+    isDefault: false
+    editable: false
+    jsonData:
+      nodeGraph:
+        enabled: true
+      search:
+        hide: false

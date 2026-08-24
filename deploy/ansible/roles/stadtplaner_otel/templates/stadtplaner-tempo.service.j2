@@ -1,0 +1,26 @@
+[Unit]
+Description=Stadtplaner Grafana Tempo trace backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=stadtplaner-tempo
+Group=stadtplaner-tempo
+ExecStart=/usr/local/bin/stadtplaner-tempo -config.file=/etc/stadtplaner/otel/tempo.yml
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths={{ stadtplaner_tempo_data_dir }}
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

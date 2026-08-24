@@ -1,0 +1,12 @@
+---
+- name: Restart Stadtplaner Tempo
+  ansible.builtin.systemd_service:
+    name: stadtplaner-tempo.service
+    state: restarted
+    daemon_reload: true
+
+- name: Restart Stadtplaner OpenTelemetry Collector
+  ansible.builtin.systemd_service:
+    name: stadtplaner-otel-collector.service
+    state: restarted
+    daemon_reload: true

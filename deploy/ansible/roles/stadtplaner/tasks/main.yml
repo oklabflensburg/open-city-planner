@@ -59,6 +59,50 @@
   loop: "{{ stadtplaner_env_stats.results }}"
   no_log: true
 
+- name: Read backend environment for production policy validation
+  ansible.builtin.slurp:
+    src: "{{ stadtplaner_backend_env_file }}"
+  register: stadtplaner_backend_env_slurp
+  no_log: true
+
+- name: Extract non-secret OpenTelemetry deployment settings
+  ansible.builtin.set_fact:
+    stadtplaner_env_app_environment: >-
+      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
+          | regex_findall('(?m)^APP_ENVIRONMENT=(.*)$') | first | default(''))
+          | trim | trim('"') }}
+    stadtplaner_env_otel_enabled: >-
+      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
+          | regex_findall('(?m)^OTEL_ENABLED=(.*)$') | first | default(''))
+          | trim | trim('"') | lower }}
+    stadtplaner_env_otel_endpoint: >-
+      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
+          | regex_findall('(?m)^OTEL_EXPORTER_OTLP_ENDPOINT=(.*)$') | first | default(''))
+          | trim | trim('"') }}
+    stadtplaner_env_otel_protocol: >-
+      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
+          | regex_findall('(?m)^OTEL_EXPORTER_OTLP_PROTOCOL=(.*)$') | first | default(''))
+          | trim | trim('"') | lower }}
+    stadtplaner_env_otel_service_name: >-
+      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
+          | regex_findall('(?m)^OTEL_SERVICE_NAME=(.*)$') | first | default(''))
+          | trim | trim('"') }}
+  no_log: true
+
+- name: Enforce production OpenTelemetry environment policy
+  ansible.builtin.assert:
+    that:
+      - stadtplaner_env_app_environment | lower == 'production'
+      - not stadtplaner_otel_required | bool or stadtplaner_env_otel_enabled in ['1', 'true', 'yes', 'on']
+      - not stadtplaner_otel_required | bool or stadtplaner_env_otel_endpoint | length > 0
+      - stadtplaner_env_otel_endpoint == stadtplaner_otel_endpoint
+      - stadtplaner_env_otel_protocol == stadtplaner_otel_protocol
+      - stadtplaner_env_otel_service_name == stadtplaner_otel_service_name
+    fail_msg: >-
+      Production deployment requires OpenTelemetry tracing. OTEL_ENABLED must be
+      true and OTEL endpoint, protocol and service name must match the validated
+      Ansible configuration.
+
 - name: Update repository to the requested ref without discarding local changes
   ansible.builtin.git:
     repo: "{{ stadtplaner_repo_url }}"
@@ -658,6 +702,35 @@
       failed_when: >-
         stadtplaner_health.status != 200 or
         (stadtplaner_health.json.status | default('')) != 'ok'
+
+    - name: Generate sampled production trace through readiness and database
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/ready"
+        status_code: 200
+        headers:
+          X-Request-ID: "otel-deploy-{{ stadtplaner_release_sha }}"
+          traceparent: >-
+            00-{{ stadtplaner_release_sha[0:32] }}-{{ stadtplaner_release_sha[0:16] }}-01
+      when: stadtplaner_otel_required | bool
+
+    - name: Prove the release trace reached Tempo
+      ansible.builtin.uri:
+        url: >-
+          http://{{ stadtplaner_tempo_http_host }}:{{ stadtplaner_tempo_http_port
+          }}/api/search?q={{ ('{ resource.service.name = "' ~ stadtplaner_otel_service_name
+          ~ '" && resource.service.version = "' ~ stadtplaner_release_sha ~ '" }') | urlencode
+          }}&since=5m&limit=20
+        status_code: 200
+        return_content: true
+      register: stadtplaner_otel_trace_search
+      retries: 20
+      delay: 2
+      until: >-
+        stadtplaner_otel_trace_search.json is defined and
+        stadtplaner_otel_trace_search.json.traces | default([]) | length > 0
+      when:
+        - stadtplaner_otel_required | bool
+        - stadtplaner_manage_otel_collector | bool
 
     - name: Wait for local frontend listener
       ansible.builtin.wait_for:

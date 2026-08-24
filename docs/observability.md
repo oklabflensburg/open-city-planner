@@ -1,6 +1,6 @@
 # Production observability
 
-Stadtplaner uses vendor-neutral JSON logs, Prometheus/OpenMetrics metrics and optional OpenTelemetry traces. The application has no dependency on Grafana, a collector or a hosted service to start or serve requests.
+Stadtplaner uses vendor-neutral JSON logs, Prometheus/OpenMetrics metrics and OpenTelemetry traces. Production deployment requires a reachable collector and Tempo backend; the application runtime remains fail-open and has no synchronous dependency on either service while serving requests.
 
 ## Architecture and correlation
 
@@ -39,18 +39,34 @@ Request IDs, user IDs, emails, slugs, provider URLs, search text and queries are
 
 ## Tracing
 
-Tracing is disabled unless both `OTEL_ENABLED=true` and an `OTEL_EXPORTER_OTLP_ENDPOINT` are configured. FastAPI, HTTPX and SQLAlchemy are instrumented. SQL bind values are not captured and SQL commenter injection is disabled. The OTLP gRPC exporter uses a batch processor, so an unavailable collector does not block application startup or synchronously export requests.
+Development tracing stays disabled by default. Production configuration requires `OTEL_ENABLED=true`, a credential-free HTTP(S) origin with an explicit port, and the supported `grpc` protocol. FastAPI, HTTPX and SQLAlchemy are instrumented. SQL bind values are not captured and SQL commenter injection is disabled. The OTLP gRPC exporter uses a batch processor, so an unavailable collector does not block application startup or synchronously export requests.
 
 ```dotenv
 OTEL_ENABLED=true
 OTEL_SERVICE_NAME=stadtplaner-api
 OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317
 OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_TRACES_SAMPLER=parentbased_traceidratio
+OTEL_TRACES_SAMPLER_ARG=0.1
 ```
+
+The normal production playbook installs OpenTelemetry Collector Contrib
+`0.153.0` and Grafana Tempo `2.10.7` from checksum-verified upstream archives.
+The Collector receives gRPC on `127.0.0.1:4317`, exposes health only on
+`127.0.0.1:13133/health/status`, and forwards to Tempo on the separate local
+gRPC port `4319`. Tempo serves readiness and queries on `127.0.0.1:3200` and
+retains local trace blocks for 14 days. None of these ports is proxied by Nginx.
+
+The parent-based 10% sampler respects an upstream sampled decision. The deploy
+smoke request intentionally supplies a sampled W3C context, polls Tempo for the
+current `service.version` (the exact Ansible release SHA), and uses
+`/health/ready` so the trace includes the FastAPI server span and an instrumented
+database child span. A missing export triggers the existing atomic application
+rollback. No fixed sleep is used.
 
 ## Prometheus, Grafana and alerts
 
-Use `deploy/observability/prometheus/prometheus.example.yml` as a starting point and add the Prometheus host network to `stadtplaner_metrics_allowed_cidrs`. Load `deploy/observability/prometheus/alerts.yml` and import `deploy/observability/grafana/stadtplaner-overview.json`. The readiness alert uses the Prometheus blackbox exporter; the API scrape alone cannot prove readiness semantics.
+Use `deploy/observability/prometheus/prometheus.example.yml` as a starting point and add the Prometheus host network to `stadtplaner_metrics_allowed_cidrs`. Load `deploy/observability/prometheus/alerts.yml` and import `deploy/observability/grafana/stadtplaner-overview.json`. The readiness and Collector alerts use the Prometheus blackbox exporter; the API scrape alone cannot prove readiness semantics. The monitoring playbook provisions Tempo as the `stadtplaner-tempo` Grafana datasource.
 
 For a complete self-hosted installation, use the separate Ansible monitoring
 playbook described in [monitoring-deployment.md](monitoring-deployment.md). It
@@ -60,6 +76,7 @@ dashboard and datasource, and keeps every listener on loopback by default.
 | Signal | Threshold / duration | Severity | Runbook |
 | --- | --- | --- | --- |
 | Readiness | failed 10m | critical | `readiness-down.md` |
+| OTel Collector | failed 5m | critical | `otel-collector-down.md` |
 | 5xx | >5% 10m / >15% 5m | warning / critical | `high-5xx-rate.md` |
 | p95 latency | >2s 15m | warning | `high-5xx-rate.md` |
 | DB pool | >90% 10m | warning | `db-pool-saturation.md` |
@@ -87,12 +104,16 @@ These are pragmatic civic-tech targets, measured monthly and reviewed after enou
 | `METRICS_ENABLED` | `true` | expose the internal metrics handler |
 | `METRICS_PATH` | `/metrics` | handler path; keep Nginx config aligned |
 | `OBSERVABILITY_TEXTFILE_DIR` | `/data/stadtplaner/observability` | persistent oneshot metrics |
-| `OTEL_ENABLED` | `false` | optional tracing switch |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | collector endpoint, never hardcoded |
+| `OTEL_ENABLED` | `true` | required for production; development remains `false` |
+| `OTEL_SERVICE_NAME` | `stadtplaner-api` | standard `service.name` resource attribute |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://127.0.0.1:4317` | local production Collector |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | only supported exporter protocol |
+| `OTEL_TRACES_SAMPLER` | `parentbased_traceidratio` | preserves parent sampling decisions |
+| `OTEL_TRACES_SAMPLER_ARG` | `0.1` | production root sampling ratio |
 | `STADTPLANER_RELEASE_SHA` | injected by Ansible | exact deployed Git commit |
 
 `/health/info` publishes only version, exact release SHA and environment. `build_info`, backend logs, frontend SSR logs and background logs use the same Ansible-resolved commit.
 
 ## Local development and troubleshooting
 
-Start without a monitoring backend; `/metrics` remains directly available on the development API. Generate traffic with `curl -H 'X-Request-ID: local-smoke' http://127.0.0.1:8000/health/live`, then inspect the response header, JSON line and metric counter. If telemetry is absent, check feature flags first; a stopped Prometheus, Grafana or OTLP collector must not affect health. If cardinality grows unexpectedly, inspect route/provider/operation labels and remove dynamic values before deployment.
+Start local development without a monitoring backend; `/metrics` remains directly available on the development API. Generate traffic with `curl -H 'X-Request-ID: local-smoke' http://127.0.0.1:8000/health/live`, then inspect the response header, JSON line and metric counter. If production telemetry is absent, check `systemctl status stadtplaner-otel-collector stadtplaner-tempo`, both local health URLs and the [Collector runbook](runbooks/otel-collector-down.md). A Collector outage after deployment must not affect API health or request latency. If cardinality grows unexpectedly, inspect route/provider/operation labels and remove dynamic values before deployment.

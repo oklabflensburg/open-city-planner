@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -78,6 +79,55 @@ def require_secret(name: str, required: set[str]) -> None:
         required.add(name)
 
 
+def validate_otel(values: dict[str, str]) -> dict[str, object]:
+    production = values.get("APP_ENVIRONMENT", "").strip().strip('"').lower() == "production"
+    enabled = truthy(values.get("OTEL_ENABLED"))
+    endpoint = values.get("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip().strip('"')
+    protocol = values.get("OTEL_EXPORTER_OTLP_PROTOCOL", "").strip().strip('"').lower()
+    service_name = values.get("OTEL_SERVICE_NAME", "").strip().strip('"')
+
+    if production and not enabled:
+        raise ValueError("Production deployment requires OpenTelemetry tracing")
+    if enabled and not endpoint:
+        raise ValueError(
+            "OpenTelemetry is enabled but OTEL_EXPORTER_OTLP_ENDPOINT is empty"
+        )
+    if protocol != "grpc":
+        raise ValueError("Production OpenTelemetry requires OTLP protocol grpc")
+    if enabled:
+        try:
+            parsed = urlsplit(endpoint)
+            port = parsed.port
+        except ValueError as exc:
+            raise ValueError("OTEL_EXPORTER_OTLP_ENDPOINT is invalid") from exc
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or port is None
+            or not 1 <= port <= 65535
+            or parsed.username
+            or parsed.password
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError(
+                "OTEL_EXPORTER_OTLP_ENDPOINT must be an HTTP(S) origin with an explicit "
+                "port and without credentials, path, query or fragment"
+            )
+        if not service_name:
+            raise ValueError("OTEL_SERVICE_NAME must not be empty when tracing is enabled")
+        return {
+            "stadtplaner_otel_enabled": True,
+            "stadtplaner_otel_endpoint": endpoint,
+            "stadtplaner_otel_endpoint_host": parsed.hostname,
+            "stadtplaner_otel_endpoint_port": port,
+            "stadtplaner_otel_protocol": protocol,
+            "stadtplaner_otel_service_name": service_name,
+        }
+    return {"stadtplaner_otel_enabled": False}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--example", type=Path, required=True)
@@ -109,6 +159,10 @@ def main() -> None:
         generated[ansible_key] = content + "\n"
 
     backend_values = assignments(generated["stadtplaner_backend_env_content"])
+    try:
+        generated.update(validate_otel(backend_values))
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     avatar_upload_dir = backend_values.get("AVATAR_UPLOAD_DIR", "").strip().strip('"')
     avatar_path = Path(avatar_upload_dir)
     if not avatar_path.is_absolute() or avatar_path == Path("/"):
