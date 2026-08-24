@@ -10,8 +10,13 @@ export default defineEventHandler((event) => {
     'Disallow: /registrieren',
     'Disallow: /profil',
     'Disallow: /meine-flaechen',
+    'Disallow: /flaechen/neu',
     'Disallow: /passwort-',
+    'Disallow: /email-bestaetigen',
+    'Disallow: /email-abmelden',
     'Disallow: /auth/',
+    'Disallow: /admin/',
+    'Disallow: /verwaltung/',
     `Sitemap: ${buildAbsoluteUrl(config.public.siteUrl, '/sitemap.xml')}`,
     ''
   ].join('\n')
