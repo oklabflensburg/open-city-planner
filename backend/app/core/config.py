@@ -180,6 +180,10 @@ class Settings(BaseSettings):
     flensburg_superset_timeout_seconds: float = 60.0
     polygon_cache_ttl: int = 60
     public_polygon_response_limit: int = Field(default=1_000, ge=10, le=10_000)
+    map_preview_renderer_url: str = "http://127.0.0.1:3020"
+    map_preview_renderer_timeout_seconds: float = Field(default=20.0, ge=1.0, le=60.0)
+    map_preview_cache_dir: str = "data/map-previews"
+    map_preview_style_path: str = "../frontend/public/map-styles/stadtplaner-light.json"
     comparable_cache_ttl: int = 600
     cache_payload_warning_bytes: int = 2_000_000
     database_pool_size: int = 10
@@ -341,6 +345,24 @@ class Settings(BaseSettings):
             raise RuntimeError("APP_BASE_URL must be an absolute HTTP(S) origin without path")
         if self.production and app_origin.scheme != "https":
             raise RuntimeError("APP_BASE_URL must use HTTPS in production")
+        preview_origin = urlsplit(self.map_preview_renderer_url)
+        try:
+            preview_port = preview_origin.port
+        except ValueError as exc:
+            raise RuntimeError("MAP_PREVIEW_RENDERER_URL has an invalid port") from exc
+        if (
+            preview_origin.scheme != "http"
+            or preview_origin.hostname not in {"127.0.0.1", "localhost", "::1"}
+            or preview_port is None
+            or preview_origin.username
+            or preview_origin.password
+            or preview_origin.path not in {"", "/"}
+            or preview_origin.query
+            or preview_origin.fragment
+        ):
+            raise RuntimeError(
+                "MAP_PREVIEW_RENDERER_URL must be a loopback HTTP origin with an explicit port"
+            )
         if self.production and not self.webauthn_origin.startswith("https://"):
             raise RuntimeError("WEBAUTHN_ORIGIN must use HTTPS in production")
         if "://" in self.webauthn_rp_id or "/" in self.webauthn_rp_id:

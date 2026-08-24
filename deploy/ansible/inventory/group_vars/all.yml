@@ -27,6 +27,9 @@ stadtplaner_manage_otel_collector: true
 
 stadtplaner_backend_port: 8008
 stadtplaner_frontend_port: 3008
+stadtplaner_map_preview_port: 3020
+stadtplaner_map_preview_max_concurrent: 2
+stadtplaner_map_preview_cache_dir: /data/stadtplaner/map-previews
 stadtplaner_backend_env_file: /etc/stadtplaner/backend.env
 stadtplaner_frontend_env_file: /etc/stadtplaner/frontend.env
 stadtplaner_osm_env_file: /etc/stadtplaner/osm-sync.env

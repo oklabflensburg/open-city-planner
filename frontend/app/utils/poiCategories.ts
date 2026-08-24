@@ -68,7 +68,7 @@ export function isPoiCategoryToken(category: unknown): category is string {
 }
 
 export function areaPoiMapLink(areaSlug: string, category: string) {
-  return { path: '/', query: { area: areaSlug, poi: category } }
+  return { path: '/karte', query: { gebiet: areaSlug, poi: category } }
 }
 
 export function withoutPoiQuery<T extends Record<string, unknown>>(query: T) {

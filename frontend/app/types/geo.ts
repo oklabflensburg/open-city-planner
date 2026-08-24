@@ -72,6 +72,21 @@ export type PolygonOverview = {
   updated_at: string
 }
 
+export type PolygonDirectoryItem = Omit<PolygonOverview, 'id' | 'area_size' | 'geometry' | 'created_at'> & {
+  district_slug: string | null
+  district_name: string | null
+  quarter_slug: string | null
+  quarter_name: string | null
+}
+
+export type PolygonDirectoryPage = {
+  items: PolygonDirectoryItem[]
+  total: number
+  offset: number
+  limit: number
+  next_offset: number | null
+}
+
 export type PolygonMetrics = {
   area_m2: number
   perimeter_m: number

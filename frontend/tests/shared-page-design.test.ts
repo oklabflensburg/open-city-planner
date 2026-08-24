@@ -42,7 +42,7 @@ describe('shared content page design', () => {
     expect(page).toContain('OpenStreetMap')
     expect(page).toContain('Nuxt 4 · Vue 3')
     expect(page).toContain('to="/dokumentation"')
-    expect(page).toContain('to="/"')
+    expect(page).toContain('to="/karte"')
     expect(page).toContain('buildWebPageStructuredData')
   })
 
@@ -76,7 +76,7 @@ describe('shared content page design', () => {
     expect(appFile('pages/flaechen/neu.vue')).toContain('<PolygonCreateMap')
     expect(appFile('pages/flaechen/[slug].vue')).toContain('<PageBreadcrumbs')
     expect(appFile('pages/flaechen/[slug].vue')).toContain('<PolygonDetailMap')
-    expect(appFile('pages/index.vue')).toContain('<AppShell')
+    expect(appFile('pages/karte.vue')).toContain('<AppShell')
   })
 
   it('keeps legal pages in the reading shell without public SEO metadata', () => {

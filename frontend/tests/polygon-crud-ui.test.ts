@@ -18,7 +18,7 @@ describe('polygon create and delete UI', () => {
     const shell = appFile('components/layout/AppShell.vue')
     const ownPolygons = appFile('pages/meine-flaechen.vue')
     expect(header).not.toContain("{ label: 'Neue Fläche', to: '/flaechen/neu' }")
-    expect(header).toContain("v-if=\"route.path === '/'\"")
+    expect(header).toContain("v-if=\"route.path === '/karte'\"")
     expect(header).toContain('to="/flaechen/neu"')
     expect(header).toContain('v-if="authStore.authenticated"')
     expect(header).toContain('w-auto shrink-0')
@@ -62,7 +62,7 @@ describe('polygon create and delete UI', () => {
     expect(detail).toContain('await polygonApi.remove(polygonData.value.id)')
     expect(appFile('composables/usePolygonApi.ts')).toContain("invalidateAfterPolygonMutation({ type: 'DELETE'")
     expect(detail).toContain('clearNuxtData(`polygon-${slug}`)')
-    expect(detail).toContain("await navigateTo('/')")
+    expect(detail).toContain("await navigateTo('/karte')")
   })
 
   it('requires explicit destructive confirmation and prevents duplicate requests', () => {

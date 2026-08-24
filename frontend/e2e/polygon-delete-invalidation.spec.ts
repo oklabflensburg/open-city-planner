@@ -46,7 +46,7 @@ test('successful delete invalidates map, analytics and linked OSM suppression wi
     meta: { count: deleted ? 1 : 0, summary: {}, canonical_summary: deleted ? { fashion: 1 } : {}, canonical_facets: deleted ? { fashion: 1 } : {}, business_count: deleted ? 1 : 0, context_count: 0, deduplicated_linked_count: deleted ? 0 : 1, truncated: false, zoom: 17, osm_data_updated_at: '2026-08-17T08:00:00Z' },
   } }))
 
-  await page.goto('/')
+  await page.goto('/karte')
   await page.waitForLoadState('networkidle')
   await page.evaluate(() => {
     window.history.pushState({}, '', '/flaechen/delete-test')
@@ -56,7 +56,7 @@ test('successful delete invalidates map, analytics and linked OSM suppression wi
   await page.getByRole('button', { name: 'Fläche löschen', exact: true }).click()
   await page.getByRole('alertdialog', { name: 'Fläche löschen?' }).getByRole('button', { name: 'Endgültig löschen' }).click()
 
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/karte')
   await expect(page.getByRole('status').filter({ hasText: 'Fläche wurde gelöscht.' })).toBeVisible()
   await expect(page.getByText(/0 gepflegte Flächen/)).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText(/1 passende OSM-Objekte im Ausschnitt/)).toBeVisible()

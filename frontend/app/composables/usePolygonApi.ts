@@ -1,4 +1,4 @@
-import type { AreaGeometry, PolygonEditorDetail, PolygonMetrics, PolygonOverview, PolygonVerwaltungDetail, PublicPolygonDetail, UserPolygon } from '~/types/geo'
+import type { AreaGeometry, PolygonDirectoryItem, PolygonDirectoryPage, PolygonEditorDetail, PolygonMetrics, PolygonOverview, PolygonVerwaltungDetail, PublicPolygonDetail, UserPolygon } from '~/types/geo'
 import type { PolygonOsmInfo } from '~/types/osm'
 import type { ComparableResult, LocationAnalysis } from '~/types/analytics'
 import { polygonOverviewSchema, polygonSchema, publicPolygonDetailSchema } from '~/utils/validation'
@@ -22,6 +22,17 @@ export const usePolygonApi = () => {
   const { request } = useApi()
 
   return {
+    async directoryAll(chunkSize = 250) {
+      const items: PolygonDirectoryItem[] = []
+      let offset = 0
+      while (true) {
+        const page = await request<PolygonDirectoryPage>(`/polygons/directory?offset=${offset}&limit=${chunkSize}`)
+        items.push(...page.items)
+        if (page.next_offset === null) return items
+        if (page.next_offset <= offset) throw new Error('Die Verzeichnis-Paginierung liefert keinen Fortschritt.')
+        offset = page.next_offset
+      }
+    },
     async list() {
       const polygons = await request<unknown[]>('/polygons')
       return polygons.map((polygon) => polygonSchema.parse(polygon))

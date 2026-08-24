@@ -32,10 +32,12 @@ from app.schemas.geojson import (
     PublicPolygonRead,
 )
 from app.schemas.osm import OsmPolygonImportRead, OsmPolygonImportRequest, PolygonOsmInfo
+from app.schemas.polygon_directory import PolygonDirectoryPage
 from app.schemas.polygon_filters import PolygonFilterParams, polygon_filter_query
 from app.services.comparables import comparable_polygons
 from app.services.geometry import GeometryValidationError
 from app.services.location_analytics import polygon_location_analysis
+from app.services.map_previews import MapPreviewError, map_preview_service
 from app.services.osm_import import (
     OsmImportAlreadyExists,
     OsmImportGeometryRequired,
@@ -44,6 +46,7 @@ from app.services.osm_import import (
     create_polygon_from_osm,
 )
 from app.services.osm_lookup import OsmLookupError, OsmLookupService
+from app.services.polygon_directory import polygon_directory_page
 from app.services.polygons import (
     create_polygon,
     delete_polygon,
@@ -185,6 +188,54 @@ async def get_polygon_overview(
 @router.get("/sitemap", response_model=list[PolygonSitemapEntry])
 async def get_polygon_sitemap(session: SessionDep) -> list[PolygonSitemapEntry]:
     return await polygon_sitemap_entries(session)
+
+
+@router.get("/directory", response_model=PolygonDirectoryPage)
+async def get_polygon_directory(
+    session: SessionDep,
+    request: Request,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=500)] = 250,
+) -> PolygonDirectoryPage:
+    await guard_public_query(request, session, "polygon-directory")
+    return await polygon_directory_page(session, offset=offset, limit=limit)
+
+
+@router.get("/by-slug/{slug}/preview.webp", response_class=Response)
+async def get_polygon_preview(
+    slug: str,
+    session: SessionDep,
+    request: Request,
+    width: Annotated[int, Query()] = 640,
+    height: Annotated[int, Query()] = 360,
+) -> Response:
+    await guard_public_query(request, session, "map-preview")
+    polygon = await public_polygon_by_slug(session, slug)
+    if polygon is None:
+        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
+    try:
+        preview = await map_preview_service.get(
+            slug=polygon.slug,
+            updated_at=polygon.updated_at,
+            geometry=polygon.geometry.model_dump(),
+            bbox=polygon.bbox,
+            width=width,
+            height=height,
+            category=polygon.category,
+            feature_kind="polygon",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except MapPreviewError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    headers = {
+        "ETag": preview.etag,
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+        "X-Content-Type-Options": "nosniff",
+    }
+    if request.headers.get("if-none-match") == preview.etag:
+        return Response(status_code=304, headers=headers)
+    return Response(preview.body, media_type="image/webp", headers=headers)
 
 
 @router.get("/by-slug/{slug}", response_model=PublicPolygonDetail)

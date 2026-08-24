@@ -1,3 +1,5 @@
+import industryConfig from '~/config/industries.json'
+
 export type IndustryKey =
   | 'warehouse'
   | 'fashion'
@@ -18,18 +20,7 @@ export type IndustryConfig = {
 
 export const fallbackIndustryColor = '#789098'
 
-export const industries: readonly IndustryConfig[] = [
-  { key: 'warehouse', label: 'Warenhaus', color: '#086b78' },
-  { key: 'fashion', label: 'Mode / Bekleidung', color: '#2f87b7' },
-  { key: 'food', label: 'Nahrungsmittel / Drogerie', color: '#d85f67' },
-  { key: 'electronics', label: 'Elektro / Technik', color: '#31b8b2' },
-  { key: 'furniture', label: 'Einrichtungsbedarf', color: '#789098' },
-  { key: 'garden', label: 'Garten / Freizeit', color: '#4f9b62' },
-  { key: 'other', label: 'Sonstige Waren', color: '#75aeca' },
-  { key: 'gastronomy', label: 'Gastronomie', color: '#d8cf28' },
-  { key: 'services', label: 'Einzelhandelsnahe Dienstleister', color: '#dcae45' },
-  { key: 'otherAreas', label: 'Sonstige Flächen', color: '#a9bec4' }
-]
+export const industries = industryConfig as readonly IndustryConfig[]
 
 export const industryColors = Object.fromEntries(
   industries.map(industry => [industry.key, industry.color])

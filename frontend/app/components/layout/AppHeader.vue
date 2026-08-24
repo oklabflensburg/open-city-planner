@@ -38,7 +38,7 @@
           <template v-if="authStore.authenticated">
             <LazyNotificationBell data-header-notifications mode="desktop" />
             <NuxtLink
-              v-if="route.path === '/'"
+              v-if="route.path === '/karte'"
               data-header-create-cta
               class="inline-flex h-11 w-auto shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-[#154d73] bg-white px-4 text-sm font-bold text-[#154d73] transition-colors hover:bg-[#edf4f8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
               to="/flaechen/neu"

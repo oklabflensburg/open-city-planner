@@ -28,6 +28,10 @@ stadtplaner_backend_env_content: |
   APP_ENVIRONMENT=production
   APP_BASE_URL=https://stadtplaner.oklabflensburg.de
   API_BASE_URL=https://api.stadtplaner.oklabflensburg.de
+  MAP_PREVIEW_RENDERER_URL=http://127.0.0.1:3020
+  MAP_PREVIEW_RENDERER_TIMEOUT_SECONDS=20
+  MAP_PREVIEW_CACHE_DIR=/data/stadtplaner/map-previews
+  MAP_PREVIEW_STYLE_PATH=/opt/stadtplaner/current/frontend/public/map-styles/stadtplaner-light.json
 
   JWT_SECRET_KEY=REPLACE_WITH_32_PLUS_RANDOM_CHARS
   JWT_ALGORITHM=HS256
@@ -277,6 +281,9 @@ stadtplaner_otel_service_name: stadtplaner-api
 stadtplaner_manage_otel_collector: true
 stadtplaner_backend_port: 8008
 stadtplaner_frontend_port: 3008
+stadtplaner_map_preview_port: 3020
+stadtplaner_map_preview_max_concurrent: 2
+stadtplaner_map_preview_cache_dir: /data/stadtplaner/map-previews
 stadtplaner_backend_env_file: /etc/stadtplaner/backend.env
 stadtplaner_frontend_env_file: /etc/stadtplaner/frontend.env
 stadtplaner_osm_env_file: /etc/stadtplaner/osm-sync.env

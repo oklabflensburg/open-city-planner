@@ -13,6 +13,7 @@
     - { path: "{{ stadtplaner_avatar_upload_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_avatar_upload_dir }}/avatars", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_observability_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
+    - { path: "{{ stadtplaner_map_preview_cache_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
 
 - name: Install backend environment from encrypted variable when supplied
   ansible.builtin.copy:
@@ -492,10 +493,12 @@
   loop:
     - { src: stadtplaner-api.service.j2, dest: stadtplaner-api.service }
     - { src: stadtplaner-frontend.service.j2, dest: stadtplaner-frontend.service }
+    - { src: stadtplaner-map-preview.service.j2, dest: stadtplaner-map-preview.service }
   notify:
     - Reload systemd
     - Restart Stadtplaner API
     - Restart Stadtplaner frontend
+    - Restart Stadtplaner map preview
 
 - name: Define background services
   ansible.builtin.set_fact:
@@ -652,6 +655,7 @@
   loop:
     - stadtplaner-api.service
     - stadtplaner-frontend.service
+    - stadtplaner-map-preview.service
   when: stadtplaner_disable_legacy_primary_services
 
 - name: Require application ports to be free after legacy handover
@@ -663,6 +667,7 @@
   loop:
     - "{{ stadtplaner_backend_port }}"
     - "{{ stadtplaner_frontend_port }}"
+    - "{{ stadtplaner_map_preview_port }}"
   when: stadtplaner_disable_legacy_primary_services
 
 - name: Switch the active release atomically
@@ -683,6 +688,7 @@
       loop:
         - stadtplaner-api.service
         - stadtplaner-frontend.service
+        - stadtplaner-map-preview.service
 
     - name: Apply pending service and nginx handlers before smoke tests
       ansible.builtin.meta: flush_handlers
@@ -692,6 +698,19 @@
         host: 127.0.0.1
         port: "{{ stadtplaner_backend_port }}"
         timeout: 30
+
+    - name: Verify native map preview renderer
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ stadtplaner_map_preview_port }}/health"
+        status_code: 200
+        return_content: true
+      register: stadtplaner_map_preview_health
+      failed_when: >-
+        stadtplaner_map_preview_health.status != 200 or
+        (stadtplaner_map_preview_health.json.renderer | default('')) != 'maplibre-native'
+      retries: 15
+      delay: 2
+      until: stadtplaner_map_preview_health.status == 200
 
     - name: Verify API readiness
       ansible.builtin.uri:
@@ -759,6 +778,7 @@
       loop:
         - stadtplaner-api.service
         - stadtplaner-frontend.service
+        - stadtplaner-map-preview.service
       when: stadtplaner_previous_release_path | default('') | length > 0
 
     - name: Fail after automatic rollback

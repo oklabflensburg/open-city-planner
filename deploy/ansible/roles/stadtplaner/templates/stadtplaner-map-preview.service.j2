@@ -1,0 +1,29 @@
+[Unit]
+Description=Open City Planner MapLibre Native preview renderer
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists={{ stadtplaner_current_path }}/frontend/map-preview-renderer/server.mjs
+
+[Service]
+Type=simple
+User={{ stadtplaner_service_user }}
+Group={{ stadtplaner_service_group }}
+WorkingDirectory={{ stadtplaner_current_path }}/frontend
+EnvironmentFile={{ stadtplaner_frontend_env_file }}
+Environment=NODE_ENV=production
+Environment=MAP_PREVIEW_HOST=127.0.0.1
+Environment=MAP_PREVIEW_PORT={{ stadtplaner_map_preview_port }}
+Environment=MAP_PREVIEW_STYLE_PATH={{ stadtplaner_current_path }}/frontend/public/map-styles/stadtplaner-light.json
+Environment=MAP_PREVIEW_MAX_CONCURRENT={{ stadtplaner_map_preview_max_concurrent }}
+ExecStart=/usr/bin/node {{ stadtplaner_current_path }}/frontend/map-preview-renderer/server.mjs
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

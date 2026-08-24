@@ -3,7 +3,7 @@
     title="Gebiete vergleichen"
     description="Vergleichen Sie Gemeinden, Stadtteile und Quartiere anhand derselben Stadtplaner-Kennzahlen."
     eyebrow="Marktanalyse"
-    :breadcrumbs="[{ label: 'Karte', to: '/' }, { label: 'Vergleich' }]"
+    :breadcrumbs="[{ label: 'Karte', to: '/karte' }, { label: 'Vergleich' }]"
     max-width="wide"
   >
     <div class="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)]">

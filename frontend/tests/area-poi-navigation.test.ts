@@ -21,7 +21,7 @@ describe('Gebietsfarben und Orte', () => {
 
   it('builds a shareable map link and rejects unsafe category tokens', () => {
     expect(areaPoiMapLink('altstadt-15630273', 'restaurant')).toEqual({
-      path: '/', query: { area: 'altstadt-15630273', poi: 'restaurant' }
+      path: '/karte', query: { gebiet: 'altstadt-15630273', poi: 'restaurant' }
     })
     expect(isPoiCategoryToken('restaurant')).toBe(true)
     expect(isPoiCategoryToken('drop table')).toBe(false)

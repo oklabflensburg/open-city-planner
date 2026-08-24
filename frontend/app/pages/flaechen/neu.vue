@@ -1,5 +1,5 @@
 <template>
-  <ContentPageShell title="Neue Fläche anlegen" description="Zeichnen Sie die Geometrie und ergänzen Sie die ersten öffentlichen Angaben. Nach dem Erstellen wechseln Sie automatisch zur Detailseite mit Autosave." eyebrow="Flächenverwaltung" :breadcrumbs="[{ label: 'Karte', to: '/' }, { label: 'Neue Fläche' }]" max-width="wide">
+  <ContentPageShell title="Neue Fläche anlegen" description="Zeichnen Sie die Geometrie und ergänzen Sie die ersten öffentlichen Angaben. Nach dem Erstellen wechseln Sie automatisch zur Detailseite mit Autosave." eyebrow="Flächenverwaltung" :breadcrumbs="[{ label: 'Karte', to: '/karte' }, { label: 'Neue Fläche' }]" max-width="wide">
       <ol class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Arbeitsschritte">
         <li v-for="(step, index) in steps" :key="step" class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"><span class="grid size-7 shrink-0 place-items-center rounded-full bg-[#154d73] text-xs font-bold text-white">{{ index + 1 }}</span>{{ step }}</li>
       </ol>

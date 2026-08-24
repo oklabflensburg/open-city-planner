@@ -120,7 +120,7 @@ describe('area overview SSR integration', () => {
     expect(html).toContain('href="/gebiete/altstadt"')
     expect(html).toContain('href="/gebiete/neustadt"')
     expect(html).toContain('href="/dokumentation/methodik"')
-    expect(html).toMatch(/href="\/"[^>]*>GIS-Karte öffnen<\/a>/)
+    expect(html).toMatch(/href="\/karte"[^>]*>GIS-Karte öffnen<\/a>/)
     expectMetadata(html, 'index,follow')
 
     const entities = structuredData(html)

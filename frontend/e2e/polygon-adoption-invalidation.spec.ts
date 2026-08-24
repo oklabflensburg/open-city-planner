@@ -90,7 +90,7 @@ test('OSM adoption invalidates the same viewport and shows the persisted polygon
   const viewports = [{ width: 1024, height: 768 }, { width: 390, height: 844 }, { width: 1440, height: 900 }]
   for (const [index, viewport] of viewports.entries()) {
     await page.setViewportSize(viewport)
-    await page.goto('/?categories=fashion&floors=EG')
+    await page.goto('/karte?categories=fashion&floors=EG')
     await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 30_000 })
     await expect.poll(() => page.evaluate(() => {
       const map = window.__stadtplanerMapPerformance?.map

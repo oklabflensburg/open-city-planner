@@ -1,11 +1,12 @@
 # Deployment und Betrieb
 
-Diese Anleitung bündelt den produktiven Betrieb des aktuellen Repositorys. Spezialisierte Abläufe bleiben in den verlinkten Dokumenten maßgeblich. Das Repository enthält systemd-Units für Hintergrundaufgaben, aber keine fertige Unit für den dauerhaften FastAPI- oder Nuxt-Hauptprozess und keine produktive Nginx-Konfiguration.
+Diese Anleitung bündelt den produktiven Betrieb des aktuellen Repositorys. Spezialisierte Abläufe bleiben in den verlinkten Dokumenten maßgeblich. Das Ansible-Deployment erzeugt die systemd-Units für API, Frontend und Kartenvorschau-Renderer sowie die produktive Nginx-Konfiguration; zusätzliche Units im Repository decken Hintergrundaufgaben ab.
 
 ## Architektur
 
 - Das Nuxt-Frontend wird als eigener Produktionsprozess betrieben.
 - FastAPI stellt die API, `/health/live` und `/health/ready` bereit.
+- MapLibre Native rendert Vorschaubilder in einem isolierten Loopback-Dienst.
 - PostgreSQL mit PostGIS ist die fachliche Datenbank.
 - Redis dient als Cache und als gemeinsames Backend für produktive Sicherheitszähler. Er ist keine fachliche Datenquelle.
 - Ein Reverse Proxy veröffentlicht Frontend und API über HTTPS.
@@ -320,3 +321,6 @@ Runbooks sind in [observability.md](observability.md) beschrieben.
 - [ ] Logs geprüft
 
 Test- und CI-Details stehen in [ci.md](ci.md). Die ausführliche Produktionshärtung steht in [security/production-checklist.md](security/production-checklist.md).
+## Kartenvorschau-Renderer
+
+Ansible installiert neben API und Frontend `stadtplaner-map-preview.service`. Der Dienst bindet ausschließlich an `127.0.0.1`, verwendet die Style-Datei des aktiven Releases und wird im Rollout- sowie Rollback-Serviceverbund gemeinsam mit API und Frontend gestartet. Der persistente Bildcache liegt standardmäßig unter `/data/stadtplaner/map-previews`. Konfiguration, Sicherheitsgrenzen und lokale Plattformhinweise stehen in [Serverseitige Kartenvorschauen](map-previews.md).

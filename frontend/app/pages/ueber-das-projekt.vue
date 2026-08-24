@@ -12,7 +12,7 @@
           Stadtplaner ist eine interaktive GIS-Anwendung für die Flensburger Innenstadt. Verkaufsflächen werden als konkrete Geometrien auf der Karte geführt und lassen sich dadurch räumlich finden, einordnen und auswerten.
         </p>
         <div class="mt-6 flex flex-wrap gap-3">
-          <NuxtLink class="page-button-primary" to="/">Karte öffnen <ArrowRight class="size-4" aria-hidden="true" /></NuxtLink>
+          <NuxtLink class="page-button-primary" to="/karte">Karte öffnen <ArrowRight class="size-4" aria-hidden="true" /></NuxtLink>
           <NuxtLink class="page-button-secondary" to="/dokumentation">Dokumentation öffnen</NuxtLink>
         </div>
       </Card>

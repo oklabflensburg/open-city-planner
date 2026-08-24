@@ -27,7 +27,7 @@ export const documentationPages: DocumentationPage[] = [
           {
             type: 'links',
             items: [
-              { label: 'Karte öffnen', to: '/', description: 'Direkt zur interaktiven Kartenübersicht.' },
+              { label: 'Karte öffnen', to: '/karte', description: 'Direkt zur interaktiven Kartenübersicht.' },
               { label: 'Erste Schritte', to: '/dokumentation/erste-schritte', description: 'Die wichtigsten Bedienwege in wenigen Minuten kennenlernen.' },
               { label: 'Intelligente Suche', to: '/dokumentation/suche', description: 'Kartenbefehle und Fragen in Alltagssprache verwenden.' },
               { label: 'Karte bedienen', to: '/dokumentation/karte', description: 'Navigieren, Flächen auswählen und Ebenen bedienen.' },

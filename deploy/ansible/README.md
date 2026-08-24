@@ -19,6 +19,7 @@ Für diesen Server ist ein idempotenter Deployment-Ablauf sicherer als wiederhol
 - Service-Benutzer: `oklab`
 - FastAPI: `127.0.0.1:8008`
 - Nuxt/Nitro: `127.0.0.1:3008`
+- MapLibre-Native-Vorschaurenderer: `127.0.0.1:3020`, persistenter Cache unter `/data/stadtplaner/map-previews`
 - PostgreSQL/PostGIS: fachliche Source of Truth
 - Redis: Cache und produktive Rate-Limit-Zähler
 - Nginx: Reverse Proxy für Frontend/API und optional Entwicklerdokumentation

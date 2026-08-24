@@ -24,7 +24,7 @@ async function prepare(page: Page) {
     if (path.endsWith('/analysis-areas')) return route.fulfill({ json: [areaRef] })
     return route.fulfill({ status: 404, json: { detail: 'nicht benötigt' } })
   })
-  await page.goto('/')
+  await page.goto('/karte')
   await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 30_000 })
 }
 
@@ -285,5 +285,5 @@ test('Mobile Antworten öffnen im bestehenden Bottom Sheet', async ({ page }) =>
   await expect(searchDialog.locator('[data-assistant-history]')).toContainText('Wie viele POIs gibt es in der Altstadt?')
   await page.goBack()
   await expect(searchDialog).toHaveCount(0)
-  expect(new URL(page.url()).pathname).toBe('/')
+  expect(new URL(page.url()).pathname).toBe('/karte')
 })

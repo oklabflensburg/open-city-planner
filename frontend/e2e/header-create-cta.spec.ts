@@ -55,7 +55,7 @@ test('desktop create CTA stays on one line without colliding with adjacent actio
   await page.setViewportSize({ width: 1920, height: 1080 })
   const hydrationWarnings = trackHydrationWarnings(page)
   await mockOverview(page)
-  await page.goto('/')
+  await page.goto('/karte')
   await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 20_000 })
 
   const cta = page.locator('[data-header-create-cta]')
@@ -96,7 +96,7 @@ test('mobile keeps creation in navigation and the top bar overflow-free', async 
   await page.setViewportSize({ width: 430, height: 932 })
   const hydrationWarnings = trackHydrationWarnings(page)
   await mockOverview(page)
-  await page.goto('/')
+  await page.goto('/karte')
 
   for (const width of [320, 390, 430]) {
     await page.setViewportSize({ width, height: 844 })
@@ -110,7 +110,7 @@ test('mobile keeps creation in navigation and the top bar overflow-free', async 
 test('account menu stays open until logout and ends the session', async ({ page }) => {
   const session = { authenticated: true }
   await mockOverview(page, session)
-  await page.goto('/')
+  await page.goto('/karte')
   await expect(page.getByRole('heading', { name: 'Interaktive Stadtkarte für Flensburg' })).toBeVisible()
 
   const accountButton = page.locator('[data-header-account]')

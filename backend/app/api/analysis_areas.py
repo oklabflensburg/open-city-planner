@@ -30,6 +30,7 @@ from app.services.analysis_area_api import (
     list_areas,
 )
 from app.services.area_statistics import area_statistic_series, area_statistics
+from app.services.map_previews import MapPreviewError, map_preview_service
 from app.services.public_query_security import guard_public_query, is_statement_timeout_error
 
 router = APIRouter(prefix="/analysis-areas", tags=["Analysis Areas"])
@@ -95,6 +96,43 @@ async def get_area_by_slug(slug: str, session: SessionDep) -> AnalysisAreaDetail
     if result is None:
         raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
     return result
+
+
+@router.get("/by-slug/{slug}/preview.webp", response_class=Response)
+async def get_area_preview(
+    slug: str,
+    session: SessionDep,
+    request: Request,
+    width: Annotated[int, Query()] = 640,
+    height: Annotated[int, Query()] = 360,
+) -> Response:
+    await guard_public_query(request, session, "map-preview")
+    area = await area_detail_by_slug(session, slug)
+    if area is None:
+        raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
+    try:
+        preview = await map_preview_service.get(
+            slug=area.slug,
+            updated_at=area.updated_at,
+            geometry=area.geometry.model_dump(),
+            bbox=area.bbox,
+            width=width,
+            height=height,
+            category=None,
+            feature_kind="area",
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except MapPreviewError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    headers = {
+        "ETag": preview.etag,
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+        "X-Content-Type-Options": "nosniff",
+    }
+    if request.headers.get("if-none-match") == preview.etag:
+        return Response(status_code=304, headers=headers)
+    return Response(preview.body, media_type="image/webp", headers=headers)
 
 
 @router.get(
