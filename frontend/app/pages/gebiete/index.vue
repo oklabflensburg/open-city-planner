@@ -157,7 +157,6 @@ type AreaFaqItem = {
   id: string
   question: string
   answer: string
-  structuredAnswer?: string
 }
 
 const config = useRuntimeConfig()
@@ -197,8 +196,7 @@ const faqItems = computed<AreaFaqItem[]>(() => [
         {
           id: 'district-list',
           question: 'Welche Stadtteile gehören zu Flensburg?',
-          answer: 'Die veröffentlichten Stadtteile sind hier alphabetisch aufgeführt und führen direkt zu ihrem Standortprofil.',
-          structuredAnswer: `Die veröffentlichten Stadtteile sind ${districts.value.map(area => area.name).join(', ')}.`
+          answer: `Die veröffentlichten Stadtteile sind ${districts.value.map(area => area.name).join(', ')}. Die alphabetische Liste führt direkt zu den jeweiligen Standortprofilen.`
         }
       ]
     : []),
@@ -252,7 +250,7 @@ const structuredData = computed(() => [
     : []),
   buildFaqStructuredData(faqItems.value.map(item => ({
     question: item.question,
-    answer: item.structuredAnswer || item.answer
+    answer: item.answer
   })))
 ])
 
