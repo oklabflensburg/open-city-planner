@@ -106,7 +106,7 @@ function group(page: Page, title: string) {
 }
 
 async function openGis(page: Page) {
-  await page.goto('/')
+  await page.goto('/karte')
   await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 20_000 })
 }
 
@@ -184,7 +184,7 @@ test('desktop combines filters, persists URL history and resets globally', async
   await expect(page.getByText('Keine gepflegten Stadtplaner-Flächen entsprechen der aktuellen Auswahl.')).toBeVisible()
 
   await page.getByRole('button', { name: 'Zurücksetzen', exact: true }).first().click()
-  await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3010\/$/)
+  await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3010\/karte$/)
   await expect(page.getByText(/aktiv$/)).toHaveCount(0)
   await expect(page.getByText(/1 passende OSM-Objekte im Ausschnitt/)).toBeVisible()
 
@@ -201,7 +201,7 @@ test('desktop combines filters, persists URL history and resets globally', async
   await expect(sources.getByRole('button', { name: 'Alle auswählen' })).toBeVisible()
   await sources.getByRole('switch', { name: /Datenquellen Stadtplaner:/ }).click()
   await sources.getByRole('switch', { name: /Datenquellen OpenStreetMap:/ }).click()
-  await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3010\/$/)
+  await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3010\/karte$/)
 })
 
 test('all-select remains visually selected while API semantics stay unrestricted', async ({ page }) => {
@@ -229,7 +229,7 @@ test('all-select remains visually selected while API semantics stay unrestricted
   const sources = group(page, 'Datenquellen')
   await expect(sources.getByRole('switch', { name: /Datenquellen Stadtplaner:/ })).toHaveAttribute('aria-checked', 'true')
   await expect(sources.getByRole('switch', { name: /Datenquellen OpenStreetMap:/ })).toHaveAttribute('aria-checked', 'true')
-  await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3010\/$/)
+  await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:3010\/karte$/)
   await expect(page.getByText('Alle passenden Objekte werden angezeigt.')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Analyse', exact: true })).toBeVisible()
 })
@@ -237,7 +237,7 @@ test('all-select remains visually selected while API semantics stay unrestricted
 test('legacy NONE deep links reopen Fachfacetten and preserve an empty source selection', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await mockGis(page)
-  await page.goto('/?floors=NONE&categories=NONE&sources=NONE')
+  await page.goto('/karte?floors=NONE&categories=NONE&sources=NONE')
   await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 20_000 })
 
   const floor = group(page, 'Etagen')

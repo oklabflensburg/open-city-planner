@@ -3,7 +3,7 @@
     <AuthCard eyebrow="Konto" :title="title">
       <p class="text-sm leading-6 text-[#4f575c]">{{ message }}</p>
       <div class="mt-5 flex flex-wrap gap-2">
-        <NuxtLink class="page-button-primary" to="/">Zur Karte</NuxtLink>
+        <NuxtLink class="page-button-primary" to="/karte">Zur Karte</NuxtLink>
         <NuxtLink v-if="!authStore.authenticated" class="page-button-secondary" to="/login">
           Anmelden
         </NuxtLink>

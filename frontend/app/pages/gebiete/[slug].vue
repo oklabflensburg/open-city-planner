@@ -10,7 +10,7 @@
       <div class="flex flex-wrap gap-2">
         <NotificationFollowButton v-if="authStore.authenticated" resource-type="AREA" :resource-id="area.id" follow-label="Diesem Gebiet folgen" followed-label="Sie folgen diesem Gebiet" />
         <NuxtLink class="inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-[#154d73] hover:bg-slate-50" :to="`/vergleich?gebiete=${encodeURIComponent(area.slug)}`">Mit anderem Gebiet vergleichen</NuxtLink>
-        <NuxtLink class="inline-flex min-h-11 items-center rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white hover:bg-[#103c59]" :to="`/?area=${area.slug}`">In der Karte öffnen</NuxtLink>
+        <NuxtLink class="inline-flex min-h-11 items-center rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white hover:bg-[#103c59]" :to="{ path: '/karte', query: { gebiet: area.slug } }">In der Karte öffnen</NuxtLink>
       </div>
     </template>
 
@@ -118,7 +118,7 @@
     </section>
 
     <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="flaechen">
-      <div class="flex flex-wrap items-center justify-between gap-3"><h2 id="flaechen" class="text-2xl font-black text-slate-950">Flächen im Gebiet</h2><NuxtLink class="font-bold text-[#154d73] underline" :to="`/?area=${area.slug}`">Alle in der Karte ansehen</NuxtLink></div>
+      <div class="flex flex-wrap items-center justify-between gap-3"><h2 id="flaechen" class="text-2xl font-black text-slate-950">Flächen im Gebiet</h2><NuxtLink class="font-bold text-[#154d73] underline" :to="{ path: '/karte', query: { gebiet: area.slug } }">Alle in der Karte ansehen</NuxtLink></div>
       <p v-if="!polygons.length" class="mt-4 text-slate-500">Für dieses Gebiet sind derzeit keine öffentlichen Flächen erfasst.</p>
       <ul v-else class="mt-4 divide-y divide-slate-200">
         <li v-for="polygon in polygons" :key="polygon.id" class="flex flex-wrap items-center justify-between gap-3 py-4">

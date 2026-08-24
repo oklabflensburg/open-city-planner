@@ -26,7 +26,7 @@ export function usePolygonSeo(polygon: MaybeRefOrGetter<PublicPolygonDetail>) {
       }
     },
     buildBreadcrumbStructuredData(config.public.siteUrl, [
-      { name: 'Karte', path: '/' },
+      { name: 'Karte', path: '/karte' },
       { name: data.value.name, path: path.value }
     ])
   ])

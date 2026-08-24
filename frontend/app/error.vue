@@ -4,7 +4,7 @@
       <p class="text-sm font-bold text-[#687176]">Fehler {{ error.statusCode }}</p>
       <h1 class="mt-2 text-3xl font-bold text-[#202427]">{{ title }}</h1>
       <p class="mt-4 text-[#4f575c]">{{ error.statusMessage || 'Die angeforderte Seite konnte nicht geladen werden.' }}</p>
-      <NuxtLink class="page-button-primary mt-6" to="/">Zur Karte</NuxtLink>
+      <NuxtLink class="page-button-primary mt-6" to="/karte">Zur Karte</NuxtLink>
     </div>
   </NuxtLayout>
 </template>

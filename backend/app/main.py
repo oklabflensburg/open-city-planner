@@ -1,6 +1,7 @@
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from ipaddress import ip_address
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exception_handlers import request_validation_exception_handler
@@ -21,6 +22,7 @@ from app.observability.middleware import ObservabilityMiddleware
 from app.observability.tracing import configure_tracing
 from app.security.request_limits import RequestBodyLimitMiddleware
 from app.services.assistant_provider import close_assistant_provider
+from app.services.map_previews import MapPreviewError, map_preview_service
 
 settings = get_settings()
 configure_logging(
@@ -223,6 +225,38 @@ async def health_info() -> dict[str, str]:
         "release_sha": settings.release_sha,
         "environment": settings.app_environment,
     }
+
+
+@app.get("/health/map-preview.webp", include_in_schema=False)
+async def health_map_preview(request: Request) -> Response:
+    client_host = request.client.host if request.client else ""
+    try:
+        local_client = ip_address(client_host).is_loopback
+    except ValueError:
+        local_client = False
+    if not local_client:
+        return JSONResponse(status_code=404, content={"detail": "Not found"})
+    try:
+        image = await map_preview_service.renderer.render(
+            geometry={
+                "type": "Polygon",
+                "coordinates": [
+                    [[9.43, 54.78], [9.431, 54.78], [9.431, 54.781], [9.43, 54.78]]
+                ],
+            },
+            bbox=(9.429, 54.779, 9.432, 54.782),
+            width=320,
+            height=180,
+            category=None,
+            feature_kind="area",
+        )
+    except MapPreviewError:
+        return JSONResponse(status_code=503, content={"status": "renderer_unavailable"})
+    return Response(
+        content=image,
+        media_type="image/webp",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 if settings.metrics_enabled:

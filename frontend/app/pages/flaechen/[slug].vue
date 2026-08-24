@@ -22,7 +22,7 @@
     </section>
 
     <template v-else>
-    <PageBreadcrumbs :items="[{ label: 'Karte', to: '/' }, { label: polygonData.name }]" />
+    <PageBreadcrumbs :items="[{ label: 'Karte', to: '/karte' }, { label: polygonData.name }]" />
 
     <div v-if="canEditPublicFields || canEditVerwaltung" class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
       <span class="text-sm font-semibold" :class="saveStatusClass">{{ saveStatusLabel }}</span>
@@ -317,7 +317,7 @@ async function removePolygon() {
   try {
     await polygonApi.remove(polygonData.value.id)
     clearNuxtData(`polygon-${slug}`)
-    await navigateTo('/')
+    await navigateTo('/karte')
   } catch (cause) {
     deleteError.value = cause instanceof Error ? cause.message : 'Die Fläche konnte nicht gelöscht werden.'
   } finally {

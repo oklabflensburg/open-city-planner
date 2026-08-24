@@ -98,7 +98,7 @@ async function expectUniversalSelection(page: Page, featureType: string) {
 test('one universal overlay selects every interactive polygon type and clears cleanly', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await mockMapData(page)
-  await page.goto('/')
+  await page.goto('/karte')
   await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText('1 Stadtplaner · 1 OSM im Ausschnitt')).toBeVisible({ timeout: 20_000 })
 

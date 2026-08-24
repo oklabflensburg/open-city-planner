@@ -68,6 +68,16 @@ export default defineEventHandler((event) => {
   const path = getRequestURL(event).pathname
 
   if (path === '/api/v1/polygons/sitemap') return [{ slug: polygon.slug, updated_at: polygon.updated_at }]
+  if (path === '/api/v1/polygons/directory') return {
+    items: [{
+      slug: polygon.slug, name: polygon.name, category: polygon.category, floor: polygon.floor,
+      address_display_name: polygon.address_display_name,
+      occupancy_status: polygon.occupancy_status, business_structure: polygon.business_structure,
+      district_slug: area.slug, district_name: area.name, quarter_slug: null, quarter_name: null,
+      updated_at: polygon.updated_at
+    }],
+    total: 1, offset: 0, limit: 250, next_offset: null
+  }
   if (path === '/api/v1/analysis-areas/sitemap') return [{ slug: area.slug, updated_at: area.updated_at }]
   if (path.includes('does-not-exist')) throw createError({ statusCode: 404, statusMessage: 'Nicht gefunden' })
   if (path === `/api/v1/polygons/by-slug/${polygon.slug}`) return polygon
@@ -96,7 +106,7 @@ export default defineEventHandler((event) => {
     const reference = { id: area.id, slug: area.slug, name: area.name, area_type: area.area_type }
     return { area: reference, statistics_area: reference, inherited_from_parent: false, source: null, latest: [] }
   }
-  if (path === '/api/v1/analysis-areas') return []
+  if (path === '/api/v1/analysis-areas') return [area]
   if (path === '/api/v1/analysis-areas/geojson') return { type: 'FeatureCollection', features: [] }
   if (path === '/api/v1/polygons/overview') return []
   if (path === '/api/v1/analytics/overview') {

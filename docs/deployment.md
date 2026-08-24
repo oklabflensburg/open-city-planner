@@ -1,11 +1,12 @@
 # Deployment und Betrieb
 
-Diese Anleitung bündelt den produktiven Betrieb des aktuellen Repositorys. Spezialisierte Abläufe bleiben in den verlinkten Dokumenten maßgeblich. Das Repository enthält systemd-Units für Hintergrundaufgaben, aber keine fertige Unit für den dauerhaften FastAPI- oder Nuxt-Hauptprozess und keine produktive Nginx-Konfiguration.
+Diese Anleitung bündelt den produktiven Betrieb des aktuellen Repositorys. Spezialisierte Abläufe bleiben in den verlinkten Dokumenten maßgeblich. Das Ansible-Deployment erzeugt die systemd-Units für API, Frontend und Kartenvorschau-Renderer sowie die produktive Nginx-Konfiguration; zusätzliche Units im Repository decken Hintergrundaufgaben ab.
 
 ## Architektur
 
 - Das Nuxt-Frontend wird als eigener Produktionsprozess betrieben.
 - FastAPI stellt die API, `/health/live` und `/health/ready` bereit.
+- MapLibre Native rendert Vorschaubilder in einem isolierten Loopback-Dienst.
 - PostgreSQL mit PostGIS ist die fachliche Datenbank.
 - Redis dient als Cache und als gemeinsames Backend für produktive Sicherheitszähler. Er ist keine fachliche Datenquelle.
 - Ein Reverse Proxy veröffentlicht Frontend und API über HTTPS.
@@ -24,7 +25,7 @@ Andere produktive PostgreSQL-, PostGIS- oder Redis-Versionen sind im Repository 
 
 ## Installationspfad und Service-Benutzer
 
-Die meisten mitgelieferten Units und OSM-Skripte verwenden `/opt/git/open-city-planner` und den Benutzer `oklab` mit Gruppe `www-data`. Die Statistik-Unit verwendet dagegen `/opt/stadtplaner` und den Benutzer `stadtplaner`. Diese Abweichung ist kein zweites zwingendes Deploymentmodell: Wählen Sie einen Installationspfad und einen nicht privilegierten Service-Benutzer und gleichen Sie alle Units vor der Installation daran an.
+Der verwaltete Produktionsdeploy assembliert unveränderliche Releases unter `/opt/stadtplaner/releases/<sha>` und aktiviert sie über `/opt/stadtplaner/current`. Der Arbeitscheckout unter `/opt/git/open-city-planner` dient nur als Quelle für das Release-Archiv und ist kein Runtime-Pfad. API, Frontend und Hintergrundjobs laufen als `oklab`; der Native-Renderer verwendet den getrennten Benutzer `stadtplaner-map-renderer`. Ältere statische Beispiel-Units außerhalb der Ansible-Rollen können noch historische Pfade enthalten und sind für den hier beschriebenen Produktionsdeploy nicht maßgeblich.
 
 Persistente Verzeichnisse wie Uploads, OSM-Daten und Social-Screenshots dürfen nicht bei jedem Deployment ersetzt werden. Der Service-Benutzer benötigt nur für die tatsächlich verwendeten Pfade Schreibrechte.
 
@@ -320,3 +321,6 @@ Runbooks sind in [observability.md](observability.md) beschrieben.
 - [ ] Logs geprüft
 
 Test- und CI-Details stehen in [ci.md](ci.md). Die ausführliche Produktionshärtung steht in [security/production-checklist.md](security/production-checklist.md).
+## Kartenvorschau-Renderer
+
+Ansible bereitet die Native-Runtime in der eigenen Rolle `stadtplaner_map_renderer` vor und aktiviert anschließend zusammen mit API und Frontend `stadtplaner-map-renderer.service`. Der Dienst bindet ausschließlich an `127.0.0.1:3020`, läuft als `stadtplaner-map-renderer` ohne Zugriff auf die Backend-Environmentdatei und verwendet Renderer-Code sowie Style des aktiven Releases. Vor dem Symlink-Wechsel prüft Ansible Paketintegrität, Shared Libraries, Style-Vertrag und Leserechte. Nach dem Wechsel müssen Renderer-Readiness, echter Native-WebP-Smoke und der FastAPI-Rendererpfad erfolgreich sein; andernfalls werden Symlink und alle drei Dienste gemeinsam zurückgerollt. Der von FastAPI verwaltete persistente Bildcache liegt unter `/data/stadtplaner/previews` und wird bei Deployments nicht gelöscht. Details und Diagnosebefehle stehen in [Serverseitige Kartenvorschauen](map-previews.md).

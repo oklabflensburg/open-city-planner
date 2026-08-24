@@ -135,8 +135,8 @@ onMounted(async () => {
       applyRequestedPoiFilter()
       await polygonStore.loadPolygons()
       updateSource(visibleFeatureCollection.value)
-      const requested = typeof route.query.polygon === 'string' ? route.query.polygon : ''
-      if (requested && polygonStore.polygons.some(polygon => polygon.id === requested)) {
+      const requested = await requestedPolygonId()
+      if (requested) {
         await selectPolygon(requested, true)
       } else {
         await selectRequestedArea(instance)
@@ -250,10 +250,12 @@ watch(
   () => [osmStore.showPois, osmStore.showAreas, osmStore.showBuildings, osmStore.activeCategories.join(','), osmStore.areaPoiFilter?.areaSlug, osmStore.areaPoiFilter?.category],
   () => scheduleOsmViewportRefresh(0)
 )
-watch(() => [route.query.area, route.query.poi], async () => {
+watch(() => [route.query.area, route.query.gebiet, route.query.poi, route.query.polygon, route.query.flaeche], async () => {
   if (!mapStore.mapLoaded || !map.value) return
   applyRequestedPoiFilter()
-  await selectRequestedArea(map.value)
+  const polygonId = await requestedPolygonId()
+  if (polygonId) await selectPolygon(polygonId, true)
+  else await selectRequestedArea(map.value)
   await refreshOsmViewportForCurrentMap({ force: true })
 })
 
@@ -728,7 +730,7 @@ async function selectPolygon(id: string, fitSelection = false) {
 }
 
 async function selectRequestedArea(instance: Map) {
-  const slug = typeof route.query.area === 'string' ? route.query.area : ''
+  const slug = requestedAreaSlug()
   const area = analysisAreasStore.areas.find(candidate => candidate.slug === slug)
   if (!area) return
   const request = mapSelection.selectAnalysisArea(area.id)
@@ -740,13 +742,47 @@ async function selectRequestedArea(instance: Map) {
 }
 
 function applyRequestedPoiFilter() {
-  const areaSlug = typeof route.query.area === 'string' ? route.query.area : ''
+  const areaSlug = requestedAreaSlug()
   const poiCategory = route.query.poi
   const areaExists = analysisAreasStore.areas.some(area => area.slug === areaSlug)
   if (areaExists && isPoiCategoryToken(poiCategory)) {
     osmStore.setAreaPoiFilter(areaSlug, poiCategory)
   } else if (osmStore.areaPoiFilter) {
     osmStore.clearAreaPoiFilter()
+  }
+}
+
+function requestedAreaSlug() {
+  if (typeof route.query.gebiet === 'string') return route.query.gebiet
+  return typeof route.query.area === 'string' ? route.query.area : ''
+}
+
+async function requestedPolygonId() {
+  const legacyId = typeof route.query.polygon === 'string' ? route.query.polygon : ''
+  if (legacyId && polygonStore.polygons.some(polygon => polygon.id === legacyId)) return legacyId
+  const slug = typeof route.query.flaeche === 'string' ? route.query.flaeche : ''
+  if (!slug) return ''
+  const existing = polygonStore.polygons.find(polygon => polygon.slug === slug)
+  if (existing) return existing.id
+  try {
+    const detail = await usePolygonApi().bySlug(slug)
+    polygonStore.polygons = markRaw([...polygonStore.polygons, {
+      id: detail.id,
+      slug: detail.slug,
+      name: detail.name,
+      category: detail.category,
+      floor: detail.floor,
+      area_size: detail.area_size,
+      address_display_name: detail.address_display_name,
+      occupancy_status: detail.occupancy_status,
+      business_structure: detail.business_structure,
+      geometry: detail.geometry,
+      created_at: detail.created_at,
+      updated_at: detail.updated_at
+    }])
+    return detail.id
+  } catch {
+    return ''
   }
 }
 

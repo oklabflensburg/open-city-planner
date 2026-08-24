@@ -315,7 +315,7 @@ test('virtual authenticator registers, signs in, confirms MFA and removes a pass
   await logoutFromAccountMenu(page)
   await page.getByRole('button', { name: 'Mit Passkey anmelden' }).click()
   await expect(page).toHaveURL('http://localhost:3010/')
-  await expect(page.getByRole('heading', { name: 'Interaktive Stadtkarte für Flensburg' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Flächen und Stadtgebiete auf einen Blick' })).toBeVisible()
 
   await logoutFromAccountMenu(page)
   await page.getByLabel('E-Mail').fill(user.email)

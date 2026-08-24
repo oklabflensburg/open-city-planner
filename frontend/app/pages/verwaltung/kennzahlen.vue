@@ -2,7 +2,7 @@
   <ContentPageShell title="Kennzahlen verwalten" description="Hier werden die stadtweiten Kennzahlen gepflegt, die öffentlich auf der Karte erscheinen." :breadcrumbs="[{ label: 'Startseite', to: '/' }, { label: 'Verwaltung' }, { label: 'Kennzahlen' }]" max-width="reading">
     <template #badge><DocsRoleBadge audience="verwaltung" /></template>
     <template #actions>
-      <NuxtLink class="page-button-secondary" to="/">
+      <NuxtLink class="page-button-secondary" to="/karte">
         Zur Karte
       </NuxtLink>
     </template>

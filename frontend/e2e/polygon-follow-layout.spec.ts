@@ -98,7 +98,7 @@ async function mockDetail(page: Page, authenticated: boolean, initiallyFollowing
 }
 
 async function openDetail(page: Page) {
-  await page.goto('/')
+  await page.goto('/karte')
   await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 20_000 })
   await page.evaluate((path) => {
     window.history.pushState({}, '', path)

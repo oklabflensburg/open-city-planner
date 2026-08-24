@@ -1,4 +1,6 @@
 allowBuilds:
+  '@maplibre/maplibre-gl-native': true
   esbuild: true
 onlyBuiltDependencies:
+  - '@maplibre/maplibre-gl-native'
   - esbuild

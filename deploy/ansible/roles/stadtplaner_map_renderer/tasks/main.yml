@@ -1,0 +1,88 @@
+---
+- name: Require the renderer when production marks it mandatory
+  ansible.builtin.assert:
+    that:
+      - not stadtplaner_map_renderer_required | bool or stadtplaner_map_renderer_enabled | bool
+    fail_msg: "The production map renderer is required and cannot be disabled."
+
+- name: Validate supported MapLibre Native production platform
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Ubuntu'
+      - ansible_distribution_version == '24.04'
+      - ansible_architecture in ['x86_64', 'aarch64']
+      - ansible_architecture in stadtplaner_map_renderer_archive_checksums
+      - stadtplaner_map_renderer_bind_address == '127.0.0.1'
+      - stadtplaner_map_renderer_service_user != 'root'
+      - stadtplaner_map_renderer_service_user != stadtplaner_service_user
+      - stadtplaner_map_renderer_version is match('^[0-9]+\\.[0-9]+\\.[0-9]+$')
+      - stadtplaner_map_renderer_integrity is match('^sha512-[A-Za-z0-9+/]+={0,2}$')
+    fail_msg: >-
+      The reviewed MapLibre Native runtime requires Ubuntu 24.04 on x86_64 or
+      aarch64, a dedicated non-root account, loopback binding, and an exact
+      package version with SHA-512 integrity.
+  when: stadtplaner_map_renderer_enabled | bool
+
+- name: Resolve the reviewed native renderer archive
+  ansible.builtin.set_fact:
+    stadtplaner_map_renderer_release_arch: "{{ 'x64' if ansible_architecture == 'x86_64' else 'arm64' }}"
+    stadtplaner_map_renderer_archive_name: >-
+      node-v{{ stadtplaner_map_renderer_node_abi }}-linux-{{ 'x64' if ansible_architecture == 'x86_64' else 'arm64' }}-Release.tar.gz
+  when: stadtplaner_map_renderer_enabled | bool
+
+- name: Create versioned map renderer toolchain directory
+  ansible.builtin.file:
+    path: "{{ stadtplaner_map_renderer_toolchain_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: stadtplaner_map_renderer_enabled | bool
+
+- name: Download the pinned official native renderer archive
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/maplibre/maplibre-native/releases/download/node-v{{ stadtplaner_map_renderer_version }}/{{ stadtplaner_map_renderer_archive_name }}
+    dest: "{{ stadtplaner_map_renderer_toolchain_root }}/{{ stadtplaner_map_renderer_archive_name }}"
+    checksum: "sha256:{{ stadtplaner_map_renderer_archive_checksums[ansible_architecture] }}"
+    owner: root
+    group: root
+    mode: '0644'
+  when: stadtplaner_map_renderer_enabled | bool
+
+- name: Extract the verified native renderer archive once
+  ansible.builtin.unarchive:
+    src: "{{ stadtplaner_map_renderer_toolchain_root }}/{{ stadtplaner_map_renderer_archive_name }}"
+    dest: "{{ stadtplaner_map_renderer_toolchain_root }}"
+    remote_src: true
+    owner: root
+    group: root
+    creates: "{{ stadtplaner_map_renderer_toolchain_root }}/node-v{{ stadtplaner_map_renderer_node_abi }}/mbgl.node"
+  when: stadtplaner_map_renderer_enabled | bool
+
+- name: Install reviewed MapLibre Native runtime libraries
+  ansible.builtin.apt:
+    name: "{{ stadtplaner_map_renderer_runtime_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: stadtplaner_map_renderer_enabled | bool
+
+- name: Create dedicated map renderer group
+  ansible.builtin.group:
+    name: "{{ stadtplaner_map_renderer_service_group }}"
+    system: true
+    state: present
+  when: stadtplaner_map_renderer_enabled | bool
+
+- name: Create dedicated map renderer user
+  ansible.builtin.user:
+    name: "{{ stadtplaner_map_renderer_service_user }}"
+    group: "{{ stadtplaner_map_renderer_service_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+    home: /nonexistent
+    password_lock: true
+    state: present
+  when: stadtplaner_map_renderer_enabled | bool

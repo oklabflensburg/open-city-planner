@@ -26,6 +26,8 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 - [Stündliche OpenStreetMap-Synchronisierung](osm-hourly-sync.md)
 - [Wikidata-Anreicherung von Gebieten](wikidata-enrichment.md)
 - [Kartenperformance](map-performance.md)
+- [Serverseitige Kartenvorschauen](map-previews.md)
+- [Öffentliche Startseite und Kartenlinks](public-homepage.md)
 - [Analytics-Query-Plan prüfen](analysis-area-analytics-performance.md)
 
 ## Statistik und Daten

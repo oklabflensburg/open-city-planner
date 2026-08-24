@@ -133,7 +133,7 @@
             <NuxtLink class="font-bold text-[#154d73] underline" to="/dokumentation/methodik">Methodik ansehen</NuxtLink>
           </p>
           <p v-else-if="faq.id === 'map'" class="mt-3">
-            <NuxtLink class="font-bold text-[#154d73] underline" to="/">GIS-Karte öffnen</NuxtLink>
+            <NuxtLink class="font-bold text-[#154d73] underline" to="/karte">GIS-Karte öffnen</NuxtLink>
           </p>
         </article>
       </div>

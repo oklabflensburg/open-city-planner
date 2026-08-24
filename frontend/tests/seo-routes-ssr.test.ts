@@ -79,7 +79,7 @@ describe('SEO routes over Nuxt HTTP', () => {
     const locations = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1])
     expect(locations.length).toBeGreaterThan(6)
     expect(new Set(locations).size).toBe(locations.length)
-    for (const path of ['/', '/gebiete', '/vergleich', '/open-data', '/kontakt', '/dokumentation', '/flaechen/test-flaeche', '/gebiete/altstadt']) {
+    for (const path of ['/', '/karte', '/gebiete', '/vergleich', '/open-data', '/kontakt', '/dokumentation', '/flaechen/test-flaeche', '/gebiete/altstadt']) {
       expect(locations).toContain(`${siteUrl}${path}`)
     }
     expect(xml).toContain('<lastmod>2026-08-24T10:00:00Z</lastmod>')
@@ -98,8 +98,26 @@ describe('SEO routes over Nuxt HTTP', () => {
     expect((xml.match(/<\/url>/g) || [])).toHaveLength(locations.length)
   })
 
+  it('renders the public polygon directory and areas into the homepage HTML', async () => {
+    const response = await fetch('/')
+    expect(response.status).toBe(200)
+    const html = await response.text()
+    expectCanonical(html, '/', 'index,follow')
+    expect(html).toContain('Flächen und Stadtgebiete auf einen Blick')
+    expect(html).toContain('Flächen nach Branche')
+    expect(html).toContain('Branchenübersicht')
+    expect(html).toContain('Testfläche')
+    expect(html).toContain('Altstadt')
+    for (const href of ['/karte', '/gebiete', '/vergleich', '/open-data', '/dokumentation/methodik', '/flaechen/test-flaeche']) {
+      expect(html).toContain(`href="${href}"`)
+    }
+    expect(html).toContain('href="/karte?flaeche=test-flaeche"')
+    expect(html).not.toContain('&quot;geometry&quot;')
+  })
+
   it.each([
-    ['/?social-preview=1&polygon=fixture', '/', 'noindex,nofollow'],
+    ['/?social-preview=1&polygon=fixture', '/karte', 'noindex,nofollow'],
+    ['/karte?gebiet=altstadt', '/karte', 'index,follow'],
     ['/vergleich?gebiete=altstadt&benchmark=0', '/vergleich', 'index,follow'],
     ['/gebiete/altstadt?social-preview=1&map=0', '/gebiete/altstadt', 'noindex,nofollow'],
     ['/flaechen/test-flaeche?social-preview=1&map=0', '/flaechen/test-flaeche', 'noindex,nofollow']
