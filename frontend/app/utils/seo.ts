@@ -51,3 +51,54 @@ export function buildWebPageStructuredData(
     }
   }
 }
+
+export function buildCollectionPageStructuredData(
+  siteUrl: string,
+  path: string,
+  name: string,
+  description: string
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name,
+    description,
+    url: buildAbsoluteUrl(siteUrl, path)
+  }
+}
+
+export function buildItemListStructuredData(
+  siteUrl: string,
+  name: string,
+  items: Array<{ name: string, path: string }>
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name,
+    numberOfItems: items.length,
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      url: buildAbsoluteUrl(siteUrl, item.path)
+    }))
+  }
+}
+
+export function buildFaqStructuredData(
+  items: Array<{ question: string, answer: string }>
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map(item => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer
+      }
+    }))
+  }
+}

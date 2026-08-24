@@ -852,9 +852,17 @@ export const documentationPages: DocumentationPage[] = [
     navTitle: 'Gebietsseiten',
     description: 'Gebietshierarchie, dauerhafte Detailseiten und der Wechsel zwischen Standortprofil und GIS-Karte.',
     group: 'Karte und Daten',
-    keywords: ['Gemeinde', 'Stadtteil', 'Quartier', 'Gebiet', 'Standortprofil'],
+    keywords: ['Gemeinde', 'Stadtteil', 'Quartier', 'Gebiet', 'Standortprofil', 'Gebietsübersicht', 'FAQ'],
     audience: 'public',
     sections: [
+      {
+        id: 'gebietsuebersicht',
+        title: 'Gebietsübersicht nutzen',
+        blocks: [
+          { type: 'paragraph', text: 'Die Gebietsübersicht berechnet die Zahl veröffentlichter Gemeinden, Stadtteile und Quartiere aus dem aktuellen Datenbestand. Die verlinkte Stadtteilliste führt direkt zu den jeweiligen Standortprofilen.' },
+          { type: 'paragraph', text: 'Eine sichtbare Fragensammlung erklärt Gebietsebenen, verfügbare Auswertungen, Grenzen und Statistikquellen. Zahlen werden nicht als feste Werte gepflegt, sondern zusammen mit der Gebietsübersicht aktualisiert.' }
+        ]
+      },
       {
         id: 'gebietsebenen',
         title: 'Drei Gebietsebenen',
