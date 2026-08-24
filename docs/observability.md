@@ -57,6 +57,23 @@ The Collector receives gRPC on `127.0.0.1:4317`, exposes health only on
 gRPC port `4319`. Tempo serves readiness and queries on `127.0.0.1:3200` and
 retains local trace blocks for 14 days. None of these ports is proxied by Nginx.
 
+Both processes run under dedicated, non-login accounts: `stadtplaner-otel` and
+`stadtplaner-tempo`. Their configuration is split between
+`/etc/stadtplaner/otel/collector/collector.yml` and
+`/etc/stadtplaner/otel/tempo/tempo.yml`. Each directory is `0750` and each file
+is `0640`, with only the matching service group receiving read access. The
+shared `/etc/stadtplaner` and `/etc/stadtplaner/otel` directories remain
+restricted; POSIX ACL entries grant each service account traverse-only (`--x`)
+access instead of making directories containing application secrets globally
+searchable or readable.
+
+Before systemd is restarted, Ansible checks file readability as each service
+account and validates both effective configurations with the pinned binaries.
+It then polls Tempo readiness through the expected initial HTTP 503 phase until
+HTTP 200 and verifies the loopback listeners plus Collector health. Static
+permission or configuration errors therefore fail at preflight rather than
+appearing later as an OTLP port timeout and restart loop.
+
 The parent-based 10% sampler respects an upstream sampled decision. The deploy
 smoke request intentionally supplies a sampled W3C context, polls Tempo for the
 current `service.version` (the exact Ansible release SHA), and uses

@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=stadtplaner-tempo
 Group=stadtplaner-tempo
-ExecStart=/usr/local/bin/stadtplaner-tempo -config.file=/etc/stadtplaner/otel/tempo.yml
+ExecStart=/usr/local/bin/stadtplaner-tempo -config.file={{ stadtplaner_tempo_config }}
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

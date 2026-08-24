@@ -43,6 +43,40 @@
     - stadtplaner-tempo
   when: stadtplaner_manage_otel_collector | bool
 
+- name: Install POSIX ACL support for restricted configuration traversal
+  ansible.builtin.apt:
+    name: acl
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Preserve the restricted application configuration directory
+  ansible.builtin.file:
+    path: "{{ stadtplaner_config_dir }}"
+    state: directory
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0750'
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Read application configuration directory ACLs
+  ansible.builtin.command:
+    argv: [getfacl, --absolute-names, --omit-header, "{{ stadtplaner_config_dir }}"]
+  register: stadtplaner_otel_parent_acl
+  changed_when: false
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Grant observability accounts traverse-only access to application configuration
+  ansible.builtin.command:
+    argv: [setfacl, --modify, "user:{{ item }}:--x", "{{ stadtplaner_config_dir }}"]
+  loop:
+    - stadtplaner-otel
+    - stadtplaner-tempo
+  when:
+    - stadtplaner_manage_otel_collector | bool
+    - "('user:' ~ item ~ ':--x') not in stadtplaner_otel_parent_acl.stdout_lines"
+
 - name: Create managed OpenTelemetry directories
   ansible.builtin.file:
     path: "{{ item.path }}"
@@ -51,11 +85,30 @@
     group: "{{ item.group }}"
     mode: "{{ item.mode }}"
   loop:
-    - { path: /etc/stadtplaner/otel, owner: root, group: root, mode: '0755' }
+    - { path: "{{ stadtplaner_otel_config_root }}", owner: root, group: root, mode: '0750' }
+    - { path: "{{ stadtplaner_otel_collector_config_dir }}", owner: root, group: stadtplaner-otel, mode: '0750' }
+    - { path: "{{ stadtplaner_tempo_config_dir }}", owner: root, group: stadtplaner-tempo, mode: '0750' }
     - { path: /var/cache/stadtplaner/otel, owner: root, group: root, mode: '0755' }
     - { path: /usr/local/lib/stadtplaner-otel, owner: root, group: root, mode: '0755' }
     - { path: "{{ stadtplaner_tempo_data_dir }}", owner: stadtplaner-tempo, group: stadtplaner-tempo, mode: '0750' }
   when: stadtplaner_manage_otel_collector | bool
+
+- name: Read managed observability configuration root ACLs
+  ansible.builtin.command:
+    argv: [getfacl, --absolute-names, --omit-header, "{{ stadtplaner_otel_config_root }}"]
+  register: stadtplaner_otel_config_root_acl
+  changed_when: false
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Grant service accounts traverse-only access to observability configuration root
+  ansible.builtin.command:
+    argv: [setfacl, --modify, "user:{{ item }}:--x", "{{ stadtplaner_otel_config_root }}"]
+  loop:
+    - stadtplaner-otel
+    - stadtplaner-tempo
+  when:
+    - stadtplaner_manage_otel_collector | bool
+    - "('user:' ~ item ~ ':--x') not in stadtplaner_otel_config_root_acl.stdout_lines"
 
 - name: Download pinned OpenTelemetry Collector release
   ansible.builtin.get_url:
@@ -129,20 +182,55 @@
     - Restart Stadtplaner Tempo
     - Restart Stadtplaner OpenTelemetry Collector
 
-- name: Install OpenTelemetry Collector and Tempo configuration
+- name: Install OpenTelemetry Collector configuration
   ansible.builtin.template:
-    src: "{{ item.src }}"
-    dest: "{{ item.dest }}"
+    src: collector.yml.j2
+    dest: "{{ stadtplaner_otel_collector_config }}"
     owner: root
-    group: root
-    mode: '0644'
-  loop:
-    - { src: collector.yml.j2, dest: /etc/stadtplaner/otel/collector.yml }
-    - { src: tempo.yml.j2, dest: /etc/stadtplaner/otel/tempo.yml }
+    group: stadtplaner-otel
+    mode: '0640'
+  when: stadtplaner_manage_otel_collector | bool
+  notify:
+    - Restart Stadtplaner OpenTelemetry Collector
+
+- name: Install Grafana Tempo configuration
+  ansible.builtin.template:
+    src: tempo.yml.j2
+    dest: "{{ stadtplaner_tempo_config }}"
+    owner: root
+    group: stadtplaner-tempo
+    mode: '0640'
   when: stadtplaner_manage_otel_collector | bool
   notify:
     - Restart Stadtplaner Tempo
-    - Restart Stadtplaner OpenTelemetry Collector
+
+- name: OpenTelemetry Collector service user can read collector configuration
+  ansible.builtin.command:
+    argv: [/usr/bin/test, -r, "{{ stadtplaner_otel_collector_config }}"]
+  become_user: stadtplaner-otel
+  changed_when: false
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Grafana Tempo service user can read Tempo configuration
+  ansible.builtin.command:
+    argv: [/usr/bin/test, -r, "{{ stadtplaner_tempo_config }}"]
+  become_user: stadtplaner-tempo
+  when: stadtplaner_manage_otel_collector | bool
+  changed_when: false
+
+- name: Validate OpenTelemetry Collector configuration
+  ansible.builtin.command:
+    argv: [/usr/local/bin/stadtplaner-otelcol, validate, "--config={{ stadtplaner_otel_collector_config }}"]
+  become_user: stadtplaner-otel
+  changed_when: false
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Validate Grafana Tempo configuration
+  ansible.builtin.command:
+    argv: [/usr/local/bin/stadtplaner-tempo, "-config.file={{ stadtplaner_tempo_config }}", -config.verify=true]
+  become_user: stadtplaner-tempo
+  changed_when: false
+  when: stadtplaner_manage_otel_collector | bool
 
 - name: Install hardened OpenTelemetry systemd units
   ansible.builtin.template:
@@ -158,6 +246,15 @@
   notify:
     - Restart Stadtplaner Tempo
     - Restart Stadtplaner OpenTelemetry Collector
+
+- name: Remove legacy world-readable observability configuration paths
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ stadtplaner_otel_config_root }}/collector.yml"
+    - "{{ stadtplaner_otel_config_root }}/tempo.yml"
+  when: stadtplaner_manage_otel_collector | bool
 
 - name: Enable managed trace services
   ansible.builtin.systemd_service:
@@ -195,12 +292,23 @@
   when:
     - stadtplaner_otel_required | bool
     - stadtplaner_manage_otel_collector | bool
+
+- name: Wait for managed Tempo OTLP gRPC endpoint before release activation
+  ansible.builtin.wait_for:
+    host: "{{ stadtplaner_tempo_otlp_grpc_host }}"
+    port: "{{ stadtplaner_tempo_otlp_grpc_port }}"
+    state: started
+    timeout: 60
+  when:
+    - stadtplaner_otel_required | bool
+    - stadtplaner_manage_otel_collector | bool
+
 - name: Require ready Tempo backend before release activation
   ansible.builtin.uri:
     url: "http://{{ stadtplaner_tempo_http_host }}:{{ stadtplaner_tempo_http_port }}/ready"
-    status_code: 200
+    status_code: [200, 503]
   register: stadtplaner_tempo_health
-  retries: 10
+  retries: 30
   delay: 2
   until: stadtplaner_tempo_health.status == 200
   when:
