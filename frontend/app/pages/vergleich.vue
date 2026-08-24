@@ -77,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { MapPinned } from 'lucide-vue-next'
+import { MapPinned } from '@lucide/vue'
 import type { AnalysisAreaType } from '~/types/analysisArea'
 
 const route = useRoute()

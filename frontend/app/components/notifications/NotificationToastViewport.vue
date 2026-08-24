@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-vue-next'
+import { AlertTriangle, CheckCircle2, Info, X } from '@lucide/vue'
 import type { NotificationPriority } from '~/types/notification'
 
 const store = useNotificationsStore()

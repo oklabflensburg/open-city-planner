@@ -15,7 +15,7 @@
 <script setup lang="ts">
 import { Bar } from 'vue-chartjs'
 import type { ActiveElement, ChartEvent, ChartOptions } from 'chart.js'
-import { Info } from 'lucide-vue-next'
+import { Info } from '@lucide/vue'
 import { barChartOptions } from '~/utils/chartTheme'
 import { industries, industryColors, type IndustryKey } from '~/utils/industries'
 

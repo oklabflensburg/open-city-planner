@@ -33,13 +33,15 @@ onMounted(async () => {
   const container = mapElement.value
   if (!container) return
   try {
-    const [{ default: maplibregl }, style, polygons] = await Promise.all([
+    const [maplibregl, style, polygons, , worker] = await Promise.all([
       import('maplibre-gl'),
       loadMapStyle(String(config.public.mapStyleUrl || '')),
       useApi().request<PolygonFeatureCollection>('/polygons/geojson').catch(() => ({ type: 'FeatureCollection' as const, features: [] })),
-      import('maplibre-gl/dist/maplibre-gl.css')
+      import('maplibre-gl/dist/maplibre-gl.css'),
+      import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url')
     ])
     if (disposed || !container.isConnected) return
+    maplibregl.setWorkerUrl(worker.default)
     const instance = new maplibregl.Map({
       container,
       style,

@@ -51,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronLeft, ChevronRight, RotateCcw, Search, Users } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, RotateCcw, Search, Users } from '@lucide/vue'
 import type { AdminUser } from '~/types/admin'
 
 definePageMeta({ middleware: 'superuser' })

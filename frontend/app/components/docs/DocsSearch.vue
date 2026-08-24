@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { Search } from 'lucide-vue-next'
+import { Search } from '@lucide/vue'
 import type { DocumentationSearchResult } from '~/types/documentation'
 import { documentationPath, searchDocumentation } from '~/utils/documentation'
 

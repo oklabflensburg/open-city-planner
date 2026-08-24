@@ -173,7 +173,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowRight, Search, X } from 'lucide-vue-next'
+import { ArrowRight, Search, X } from '@lucide/vue'
 import type { UserPolygon } from '~/types/geo'
 import { getIndustryLabel } from '~/utils/industries'
 import {

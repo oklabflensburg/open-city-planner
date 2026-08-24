@@ -180,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { CircleDot, Layers3, MapPin, Route as RouteIcon, Ruler, Store, Tags } from 'lucide-vue-next'
+import { CircleDot, Layers3, MapPin, Route as RouteIcon, Ruler, Store, Tags } from '@lucide/vue'
 import type { AreaGeometry, PolygonEditorDetail, PolygonVerwaltungDetail, PublicPolygonDetail } from '~/types/geo'
 import { getIndustryColor, getIndustryLabel, industries } from '~/utils/industries'
 import { getOsmObjectUrl } from '~/utils/osmLinks'

@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { Minus, Plus, RotateCcw } from 'lucide-vue-next'
+import { Minus, Plus, RotateCcw } from '@lucide/vue'
 
 defineEmits<{ zoomIn: []; zoomOut: []; reset: [] }>()
 </script>

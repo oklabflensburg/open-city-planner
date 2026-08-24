@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { BarChart3, ListFilter, Plus, Search } from 'lucide-vue-next'
+import { BarChart3, ListFilter, Plus, Search } from '@lucide/vue'
 
 const mapStore = useMapStore()
 const searchStore = useSearchStore()

@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { Database, ExternalLink, Globe2, Info, Map } from 'lucide-vue-next'
+import { Database, ExternalLink, Globe2, Info, Map } from '@lucide/vue'
 import { okLabProjectStatus, type OKLabProject } from '~/config/okLabProjects'
 
 const props = defineProps<{ project: OKLabProject }>()

@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { RotateCcw, Search } from 'lucide-vue-next'
+import { RotateCcw, Search } from '@lucide/vue'
 
 defineProps<{ search: string, category: string, categories: string[] }>()
 defineEmits<{

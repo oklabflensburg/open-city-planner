@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { AlertTriangle, CircleHelp, LoaderCircle, ShieldAlert } from 'lucide-vue-next'
+import { AlertTriangle, CircleHelp, LoaderCircle, ShieldAlert } from '@lucide/vue'
 
 type ConfirmVariant = 'default' | 'warning' | 'danger'
 

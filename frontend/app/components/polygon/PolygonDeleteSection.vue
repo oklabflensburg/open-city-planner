@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { Trash2 } from 'lucide-vue-next'
+import { Trash2 } from '@lucide/vue'
 
 const props = defineProps<{ name: string, loading: boolean, error?: string }>()
 defineEmits<{ confirm: [] }>()

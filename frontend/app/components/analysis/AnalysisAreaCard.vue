@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { LoaderCircle, X } from 'lucide-vue-next'
+import { LoaderCircle, X } from '@lucide/vue'
 import type { AnalysisAreaType, AreaStatisticValue } from '~/types/analysisArea'
 
 const store = useAnalysisAreasStore()

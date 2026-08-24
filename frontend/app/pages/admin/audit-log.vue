@@ -56,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronLeft, ChevronRight, CircleAlert, RefreshCw, RotateCcw, ScrollText, Search } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, CircleAlert, RefreshCw, RotateCcw, ScrollText, Search } from '@lucide/vue'
 import type { AdminUser, AuditLogItem } from '~/types/admin'
 import { auditActionLabel } from '~/utils/auditLog'
 

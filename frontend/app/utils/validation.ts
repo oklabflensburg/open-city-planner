@@ -22,7 +22,7 @@ export const polygonSchema = z.object({
   floor: z.string().nullable().optional(),
   category: z.string(),
   geometry: areaGeometrySchema,
-  properties: z.record(z.unknown()).default({}),
+  properties: z.record(z.string(), z.unknown()).default({}),
   created_by_user_id: z.string().nullable().optional(),
   updated_by_user_id: z.string().nullable().optional(),
   created_at: z.string(),
@@ -37,7 +37,7 @@ export const publicPolygonSchema = z.object({
   floor: z.string().nullable().optional(),
   category: z.string(),
   geometry: areaGeometrySchema,
-  properties: z.record(z.unknown()).default({}),
+  properties: z.record(z.string(), z.unknown()).default({}),
   created_at: z.string(),
   updated_at: z.string()
 })
@@ -104,7 +104,7 @@ export const featureCollectionSchema = z.object({
       type: z.literal('Feature'),
       id: z.string().optional(),
       geometry: areaGeometrySchema,
-      properties: z.record(z.unknown()).default({})
+      properties: z.record(z.string(), z.unknown()).default({})
     })
   )
 })

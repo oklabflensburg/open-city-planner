@@ -40,14 +40,16 @@ onMounted(async () => {
   const container = mapElement.value
   if (!container) return
   try {
-    const [{ default: maplibregl }, terraDraw, adapter, mapStyle] = await Promise.all([
+    const [maplibregl, terraDraw, adapter, mapStyle, , worker] = await Promise.all([
       import('maplibre-gl'),
       import('terra-draw'),
       import('terra-draw-maplibre-gl-adapter'),
       loadMapStyle(String(config.public.mapStyleUrl || '')),
-      import('maplibre-gl/dist/maplibre-gl.css')
+      import('maplibre-gl/dist/maplibre-gl.css'),
+      import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url')
     ])
     if (disposed || !container.isConnected) return
+    maplibregl.setWorkerUrl(worker.default)
     const instance = new maplibregl.Map({
       container,
       style: mapStyle,

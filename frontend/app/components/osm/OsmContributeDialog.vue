@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ExternalLink } from 'lucide-vue-next'
+import { ExternalLink } from '@lucide/vue'
 import { getOsmIdEditorUrl, getStreetCompleteUrl } from '~/utils/osmLinks'
 
 const props = defineProps<{

@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-import { CircleAlert, Info, Lightbulb, ShieldAlert } from 'lucide-vue-next'
+import { CircleAlert, Info, Lightbulb, ShieldAlert } from '@lucide/vue'
 
 const props = defineProps<{
   variant: 'info' | 'tip' | 'warning' | 'important'

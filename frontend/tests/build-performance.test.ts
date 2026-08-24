@@ -33,7 +33,10 @@ describe('frontend bundle boundaries', () => {
       'app/components/analysis/AnalysisAreaDetailMap.vue',
       'app/components/polygon/PolygonCreateMap.vue'
     ]) {
-      expect(source(component)).toContain("import('maplibre-gl')")
+      const componentSource = source(component)
+      expect(componentSource).toContain("import('maplibre-gl')")
+      expect(componentSource).toContain("import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url')")
+      expect(componentSource).toContain('maplibregl.setWorkerUrl(worker.default)')
     }
   })
 })

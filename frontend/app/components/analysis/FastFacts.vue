@@ -31,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { Building2, Landmark, Maximize2, Network, Ruler, Store, WalletCards } from 'lucide-vue-next'
+import { Building2, Landmark, Maximize2, Network, Ruler, Store, WalletCards } from '@lucide/vue'
 import { formatMetricIndex, formatMetricPercent } from '~/utils/metrics'
 
 const analytics = useAnalyticsStore()

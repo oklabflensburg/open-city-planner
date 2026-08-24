@@ -21,7 +21,7 @@
     "@turf/centroid": "^7.2.0",
     "@turf/length": "^7.2.0",
     "chart.js": "^4.5.1",
-    "lucide-vue-next": "^1.0.0",
+    "@lucide/vue": "^1.33.0",
     "maplibre-gl": "^6.4.1",
     "nuxt": "^4.0.0",
     "pinia": "^4.0.3",
@@ -39,10 +39,10 @@
     "@types/node": "^26.2.0",
     "@types/qrcode": "^1.5.6",
     "@vue/test-utils": "^2.4.6",
-    "typescript": "7.0.2",
+    "typescript": "6.0.3",
     "vite": "^8.2.2",
     "vitest": "^4.1.11",
-    "vue-tsc": "^3.3.10"
+    "vue-tsc": "^3.3.11"
   },
   "packageManager": "pnpm@11.22.0+sha512.1ff870c4c6133dfd88fb2afc46dd13d47f09c9794b438c6fdb47ca98caf3bc16381ee0be93a091b8e3824cf01f889f46d7d9e20910fb0be1ab0fb5baa80dd621"
 }

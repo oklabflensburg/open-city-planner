@@ -65,7 +65,7 @@ function unlockBody() {
 </script>
 
 <script setup lang="ts">
-import { X } from 'lucide-vue-next'
+import { X } from '@lucide/vue'
 
 type ModalSize = 'sm' | 'md' | 'lg' | 'xl'
 
