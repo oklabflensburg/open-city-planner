@@ -103,7 +103,8 @@ export default defineNuxtConfig({
       '/**': { headers: securityHeaders },
       '/_nuxt/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
       '/branding/**': { headers: { 'cache-control': 'public, max-age=86400' } },
-      '/map-styles/**': { headers: { 'cache-control': 'public, max-age=86400' } }
+      '/map-styles/**': { headers: { 'cache-control': 'public, max-age=86400' } },
+      '/flaechen/neu': { redirect: { to: '/flaechen/neu/', statusCode: 301 } }
     }
   },
   typescript: {
