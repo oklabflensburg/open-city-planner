@@ -1,0 +1,8 @@
+---
+- name: Deploy Open City Planner monitoring
+  hosts: monitoring
+  become: true
+  serial: 1
+  any_errors_fatal: true
+  roles:
+    - role: stadtplaner_monitoring

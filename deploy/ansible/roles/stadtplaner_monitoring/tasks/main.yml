@@ -1,0 +1,366 @@
+---
+- name: Validate monitoring configuration
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family == 'Debian'
+      - monitoring_grafana_admin_user | length > 0
+      - monitoring_grafana_admin_password | length >= 12
+      - not monitoring_grafana_admin_password.startswith('REPLACE_')
+      - monitoring_prometheus_retention_time | length > 0
+      - monitoring_prometheus_retention_size | length > 0
+      - not monitoring_grafana_publish | bool or monitoring_grafana_host | length > 3
+      - monitoring_grafana_bind_address not in ['0.0.0.0', '::']
+      - monitoring_prometheus_bind_address not in ['0.0.0.0', '::']
+      - monitoring_node_exporter_bind_address not in ['0.0.0.0', '::']
+      - monitoring_blackbox_bind_address not in ['0.0.0.0', '::']
+    fail_msg: >-
+      Monitoring supports Debian-family hosts and requires a non-placeholder
+      Grafana admin password of at least 12 characters. Publishing Grafana also
+      requires monitoring_grafana_host. Wildcard monitoring listeners are
+      deliberately rejected.
+  no_log: true
+
+- name: Install Prometheus and exporter packages
+  ansible.builtin.apt:
+    name:
+      - acl
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - prometheus
+      - prometheus-blackbox-exporter
+      - prometheus-node-exporter
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    policy_rc_d: 101
+
+- name: Create APT keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install Grafana repository signing key
+  ansible.builtin.get_url:
+    url: "{{ monitoring_grafana_apt_key_url }}"
+    dest: /etc/apt/keyrings/grafana.asc
+    owner: root
+    group: root
+    mode: '0644'
+    checksum: "{{ monitoring_grafana_apt_key_checksum | default(omit, true) }}"
+  register: monitoring_grafana_key
+
+- name: Read Grafana repository key fingerprint
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --show-keys
+      - --with-colons
+      - /etc/apt/keyrings/grafana.asc
+  register: monitoring_grafana_key_details
+  changed_when: false
+
+- name: Verify Grafana repository key fingerprint
+  ansible.builtin.assert:
+    that:
+      - >-
+        ('fpr:::::::::' +
+        (monitoring_grafana_apt_key_fingerprint | replace(' ', '')) + ':')
+        in monitoring_grafana_key_details.stdout
+    fail_msg: >-
+      The downloaded Grafana repository key does not match the reviewed
+      fingerprint. Review an official key rotation before changing the value.
+
+- name: Configure official Grafana APT repository
+  ansible.builtin.apt_repository:
+    repo: "{{ monitoring_grafana_apt_repository }}"
+    filename: grafana
+    state: present
+    update_cache: true
+
+- name: Install Grafana OSS
+  ansible.builtin.apt:
+    name: >-
+      grafana{{ ('=' + monitoring_grafana_package_version)
+      if monitoring_grafana_package_version | length > 0 else '' }}
+    state: present
+    update_cache: "{{ monitoring_grafana_key.changed }}"
+    policy_rc_d: 101
+
+- name: Create monitoring configuration directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /etc/prometheus/rules, owner: root, group: prometheus, mode: '0750' }
+    - { path: /etc/grafana/provisioning/datasources, owner: root, group: grafana, mode: '0750' }
+    - { path: /etc/grafana/provisioning/dashboards, owner: root, group: grafana, mode: '0750' }
+    - { path: /var/lib/grafana/dashboards, owner: grafana, group: grafana, mode: '0750' }
+    - path: "{{ monitoring_node_textfile_dir }}"
+      owner: "{{ monitoring_node_textfile_writer_user }}"
+      group: root
+      mode: '0750'
+
+- name: Read textfile collector directory ACL
+  ansible.builtin.command:
+    argv: [getfacl, --absolute-names, "{{ monitoring_node_textfile_dir }}"]
+  register: monitoring_textfile_acl
+  changed_when: false
+
+- name: Grant node exporter read access to job metrics
+  ansible.builtin.command:
+    argv:
+      - setfacl
+      - -m
+      - u:prometheus:rx,d:u:prometheus:rx
+      - "{{ monitoring_node_textfile_dir }}"
+  when: "'user:prometheus:r-x' not in monitoring_textfile_acl.stdout"
+
+- name: Install Prometheus alert rules
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../observability/prometheus/alerts.yml"
+    dest: /etc/prometheus/rules/stadtplaner-alerts.yml
+    owner: root
+    group: prometheus
+    mode: '0640'
+  notify: Restart Prometheus
+
+- name: Configure Prometheus
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    owner: root
+    group: prometheus
+    mode: '0640'
+  notify: Restart Prometheus
+
+- name: Configure Prometheus service arguments
+  ansible.builtin.template:
+    src: prometheus.default.j2
+    dest: /etc/default/prometheus
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart Prometheus
+
+- name: Configure node exporter service arguments
+  ansible.builtin.template:
+    src: node-exporter.default.j2
+    dest: /etc/default/prometheus-node-exporter
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart node exporter
+
+- name: Configure blackbox exporter
+  ansible.builtin.template:
+    src: blackbox.yml.j2
+    dest: /etc/prometheus/blackbox.yml
+    owner: root
+    group: prometheus
+    mode: '0640'
+  notify: Restart blackbox exporter
+
+- name: Configure blackbox exporter service arguments
+  ansible.builtin.template:
+    src: blackbox-exporter.default.j2
+    dest: /etc/default/prometheus-blackbox-exporter
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart blackbox exporter
+
+- name: Install Grafana configuration
+  ansible.builtin.template:
+    src: grafana.ini.j2
+    dest: /etc/grafana/grafana.ini
+    owner: root
+    group: grafana
+    mode: '0640'
+  notify: Restart Grafana
+
+- name: Install protected Grafana bootstrap environment
+  ansible.builtin.template:
+    src: grafana.env.j2
+    dest: /etc/grafana/stadtplaner.env
+    owner: root
+    group: grafana
+    mode: '0640'
+  no_log: true
+  notify: Restart Grafana
+
+- name: Create Grafana systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/grafana-server.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Load Grafana bootstrap environment from systemd
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/grafana-server.service.d/stadtplaner.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Service]
+      EnvironmentFile=/etc/grafana/stadtplaner.env
+  notify: Restart Grafana
+
+- name: Provision Prometheus datasource
+  ansible.builtin.template:
+    src: grafana-datasource.yml.j2
+    dest: /etc/grafana/provisioning/datasources/stadtplaner-prometheus.yml
+    owner: root
+    group: grafana
+    mode: '0640'
+  notify: Restart Grafana
+
+- name: Provision dashboard provider
+  ansible.builtin.template:
+    src: grafana-dashboard-provider.yml.j2
+    dest: /etc/grafana/provisioning/dashboards/stadtplaner.yml
+    owner: root
+    group: grafana
+    mode: '0640'
+  notify: Restart Grafana
+
+- name: Install Stadtplaner Grafana dashboard
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../observability/grafana/stadtplaner-overview.json"
+    dest: /var/lib/grafana/dashboards/stadtplaner-overview.json
+    owner: grafana
+    group: grafana
+    mode: '0640'
+  notify: Restart Grafana
+
+- name: Check optional Grafana TLS certificate
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ monitoring_grafana_certificate_name }}/fullchain.pem"
+  register: monitoring_grafana_certificate
+  when: monitoring_grafana_publish | bool
+
+- name: Require certificate before publishing Grafana
+  ansible.builtin.assert:
+    that:
+      - monitoring_grafana_certificate.stat.exists
+    fail_msg: >-
+      The Grafana certificate is missing. Run monitoring-certificates.yml
+      before enabling monitoring_grafana_publish.
+  when: monitoring_grafana_publish | bool
+
+- name: Install optional Grafana HTTPS vhost
+  ansible.builtin.template:
+    src: grafana.nginx.conf.j2
+    dest: /etc/nginx/sites-available/stadtplaner-grafana
+    owner: root
+    group: root
+    mode: '0644'
+  when: monitoring_grafana_publish | bool
+  notify: Reload Nginx
+
+- name: Enable optional Grafana HTTPS vhost
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/stadtplaner-grafana
+    dest: /etc/nginx/sites-enabled/stadtplaner-grafana
+    state: link
+  when: monitoring_grafana_publish | bool
+  notify: Reload Nginx
+
+- name: Remove Grafana HTTPS vhost when publication is disabled
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/nginx/sites-enabled/stadtplaner-grafana
+    - /etc/nginx/sites-available/stadtplaner-grafana
+  when: not monitoring_grafana_publish | bool
+  notify: Reload Nginx
+
+- name: Validate Prometheus configuration
+  ansible.builtin.command: promtool check config /etc/prometheus/prometheus.yml
+  changed_when: false
+
+- name: Validate Prometheus alert rules
+  ansible.builtin.command: promtool check rules /etc/prometheus/rules/stadtplaner-alerts.yml
+  changed_when: false
+
+- name: Validate optional Nginx configuration
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  when: monitoring_grafana_publish | bool
+
+- name: Reload systemd configuration
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Apply pending monitoring restarts
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start monitoring services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - prometheus
+    - prometheus-node-exporter
+    - prometheus-blackbox-exporter
+    - grafana-server
+
+- name: Wait for Prometheus health
+  ansible.builtin.uri:
+    url: "http://{{ monitoring_prometheus_bind_address }}:{{ monitoring_prometheus_port }}/-/ready"
+    status_code: 200
+  register: monitoring_prometheus_health
+  retries: 12
+  delay: 2
+  until: monitoring_prometheus_health.status == 200
+
+- name: Wait for Grafana health
+  ansible.builtin.uri:
+    url: "http://{{ monitoring_grafana_bind_address }}:{{ monitoring_grafana_port }}/api/health"
+    status_code: 200
+  register: monitoring_grafana_health
+  retries: 12
+  delay: 2
+  until: monitoring_grafana_health.status == 200
+
+- name: Wait for the Stadtplaner API scrape target
+  ansible.builtin.uri:
+    url: >-
+      http://{{ monitoring_prometheus_bind_address }}:{{ monitoring_prometheus_port
+      }}/api/v1/query?query=up%7Bjob%3D%22stadtplaner-api%22%7D
+    return_content: true
+    status_code: 200
+  register: monitoring_api_target
+  retries: 12
+  delay: 5
+  until: >-
+    monitoring_api_target.json is defined and
+    monitoring_api_target.json.data.result | length > 0 and
+    monitoring_api_target.json.data.result[0].value[1] == '1'
+
+- name: Wait for the Stadtplaner readiness probe
+  ansible.builtin.uri:
+    url: >-
+      http://{{ monitoring_prometheus_bind_address }}:{{ monitoring_prometheus_port
+      }}/api/v1/query?query=probe_success%7Bjob%3D%22stadtplaner-readiness%22%7D
+    return_content: true
+    status_code: 200
+  register: monitoring_readiness_target
+  retries: 12
+  delay: 5
+  until: >-
+    monitoring_readiness_target.json is defined and
+    monitoring_readiness_target.json.data.result | length > 0 and
+    monitoring_readiness_target.json.data.result[0].value[1] == '1'

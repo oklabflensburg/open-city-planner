@@ -37,6 +37,7 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 
 - [Deployment und Betrieb](deployment.md)
 - [Production Observability, SLOs und Runbooks](observability.md)
+- [Prometheus und Grafana mit Ansible betreiben](monitoring-deployment.md)
 - [Wiederholbares Ansible-Deployment](../deploy/ansible/README.md)
 - [Nginx-Hardening und Rate Limits](../deploy/nginx/README.md)
 - [Social Publishing mit Mastodon](social-publishing.md)

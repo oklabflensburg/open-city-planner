@@ -235,6 +235,13 @@ stadtplaner_metrics_allowed_cidrs:
 
 Die Beispielkonfiguration liegt unter `deploy/observability/prometheus/`. Importieren Sie anschließend `deploy/observability/grafana/stadtplaner-overview.json`. Für timerbasierte Jobs konfigurieren Sie node_exporter mit `--collector.textfile.directory=/data/stadtplaner/observability`; die atomisch aktualisierten `.prom`-Dateien enthalten keine Empfänger oder Payloads.
 
+Alternativ installiert und provisioniert das separate, ausdrücklich opt-in
+auszuführende Ansible-Playbook `playbooks/monitoring.yml` den vollständigen
+lokalen Stack. Es ist nicht Bestandteil eines normalen Applikationsdeployments.
+Die Anleitung einschließlich SSH-Tunnel, optionaler Grafana-Subdomain,
+Retention, Backups und Fehlerdiagnose steht unter
+[Prometheus und Grafana mit Ansible betreiben](monitoring-deployment.md).
+
 Nach einem Deployment prüfen Sie:
 
 ```bash

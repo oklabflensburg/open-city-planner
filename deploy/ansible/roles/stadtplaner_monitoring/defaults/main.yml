@@ -1,0 +1,42 @@
+---
+monitoring_grafana_admin_user: admin
+monitoring_grafana_admin_password: ''
+monitoring_grafana_bind_address: 127.0.0.1
+monitoring_grafana_port: 3000
+monitoring_grafana_publish: false
+monitoring_grafana_host: ''
+monitoring_grafana_certificate_name: "{{ monitoring_grafana_host }}"
+monitoring_grafana_package_version: ''
+monitoring_grafana_apt_repository: >-
+  deb [signed-by=/etc/apt/keyrings/grafana.asc]
+  https://apt.grafana.com stable main
+monitoring_grafana_apt_key_url: https://apt.grafana.com/gpg-full.key
+monitoring_grafana_apt_key_checksum: ''
+monitoring_grafana_apt_key_fingerprint: B53A E77B ADB6 30A6 8304 6005 963F A277 1045 8545
+
+monitoring_prometheus_bind_address: 127.0.0.1
+monitoring_prometheus_port: 9090
+monitoring_prometheus_retention_time: 30d
+monitoring_prometheus_retention_size: 10GB
+monitoring_prometheus_scrape_interval: 30s
+monitoring_prometheus_evaluation_interval: 30s
+monitoring_prometheus_api_scheme: http
+monitoring_prometheus_api_target: "127.0.0.1:{{ stadtplaner_backend_port | default(8008) }}"
+monitoring_prometheus_api_metrics_path: /metrics
+monitoring_readiness_url: >-
+  http://127.0.0.1:{{ stadtplaner_backend_port | default(8008) }}/health/ready
+monitoring_external_labels:
+  environment: production
+  service: stadtplaner
+
+monitoring_node_exporter_bind_address: 127.0.0.1
+monitoring_node_exporter_port: 9100
+monitoring_node_textfile_dir: >-
+  {{ stadtplaner_observability_dir | default('/data/stadtplaner/observability') }}
+monitoring_node_textfile_writer_user: "{{ stadtplaner_service_user | default('root') }}"
+monitoring_blackbox_bind_address: 127.0.0.1
+monitoring_blackbox_port: 9115
+
+monitoring_alertmanager_targets: []
+monitoring_manage_certificates: false
+monitoring_certbot_email: ''

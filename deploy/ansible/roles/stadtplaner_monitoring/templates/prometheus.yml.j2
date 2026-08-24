@@ -1,0 +1,48 @@
+global:
+  scrape_interval: {{ monitoring_prometheus_scrape_interval }}
+  evaluation_interval: {{ monitoring_prometheus_evaluation_interval }}
+  external_labels:
+{% for key, value in monitoring_external_labels.items() %}
+    {{ key }}: {{ value | to_json }}
+{% endfor %}
+
+rule_files:
+  - /etc/prometheus/rules/stadtplaner-alerts.yml
+
+{% if monitoring_alertmanager_targets | length > 0 %}
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+{% for target in monitoring_alertmanager_targets %}
+            - {{ target | to_json }}
+{% endfor %}
+{% endif %}
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: [{{ (monitoring_prometheus_bind_address ~ ':' ~ monitoring_prometheus_port) | to_json }}]
+
+  - job_name: stadtplaner-api
+    scheme: {{ monitoring_prometheus_api_scheme }}
+    metrics_path: {{ monitoring_prometheus_api_metrics_path }}
+    static_configs:
+      - targets: [{{ monitoring_prometheus_api_target | to_json }}]
+
+  - job_name: stadtplaner-node
+    static_configs:
+      - targets: [{{ (monitoring_node_exporter_bind_address ~ ':' ~ monitoring_node_exporter_port) | to_json }}]
+
+  - job_name: stadtplaner-readiness
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: [{{ monitoring_readiness_url | trim | to_json }}]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: {{ monitoring_blackbox_bind_address }}:{{ monitoring_blackbox_port }}

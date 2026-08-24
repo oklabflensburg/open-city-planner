@@ -303,3 +303,37 @@ stadtplaner_database_backup_retention: 3
 stadtplaner_pre_migration_backup_command: ''
 stadtplaner_certbot_email: ''
 stadtplaner_manage_certificates: false
+
+# Separate, opt-in Prometheus/Grafana deployment. Store the real admin
+# password only in the encrypted external Vault, never in this repository.
+monitoring_grafana_admin_user: admin
+monitoring_grafana_admin_password: REPLACE_WITH_LONG_RANDOM_GRAFANA_PASSWORD
+monitoring_grafana_bind_address: 127.0.0.1
+monitoring_grafana_port: 3000
+monitoring_grafana_publish: false
+monitoring_grafana_host: ''
+monitoring_grafana_certificate_name: "{{ monitoring_grafana_host }}"
+monitoring_grafana_package_version: ''
+monitoring_grafana_apt_key_checksum: ''
+monitoring_grafana_apt_key_fingerprint: B53A E77B ADB6 30A6 8304 6005 963F A277 1045 8545
+monitoring_prometheus_bind_address: 127.0.0.1
+monitoring_prometheus_port: 9090
+monitoring_prometheus_retention_time: 30d
+monitoring_prometheus_retention_size: 10GB
+monitoring_prometheus_scrape_interval: 30s
+monitoring_prometheus_evaluation_interval: 30s
+monitoring_prometheus_api_scheme: http
+monitoring_prometheus_api_target: "127.0.0.1:{{ stadtplaner_backend_port }}"
+monitoring_prometheus_api_metrics_path: /metrics
+monitoring_readiness_url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/ready"
+monitoring_external_labels:
+  environment: production
+  service: stadtplaner
+monitoring_node_exporter_bind_address: 127.0.0.1
+monitoring_node_exporter_port: 9100
+monitoring_node_textfile_dir: "{{ stadtplaner_observability_dir }}"
+monitoring_blackbox_bind_address: 127.0.0.1
+monitoring_blackbox_port: 9115
+monitoring_alertmanager_targets: []
+monitoring_manage_certificates: false
+monitoring_certbot_email: ''

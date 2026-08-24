@@ -52,6 +52,11 @@ OTEL_EXPORTER_OTLP_PROTOCOL=grpc
 
 Use `deploy/observability/prometheus/prometheus.example.yml` as a starting point and add the Prometheus host network to `stadtplaner_metrics_allowed_cidrs`. Load `deploy/observability/prometheus/alerts.yml` and import `deploy/observability/grafana/stadtplaner-overview.json`. The readiness alert uses the Prometheus blackbox exporter; the API scrape alone cannot prove readiness semantics.
 
+For a complete self-hosted installation, use the separate Ansible monitoring
+playbook described in [monitoring-deployment.md](monitoring-deployment.md). It
+installs Prometheus, Grafana, Node Exporter and Blackbox Exporter, provisions the
+dashboard and datasource, and keeps every listener on loopback by default.
+
 | Signal | Threshold / duration | Severity | Runbook |
 | --- | --- | --- | --- |
 | Readiness | failed 10m | critical | `readiness-down.md` |

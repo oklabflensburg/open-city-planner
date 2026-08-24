@@ -2,6 +2,11 @@
 
 Dieses Verzeichnis automatisiert den produktiven Betrieb des Open City Planner auf dem bestehenden Shared Host. Es ersetzt bewusst nicht die globale Serververwaltung aller OK-Lab-Projekte. Nginx, PostgreSQL, Redis und Node können weitere Anwendungen bedienen; die Playbooks verändern deshalb überwiegend Stadtplaner-spezifische Dateien. Die ausdrücklich verwaltete NodeSource-22-Paketquelle und die gepinnten Corepack-/pnpm-Versionen bilden die gemeinsame JavaScript-Runtime-Ausnahme. `/etc/nginx/nginx.conf`, PostgreSQL und Redis werden nicht blind neu konfiguriert.
 
+Prometheus und Grafana werden nicht durch einen normalen Applikationsdeploy
+verändert. Dafür existiert das separate Opt-in-Playbook
+`playbooks/monitoring.yml`; die vollständige Betriebsanleitung steht unter
+[`docs/monitoring-deployment.md`](../../docs/monitoring-deployment.md).
+
 ## Warum Ansible?
 
 Für diesen Server ist ein idempotenter Deployment-Ablauf sicherer als wiederholte manuelle Änderungen: dieselben Pfade, Benutzer, systemd-Units, Builds, Migrationen, Nginx-Dateien und Smoke Tests werden bei jedem Lauf reproduzierbar angewendet. Ein normaler Deploy führt **keinen** OSM-Initialimport und **keine** Certbot-Ausstellung aus.

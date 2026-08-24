@@ -65,3 +65,22 @@ stadtplaner_pre_migration_backup_command: ''
 # Certbot is opt-in and must never run on each normal deploy.
 stadtplaner_certbot_email: ''
 stadtplaner_manage_certificates: false
+
+# The monitoring playbook is separate and opt-in. All services bind to
+# loopback unless Grafana publication is explicitly enabled.
+monitoring_grafana_bind_address: 127.0.0.1
+monitoring_grafana_port: 3000
+monitoring_grafana_publish: false
+monitoring_grafana_host: ''
+monitoring_grafana_certificate_name: "{{ monitoring_grafana_host }}"
+monitoring_grafana_package_version: ''
+monitoring_prometheus_bind_address: 127.0.0.1
+monitoring_prometheus_port: 9090
+monitoring_prometheus_retention_time: 30d
+monitoring_prometheus_retention_size: 10GB
+monitoring_prometheus_api_scheme: http
+monitoring_prometheus_api_target: "127.0.0.1:{{ stadtplaner_backend_port }}"
+monitoring_readiness_url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/ready"
+monitoring_alertmanager_targets: []
+monitoring_manage_certificates: false
+monitoring_certbot_email: ''

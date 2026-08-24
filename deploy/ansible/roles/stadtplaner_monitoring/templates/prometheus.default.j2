@@ -1,0 +1,1 @@
+ARGS="--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus/metrics2 --storage.tsdb.retention.time={{ monitoring_prometheus_retention_time }} --storage.tsdb.retention.size={{ monitoring_prometheus_retention_size }} --web.listen-address={{ monitoring_prometheus_bind_address }}:{{ monitoring_prometheus_port }}"
