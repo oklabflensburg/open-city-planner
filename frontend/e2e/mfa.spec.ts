@@ -23,6 +23,21 @@ async function quietBackgroundApis(page: Page) {
   await page.route('**/api/v1/users/me/notification-subscriptions**', route => route.fulfill({ json: [] }))
 }
 
+async function logoutFromAccountMenu(page: Page) {
+  const accountButton = page.locator('[data-header-account]')
+  await expect(accountButton).toBeVisible()
+  await expect(accountButton).toBeEnabled()
+  await accountButton.click()
+
+  const accountMenu = page.getByRole('menu')
+  await expect(accountMenu).toBeVisible()
+  const logout = accountMenu.locator('[data-account-logout]')
+  await expect(logout).toBeVisible()
+  await expect(logout).toBeEnabled()
+  await logout.click()
+  await expect(page).toHaveURL(/\/login$/)
+}
+
 test('password login creates an MFA step and authenticates only after TOTP', async ({ page }) => {
   const session = { authenticated: false, csrfToken: 'csrf-mfa' }
   await unauthenticated(page, session)
@@ -297,15 +312,12 @@ test('virtual authenticator registers, signs in, confirms MFA and removes a pass
   await page.getByRole('button', { name: 'Passkey hinzufügen' }).click()
   await expect(page.getByRole('heading', { name: 'Test-Laptop' })).toBeVisible()
 
-  await page.locator('[data-header-account]').click()
-  await page.getByRole('menuitem', { name: 'Abmelden' }).click()
-  await page.goto('http://localhost:3010/login')
+  await logoutFromAccountMenu(page)
   await page.getByRole('button', { name: 'Mit Passkey anmelden' }).click()
   await expect(page).toHaveURL('http://localhost:3010/')
+  await expect(page.getByRole('heading', { name: 'Interaktive Stadtkarte für Flensburg' })).toBeVisible()
 
-  await page.locator('[data-header-account]').click()
-  await page.getByRole('menuitem', { name: 'Abmelden' }).click()
-  await page.goto('http://localhost:3010/login')
+  await logoutFromAccountMenu(page)
   await page.getByLabel('E-Mail').fill(user.email)
   await page.getByLabel('Passwort').fill('correct horse battery staple')
   await page.getByRole('button', { name: 'Anmelden', exact: true }).click()
@@ -313,7 +325,12 @@ test('virtual authenticator registers, signs in, confirms MFA and removes a pass
   await expect(page).toHaveURL('http://localhost:3010/')
 
   await page.goto('http://localhost:3010/profil/sicherheit')
+  await expect(page.getByRole('heading', { name: 'Sicherheit', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Entfernen' }).click()
-  await page.getByRole('button', { name: 'Passkey entfernen', exact: true }).click()
+  const removeDialog = page.getByRole('alertdialog', { name: 'Passkey entfernen?' })
+  await expect(removeDialog).toBeVisible()
+  const confirmRemove = removeDialog.getByRole('button', { name: 'Passkey entfernen', exact: true })
+  await expect(confirmRemove).toBeEnabled()
+  await confirmRemove.click()
   await expect(page.getByRole('heading', { name: 'Test-Laptop' })).toHaveCount(0)
 })

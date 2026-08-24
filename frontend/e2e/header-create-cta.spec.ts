@@ -19,8 +19,14 @@ const user = {
   last_login_at: null
 }
 
-async function mockOverview(page: Page) {
-  await page.route('**/api/v1/auth/session', route => route.fulfill({ json: { user, csrf_token: 'header-csrf' } }))
+async function mockOverview(page: Page, session = { authenticated: true }) {
+  await page.route('**/api/v1/auth/session', route => session.authenticated
+    ? route.fulfill({ json: { user, csrf_token: 'header-csrf' } })
+    : route.fulfill({ status: 401, json: { detail: { error: { code: 'AUTH_REQUIRED', message: 'Bitte anmelden.' } } } }))
+  await page.route('**/api/v1/auth/logout', async (route) => {
+    session.authenticated = false
+    await route.fulfill({ json: { message: 'Abgemeldet.' } })
+  })
   await page.route('**/api/v1/auth/oauth/providers', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/notifications/subscriptions', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/notifications?*', route => route.fulfill({ json: { items: [], total: 0, unread_count: 0, page: 1, page_size: 30, pages: 1 } }))
@@ -99,4 +105,26 @@ test('mobile keeps creation in navigation and the top bar overflow-free', async 
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
   }
   expect(hydrationWarnings).toEqual([])
+})
+
+test('account menu stays open until logout and ends the session', async ({ page }) => {
+  const session = { authenticated: true }
+  await mockOverview(page, session)
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Interaktive Stadtkarte für Flensburg' })).toBeVisible()
+
+  const accountButton = page.locator('[data-header-account]')
+  await accountButton.click()
+  const accountMenu = page.getByRole('menu')
+  await expect(accountMenu).toBeVisible()
+  await expect(accountButton).toHaveAttribute('aria-expanded', 'true')
+
+  const logout = accountMenu.locator('[data-account-logout]')
+  await expect(logout).toBeVisible()
+  await expect(logout).toBeEnabled()
+  await logout.click()
+
+  await expect(page).toHaveURL(/\/login$/)
+  await expect(page.getByRole('link', { name: 'Anmelden' })).toBeVisible()
+  expect(session.authenticated).toBe(false)
 })

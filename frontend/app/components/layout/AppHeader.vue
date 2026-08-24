@@ -72,7 +72,7 @@
                 <NuxtLink v-for="item in accountNavigation" :key="item.to" class="flex min-h-10 items-center rounded-lg px-3 text-sm font-semibold text-[#30363a] hover:bg-[#f4f6f6]" :to="item.to" role="menuitem" @click="accountOpen = false">
                   {{ item.label }}
                 </NuxtLink>
-                <button class="flex min-h-10 w-full cursor-pointer items-center rounded-lg px-3 text-left text-sm font-semibold text-[#30363a] hover:bg-[#f4f6f6]" type="button" role="menuitem" @click="logout">
+                <button data-account-logout class="flex min-h-10 w-full cursor-pointer items-center rounded-lg px-3 text-left text-sm font-semibold text-[#30363a] hover:bg-[#f4f6f6]" type="button" role="menuitem" @click="logout">
                   Abmelden
                 </button>
               </div>
@@ -175,9 +175,9 @@ function handleClick(event: MouseEvent) {
 }
 
 async function logout() {
-  await authStore.logout()
   closeMenu()
-  await router.push('/')
+  await authStore.logout()
+  await router.push('/login')
 }
 
 watch(() => route.fullPath, closeMenu)
