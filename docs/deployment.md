@@ -243,6 +243,27 @@ Collector und Tempo erreichbar sein. Nach dem API-Start erzeugt Ansible einen
 gesampelten `/health/ready`-Trace und pollt Tempo bis zum Nachweis des aktuellen
 Release-SHA; ein Fehler nutzt das bestehende atomare Rollback.
 
+Collector und Tempo laufen als eigene Systemkonten `stadtplaner-otel` und
+`stadtplaner-tempo`. Ihre Konfigurationen liegen getrennt unter
+`/etc/stadtplaner/otel/collector/collector.yml` beziehungsweise
+`/etc/stadtplaner/otel/tempo/tempo.yml`; Verzeichnisse haben Modus `0750`,
+Dateien Modus `0640` und jeweils die passende Service-Gruppe. Das sensible
+Elternverzeichnis `/etc/stadtplaner` wird ausdrücklich nicht auf `0755`
+geöffnet. Stattdessen installiert Ansible die `acl`-Werkzeuge und vergibt für
+beide Konten ausschließlich Traverse-ACLs (`--x`) auf `/etc/stadtplaner` und
+`/etc/stadtplaner/otel`. Dadurch können sie nur den jeweils gruppenberechtigten
+Konfigurationspfad lesen, nicht aber Backend-, Frontend- oder OSM-Secrets
+auflisten.
+
+Vor jedem erforderlichen Neustart prüft Ansible die Lesbarkeit als tatsächlicher
+Service-Benutzer und validiert Collector- und Tempo-Konfiguration mit den
+gepinnten Binärdateien. Anschließend werden Collector-OTLP
+`127.0.0.1:4317`, Collector-Health
+`127.0.0.1:13133/health/status`, Tempo-OTLP `127.0.0.1:4319` und Tempo-HTTP
+`127.0.0.1:3200/ready` geprüft. Der Tempo-Readiness-Check akzeptiert die
+erwartete anfängliche Antwort `503` als vorübergehend und pollt bis zu 60
+Sekunden auf `200`.
+
 Der Nginx-vHost erzeugt `X-Request-ID`, schreibt datensparsame JSON-Access-Logs und schützt `/metrics` mit `allow`/`deny`. Tragen Sie das Netz des Monitoring-Hosts in `stadtplaner_metrics_allowed_cidrs` ein; veröffentlichen Sie keine Basic-Auth-Credentials in Templates. Der Prometheus-Scraper verwendet HTTPS und benötigt eine erlaubte Quelladresse.
 
 ```yaml

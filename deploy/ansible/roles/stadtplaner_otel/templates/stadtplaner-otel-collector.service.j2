@@ -7,7 +7,7 @@ Wants=network-online.target stadtplaner-tempo.service
 Type=simple
 User=stadtplaner-otel
 Group=stadtplaner-otel
-ExecStart=/usr/local/bin/stadtplaner-otelcol --config=/etc/stadtplaner/otel/collector.yml
+ExecStart=/usr/local/bin/stadtplaner-otelcol --config={{ stadtplaner_otel_collector_config }}
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
