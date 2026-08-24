@@ -65,6 +65,12 @@ class GitHubVarsBuilderTest(unittest.TestCase):
             text=True,
         )
 
+    def set_backend_value(self, key: str, value: str) -> None:
+        lines = self.environment["STADTPLANER_BACKEND_ENV_CONFIG"].splitlines()
+        self.environment["STADTPLANER_BACKEND_ENV_CONFIG"] = "\n".join(
+            f"{key}={value}" if line.startswith(f"{key}=") else line for line in lines
+        )
+
     def test_builds_complete_restricted_ansible_vars(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "vars.yml"
@@ -78,6 +84,14 @@ class GitHubVarsBuilderTest(unittest.TestCase):
             )
             self.assertEqual(actual, expected)
             self.assertEqual(generated["stadtplaner_avatar_upload_dir"], "/data/uploads")
+            self.assertTrue(generated["stadtplaner_otel_enabled"])
+            self.assertEqual(
+                generated["stadtplaner_otel_endpoint"], "http://127.0.0.1:4317"
+            )
+            self.assertEqual(generated["stadtplaner_otel_endpoint_host"], "127.0.0.1")
+            self.assertEqual(generated["stadtplaner_otel_endpoint_port"], 4317)
+            self.assertEqual(generated["stadtplaner_otel_protocol"], "grpc")
+            self.assertEqual(generated["stadtplaner_otel_service_name"], "stadtplaner-api")
             self.assertEqual(output.stat().st_mode & 0o777, 0o600)
 
     def test_rejects_secret_in_open_configuration(self) -> None:
@@ -87,6 +101,43 @@ class GitHubVarsBuilderTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Secrets must not be present", result.stderr)
+
+    def test_rejects_enabled_otel_without_endpoint(self) -> None:
+        self.set_backend_value("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_builder(Path(directory) / "vars.yml")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "OpenTelemetry is enabled but OTEL_EXPORTER_OTLP_ENDPOINT is empty",
+            result.stderr,
+        )
+
+    def test_rejects_invalid_otel_endpoint(self) -> None:
+        self.set_backend_value(
+            "OTEL_EXPORTER_OTLP_ENDPOINT", "http://user:password@127.0.0.1:4317?token=x"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_builder(Path(directory) / "vars.yml")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("without credentials, path, query or fragment", result.stderr)
+
+    def test_rejects_disabled_otel_for_production(self) -> None:
+        self.set_backend_value("OTEL_ENABLED", "false")
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_builder(Path(directory) / "vars.yml")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Production deployment requires OpenTelemetry tracing", result.stderr)
+
+    def test_rejects_non_grpc_protocol(self) -> None:
+        self.set_backend_value("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_builder(Path(directory) / "vars.yml")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("requires OTLP protocol grpc", result.stderr)
 
 
 if __name__ == "__main__":

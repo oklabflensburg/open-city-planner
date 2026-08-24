@@ -1,0 +1,25 @@
+[Unit]
+Description=Stadtplaner OpenTelemetry Collector
+After=network-online.target stadtplaner-tempo.service
+Wants=network-online.target stadtplaner-tempo.service
+
+[Service]
+Type=simple
+User=stadtplaner-otel
+Group=stadtplaner-otel
+ExecStart=/usr/local/bin/stadtplaner-otelcol --config=/etc/stadtplaner/otel/collector.yml
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

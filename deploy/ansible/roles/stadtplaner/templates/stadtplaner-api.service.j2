@@ -1,7 +1,7 @@
 [Unit]
 Description=Open City Planner FastAPI API
-After=network-online.target postgresql.service redis-server.service
-Wants=network-online.target
+After=network-online.target postgresql.service redis-server.service{% if stadtplaner_manage_otel_collector | default(false) | bool %} stadtplaner-otel-collector.service{% endif %}
+Wants=network-online.target{% if stadtplaner_manage_otel_collector | default(false) | bool %} stadtplaner-otel-collector.service{% endif %}
 
 [Service]
 Type=simple

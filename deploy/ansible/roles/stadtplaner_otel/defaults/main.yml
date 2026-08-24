@@ -1,0 +1,28 @@
+---
+stadtplaner_otel_required: true
+stadtplaner_otel_enabled: true
+stadtplaner_otel_endpoint: http://127.0.0.1:4317
+stadtplaner_otel_endpoint_host: 127.0.0.1
+stadtplaner_otel_endpoint_port: 4317
+stadtplaner_otel_protocol: grpc
+stadtplaner_otel_service_name: stadtplaner-api
+stadtplaner_manage_otel_collector: true
+
+stadtplaner_otel_collector_version: 0.153.0
+stadtplaner_otel_collector_checksums:
+  x86_64: f7be4acf2c04058875073afc2e74ef885a66ef4fac8a4bfc93faa7235cb1c174
+  aarch64: df0f98422428ad90021faef09a07bd685102f112483278ad8555383307117020
+stadtplaner_otel_collector_health_host: 127.0.0.1
+stadtplaner_otel_collector_health_port: 13133
+stadtplaner_otel_collector_health_path: /health/status
+
+stadtplaner_tempo_version: 2.10.7
+stadtplaner_tempo_checksums:
+  x86_64: 44556dcd4bf641cb48edef57322d403c932ebf2809d616fca1c85ee196f0aefc
+  aarch64: f4d0108b4414a7404d2a0f0db7b7cc57b9ebf001dc52d414e0728c0cfa942474
+stadtplaner_tempo_http_host: 127.0.0.1
+stadtplaner_tempo_http_port: 3200
+stadtplaner_tempo_otlp_grpc_host: 127.0.0.1
+stadtplaner_tempo_otlp_grpc_port: 4319
+stadtplaner_tempo_retention: 336h
+stadtplaner_tempo_data_dir: /var/lib/stadtplaner-tempo

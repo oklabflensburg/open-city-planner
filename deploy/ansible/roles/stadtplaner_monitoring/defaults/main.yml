@@ -25,6 +25,8 @@ monitoring_prometheus_api_target: "127.0.0.1:{{ stadtplaner_backend_port | defau
 monitoring_prometheus_api_metrics_path: /metrics
 monitoring_readiness_url: >-
   http://127.0.0.1:{{ stadtplaner_backend_port | default(8008) }}/health/ready
+monitoring_otel_health_url: http://127.0.0.1:13133/health/status
+monitoring_tempo_url: http://127.0.0.1:3200
 monitoring_external_labels:
   environment: production
   service: stadtplaner

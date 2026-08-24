@@ -5,6 +5,7 @@ konfiguriert einen self-hostbaren Monitoring-Stack für den Stadtplaner:
 
 - Prometheus sammelt API-, Host- und Job-Metriken und wertet die versionierten Alert-Regeln aus;
 - Grafana erhält Prometheus als vorinstallierte Datenquelle und lädt das Stadtplaner-Dashboard automatisch;
+- Grafana erhält das vom normalen Deploy verwaltete Tempo als vorinstallierte Trace-Datenquelle;
 - der Blackbox Exporter prüft `/health/ready` aus Sicht des Monitoring-Hosts;
 - der Node Exporter liefert Host-Metriken und liest die `.prom`-Dateien der timerbasierten Jobs.
 
@@ -23,6 +24,7 @@ Loopback:
 | Prometheus | `127.0.0.1:9090` | nein |
 | Node Exporter | `127.0.0.1:9100` | nein |
 | Blackbox Exporter | `127.0.0.1:9115` | nein |
+| Tempo | `127.0.0.1:3200` | nein |
 
 Grafana kann dann über einen SSH-Tunnel benutzt werden. Eine DNS-Subdomain ist
 nur für den optionalen öffentlichen HTTPS-Zugang zu Grafana erforderlich.
@@ -128,7 +130,7 @@ Das Playbook:
 3. konfiguriert Retention und ausschließlich lokale Listener;
 4. installiert Alert-Regeln und die Readiness-Probe;
 5. aktiviert den Textfile Collector für Stadtplaner-Jobs;
-6. provisioniert Prometheus-Datenquelle und Grafana-Dashboard;
+6. provisioniert Prometheus- und Tempo-Datenquellen sowie das Grafana-Dashboard;
 7. validiert Prometheus mit `promtool`;
 8. startet und aktiviert alle Dienste;
 9. prüft Prometheus- und Grafana-Healthendpoints sowie den API-Scrape und die Readiness-Probe.
@@ -165,7 +167,8 @@ promtool check rules /etc/prometheus/rules/stadtplaner-alerts.yml
 ```
 
 In Prometheus unter **Status → Targets** müssen `prometheus`,
-`stadtplaner-api`, `stadtplaner-node` und `stadtplaner-readiness` den Zustand
+`stadtplaner-api`, `stadtplaner-node`, `stadtplaner-readiness` und
+`stadtplaner-otel-collector` den Zustand
 `UP` zeigen. Die ACL des Job-Metrikverzeichnisses gibt nur dem
 Prometheus-Systemkonto zusätzlichen Lesezugriff; Applikations-Secrets werden
 nicht freigegeben.

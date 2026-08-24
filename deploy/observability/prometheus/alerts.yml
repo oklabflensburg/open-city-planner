@@ -9,6 +9,14 @@ groups:
           summary: Stadtplaner readiness has failed for ten minutes
           runbook_url: docs/runbooks/readiness-down.md
 
+      - alert: StadtplanerOtelCollectorDown
+        expr: probe_success{job="stadtplaner-otel-collector"} == 0
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: Required Stadtplaner OpenTelemetry Collector is unavailable
+          runbook_url: docs/runbooks/otel-collector-down.md
+
       - alert: StadtplanerHigh5xxRate
         expr: >-
           sum(rate(http_requests_total{status_class="5xx"}[10m]))
@@ -78,4 +86,3 @@ groups:
         annotations:
           summary: Local OpenStreetMap data is more than two hours behind
           runbook_url: docs/runbooks/osm-replication-stale.md
-

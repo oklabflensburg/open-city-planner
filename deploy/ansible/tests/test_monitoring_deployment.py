@@ -29,6 +29,9 @@ class MonitoringDeploymentTest(unittest.TestCase):
         tasks = (ROLE / "tasks/main.yml").read_text(encoding="utf-8")
         prometheus = (ROLE / "templates/prometheus.yml.j2").read_text(encoding="utf-8")
         datasource = (ROLE / "templates/grafana-datasource.yml.j2").read_text(encoding="utf-8")
+        alerts = (ROOT / "deploy/observability/prometheus/alerts.yml").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn("observability/prometheus/alerts.yml", tasks)
         self.assertIn("observability/grafana/stadtplaner-overview.json", tasks)
@@ -36,8 +39,12 @@ class MonitoringDeploymentTest(unittest.TestCase):
         self.assertIn("promtool check rules", tasks)
         self.assertIn("job_name: stadtplaner-api", prometheus)
         self.assertIn("job_name: stadtplaner-readiness", prometheus)
+        self.assertIn("job_name: stadtplaner-otel-collector", prometheus)
         self.assertIn("job_name: stadtplaner-node", prometheus)
         self.assertIn("uid: stadtplaner-prometheus", datasource)
+        self.assertIn("uid: stadtplaner-tempo", datasource)
+        self.assertIn("StadtplanerOtelCollectorDown", alerts)
+        self.assertTrue((ROOT / "docs/runbooks/otel-collector-down.md").is_file())
 
     def test_monitoring_is_opt_in_and_documented(self) -> None:
         deploy = yaml.safe_load((ANSIBLE / "playbooks/deploy.yml").read_text(encoding="utf-8"))

@@ -1,0 +1,208 @@
+---
+- name: Validate required OpenTelemetry deployment configuration
+  ansible.builtin.assert:
+    that:
+      - not stadtplaner_otel_required | bool or stadtplaner_otel_enabled | bool
+      - not stadtplaner_otel_required | bool or stadtplaner_otel_endpoint | length > 0
+      - stadtplaner_otel_protocol == 'grpc'
+      - stadtplaner_otel_service_name | length > 0
+      - stadtplaner_otel_endpoint is match('^https?://[^/?#@]+:[0-9]{1,5}/?$')
+      - stadtplaner_otel_endpoint_host | length > 0
+      - stadtplaner_otel_endpoint_port | int >= 1
+      - stadtplaner_otel_endpoint_port | int <= 65535
+      - not stadtplaner_manage_otel_collector | bool or stadtplaner_otel_endpoint_host in ['127.0.0.1', '::1', 'localhost']
+      - not stadtplaner_manage_otel_collector | bool or stadtplaner_otel_endpoint_port | int == 4317
+    fail_msg: >-
+      Production requires enabled OpenTelemetry tracing with a credential-free
+      HTTP(S) OTLP/gRPC endpoint containing an explicit host and port. A managed
+      collector must use the local port 4317.
+
+- name: Validate supported observability binary architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture in stadtplaner_otel_collector_checksums
+      - ansible_architecture in stadtplaner_tempo_checksums
+    fail_msg: >-
+      The managed OpenTelemetry stack supports only reviewed x86_64 and aarch64
+      release artifacts.
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Map architecture to upstream release naming
+  ansible.builtin.set_fact:
+    stadtplaner_otel_release_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}"
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Create observability service accounts
+  ansible.builtin.user:
+    name: "{{ item }}"
+    system: true
+    create_home: false
+    shell: /usr/sbin/nologin
+  loop:
+    - stadtplaner-otel
+    - stadtplaner-tempo
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Create managed OpenTelemetry directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /etc/stadtplaner/otel, owner: root, group: root, mode: '0755' }
+    - { path: /var/cache/stadtplaner/otel, owner: root, group: root, mode: '0755' }
+    - { path: /usr/local/lib/stadtplaner-otel, owner: root, group: root, mode: '0755' }
+    - { path: "{{ stadtplaner_tempo_data_dir }}", owner: stadtplaner-tempo, group: stadtplaner-tempo, mode: '0750' }
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Download pinned OpenTelemetry Collector release
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v{{ stadtplaner_otel_collector_version }}/otelcol-contrib_{{ stadtplaner_otel_collector_version }}_linux_{{ stadtplaner_otel_release_arch }}.tar.gz
+    dest: "/var/cache/stadtplaner/otel/otelcol-contrib-{{ stadtplaner_otel_collector_version }}-{{ stadtplaner_otel_release_arch }}.tar.gz"
+    checksum: "sha256:{{ stadtplaner_otel_collector_checksums[ansible_architecture] }}"
+    owner: root
+    group: root
+    mode: '0644'
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Download pinned Grafana Tempo release
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/grafana/tempo/releases/download/v{{ stadtplaner_tempo_version }}/tempo_{{ stadtplaner_tempo_version }}_linux_{{ stadtplaner_otel_release_arch }}.tar.gz
+    dest: "/var/cache/stadtplaner/otel/tempo-{{ stadtplaner_tempo_version }}-{{ stadtplaner_otel_release_arch }}.tar.gz"
+    checksum: "sha256:{{ stadtplaner_tempo_checksums[ansible_architecture] }}"
+    owner: root
+    group: root
+    mode: '0644'
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Create versioned OpenTelemetry Collector directory
+  ansible.builtin.file:
+    path: "/usr/local/lib/stadtplaner-otel/collector-{{ stadtplaner_otel_collector_version }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Extract pinned OpenTelemetry Collector
+  ansible.builtin.unarchive:
+    src: "/var/cache/stadtplaner/otel/otelcol-contrib-{{ stadtplaner_otel_collector_version }}-{{ stadtplaner_otel_release_arch }}.tar.gz"
+    dest: "/usr/local/lib/stadtplaner-otel/collector-{{ stadtplaner_otel_collector_version }}"
+    remote_src: true
+    creates: "/usr/local/lib/stadtplaner-otel/collector-{{ stadtplaner_otel_collector_version }}/otelcol-contrib"
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Create versioned Grafana Tempo directory
+  ansible.builtin.file:
+    path: "/usr/local/lib/stadtplaner-otel/tempo-{{ stadtplaner_tempo_version }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Extract pinned Grafana Tempo
+  ansible.builtin.unarchive:
+    src: "/var/cache/stadtplaner/otel/tempo-{{ stadtplaner_tempo_version }}-{{ stadtplaner_otel_release_arch }}.tar.gz"
+    dest: "/usr/local/lib/stadtplaner-otel/tempo-{{ stadtplaner_tempo_version }}"
+    remote_src: true
+    creates: "/usr/local/lib/stadtplaner-otel/tempo-{{ stadtplaner_tempo_version }}/tempo"
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Link active observability binaries
+  ansible.builtin.file:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    state: link
+    force: true
+  loop:
+    - src: "/usr/local/lib/stadtplaner-otel/collector-{{ stadtplaner_otel_collector_version }}/otelcol-contrib"
+      dest: /usr/local/bin/stadtplaner-otelcol
+    - src: "/usr/local/lib/stadtplaner-otel/tempo-{{ stadtplaner_tempo_version }}/tempo"
+      dest: /usr/local/bin/stadtplaner-tempo
+  when: stadtplaner_manage_otel_collector | bool
+  notify:
+    - Restart Stadtplaner Tempo
+    - Restart Stadtplaner OpenTelemetry Collector
+
+- name: Install OpenTelemetry Collector and Tempo configuration
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - { src: collector.yml.j2, dest: /etc/stadtplaner/otel/collector.yml }
+    - { src: tempo.yml.j2, dest: /etc/stadtplaner/otel/tempo.yml }
+  when: stadtplaner_manage_otel_collector | bool
+  notify:
+    - Restart Stadtplaner Tempo
+    - Restart Stadtplaner OpenTelemetry Collector
+
+- name: Install hardened OpenTelemetry systemd units
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - { src: stadtplaner-tempo.service.j2, dest: stadtplaner-tempo.service }
+    - { src: stadtplaner-otel-collector.service.j2, dest: stadtplaner-otel-collector.service }
+  when: stadtplaner_manage_otel_collector | bool
+  notify:
+    - Restart Stadtplaner Tempo
+    - Restart Stadtplaner OpenTelemetry Collector
+
+- name: Enable managed trace services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - stadtplaner-tempo.service
+    - stadtplaner-otel-collector.service
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Apply pending trace service restarts before preflight
+  ansible.builtin.meta: flush_handlers
+  when: stadtplaner_manage_otel_collector | bool
+
+- name: Wait for required OTLP gRPC endpoint before release activation
+  ansible.builtin.wait_for:
+    host: "{{ stadtplaner_otel_endpoint_host }}"
+    port: "{{ stadtplaner_otel_endpoint_port }}"
+    state: started
+    timeout: 15
+  when: stadtplaner_otel_required | bool
+
+- name: Require healthy managed OpenTelemetry Collector before release activation
+  ansible.builtin.uri:
+    url: >-
+      http://{{ stadtplaner_otel_collector_health_host }}:{{ stadtplaner_otel_collector_health_port }}{{ stadtplaner_otel_collector_health_path }}
+    status_code: 200
+    return_content: true
+  register: stadtplaner_otel_collector_health
+  retries: 10
+  delay: 2
+  until: stadtplaner_otel_collector_health.status == 200
+  when:
+    - stadtplaner_otel_required | bool
+    - stadtplaner_manage_otel_collector | bool
+- name: Require ready Tempo backend before release activation
+  ansible.builtin.uri:
+    url: "http://{{ stadtplaner_tempo_http_host }}:{{ stadtplaner_tempo_http_port }}/ready"
+    status_code: 200
+  register: stadtplaner_tempo_health
+  retries: 10
+  delay: 2
+  until: stadtplaner_tempo_health.status == 200
+  when:
+    - stadtplaner_otel_required | bool
+    - stadtplaner_manage_otel_collector | bool

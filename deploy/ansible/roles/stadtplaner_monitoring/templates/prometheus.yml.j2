@@ -46,3 +46,17 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: {{ monitoring_blackbox_bind_address }}:{{ monitoring_blackbox_port }}
+
+  - job_name: stadtplaner-otel-collector
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: [{{ monitoring_otel_health_url | trim | to_json }}]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: {{ monitoring_blackbox_bind_address }}:{{ monitoring_blackbox_port }}

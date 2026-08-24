@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     otel_service_name: str = "stadtplaner-api"
     otel_exporter_otlp_endpoint: str | None = None
     otel_exporter_otlp_protocol: str = "grpc"
+    otel_traces_sampler: str = "parentbased_traceidratio"
+    otel_traces_sampler_arg: float = Field(default=0.1, ge=0, le=1)
     app_base_url: str = "http://localhost:3000"
     api_base_url: str = "http://localhost:8000"
     jwt_secret_key: str = DEVELOPMENT_JWT_SECRET
@@ -224,6 +226,35 @@ class Settings(BaseSettings):
             raise RuntimeError("LOG_FORMAT must be json or text")
         if self.otel_exporter_otlp_protocol != "grpc":
             raise RuntimeError("Only the grpc OTLP protocol is currently supported")
+        if self.otel_enabled and not (self.otel_exporter_otlp_endpoint or "").strip():
+            raise RuntimeError(
+                "OpenTelemetry is enabled but OTEL_EXPORTER_OTLP_ENDPOINT is empty"
+            )
+        if self.otel_enabled and not self.otel_service_name.strip():
+            raise RuntimeError("OTEL_SERVICE_NAME must not be empty when tracing is enabled")
+        if self.otel_enabled:
+            try:
+                otlp_endpoint = urlsplit(self.otel_exporter_otlp_endpoint or "")
+                otlp_port = otlp_endpoint.port
+            except ValueError as exc:
+                raise RuntimeError("OTEL_EXPORTER_OTLP_ENDPOINT is invalid") from exc
+            if (
+                otlp_endpoint.scheme not in {"http", "https"}
+                or not otlp_endpoint.hostname
+                or otlp_port is None
+                or not 1 <= otlp_port <= 65535
+                or otlp_endpoint.username
+                or otlp_endpoint.password
+                or otlp_endpoint.path not in {"", "/"}
+                or otlp_endpoint.query
+                or otlp_endpoint.fragment
+            ):
+                raise RuntimeError(
+                    "OTEL_EXPORTER_OTLP_ENDPOINT must be an HTTP(S) origin with an explicit "
+                    "port and without credentials, path, query or fragment"
+                )
+        if self.otel_traces_sampler != "parentbased_traceidratio":
+            raise RuntimeError("OTEL_TRACES_SAMPLER must be parentbased_traceidratio")
         if self.production and (
             self.jwt_secret_key == DEVELOPMENT_JWT_SECRET
             or len(self.jwt_secret_key.strip()) < MINIMUM_JWT_SECRET_LENGTH

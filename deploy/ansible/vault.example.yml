@@ -19,10 +19,12 @@ stadtplaner_backend_env_content: |
   METRICS_ENABLED=true
   METRICS_PATH=/metrics
   OBSERVABILITY_TEXTFILE_DIR=/data/stadtplaner/observability
-  OTEL_ENABLED=false
+  OTEL_ENABLED=true
   OTEL_SERVICE_NAME=stadtplaner-api
-  OTEL_EXPORTER_OTLP_ENDPOINT=
+  OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317
   OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+  OTEL_TRACES_SAMPLER=parentbased_traceidratio
+  OTEL_TRACES_SAMPLER_ARG=0.1
   APP_ENVIRONMENT=production
   APP_BASE_URL=https://stadtplaner.oklabflensburg.de
   API_BASE_URL=https://api.stadtplaner.oklabflensburg.de
@@ -265,6 +267,14 @@ stadtplaner_social_dir: /data/stadtplaner-social
 stadtplaner_avatar_upload_dir: /data/uploads
 stadtplaner_observability_dir: /data/stadtplaner/observability
 stadtplaner_metrics_allowed_cidrs: []
+stadtplaner_otel_required: true
+stadtplaner_otel_enabled: true
+stadtplaner_otel_endpoint: http://127.0.0.1:4317
+stadtplaner_otel_endpoint_host: 127.0.0.1
+stadtplaner_otel_endpoint_port: 4317
+stadtplaner_otel_protocol: grpc
+stadtplaner_otel_service_name: stadtplaner-api
+stadtplaner_manage_otel_collector: true
 stadtplaner_backend_port: 8008
 stadtplaner_frontend_port: 3008
 stadtplaner_backend_env_file: /etc/stadtplaner/backend.env
@@ -326,6 +336,8 @@ monitoring_prometheus_api_scheme: http
 monitoring_prometheus_api_target: "127.0.0.1:{{ stadtplaner_backend_port }}"
 monitoring_prometheus_api_metrics_path: /metrics
 monitoring_readiness_url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/ready"
+monitoring_otel_health_url: http://127.0.0.1:13133/health/status
+monitoring_tempo_url: http://127.0.0.1:3200
 monitoring_external_labels:
   environment: production
   service: stadtplaner

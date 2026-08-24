@@ -9,6 +9,7 @@ from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,10 @@ def configure_tracing(app, engine, settings) -> TracingRuntime:
                 "deployment.environment.name": settings.app_environment,
             }
         )
-        provider = TracerProvider(resource=resource)
+        provider = TracerProvider(
+            resource=resource,
+            sampler=ParentBased(TraceIdRatioBased(settings.otel_traces_sampler_arg)),
+        )
         exporter = OTLPSpanExporter(
             endpoint=settings.otel_exporter_otlp_endpoint,
             insecure=settings.otel_exporter_otlp_endpoint.startswith("http://"),

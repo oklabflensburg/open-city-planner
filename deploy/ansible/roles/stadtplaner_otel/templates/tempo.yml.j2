@@ -1,0 +1,29 @@
+server:
+  http_listen_address: "{{ stadtplaner_tempo_http_host }}"
+  http_listen_port: {{ stadtplaner_tempo_http_port }}
+  grpc_listen_address: "127.0.0.1"
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "{{ stadtplaner_tempo_otlp_grpc_host }}:{{ stadtplaner_tempo_otlp_grpc_port }}"
+
+ingester:
+  max_block_duration: 5m
+
+compactor:
+  compaction:
+    block_retention: "{{ stadtplaner_tempo_retention }}"
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: "{{ stadtplaner_tempo_data_dir }}/wal"
+    local:
+      path: "{{ stadtplaner_tempo_data_dir }}/blocks"
+
+usage_report:
+  reporting_enabled: false
