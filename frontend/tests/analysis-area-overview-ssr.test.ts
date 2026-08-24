@@ -66,9 +66,9 @@ function renderedText(html: string) {
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
-    .replaceAll('&amp;', '&')
     .replaceAll('&quot;', '"')
     .replaceAll('&#39;', "'")
+    .replaceAll('&amp;', '&')
     .replace(/\s+/g, ' ')
     .trim()
 }
