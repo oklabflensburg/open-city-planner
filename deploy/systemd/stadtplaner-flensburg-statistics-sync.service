@@ -13,4 +13,4 @@ ExecStart=/opt/stadtplaner/backend/.venv/bin/python -m app.cli.import_flensburg_
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/opt/stadtplaner/backend/data
+ReadWritePaths=/opt/stadtplaner/backend/data /data/stadtplaner/observability

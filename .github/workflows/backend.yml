@@ -60,6 +60,9 @@ jobs:
       - name: Run pytest
         working-directory: backend
         run: uv run pytest
+      - name: Verify observability contracts explicitly
+        working-directory: backend
+        run: uv run pytest tests/test_observability.py
 
   backend-migrations:
     name: Backend migrations

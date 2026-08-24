@@ -9,8 +9,12 @@ const STATIC_PATHS = ['/', '/gebiete', '/vergleich', '/ueber-das-projekt', '/ope
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
   const [entries, areas] = await Promise.all([
-    $fetch<PolygonSitemapEntry[]>(`${config.public.apiBaseUrl}/polygons/sitemap`),
-    $fetch<AnalysisAreaSitemapEntry[]>(`${config.public.apiBaseUrl}/analysis-areas/sitemap`)
+    $fetch<PolygonSitemapEntry[]>(`${config.public.apiBaseUrl}/polygons/sitemap`, {
+      headers: { 'X-Request-ID': event.context.requestId }
+    }),
+    $fetch<AnalysisAreaSitemapEntry[]>(`${config.public.apiBaseUrl}/analysis-areas/sitemap`, {
+      headers: { 'X-Request-ID': event.context.requestId }
+    })
   ])
   const urls: SitemapUrl[] = [
     ...STATIC_PATHS.map(path => ({ loc: buildAbsoluteUrl(config.public.siteUrl, path) })),

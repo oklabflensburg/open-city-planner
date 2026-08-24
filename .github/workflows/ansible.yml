@@ -5,6 +5,7 @@ on:
     paths:
       - 'deploy/ansible/**'
       - 'deploy/nginx/**'
+      - 'deploy/observability/**'
       - 'deploy/systemd/**'
       - '.github/workflows/ansible.yml'
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - 'deploy/ansible/**'
       - 'deploy/nginx/**'
+      - 'deploy/observability/**'
       - 'deploy/systemd/**'
       - '.github/workflows/ansible.yml'
 
@@ -36,4 +38,6 @@ jobs:
           ansible-playbook --syntax-check playbooks/bootstrap.yml
           ansible-playbook --syntax-check playbooks/deploy.yml
           ansible-playbook --syntax-check playbooks/certificates.yml
+          ansible-playbook --syntax-check playbooks/monitoring.yml
+          ansible-playbook --syntax-check playbooks/monitoring-certificates.yml
           ansible-playbook --syntax-check playbooks/osm-initial-import.yml

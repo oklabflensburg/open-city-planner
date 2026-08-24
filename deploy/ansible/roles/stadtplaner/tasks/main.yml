@@ -12,6 +12,7 @@
     - { path: "{{ stadtplaner_social_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_avatar_upload_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_avatar_upload_dir }}/avatars", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
+    - { path: "{{ stadtplaner_observability_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
 
 - name: Install backend environment from encrypted variable when supplied
   ansible.builtin.copy:
@@ -183,6 +184,7 @@
 
 - name: Resolve the target release path
   ansible.builtin.set_fact:
+    stadtplaner_release_sha: "{{ stadtplaner_git.after | default(stadtplaner_deploy_ref) }}"
     stadtplaner_release_path: >-
       {{ stadtplaner_releases_dir }}/{{ (stadtplaner_git.after | default(stadtplaner_deploy_ref)) | regex_replace('[^A-Za-z0-9._-]+', '-') }}
 
@@ -460,7 +462,7 @@
         working_directory: "{{ stadtplaner_current_path }}"
         environment_file: "{{ stadtplaner_osm_env_file }}"
         exec_start: "{{ stadtplaner_current_path }}/scripts/osm/update.sh"
-        read_write_paths: ["{{ stadtplaner_data_dir }}"]
+        read_write_paths: ["{{ stadtplaner_data_dir }}", "{{ stadtplaner_observability_dir }}"]
         timer_description: Run Stadtplaner OpenStreetMap synchronization hourly
         on_boot: 10m
         on_unit_active: 1h
@@ -473,7 +475,7 @@
         working_directory: "{{ stadtplaner_current_path }}/backend"
         environment_file: "{{ stadtplaner_backend_env_file }}"
         exec_start: "{{ stadtplaner_current_path }}/backend/.venv/bin/python -m app.cli.import_flensburg_statistics"
-        read_write_paths: ["{{ stadtplaner_current_path }}/backend/data"]
+        read_write_paths: ["{{ stadtplaner_current_path }}/backend/data", "{{ stadtplaner_observability_dir }}"]
         timer_description: Weekly check for updated Flensburg statistics
         on_boot: ''
         on_unit_active: ''
@@ -486,7 +488,7 @@
         working_directory: "{{ stadtplaner_current_path }}/backend"
         environment_file: "{{ stadtplaner_backend_env_file }}"
         exec_start: "{{ stadtplaner_current_path }}/backend/.venv/bin/python -m app.cli.process_email_outbox --limit 20"
-        read_write_paths: []
+        read_write_paths: ["{{ stadtplaner_observability_dir }}"]
         timer_description: Fällige Stadtplaner-E-Mails regelmäßig versenden
         on_boot: 1m
         on_unit_active: 1m
@@ -499,7 +501,7 @@
         working_directory: "{{ stadtplaner_current_path }}/backend"
         environment_file: "{{ stadtplaner_backend_env_file }}"
         exec_start: "{{ stadtplaner_current_path }}/backend/.venv/bin/python -m app.cli.publish_social_outbox --limit 20"
-        read_write_paths: ["{{ stadtplaner_social_dir }}"]
+        read_write_paths: ["{{ stadtplaner_social_dir }}", "{{ stadtplaner_observability_dir }}"]
         timer_description: Publish due Stadtplaner Mastodon outbox events
         on_boot: 2m
         on_unit_active: 1m

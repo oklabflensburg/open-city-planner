@@ -87,6 +87,7 @@ Die vollständigen CI-Jobs und stabilen Check-Namen stehen in [docs/ci.md](docs/
 - Das öffentliche Benutzerhandbuch ist in der Anwendung unter `/dokumentation` erreichbar und wird aus `frontend/app/config/documentation.ts` erzeugt.
 - [Technische Dokumentation](docs/README.md)
 - [Deployment und Betrieb](docs/deployment.md)
+- [Production Observability](docs/observability.md)
 - [Reproduzierbare Supply Chain](docs/supply-chain.md)
 - [Ansible-Deployment](deploy/ansible/README.md)
 - [Nginx-Hardening und Rate Limits](deploy/nginx/README.md)

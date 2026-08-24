@@ -1,0 +1,140 @@
+---
+- name: Issue the optional Grafana TLS certificate
+  hosts: monitoring
+  become: true
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - name: Require explicit Grafana publication and certificate opt-in
+      ansible.builtin.assert:
+        that:
+          - monitoring_grafana_publish | bool
+          - monitoring_manage_certificates | bool
+          - monitoring_grafana_host | length > 3
+          - monitoring_certbot_email | length > 3
+        fail_msg: >-
+          Set monitoring_grafana_publish=true,
+          monitoring_manage_certificates=true, monitoring_grafana_host and
+          monitoring_certbot_email. DNS must already point at this host.
+
+    - name: Check whether the Grafana certificate exists
+      ansible.builtin.stat:
+        path: "/etc/letsencrypt/live/{{ monitoring_grafana_certificate_name }}/fullchain.pem"
+      register: monitoring_grafana_certificate
+
+    - name: Install certificate prerequisites
+      ansible.builtin.apt:
+        name:
+          - certbot
+          - nginx
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      when: not monitoring_grafana_certificate.stat.exists
+
+    - name: Create ACME webroot
+      ansible.builtin.file:
+        path: /var/www/letsencrypt
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+      when: not monitoring_grafana_certificate.stat.exists
+
+    - name: Install temporary Grafana ACME vhost
+      ansible.builtin.copy:
+        dest: /etc/nginx/sites-available/stadtplaner-grafana-acme
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name {{ monitoring_grafana_host }};
+              location /.well-known/acme-challenge/ { root /var/www/letsencrypt; }
+              location / { return 404; }
+          }
+      when: not monitoring_grafana_certificate.stat.exists
+
+    - name: Enable temporary Grafana ACME vhost
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/stadtplaner-grafana-acme
+        dest: /etc/nginx/sites-enabled/stadtplaner-grafana-acme
+        state: link
+      when: not monitoring_grafana_certificate.stat.exists
+
+    - name: Validate Nginx before requesting the certificate
+      ansible.builtin.command: nginx -t
+      changed_when: false
+      when: not monitoring_grafana_certificate.stat.exists
+
+    - name: Reload Nginx for the ACME challenge
+      ansible.builtin.systemd_service:
+        name: nginx
+        state: reloaded
+      when: not monitoring_grafana_certificate.stat.exists
+
+    - name: Obtain the Grafana certificate
+      ansible.builtin.command:
+        argv:
+          - certbot
+          - certonly
+          - --webroot
+          - -w
+          - /var/www/letsencrypt
+          - -d
+          - "{{ monitoring_grafana_host }}"
+          - --non-interactive
+          - --agree-tos
+          - --email
+          - "{{ monitoring_certbot_email }}"
+      when: not monitoring_grafana_certificate.stat.exists
+
+    - name: Remove temporary Grafana ACME vhost
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/stadtplaner-grafana-acme
+        state: absent
+      when: not monitoring_grafana_certificate.stat.exists
+
+    - name: Remove temporary Grafana ACME vhost file
+      ansible.builtin.file:
+        path: /etc/nginx/sites-available/stadtplaner-grafana-acme
+        state: absent
+      when: not monitoring_grafana_certificate.stat.exists
+
+    - name: Create certificate renewal hook directory
+      ansible.builtin.file:
+        path: /etc/letsencrypt/renewal-hooks/deploy
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Install certificate renewal reload hook
+      ansible.builtin.copy:
+        dest: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx
+        owner: root
+        group: root
+        mode: '0755'
+        content: |
+          #!/bin/sh
+          set -eu
+          /usr/bin/systemctl reload nginx
+
+    - name: Validate Nginx after removing the ACME vhost
+      ansible.builtin.command: nginx -t
+      changed_when: false
+      when: not monitoring_grafana_certificate.stat.exists
+
+    - name: Reload Nginx after removing the ACME vhost
+      ansible.builtin.systemd_service:
+        name: nginx
+        state: reloaded
+      when: not monitoring_grafana_certificate.stat.exists
+
+    - name: Explain the required follow-up
+      ansible.builtin.debug:
+        msg: >-
+          Certificate available. Run monitoring.yml with
+          monitoring_grafana_publish=true to install the HTTPS vhost.

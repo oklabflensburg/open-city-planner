@@ -13,3 +13,4 @@ ExecStart=/opt/git/open-city-planner/backend/.venv/bin/python -m app.cli.process
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
+ReadWritePaths=/data/stadtplaner/observability

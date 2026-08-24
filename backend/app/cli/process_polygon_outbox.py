@@ -1,17 +1,16 @@
 import argparse
 import asyncio
-import logging
 
-from app.db.base import AsyncSessionLocal
+from app.db.session import AsyncSessionLocal
+from app.observability.jobs import observed_job
 from app.services.polygon_outbox import process_due_polygon_outbox
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
+@observed_job("polygon_outbox")
 async def async_main(limit: int) -> None:
     async with AsyncSessionLocal() as session:
         result = await process_due_polygon_outbox(session, limit=limit)
-        logger.info("Polygon outbox processing complete. processed=%d failed=%d dead_letter=%d", result["processed"], result["failed"], result["dead_letter"])
+        return result
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fällige Polygon-Ereignisse aus der Outbox verarbeiten")

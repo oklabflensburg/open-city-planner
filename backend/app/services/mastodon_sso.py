@@ -19,6 +19,7 @@ from app.auth.oauth import oauth_redirect_uri, safe_redirect_path
 from app.auth.tokens import generate_token, hash_token
 from app.core.config import Settings, get_settings
 from app.models.oauth_account import MastodonOAuthInstance, OAuthFlowGrant
+from app.observability.external import instrumented_httpx_request
 from app.schemas.oauth import OAuthIdentity
 
 Resolver = Callable[[str, int], Awaitable[set[ipaddress.IPv4Address | ipaddress.IPv6Address]]]
@@ -285,7 +286,14 @@ class MastodonSSOClient:
                 transport=self.transport,
                 follow_redirects=False,
             ) as client:
-                response = await client.request(method, url, **kwargs)
+                response = await instrumented_httpx_request(
+                    client,
+                    method,
+                    url,
+                    provider="mastodon_sso",
+                    operation=parsed.path,
+                    **kwargs,
+                )
         except (httpx.TimeoutException, httpx.NetworkError) as exc:
             raise mastodon_sso_error(
                 "MASTODON_INSTANCE_UNREACHABLE",

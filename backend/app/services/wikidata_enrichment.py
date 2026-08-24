@@ -75,7 +75,14 @@ class WikidataClient:
         for attempt in range(3):
             try:
                 async with httpx.AsyncClient(timeout=timeout, transport=self.transport, headers=headers) as client:
-                    response = await client.get(self.settings.wikidata_api_url, params={**params, "format": "json", "formatversion": 2})
+                    response = await instrumented_httpx_request(
+                        client,
+                        "GET",
+                        self.settings.wikidata_api_url,
+                        provider="wikidata",
+                        operation=str(params.get("action", "request")),
+                        params={**params, "format": "json", "formatversion": 2},
+                    )
                 if (response.status_code == 429 or response.status_code >= 500) and attempt < 2:
                     await asyncio.sleep(min(float(response.headers.get("Retry-After", attempt + 1)), 5.0))
                     continue
@@ -337,3 +344,4 @@ class WikidataEnrichmentService:
                  "label": entity.label, "description": entity.description})
         await bump_cache_versions(session, ("analysis-areas",))
         await session.commit()
+from app.observability.external import instrumented_httpx_request

@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.models.email_template import EmailTemplate
 from app.models.user import User
+from app.observability.metrics import external_request
 
 logger = logging.getLogger(__name__)
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates" / "email"
@@ -508,7 +509,9 @@ def send_email(
         message[name] = value
     message.set_content(text)
     message.add_alternative(html, subtype="html")
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as smtp:
+    with external_request("smtp", "send"), smtplib.SMTP(
+        settings.smtp_host, settings.smtp_port
+    ) as smtp:
         if settings.smtp_use_tls:
             smtp.starttls()
         if settings.smtp_username:

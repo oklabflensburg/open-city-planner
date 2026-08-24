@@ -7,6 +7,7 @@ import httpx
 from pydantic import ValidationError
 
 from app.core.config import Settings, get_settings
+from app.observability.external import instrumented_httpx_request
 from app.schemas.assistant import AssistantContext, AssistantPlan
 
 ASSISTANT_PROMPT_VERSION = "3.0"
@@ -40,12 +41,25 @@ class AssistantProviderError(RuntimeError):
 class GroqProvider:
     name = "groq"
 
-    def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        client: httpx.AsyncClient | None = None,
+        *,
+        provider_name: str = "groq",
+    ) -> None:
         self.settings = settings
+        self.name = provider_name
         self.model = settings.ai_search_model or ""
+        self.api_key = settings.openai_api_key if provider_name == "openai" else settings.groq_api_key
+        base_url = (
+            "https://api.openai.com/v1"
+            if provider_name == "openai"
+            else settings.groq_base_url.rstrip("/")
+        )
         self._external_client = client is not None
         self._client = client or httpx.AsyncClient(
-            base_url=settings.groq_base_url.rstrip("/"),
+            base_url=base_url,
             timeout=httpx.Timeout(settings.groq_timeout_seconds),
             limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
         )
@@ -59,7 +73,7 @@ class GroqProvider:
         self, query: str, context: AssistantContext, tools: list[dict[str, Any]]
     ) -> AssistantPlan:
         self.usage = {}
-        if not self.settings.groq_api_key or not self.model:
+        if not self.api_key or not self.model:
             raise AssistantProviderError(
                 "ASSISTANT_DISABLED",
                 "Die intelligente Sprachinterpretation ist nicht vollständig konfiguriert.",
@@ -85,8 +99,9 @@ class GroqProvider:
                 return AssistantPlan.model_validate_json(content)
             except (ValidationError, ValueError) as exc:
                 logger.warning(
-                    "assistant_provider_invalid_plan provider=groq model=%r "
+                    "assistant_provider_invalid_plan provider=%s model=%r "
                     "repair=%s response=%s",
+                    self.name,
                     self.model,
                     bool(repair),
                     self._safe_log_value(content),
@@ -119,10 +134,14 @@ class GroqProvider:
         retries = self.settings.groq_max_retries
         for attempt in range(retries + 1):
             try:
-                response = await self._client.post(
+                response = await instrumented_httpx_request(
+                    self._client,
+                    "POST",
                     "/chat/completions",
+                    provider=self.name,
+                    operation="chat_completion",
                     headers={
-                        "Authorization": f"Bearer {self.settings.groq_api_key.get_secret_value()}",
+                        "Authorization": f"Bearer {self.api_key.get_secret_value()}",
                         "Content-Type": "application/json",
                     },
                     json=payload,
@@ -138,8 +157,9 @@ class GroqProvider:
                 ) from exc
             if response.status_code >= 400:
                 logger.warning(
-                    "assistant_provider_http_error provider=groq status=%d "
+                    "assistant_provider_http_error provider=%s status=%d "
                     "model=%r attempt=%d response=%s",
+                    self.name,
                     response.status_code,
                     self.model,
                     attempt + 1,
@@ -180,8 +200,9 @@ class GroqProvider:
                 return content
             except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 logger.warning(
-                    "assistant_provider_invalid_response provider=groq model=%r "
+                    "assistant_provider_invalid_response provider=%s model=%r "
                     "response=%s",
+                    self.name,
                     self.model,
                     self._safe_log_value(response.text),
                 )
@@ -192,9 +213,11 @@ class GroqProvider:
         raise AssertionError("unreachable")
 
     def _safe_log_value(self, value: str) -> str:
+        if not self.settings.assistant_query_logging:
+            return "[REDACTED]"
         secret = (
-            self.settings.groq_api_key.get_secret_value()
-            if self.settings.groq_api_key
+            self.api_key.get_secret_value()
+            if self.api_key
             else ""
         )
         redacted = value.replace(secret, "[REDACTED]") if secret else value
@@ -216,12 +239,17 @@ _provider: GroqProvider | None = None
 def get_assistant_provider() -> GroqProvider | None:
     global _provider
     settings = get_settings()
-    if not settings.ai_search_enabled or settings.ai_search_provider != "groq":
+    if not settings.ai_search_enabled:
         return None
-    if not settings.groq_api_key or not settings.ai_search_model:
+    api_key = (
+        settings.openai_api_key
+        if settings.ai_search_provider == "openai"
+        else settings.groq_api_key
+    )
+    if not api_key or not settings.ai_search_model:
         return None
     if _provider is None:
-        _provider = GroqProvider(settings)
+        _provider = GroqProvider(settings, provider_name=settings.ai_search_provider)
     return _provider
 
 

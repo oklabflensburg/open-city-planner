@@ -1,15 +1,16 @@
 import argparse
 import asyncio
-import json
 
 from app.db.session import AsyncSessionLocal
+from app.observability.jobs import observed_job
 from app.services.social_publishing import publish_due_events
 
 
+@observed_job("social_publisher")
 async def run(limit: int) -> None:
     async with AsyncSessionLocal() as session:
         result = await publish_due_events(session, limit=limit)
-    print(json.dumps(result, ensure_ascii=False))
+    return result
 
 
 def main() -> None:

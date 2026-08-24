@@ -29,6 +29,12 @@ Nginx soll für den Stadtplaner **keine zweite CORS-Implementierung** besitzen. 
 
 Die produktive Backend-Konfiguration muss `CORS_ORIGINS` bzw. die im Backend verwendeten Origin-Settings korrekt setzen.
 
+## Request-ID, JSON-Logs und Metrics
+
+Der VHost erzeugt am Edge über `$request_id` eine `X-Request-ID` für Nuxt und FastAPI. Das `stadtplaner_json`-Access-Log enthält nur Zeitpunkt, Request-ID, Methode, normalisierten `$uri` ohne Query-String, Status und Laufzeiten; Authorization, Cookies und Request Bodies werden nicht protokolliert.
+
+`/metrics` erlaubt zunächst ausschließlich Loopback. Ergänzen Sie gezielt eine `allow <monitoring-cidr>;`-Zeile und behalten Sie `deny all`; Zugangsdaten gehören nicht in die Vorlage. Die Ansible-Variante nutzt dafür `stadtplaner_metrics_allowed_cidrs`.
+
 ## Rate-Limiting-Philosophie
 
 Nginx ist nur der äußere Überlastungsschutz. Fachliche, benutzerbezogene oder sicherheitsrelevante Limits gehören weiterhin in FastAPI/Redis.

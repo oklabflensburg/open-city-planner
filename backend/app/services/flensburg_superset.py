@@ -179,7 +179,14 @@ class FlensburgSupersetClient:
                 transport=self.transport,
                 headers={"User-Agent": "Stadtplaner statistics importer/1.0"},
             ) as client:
-                response = await client.request(method, endpoint, **kwargs)
+                response = await instrumented_httpx_request(
+                    client,
+                    method,
+                    endpoint,
+                    provider="flensburg_superset",
+                    operation="dataset_export",
+                    **kwargs,
+                )
         except httpx.TimeoutException as exc:
             raise SupersetSourceError(f"Superset timeout for {endpoint}") from exc
         except httpx.HTTPError as exc:
@@ -193,3 +200,4 @@ class FlensburgSupersetClient:
                 f"Superset returned HTTP {response.status_code} for {endpoint}"
             )
         return response
+from app.observability.external import instrumented_httpx_request

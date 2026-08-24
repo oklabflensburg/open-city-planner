@@ -13,6 +13,8 @@ from app.models.email_campaign import EmailCampaign, EmailCampaignDelivery
 from app.models.email_outbox import EmailOutbox
 from app.models.notification import Notification
 from app.models.user import User
+from app.observability.metrics import OUTBOX_FAILED, OUTBOX_PROCESSED
+from app.observability.outbox import update_outbox_gauges
 from app.services.email_service import (
     EmailTemplateContent,
     EmailTemplateValidationError,
@@ -389,4 +391,9 @@ async def process_due_email_outbox(session: AsyncSession, *, limit: int = 20) ->
             break
         result["processed"] += 1
         result["sent" if await _finish_event(session, event.id) else "failed"] += 1
+    OUTBOX_PROCESSED.labels("email").inc(result["sent"])
+    OUTBOX_FAILED.labels("email").inc(result["failed"])
+    await update_outbox_gauges(
+        session, EmailOutbox, outbox_type="email", pending_statuses=("PENDING", "PROCESSING")
+    )
     return result

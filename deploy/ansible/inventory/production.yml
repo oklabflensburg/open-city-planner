@@ -5,3 +5,6 @@ all:
         stadtplaner-prod:
           ansible_host: stadtplaner.oklabflensburg.de
           ansible_become: true
+    monitoring:
+      hosts:
+        stadtplaner-prod:

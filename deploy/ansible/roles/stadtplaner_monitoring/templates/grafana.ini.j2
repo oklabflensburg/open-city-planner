@@ -1,0 +1,31 @@
+[paths]
+data = /var/lib/grafana
+logs = /var/log/grafana
+plugins = /var/lib/grafana/plugins
+provisioning = /etc/grafana/provisioning
+
+[server]
+protocol = http
+http_addr = {{ monitoring_grafana_bind_address }}
+http_port = {{ monitoring_grafana_port }}
+domain = {{ monitoring_grafana_host if monitoring_grafana_publish else 'localhost' }}
+enforce_domain = false
+root_url = {{ ('https://' ~ monitoring_grafana_host ~ '/') if monitoring_grafana_publish else ('http://' ~ monitoring_grafana_bind_address ~ ':' ~ monitoring_grafana_port ~ '/') }}
+
+[security]
+disable_gravatar = true
+cookie_secure = {{ 'true' if monitoring_grafana_publish else 'false' }}
+cookie_samesite = strict
+
+[users]
+allow_sign_up = false
+
+[auth.anonymous]
+enabled = false
+
+[analytics]
+reporting_enabled = false
+check_for_updates = false
+
+[log]
+mode = console

@@ -48,6 +48,7 @@ export const useApi = () => {
   const authStore = useAuthStore()
   const adminMfaRequirement = useState<'MFA_SETUP_REQUIRED' | 'MFA_REAUTH_REQUIRED' | null>('admin-mfa-requirement', () => null)
   const forwardedCookie = import.meta.server ? useRequestHeaders(['cookie']).cookie : undefined
+  const forwardedRequestId = import.meta.server ? useRequestHeaders(['x-request-id'])['x-request-id'] : undefined
 
   async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     return execute<T>(path, options)
@@ -97,6 +98,9 @@ export const useApi = () => {
     }
     if (import.meta.server && !headers.has('Cookie')) {
       if (forwardedCookie) headers.set('Cookie', forwardedCookie)
+    }
+    if (!headers.has('X-Request-ID')) {
+      headers.set('X-Request-ID', forwardedRequestId || crypto.randomUUID())
     }
     const csrf = csrfToken(options.method)
     if (csrf) headers.set('X-CSRF-Token', csrf)

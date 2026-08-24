@@ -1,0 +1,16 @@
+apiVersion: 1
+
+deleteDatasources:
+  - name: Stadtplaner Prometheus
+    orgId: 1
+
+datasources:
+  - name: Stadtplaner Prometheus
+    uid: stadtplaner-prometheus
+    type: prometheus
+    access: proxy
+    url: http://{{ monitoring_prometheus_bind_address }}:{{ monitoring_prometheus_port }}
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: {{ monitoring_prometheus_scrape_interval }}
