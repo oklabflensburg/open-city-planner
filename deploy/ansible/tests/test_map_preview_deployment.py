@@ -145,7 +145,41 @@ class MapPreviewDeploymentTest(unittest.TestCase):
         self.assertIn("Preserve the original deployment failure", tasks)
         self.assertIn("Report both deployment and rollback failures", tasks)
         self.assertGreaterEqual(tasks.count("STADTPLANER_RELEASE_SHA="), 4)
-        self.assertIn("when: not item.supplied | bool", tasks)
+
+    def test_target_environment_release_sha_is_written_as_a_real_line(self) -> None:
+        tasks_path = APP_ROLE / "tasks/main.yml"
+        tasks_text = tasks_path.read_text(encoding="utf-8")
+        tasks = yaml.safe_load(tasks_text)
+        tasks_by_name = {task["name"]: task for task in tasks}
+
+        for name in (
+            "Install target backend environment snapshot from encrypted input",
+            "Install target frontend environment snapshot from encrypted input",
+        ):
+            content = tasks_by_name[name]["ansible.builtin.copy"]["content"]
+            self.assertNotIn("stadtplaner_release_sha", content)
+            self.assertNotIn("~", content)
+
+        bind_task = tasks_by_name[
+            "Bind target environment snapshots to the target release SHA"
+        ]
+        lineinfile = bind_task["ansible.builtin.lineinfile"]
+        self.assertEqual(lineinfile["regexp"], "^STADTPLANER_RELEASE_SHA=")
+        self.assertEqual(
+            lineinfile["line"],
+            "STADTPLANER_RELEASE_SHA={{ stadtplaner_release_sha }}",
+        )
+        self.assertEqual(lineinfile["insertafter"], "EOF")
+        self.assertFalse(lineinfile["create"])
+        self.assertEqual(
+            bind_task["loop"],
+            [
+                "{{ stadtplaner_target_backend_env }}",
+                "{{ stadtplaner_target_frontend_env }}",
+            ],
+        )
+        self.assertNotIn("when", bind_task)
+        self.assertNotIn("~ '\\nSTADTPLANER_RELEASE_SHA='", tasks_text)
 
     def test_preview_defaults_are_persistent_and_loopback_only(self) -> None:
         defaults = yaml.safe_load(
