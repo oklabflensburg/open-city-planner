@@ -59,16 +59,65 @@ describe('Ansible deployment contract', () => {
     expect(publish).toBeLessThan(migrate)
   })
 
-  it('releases the application ports before starting managed services', () => {
+  it('prepares rollback state and releases ports before activating managed services', () => {
     const tasks = repositoryFile('deploy/ansible/roles/stadtplaner/tasks/main.yml')
-    const readable = tasks.indexOf('name: Verify the service user can read persistent environments')
-    const stopManaged = tasks.indexOf('name: Stop managed primary services before legacy handover')
-    const freePorts = tasks.indexOf('name: Require application ports to be free after legacy handover')
+    const settings = repositoryFile('backend/app/core/config.py')
+    const validateActive = tasks.indexOf('name: Validate the active backend environment against the active release')
+    const snapshotPrevious = tasks.indexOf('name: Snapshot legacy active environments for rollback')
+    const bindPrevious = tasks.indexOf('name: Bind previous environment snapshots to their release SHA')
+    const bindTarget = tasks.indexOf('name: Bind target environment snapshots to the target release SHA')
+    const validateTargetFrontend = tasks.indexOf('name: Validate target frontend environment syntax without exposing values')
+    const validateTargetBackend = tasks.indexOf('name: Validate target backend settings before release activation')
+    const stopManaged = tasks.indexOf('name: Stop managed primary services before the code and environment switch')
+    const freePorts = tasks.indexOf('name: Require application ports to be free before the release switch')
+    const activateBackend = tasks.indexOf('name: Activate the target backend environment snapshot')
+    const activateFrontend = tasks.indexOf('name: Activate the target frontend environment snapshot')
+    const activateCode = tasks.indexOf('name: Switch the active release atomically while services are stopped')
     const startManaged = tasks.indexOf('name: Enable and start primary application services')
+    const restoreCode = tasks.indexOf('name: Restore the previous code release link')
+    const restoreBackend = tasks.indexOf('name: Restore the previous backend environment link')
+    const restoreFrontend = tasks.indexOf('name: Restore the previous frontend environment link')
+    const startPrevious = tasks.indexOf('name: Start previous API and frontend releases')
 
-    expect(readable).toBeGreaterThanOrEqual(0)
+    for (const task of [
+      validateActive,
+      snapshotPrevious,
+      bindPrevious,
+      bindTarget,
+      validateTargetFrontend,
+      validateTargetBackend,
+      stopManaged,
+      freePorts,
+      activateBackend,
+      activateFrontend,
+      activateCode,
+      startManaged,
+      restoreCode,
+      restoreBackend,
+      restoreFrontend,
+      startPrevious
+    ])
+      expect(task).toBeGreaterThanOrEqual(0)
+
+    expect(validateActive).toBeLessThan(snapshotPrevious)
+    expect(snapshotPrevious).toBeLessThan(bindPrevious)
+    expect(bindPrevious).toBeLessThan(stopManaged)
+    expect(bindTarget).toBeLessThan(validateTargetFrontend)
+    expect(validateTargetFrontend).toBeLessThan(validateTargetBackend)
+    expect(validateTargetBackend).toBeLessThan(stopManaged)
     expect(stopManaged).toBeLessThan(freePorts)
+    expect(freePorts).toBeLessThan(activateBackend)
+    expect(activateBackend).toBeLessThan(activateFrontend)
+    expect(activateFrontend).toBeLessThan(activateCode)
+    expect(activateCode).toBeLessThan(startManaged)
+    expect(restoreCode).toBeLessThan(startPrevious)
+    expect(restoreBackend).toBeLessThan(startPrevious)
+    expect(restoreFrontend).toBeLessThan(startPrevious)
     expect(freePorts).toBeLessThan(startManaged)
+    expect(tasks).toContain('stadtplaner_target_env_dir: "{{ stadtplaner_env_releases_dir }}/{{ stadtplaner_release_sha }}"')
+    expect(tasks).toContain('stadtplaner_previous_env_dir: "{{ stadtplaner_env_releases_dir }}/{{ stadtplaner_previous_release_path | basename }}"')
+    expect(settings).toContain('extra="forbid"')
+    expect(tasks).not.toContain('name: Verify the service user can read persistent environments')
     expect(tasks).not.toContain('name: Stop and disable legacy primary services')
   })
 
