@@ -5,7 +5,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-from app.core.config import get_settings
+from app.core.config import Settings
 from app.db.base import Base
 from app.models import (  # noqa: F401
     AdminAuditLog,
@@ -36,7 +36,8 @@ from app.models import (  # noqa: F401
 )
 
 config = context.config
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+migration_settings = Settings()
+config.set_main_option("sqlalchemy.url", migration_settings.database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -46,7 +47,7 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=get_settings().database_url,
+        url=migration_settings.database_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
