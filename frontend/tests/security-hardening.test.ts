@@ -33,4 +33,9 @@ describe('frontend security hardening', () => {
     expect(config).not.toContain('unsafe-eval')
     expect(config).toContain('strict-transport-security')
   })
+
+  it('allows preview images from the configured API origin', () => {
+    const config = readFileSync(fileURLToPath(new URL('../nuxt.config.ts', import.meta.url)), 'utf8')
+    expect(config).toContain("`img-src 'self' data: blob: https: ${apiOrigin}`.trim()")
+  })
 })

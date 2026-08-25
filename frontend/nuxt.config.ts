@@ -18,7 +18,7 @@ const securityHeaders = {
     "form-action 'self'",
     "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
+    `img-src 'self' data: blob: https: ${apiOrigin}`.trim(),
     // ws:/wss: are needed by Nuxt HMR and deployments that expose realtime transports.
     `connect-src 'self' ws: wss: ${apiOrigin} ${mapOrigin}`.trim(),
     `font-src 'self' data: ${mapOrigin}`.trim(),
