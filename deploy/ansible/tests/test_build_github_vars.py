@@ -115,7 +115,7 @@ class GitHubVarsBuilderTest(unittest.TestCase):
                 self.assertNotIn("\r", generated[key])
                 self.assertTrue(generated[key].endswith("\n"))
             self.assertIn(
-                'MASTODON_ACCESS_TOKEN="test-value-with-#-and-$"\n',
+                'MASTODON_ACCESS_TOKEN=""\n',
                 generated["stadtplaner_backend_env_content"],
             )
 
