@@ -67,6 +67,7 @@ pnpm test
 pnpm typecheck
 pnpm build
 pnpm audit:language
+pnpm audit:seo
 ```
 
 Für Änderungen an wichtigen Nutzerwegen zusätzlich:

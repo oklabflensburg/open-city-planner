@@ -262,7 +262,11 @@ useSeoMeta({
   ogDescription: description,
   ogUrl: canonical,
   ogType: 'website',
-  twitterCard: 'summary'
+  ogSiteName: config.public.siteName,
+  ogLocale: config.public.siteLocale,
+  twitterCard: 'summary',
+  twitterTitle: title,
+  twitterDescription: description
 })
 useHead(() => ({
   link: [{ rel: 'canonical', href: canonical }],
