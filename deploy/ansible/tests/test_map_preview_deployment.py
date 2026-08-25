@@ -72,6 +72,24 @@ class MapPreviewDeploymentTest(unittest.TestCase):
         self.assertNotIn("EnvironmentFile=", unit)
         self.assertNotIn("0.0.0.0", unit)
 
+    def test_renderer_has_writable_cache_under_systemd_hardening(self) -> None:
+        unit = (APP_ROLE / "templates/stadtplaner-map-renderer.service.j2").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("CacheDirectory=stadtplaner-map-renderer", unit)
+        self.assertIn("CacheDirectoryMode=0750", unit)
+        self.assertIn(
+            "Environment=XDG_CACHE_HOME=/var/cache/stadtplaner-map-renderer",
+            unit,
+        )
+        self.assertIn(
+            "Environment=MESA_SHADER_CACHE_DIR=/var/cache/stadtplaner-map-renderer/mesa-shader-cache",
+            unit,
+        )
+        self.assertIn("ProtectSystem=strict", unit)
+        self.assertNotIn("Environment=XDG_CACHE_HOME=/nonexistent", unit)
+        self.assertNotIn("Environment=MESA_SHADER_CACHE_DIR=/nonexistent", unit)
+
     def test_renderer_participates_in_preflight_rollout_smoke_and_rollback(self) -> None:
         tasks = (APP_ROLE / "tasks/main.yml").read_text(encoding="utf-8")
         binary_smoke = (APP_ROLE / "tasks/webp_smoke.yml").read_text(encoding="utf-8")
