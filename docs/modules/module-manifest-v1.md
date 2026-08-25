@@ -2,8 +2,9 @@
 
 Diese Dokumentation präzisiert den maschinenlesbaren Modulvertrag aus
 [ADR: Modularer Host und Grenzen von Fachmodulen](../architecture/adr-modular-host-and-module-boundaries.md).
-Sie führt keine Module Runtime ein. Discovery, Aktivierung und das Laden von Paketen
-folgen in #94, #112 und #113.
+Die darauf aufbauende Discovery und Registrierung beschreibt die
+[Backend-Module-Runtime](backend-module-runtime.md). Der vollständige
+Aktivierungs-Lifecycle und die Distribution bleiben Gegenstand von #112 und #113.
 
 ## Contract und Formate
 
