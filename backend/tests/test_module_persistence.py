@@ -11,7 +11,7 @@ from alembic.config import Config
 from alembic.migration import MigrationContext
 from geoalchemy2 import Geometry
 from sqlalchemy import Column, Integer, MetaData, String, Table, func, insert, select, text, true
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -343,7 +343,7 @@ async def fresh_database_url() -> AsyncIterator[str]:
         await admin.dispose()
         pytest.skip(f"PostgreSQL database creation is unavailable: {type(exc).__name__}")
 
-    database_url = str(base_url.set(database=database_name))
+    database_url = database_url_for(base_url, database_name)
     try:
         yield database_url
     finally:
@@ -356,6 +356,35 @@ async def fresh_database_url() -> AsyncIterator[str]:
             )
             await connection.execute(text(f'DROP DATABASE "{database_name}"'))
         await admin.dispose()
+
+
+def database_url_for(base_url: URL, database_name: str) -> str:
+    """Ersetze nur den DB-Namen und erhalte Credentials für echte Verbindungen."""
+
+    return base_url.set(database=database_name).render_as_string(hide_password=False)
+
+
+def test_database_url_for_preserves_credentials_and_connection_options() -> None:
+    password_marker = "credential-marker"
+    base_url = URL.create(
+        "postgresql+asyncpg",
+        username="ci-user",
+        password=password_marker,
+        host="127.0.0.1",
+        port=5432,
+        database="base_db",
+        query={"ssl": "require"},
+    )
+
+    derived_url = make_url(database_url_for(base_url, "temporary_db"))
+
+    assert derived_url.drivername == base_url.drivername
+    assert derived_url.username == base_url.username
+    assert derived_url.password == password_marker
+    assert derived_url.host == base_url.host
+    assert derived_url.port == base_url.port
+    assert derived_url.query == base_url.query
+    assert derived_url.database == "temporary_db"
 
 
 def migration_coordinator(
