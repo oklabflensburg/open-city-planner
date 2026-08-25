@@ -319,8 +319,7 @@
     content: >-
       {{ (stadtplaner_backend_env_content
           | regex_replace('(?m)^STADTPLANER_RELEASE_SHA=.*\n?', '')
-          | trim)
-         ~ '\nSTADTPLANER_RELEASE_SHA=' ~ stadtplaner_release_sha ~ '\n' }}
+          | trim) }}
     dest: "{{ stadtplaner_target_backend_env }}"
     owner: root
     group: "{{ stadtplaner_service_group }}"
@@ -333,8 +332,7 @@
     content: >-
       {{ (stadtplaner_frontend_env_content
           | regex_replace('(?m)^STADTPLANER_RELEASE_SHA=.*\n?', '')
-          | trim)
-         ~ '\nSTADTPLANER_RELEASE_SHA=' ~ stadtplaner_release_sha ~ '\n' }}
+          | trim) }}
     dest: "{{ stadtplaner_target_frontend_env }}"
     owner: root
     group: "{{ stadtplaner_service_group }}"
@@ -375,19 +373,17 @@
 
 - name: Bind target environment snapshots to the target release SHA
   ansible.builtin.lineinfile:
-    path: "{{ item.path }}"
+    path: "{{ item }}"
     regexp: '^STADTPLANER_RELEASE_SHA='
     line: "STADTPLANER_RELEASE_SHA={{ stadtplaner_release_sha }}"
+    insertafter: EOF
     create: false
     owner: root
     group: "{{ stadtplaner_service_group }}"
     mode: '0640'
   loop:
-    - path: "{{ stadtplaner_target_backend_env }}"
-      supplied: "{{ stadtplaner_backend_env_content is defined }}"
-    - path: "{{ stadtplaner_target_frontend_env }}"
-      supplied: "{{ stadtplaner_frontend_env_content is defined }}"
-  when: not item.supplied | bool
+    - "{{ stadtplaner_target_backend_env }}"
+    - "{{ stadtplaner_target_frontend_env }}"
   no_log: true
 
 - name: Validate target frontend environment syntax without exposing values
