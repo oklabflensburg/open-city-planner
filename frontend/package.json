@@ -11,6 +11,7 @@
     "test": "vitest run",
     "audit:language": "node scripts/audit-ui-language.mjs",
     "audit:seo": "node scripts/audit-seo.mjs",
+    "assets:seo": "node scripts/build-seo-assets.mjs",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
     "map-style:build": "node scripts/build-map-style.mjs",

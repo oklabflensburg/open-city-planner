@@ -15,6 +15,8 @@ export const DYNAMIC_PUBLIC_ROUTES = [
 ]
 
 export const NOINDEX_ROUTES = [
+  { path: '/impressum', type: 'public-noindex', robots: 'noindex,follow' },
+  { path: '/datenschutz', type: 'public-noindex', robots: 'noindex,follow' },
   { path: '/login', type: 'public-noindex' },
   { path: '/registrieren', type: 'public-noindex' },
   { path: '/passwort-vergessen', type: 'public-noindex' },

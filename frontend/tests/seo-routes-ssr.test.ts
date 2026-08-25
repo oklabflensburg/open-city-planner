@@ -52,12 +52,69 @@ function expectSocialImage(html: string, image: string, imageAlt: string) {
   const meta = tags(html, 'meta').map(attributes)
   expect(meta.find(item => item.property === 'og:image')?.content).toBe(image)
   expect(meta.find(item => item.property === 'og:image:alt')?.content).toBe(imageAlt)
+  expect(meta.find(item => item.property === 'og:image:width')?.content).toBe('1200')
+  expect(meta.find(item => item.property === 'og:image:height')?.content).toBe('630')
   expect(meta.find(item => item.name === 'twitter:image')?.content).toBe(image)
   expect(meta.find(item => item.name === 'twitter:image:alt')?.content).toBe(imageAlt)
   expect(meta.find(item => item.name === 'twitter:card')?.content).toBe('summary_large_image')
+  expect(meta.find(item => item.name === 'twitter:site')?.content).toBe('@oklabflensburg')
 }
 
 describe('SEO routes over Nuxt HTTP', () => {
+  it('serves the global favicon, manifest, theme and social metadata', async () => {
+    const response = await fetch('/')
+    expect(response.status).toBe(200)
+    const html = await response.text()
+    const meta = tags(html, 'meta').map(attributes)
+    const links = tags(html, 'link').map(attributes)
+
+    expect(meta.find(item => item.name === 'theme-color')?.content).toBe('#154d73')
+    expect(meta.find(item => item.name === 'twitter:site')?.content).toBe('@oklabflensburg')
+    expect(links).toEqual(expect.arrayContaining([
+      expect.objectContaining({ rel: 'icon', href: '/favicon.ico' }),
+      expect.objectContaining({ rel: 'icon', type: 'image/svg+xml', href: '/branding/ok-lab-flensburg.svg' }),
+      expect.objectContaining({ rel: 'icon', type: 'image/png', sizes: '96x96', href: '/favicon-96x96.png' }),
+      expect.objectContaining({ rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }),
+      expect.objectContaining({ rel: 'manifest', href: '/site.webmanifest' })
+    ]))
+
+    const manifestResponse = await fetch('/site.webmanifest')
+    expect(manifestResponse.status).toBe(200)
+    const manifest = await manifestResponse.json() as {
+      name: string
+      short_name: string
+      start_url: string
+      display: string
+      background_color: string
+      theme_color: string
+      icons: Array<{ src: string, sizes: string, type: string }>
+    }
+    expect(manifest).toMatchObject({
+      name: 'Open City Planner',
+      short_name: 'Stadtplaner',
+      start_url: '/',
+      display: 'standalone',
+      background_color: '#f8fafc',
+      theme_color: '#154d73'
+    })
+    expect(manifest.icons).toEqual([
+      { src: '/web-app-manifest-192x192.png', sizes: '192x192', type: 'image/png' },
+      { src: '/web-app-manifest-512x512.png', sizes: '512x512', type: 'image/png' }
+    ])
+
+    for (const [asset, size] of [
+      ['/favicon-96x96.png', 96],
+      ['/apple-touch-icon.png', 180],
+      ['/web-app-manifest-192x192.png', 192],
+      ['/web-app-manifest-512x512.png', 512]
+    ] as const) {
+      const assetResponse = await fetch(asset)
+      expect(assetResponse.status).toBe(200)
+      expect(assetResponse.headers.get('content-type')).toBe('image/png')
+      expect(pngDimensions(await assetResponse.arrayBuffer())).toEqual([size, size])
+    }
+  })
+
   it('serves complete crawler guidance without excluding public pages', async () => {
     const response = await fetch('/robots.txt')
     expect(response.status).toBe(200)
@@ -127,6 +184,11 @@ describe('SEO routes over Nuxt HTTP', () => {
     }
     expect(html).toContain('href="/karte?flaeche=test-flaeche"')
     expect(html).not.toContain('&quot;geometry&quot;')
+    expectSocialImage(
+      html,
+      `${siteUrl}/branding/stadtplaner-social-card.png`,
+      'Stadtplaner des OK Lab Flensburg'
+    )
   })
 
   it.each([
@@ -175,3 +237,10 @@ describe('SEO routes over Nuxt HTTP', () => {
     )
   })
 })
+
+function pngDimensions(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer)
+  expect([...bytes.slice(1, 4)]).toEqual([80, 78, 71])
+  const view = new DataView(buffer)
+  return [view.getUint32(16), view.getUint32(20)]
+}

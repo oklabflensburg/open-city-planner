@@ -155,8 +155,6 @@ usePageSeo({
   title: 'Open Data & Projekte des OK Lab Flensburg',
   description,
   path: '/open-data',
-  image: okLabProjects[0]?.thumbnail,
-  imageAlt: 'Wohnort-Kompass des OK Lab Flensburg',
   structuredData: [
     {
       '@context': 'https://schema.org',

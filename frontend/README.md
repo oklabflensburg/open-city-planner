@@ -21,7 +21,9 @@ pnpm audit:seo
 
 `NUXT_PUBLIC_API_BASE_URL` zeigt auf die öffentliche FastAPI-Basis (typisch `http://localhost:8000/api/v1`). Optional kann `NUXT_API_INTERNAL_BASE_URL` ausschließlich für serverseitige/SSR-Aufrufe auf eine interne Basis zeigen; ohne den Wert wird die öffentliche API-Basis verwendet. `NUXT_PUBLIC_SITE_URL` muss in Produktion die öffentliche Origin enthalten. Kartenstil, Startposition und optionale Medien-/OG-URLs werden über die Variablen in `.env.example` konfiguriert; ohne externen Kartenstil wird der lokale `stadtplaner-light`-Stil genutzt.
 
-Alle `NUXT_PUBLIC_*`-Werte sind im Browser sichtbar und dürfen keine Secrets enthalten. `NUXT_API_INTERNAL_BASE_URL` bleibt in der privaten Nuxt-Runtime-Konfiguration und darf nicht für Canonical-, OpenGraph-, Twitter-, JSON-LD- oder andere öffentliche URLs verwendet werden. Der produktive Build- und Deploymentablauf steht in [docs/deployment.md](../docs/deployment.md).
+Alle `NUXT_PUBLIC_*`-Werte sind im Browser sichtbar und dürfen keine Secrets enthalten. Ohne `NUXT_PUBLIC_DEFAULT_OG_IMAGE` verwendet die Anwendung die statische 1200×630-Stadtplaner-Karte unter `/branding/stadtplaner-social-card.png`; konfigurierte Alternativen müssen ebenfalls 1200×630 Pixel groß sein. `NUXT_API_INTERNAL_BASE_URL` bleibt in der privaten Nuxt-Runtime-Konfiguration und darf nicht für Canonical-, OpenGraph-, Twitter-, JSON-LD- oder andere öffentliche URLs verwendet werden. Der produktive Build- und Deploymentablauf steht in [docs/deployment.md](../docs/deployment.md).
+
+Die aus dem vorhandenen OK-Lab-Branding abgeleiteten PNG-Icons und die Standard-Social-Karte lassen sich mit `pnpm assets:seo` reproduzierbar neu erzeugen.
 
 ## Gebiete, SEO und Sitemap
 

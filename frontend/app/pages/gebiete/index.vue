@@ -149,6 +149,7 @@ import {
   buildCollectionPageStructuredData,
   buildFaqStructuredData,
   buildItemListStructuredData,
+  buildSeoImageUrl,
   serializeStructuredData,
   toMetaDescription
 } from '~/utils/seo'
@@ -235,6 +236,7 @@ const faqItems = computed<AreaFaqItem[]>(() => [
 const title = 'Gebiete in Flensburg – Standortdaten | Stadtplaner'
 const description = toMetaDescription('', 'Gemeinde, Stadtteile und Quartiere in Flensburg: Verkaufsflächen, Leerstand, Branchen, POIs und kommunale Statistik im Überblick.')
 const canonical = buildAbsoluteUrl(config.public.siteUrl, '/gebiete')
+const image = buildSeoImageUrl(config.public.siteUrl, config.public.defaultOgImage)
 const structuredData = computed(() => [
   buildBreadcrumbStructuredData(config.public.siteUrl, [
     { name: 'Start', path: '/' },
@@ -264,9 +266,15 @@ useSeoMeta({
   ogType: 'website',
   ogSiteName: config.public.siteName,
   ogLocale: config.public.siteLocale,
-  twitterCard: 'summary',
+  ogImage: image || undefined,
+  ogImageAlt: image ? 'Stadtplaner des OK Lab Flensburg' : undefined,
+  ogImageWidth: image ? 1200 : undefined,
+  ogImageHeight: image ? 630 : undefined,
+  twitterCard: image ? 'summary_large_image' : 'summary',
   twitterTitle: title,
-  twitterDescription: description
+  twitterDescription: description,
+  twitterImage: image || undefined,
+  twitterImageAlt: image ? 'Stadtplaner des OK Lab Flensburg' : undefined
 })
 useHead(() => ({
   link: [{ rel: 'canonical', href: canonical }],

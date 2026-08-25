@@ -5,6 +5,7 @@ import {
   buildCollectionPageStructuredData,
   buildFaqStructuredData,
   buildItemListStructuredData,
+  buildSeoImageUrl,
   serializeStructuredData,
   toMetaDescription
 } from '~/utils/seo'
@@ -13,6 +14,12 @@ describe('SEO utilities', () => {
   it('builds normalized absolute canonical URLs', () => {
     expect(buildAbsoluteUrl('https://example.org', '/flaechen/test')).toBe('https://example.org/flaechen/test')
     expect(buildAbsoluteUrl('https://example.org/', '/')).toBe('https://example.org/')
+  })
+
+  it('builds absolute social image URLs while preserving external images', () => {
+    expect(buildSeoImageUrl('https://example.org', '/branding/social.png')).toBe('https://example.org/branding/social.png')
+    expect(buildSeoImageUrl('https://example.org', 'https://cdn.example.net/social.png')).toBe('https://cdn.example.net/social.png')
+    expect(buildSeoImageUrl('https://example.org', '')).toBeNull()
   })
 
   it('normalizes and truncates user-provided descriptions', () => {

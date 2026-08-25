@@ -1,4 +1,4 @@
-import { buildAbsoluteUrl, serializeStructuredData } from '~/utils/seo'
+import { buildAbsoluteUrl, buildSeoImageUrl, serializeStructuredData } from '~/utils/seo'
 
 type StructuredData = Record<string, unknown> | Record<string, unknown>[]
 
@@ -9,6 +9,8 @@ export interface PageSeoOptions {
   siteUrl?: string
   image?: string | null
   imageAlt?: string | null
+  imageWidth?: number
+  imageHeight?: number
   type?: 'website' | 'article'
   robots?: string
   openGraph?: boolean
@@ -25,6 +27,9 @@ export function usePageSeo(options: PageSeoOptions) {
   const image = options.image === null
     ? null
     : buildSeoImageUrl(siteUrl, options.image || config.public.defaultOgImage)
+  const imageAlt = options.imageAlt || (options.image ? options.title : 'Stadtplaner des OK Lab Flensburg')
+  const imageWidth = options.imageWidth ?? 1200
+  const imageHeight = options.imageHeight ?? 630
   const openGraph = options.openGraph !== false
   const twitter = options.twitter !== false && openGraph
   const structuredData = options.structuredData === false ? undefined : options.structuredData
@@ -41,7 +46,14 @@ export function usePageSeo(options: PageSeoOptions) {
           ogUrl: canonical,
           ogSiteName: siteName,
           ogLocale: config.public.siteLocale,
-          ...(image ? { ogImage: image, ogImageAlt: options.imageAlt || options.title } : {})
+          ...(image
+            ? {
+                ogImage: image,
+                ogImageAlt: imageAlt,
+                ogImageWidth: imageWidth,
+                ogImageHeight: imageHeight
+              }
+            : {})
         }
       : {}),
     ...(twitter
@@ -49,7 +61,7 @@ export function usePageSeo(options: PageSeoOptions) {
           twitterCard: image ? 'summary_large_image' : 'summary',
           twitterTitle: title,
           twitterDescription: options.description,
-          ...(image ? { twitterImage: image, twitterImageAlt: options.imageAlt || options.title } : {})
+          ...(image ? { twitterImage: image, twitterImageAlt: imageAlt } : {})
         }
       : {})
   })
@@ -60,9 +72,4 @@ export function usePageSeo(options: PageSeoOptions) {
       ? [{ type: 'application/ld+json', innerHTML: serializeStructuredData(structuredData) }]
       : []
   })
-}
-
-function buildSeoImageUrl(siteUrl: string, image: string) {
-  if (!image) return null
-  return /^https?:\/\//i.test(image) ? image : buildAbsoluteUrl(siteUrl, image)
 }
