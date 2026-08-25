@@ -1,7 +1,6 @@
 """Öffentliche Contracts der Backend-Module-Plattform."""
 
 from app.platform.modules.contracts import (
-    BackendModule,
     ModuleDefinition,
     ModuleDiscoveryProvider,
     ModuleLifecycleHook,
@@ -53,6 +52,7 @@ from app.platform.modules.runtime import (
     ModuleRuntime,
     create_module_runtime,
 )
+from app.platform.modules.sdk import BackendModule, ModuleContext
 
 __all__ = [
     "ENTRY_POINT_GROUP",
@@ -67,6 +67,7 @@ __all__ = [
     "ModuleBackendPackage",
     "ModuleCompatibilityError",
     "ModuleConfig",
+    "ModuleContext",
     "ModuleDefinition",
     "ModuleDependencyCycleError",
     "ModuleDependencyError",

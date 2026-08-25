@@ -1,25 +1,16 @@
-"""Kleine öffentliche Registrierungsverträge der Backend-Module-Runtime."""
+"""Hostseitige Beitragsobjekte und #94-Kompatibilität der Module-Runtime."""
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
 from fastapi import APIRouter
 
-from app.platform.modules.manifest import ManifestInput, ModuleManifestV1
-
-type ModuleLifecycleHook = Callable[[], Awaitable[None]]
-type ModuleLoader = Callable[[], "BackendModule"]
-
-
-@dataclass(frozen=True, slots=True)
-class ModuleDefinition:
-    """Passive Discovery-Metadaten und verzögerte Modulinstanziierung."""
-
-    manifest: ManifestInput | ModuleManifestV1
-    loader: ModuleLoader
-    origin: str
-    declared_id: str
+from app.platform.modules.sdk import (
+    BackendModule,
+    ModuleDefinition,
+    ModuleLifecycleHook,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,15 +75,18 @@ class ModuleRegistrationContext:
             raise RuntimeError("The module registration context is closed.")
 
 
-class BackendModule(Protocol):
-    """Öffentlicher, bewusst kleiner Backend-Modulvertrag."""
-
-    manifest: ModuleManifestV1
-
-    def register(self, context: ModuleRegistrationContext) -> None: ...
-
-
 class ModuleDiscoveryProvider(Protocol):
     """Liefert nur Definitionen explizit aktivierter deploy-time Module."""
 
     def discover(self, enabled_module_ids: frozenset[str]) -> Sequence[ModuleDefinition]: ...
+
+
+__all__ = [
+    "BackendModule",
+    "LifecycleContribution",
+    "ModuleDefinition",
+    "ModuleDiscoveryProvider",
+    "ModuleLifecycleHook",
+    "ModuleRegistrationContext",
+    "RouterContribution",
+]

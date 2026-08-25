@@ -2,8 +2,12 @@
 
 from fastapi import APIRouter
 
-from app.platform.modules import ModuleDefinition, ModuleManifestV1, ModuleRegistrationContext
-from app.platform.modules.manifest import parse_manifest
+from app.platform.modules.sdk import (
+    ModuleContext,
+    ModuleDefinition,
+    ModuleManifestV1,
+    parse_manifest,
+)
 
 MANIFEST = parse_manifest(
     {
@@ -21,14 +25,18 @@ MANIFEST = parse_manifest(
 class ExampleBackendModule:
     manifest: ModuleManifestV1 = MANIFEST
 
-    def register(self, context: ModuleRegistrationContext) -> None:
+    def register(self, context: ModuleContext) -> None:
         router = APIRouter()
 
         @router.get("/ping")
         async def ping() -> dict[str, str]:
             return {"status": "ok"}
 
-        context.include_router(router, prefix="/api/v1/module-test", tags=("Module test",))
+        context.api.include_router(
+            router,
+            prefix="/api/v1/module-test",
+            tags=("Module test",),
+        )
 
 
 DEFINITION = ModuleDefinition(
