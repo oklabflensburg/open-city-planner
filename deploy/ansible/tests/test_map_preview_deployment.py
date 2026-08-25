@@ -74,6 +74,7 @@ class MapPreviewDeploymentTest(unittest.TestCase):
 
     def test_renderer_participates_in_preflight_rollout_smoke_and_rollback(self) -> None:
         tasks = (APP_ROLE / "tasks/main.yml").read_text(encoding="utf-8")
+        binary_smoke = (APP_ROLE / "tasks/webp_smoke.yml").read_text(encoding="utf-8")
         self.assertIn("map-preview-renderer/preflight.mjs", tasks)
         self.assertIn("Require all native renderer shared libraries to resolve", tasks)
         self.assertIn("Match the release-installed native binary", tasks)
@@ -84,6 +85,49 @@ class MapPreviewDeploymentTest(unittest.TestCase):
         self.assertIn("/health/map-preview.webp", tasks)
         self.assertIn("Verify renderer returned to the previous release", tasks)
         self.assertIn("stadtplaner_map_preview_cache_dir", tasks)
+        self.assertEqual(tasks.count("include_tasks: webp_smoke.yml"), 2)
+        self.assertIn("ansible.builtin.get_url", binary_smoke)
+        self.assertIn("always:", binary_smoke)
+        self.assertNotIn("return_content", binary_smoke)
+        self.assertNotIn("MODULE_STRICT_UTF8_RESPONSE", tasks + binary_smoke)
+
+    def test_first_renderer_deployment_rollback_restores_old_environment(self) -> None:
+        tasks = (APP_ROLE / "tasks/main.yml").read_text(encoding="utf-8")
+        api_unit = (APP_ROLE / "templates/stadtplaner-api.service.j2").read_text(
+            encoding="utf-8"
+        )
+        frontend_unit = (
+            APP_ROLE / "templates/stadtplaner-frontend.service.j2"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Snapshot legacy active environments for rollback", tasks)
+        self.assertIn("Restore the previous backend environment link", tasks)
+        self.assertIn("Restore the previous frontend environment link", tasks)
+        self.assertLess(
+            tasks.index("Restore the previous backend environment link"),
+            tasks.index("Start previous API and frontend releases"),
+        )
+        self.assertIn("Stop renderer when rolling back across its first deployment", tasks)
+        self.assertIn("Wait for API port after rollback", tasks)
+        self.assertLess(
+            tasks.index("Wait for API port after rollback"),
+            tasks.index("Verify API readiness after rollback"),
+        )
+        self.assertNotIn("Environment=MAP_PREVIEW_", api_unit)
+        self.assertNotIn("Environment=STADTPLANER_RELEASE_SHA", api_unit)
+        self.assertNotIn("Environment=STADTPLANER_RELEASE_SHA", frontend_unit)
+
+    def test_target_environment_is_validated_before_activation(self) -> None:
+        tasks = (APP_ROLE / "tasks/main.yml").read_text(encoding="utf-8")
+        self.assertIn("Validate target backend settings before release activation", tasks)
+        self.assertIn("Validate target frontend environment syntax", tasks)
+        self.assertLess(
+            tasks.index("Validate target backend settings before release activation"),
+            tasks.index("Activate the target backend environment snapshot"),
+        )
+        self.assertIn("Preserve the original deployment failure", tasks)
+        self.assertIn("Report both deployment and rollback failures", tasks)
+        self.assertGreaterEqual(tasks.count("STADTPLANER_RELEASE_SHA="), 4)
+        self.assertIn("when: not item.supplied | bool", tasks)
 
     def test_preview_defaults_are_persistent_and_loopback_only(self) -> None:
         defaults = yaml.safe_load(

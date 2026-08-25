@@ -10,7 +10,7 @@
 # This is the complete deployment input reference. Empty values are intentionally
 # disabled optional integrations unless a comment says otherwise. Never commit real secrets.
 
-# Complete backend/.env, installed as /etc/stadtplaner/backend.env.
+# Complete backend/.env, snapshotted below /etc/stadtplaner/releases/<sha>/.
 stadtplaner_backend_env_content: |
   DATABASE_URL=REPLACE_WITH_PRODUCTION_DATABASE_URL
   CORS_ORIGINS=https://stadtplaner.oklabflensburg.de
@@ -194,7 +194,7 @@ stadtplaner_backend_env_content: |
   MASTODON_SCREENSHOT_DIRECTORY=/data/stadtplaner-social
   MASTODON_SCREENSHOT_TIMEOUT_SECONDS=30
 
-# Complete frontend/.env, installed as /etc/stadtplaner/frontend.env.
+# Complete frontend/.env, snapshotted below /etc/stadtplaner/releases/<sha>/.
 stadtplaner_frontend_env_content: |
   NUXT_PUBLIC_API_BASE_URL=https://api.stadtplaner.oklabflensburg.de/api/v1
   NUXT_PUBLIC_SITE_URL=https://stadtplaner.oklabflensburg.de
@@ -302,10 +302,10 @@ stadtplaner_map_renderer_tasks_max: 128
 stadtplaner_map_preview_cache_dir: /data/stadtplaner/previews
 stadtplaner_backend_env_file: /etc/stadtplaner/backend.env
 stadtplaner_frontend_env_file: /etc/stadtplaner/frontend.env
+stadtplaner_env_releases_dir: /etc/stadtplaner/releases
 stadtplaner_osm_env_file: /etc/stadtplaner/osm-sync.env
 stadtplaner_manage_nginx: true
 stadtplaner_manage_background_timers: true
-stadtplaner_disable_legacy_primary_services: true
 stadtplaner_enable_osm_timer: true
 stadtplaner_enable_statistics_timer: true
 stadtplaner_enable_email_outbox_timer: true

@@ -8,6 +8,7 @@
     mode: "{{ item.mode }}"
   loop:
     - { path: "{{ stadtplaner_config_dir }}", owner: root, group: "{{ stadtplaner_service_group }}", mode: '0750' }
+    - { path: "{{ stadtplaner_env_releases_dir }}", owner: root, group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_data_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_social_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_avatar_upload_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
@@ -32,26 +33,6 @@
   loop_control:
     label: "{{ item.path }}"
 
-- name: Install backend environment from encrypted variable when supplied
-  ansible.builtin.copy:
-    content: "{{ stadtplaner_backend_env_content }}"
-    dest: "{{ stadtplaner_backend_env_file }}"
-    owner: root
-    group: "{{ stadtplaner_service_group }}"
-    mode: '0640'
-  when: stadtplaner_backend_env_content is defined
-  no_log: true
-
-- name: Install frontend environment from encrypted variable when supplied
-  ansible.builtin.copy:
-    content: "{{ stadtplaner_frontend_env_content }}"
-    dest: "{{ stadtplaner_frontend_env_file }}"
-    owner: root
-    group: "{{ stadtplaner_service_group }}"
-    mode: '0640'
-  when: stadtplaner_frontend_env_content is defined
-  no_log: true
-
 - name: Install OSM environment from encrypted variable when supplied
   ansible.builtin.copy:
     content: "{{ stadtplaner_osm_env_content }}"
@@ -62,64 +43,37 @@
   when: stadtplaner_osm_env_content is defined
   no_log: true
 
-- name: Verify required environment files exist
+- name: Inspect active application environment files
   ansible.builtin.stat:
     path: "{{ item }}"
-  loop: >-
-    {{ [stadtplaner_backend_env_file, stadtplaner_frontend_env_file]
-       + ([stadtplaner_osm_env_file] if stadtplaner_enable_osm_timer else []) }}
-  register: stadtplaner_env_stats
+    follow: true
+  loop:
+    - "{{ stadtplaner_backend_env_file }}"
+    - "{{ stadtplaner_frontend_env_file }}"
+  register: stadtplaner_active_env_stats
 
-- name: Refuse deployment without persistent environment files
-  ansible.builtin.assert:
-    that: item.stat.exists and item.stat.isreg
-    fail_msg: "Required environment file {{ item.item }} is missing. Use an encrypted external vault or create the server-side file first."
-  loop: "{{ stadtplaner_env_stats.results }}"
-  no_log: true
-
-- name: Read backend environment for production policy validation
-  ansible.builtin.slurp:
-    src: "{{ stadtplaner_backend_env_file }}"
-  register: stadtplaner_backend_env_slurp
-  no_log: true
-
-- name: Extract non-secret OpenTelemetry deployment settings
-  ansible.builtin.set_fact:
-    stadtplaner_env_app_environment: >-
-      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
-          | regex_findall('(?m)^APP_ENVIRONMENT=(.*)$') | first | default(''))
-          | trim | trim('"') }}
-    stadtplaner_env_otel_enabled: >-
-      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
-          | regex_findall('(?m)^OTEL_ENABLED=(.*)$') | first | default(''))
-          | trim | trim('"') | lower }}
-    stadtplaner_env_otel_endpoint: >-
-      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
-          | regex_findall('(?m)^OTEL_EXPORTER_OTLP_ENDPOINT=(.*)$') | first | default(''))
-          | trim | trim('"') }}
-    stadtplaner_env_otel_protocol: >-
-      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
-          | regex_findall('(?m)^OTEL_EXPORTER_OTLP_PROTOCOL=(.*)$') | first | default(''))
-          | trim | trim('"') | lower }}
-    stadtplaner_env_otel_service_name: >-
-      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
-          | regex_findall('(?m)^OTEL_SERVICE_NAME=(.*)$') | first | default(''))
-          | trim | trim('"') }}
-  no_log: true
-
-- name: Enforce production OpenTelemetry environment policy
+- name: Require target application environment input
   ansible.builtin.assert:
     that:
-      - stadtplaner_env_app_environment | lower == 'production'
-      - not stadtplaner_otel_required | bool or stadtplaner_env_otel_enabled in ['1', 'true', 'yes', 'on']
-      - not stadtplaner_otel_required | bool or stadtplaner_env_otel_endpoint | length > 0
-      - stadtplaner_env_otel_endpoint == stadtplaner_otel_endpoint
-      - stadtplaner_env_otel_protocol == stadtplaner_otel_protocol
-      - stadtplaner_env_otel_service_name == stadtplaner_otel_service_name
+      - stadtplaner_backend_env_content is defined or stadtplaner_active_env_stats.results[0].stat.exists
+      - stadtplaner_frontend_env_content is defined or stadtplaner_active_env_stats.results[1].stat.exists
     fail_msg: >-
-      Production deployment requires OpenTelemetry tracing. OTEL_ENABLED must be
-      true and OTEL endpoint, protocol and service name must match the validated
-      Ansible configuration.
+      Backend and frontend environments must be supplied by the encrypted vault
+      or already exist as active server-side files.
+  no_log: true
+
+- name: Verify required OSM environment exists
+  ansible.builtin.stat:
+    path: "{{ stadtplaner_osm_env_file }}"
+  register: stadtplaner_osm_env_stat
+  when: stadtplaner_enable_osm_timer
+
+- name: Refuse deployment without required OSM environment
+  ansible.builtin.assert:
+    that: stadtplaner_osm_env_stat.stat.exists and stadtplaner_osm_env_stat.stat.isreg
+    fail_msg: "Required OSM environment is missing. Supply it through the encrypted vault."
+  when: stadtplaner_enable_osm_timer
+  no_log: true
 
 - name: Update repository to the requested ref without discarding local changes
   ansible.builtin.git:
@@ -137,10 +91,106 @@
     follow: false
   register: stadtplaner_current_release_stat
 
+- name: Initialize rollback release state
+  ansible.builtin.set_fact:
+    stadtplaner_previous_release_path: ''
+    stadtplaner_previous_release_sha: ''
+    stadtplaner_previous_env_dir: ''
+    stadtplaner_previous_backend_env: ''
+    stadtplaner_previous_frontend_env: ''
+
 - name: Capture the previously active release for rollback
   ansible.builtin.set_fact:
     stadtplaner_previous_release_path: "{{ stadtplaner_current_release_stat.stat.lnk_source | default('') }}"
   when: stadtplaner_current_release_stat.stat.exists and stadtplaner_current_release_stat.stat.islnk
+
+- name: Validate the active backend environment against the active release
+  ansible.builtin.command:
+    argv:
+      - "{{ stadtplaner_previous_release_path }}/backend/.venv/bin/python"
+      - -c
+      - "from app.core.config import Settings; Settings()"
+    chdir: "{{ stadtplaner_previous_release_path }}/backend"
+  become_user: "{{ stadtplaner_service_user }}"
+  register: stadtplaner_active_backend_env_validation
+  changed_when: false
+  failed_when: false
+  no_log: true
+  when:
+    - stadtplaner_previous_release_path | default('') | length > 0
+    - stadtplaner_active_env_stats.results[0].stat.exists
+
+- name: Refuse deployment when active code and environment are incompatible
+  ansible.builtin.assert:
+    that: stadtplaner_active_backend_env_validation.rc == 0
+    fail_msg: >-
+      The active backend environment is incompatible with the active release.
+      Recover /etc/stadtplaner/backend.env as documented before deploying again.
+  when:
+    - stadtplaner_previous_release_path | default('') | length > 0
+    - stadtplaner_active_env_stats.results[0].stat.exists
+
+- name: Define previous release environment snapshot paths
+  ansible.builtin.set_fact:
+    stadtplaner_previous_release_sha: "{{ stadtplaner_previous_release_path | basename }}"
+    stadtplaner_previous_env_dir: "{{ stadtplaner_env_releases_dir }}/{{ stadtplaner_previous_release_path | basename }}"
+    stadtplaner_previous_backend_env: "{{ stadtplaner_env_releases_dir }}/{{ stadtplaner_previous_release_path | basename }}/backend.env"
+    stadtplaner_previous_frontend_env: "{{ stadtplaner_env_releases_dir }}/{{ stadtplaner_previous_release_path | basename }}/frontend.env"
+  when: stadtplaner_previous_release_path | default('') | length > 0
+
+- name: Ensure previous release environment snapshot directory exists
+  ansible.builtin.file:
+    path: "{{ stadtplaner_previous_env_dir }}"
+    state: directory
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0750'
+  when: stadtplaner_previous_release_path | default('') | length > 0
+
+- name: Inspect previous release environment snapshots
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ stadtplaner_previous_backend_env }}"
+    - "{{ stadtplaner_previous_frontend_env }}"
+  register: stadtplaner_previous_env_snapshot_stats
+  when: stadtplaner_previous_release_path | default('') | length > 0
+
+- name: Snapshot legacy active environments for rollback
+  ansible.builtin.copy:
+    src: "{{ item.source }}"
+    dest: "{{ item.destination }}"
+    remote_src: true
+    force: false
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0640'
+  loop:
+    - source: "{{ stadtplaner_backend_env_file }}"
+      destination: "{{ stadtplaner_previous_backend_env }}"
+      exists: "{{ stadtplaner_previous_env_snapshot_stats.results[0].stat.exists }}"
+    - source: "{{ stadtplaner_frontend_env_file }}"
+      destination: "{{ stadtplaner_previous_frontend_env }}"
+      exists: "{{ stadtplaner_previous_env_snapshot_stats.results[1].stat.exists }}"
+  when:
+    - stadtplaner_previous_release_path | default('') | length > 0
+    - not item.exists | bool
+  no_log: true
+
+- name: Bind previous environment snapshots to their release SHA
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    regexp: '^STADTPLANER_RELEASE_SHA='
+    line: "STADTPLANER_RELEASE_SHA={{ stadtplaner_previous_release_sha }}"
+    create: false
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0640'
+  loop:
+    - "{{ stadtplaner_previous_backend_env }}"
+    - "{{ stadtplaner_previous_frontend_env }}"
+  when: stadtplaner_previous_release_path | default('') | length > 0
+  no_log: true
 
 - name: Ensure the release root is present
   ansible.builtin.file:
@@ -250,6 +300,151 @@
     stadtplaner_release_path: >-
       {{ stadtplaner_releases_dir }}/{{ (stadtplaner_git.after | default(stadtplaner_deploy_ref)) | regex_replace('[^A-Za-z0-9._-]+', '-') }}
 
+- name: Define target release environment snapshot paths
+  ansible.builtin.set_fact:
+    stadtplaner_target_env_dir: "{{ stadtplaner_env_releases_dir }}/{{ stadtplaner_release_sha }}"
+    stadtplaner_target_backend_env: "{{ stadtplaner_env_releases_dir }}/{{ stadtplaner_release_sha }}/backend.env"
+    stadtplaner_target_frontend_env: "{{ stadtplaner_env_releases_dir }}/{{ stadtplaner_release_sha }}/frontend.env"
+
+- name: Ensure target release environment snapshot directory exists
+  ansible.builtin.file:
+    path: "{{ stadtplaner_target_env_dir }}"
+    state: directory
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0750'
+
+- name: Install target backend environment snapshot from encrypted input
+  ansible.builtin.copy:
+    content: >-
+      {{ (stadtplaner_backend_env_content
+          | regex_replace('(?m)^STADTPLANER_RELEASE_SHA=.*\n?', '')
+          | trim)
+         ~ '\nSTADTPLANER_RELEASE_SHA=' ~ stadtplaner_release_sha ~ '\n' }}
+    dest: "{{ stadtplaner_target_backend_env }}"
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0640'
+  when: stadtplaner_backend_env_content is defined
+  no_log: true
+
+- name: Install target frontend environment snapshot from encrypted input
+  ansible.builtin.copy:
+    content: >-
+      {{ (stadtplaner_frontend_env_content
+          | regex_replace('(?m)^STADTPLANER_RELEASE_SHA=.*\n?', '')
+          | trim)
+         ~ '\nSTADTPLANER_RELEASE_SHA=' ~ stadtplaner_release_sha ~ '\n' }}
+    dest: "{{ stadtplaner_target_frontend_env }}"
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0640'
+  when: stadtplaner_frontend_env_content is defined
+  no_log: true
+
+- name: Inspect target release environment snapshots
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ stadtplaner_target_backend_env }}"
+    - "{{ stadtplaner_target_frontend_env }}"
+  register: stadtplaner_target_env_snapshot_stats
+
+- name: Seed missing target environment snapshots from the active release
+  ansible.builtin.copy:
+    src: "{{ item.source }}"
+    dest: "{{ item.destination }}"
+    remote_src: true
+    force: false
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0640'
+  loop:
+    - source: "{{ stadtplaner_backend_env_file }}"
+      destination: "{{ stadtplaner_target_backend_env }}"
+      supplied: "{{ stadtplaner_backend_env_content is defined }}"
+      exists: "{{ stadtplaner_target_env_snapshot_stats.results[0].stat.exists }}"
+    - source: "{{ stadtplaner_frontend_env_file }}"
+      destination: "{{ stadtplaner_target_frontend_env }}"
+      supplied: "{{ stadtplaner_frontend_env_content is defined }}"
+      exists: "{{ stadtplaner_target_env_snapshot_stats.results[1].stat.exists }}"
+  when:
+    - not item.supplied | bool
+    - not item.exists | bool
+  no_log: true
+
+- name: Bind target environment snapshots to the target release SHA
+  ansible.builtin.lineinfile:
+    path: "{{ item.path }}"
+    regexp: '^STADTPLANER_RELEASE_SHA='
+    line: "STADTPLANER_RELEASE_SHA={{ stadtplaner_release_sha }}"
+    create: false
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0640'
+  loop:
+    - path: "{{ stadtplaner_target_backend_env }}"
+      supplied: "{{ stadtplaner_backend_env_content is defined }}"
+    - path: "{{ stadtplaner_target_frontend_env }}"
+      supplied: "{{ stadtplaner_frontend_env_content is defined }}"
+  when: not item.supplied | bool
+  no_log: true
+
+- name: Validate target frontend environment syntax without exposing values
+  ansible.builtin.command:
+    argv:
+      - node
+      - "--env-file={{ stadtplaner_target_frontend_env }}"
+      - -e
+      - "process.exit(0)"
+  become_user: "{{ stadtplaner_service_user }}"
+  changed_when: false
+  no_log: true
+
+- name: Read target backend environment for production policy validation
+  ansible.builtin.slurp:
+    src: "{{ stadtplaner_target_backend_env }}"
+  register: stadtplaner_backend_env_slurp
+  no_log: true
+
+- name: Extract non-secret OpenTelemetry deployment settings
+  ansible.builtin.set_fact:
+    stadtplaner_env_app_environment: >-
+      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
+          | regex_findall('(?m)^APP_ENVIRONMENT=(.*)$') | first | default(''))
+          | trim | trim('"') }}
+    stadtplaner_env_otel_enabled: >-
+      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
+          | regex_findall('(?m)^OTEL_ENABLED=(.*)$') | first | default(''))
+          | trim | trim('"') | lower }}
+    stadtplaner_env_otel_endpoint: >-
+      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
+          | regex_findall('(?m)^OTEL_EXPORTER_OTLP_ENDPOINT=(.*)$') | first | default(''))
+          | trim | trim('"') }}
+    stadtplaner_env_otel_protocol: >-
+      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
+          | regex_findall('(?m)^OTEL_EXPORTER_OTLP_PROTOCOL=(.*)$') | first | default(''))
+          | trim | trim('"') | lower }}
+    stadtplaner_env_otel_service_name: >-
+      {{ ((stadtplaner_backend_env_slurp.content | b64decode)
+          | regex_findall('(?m)^OTEL_SERVICE_NAME=(.*)$') | first | default(''))
+          | trim | trim('"') }}
+  no_log: true
+
+- name: Enforce production OpenTelemetry environment policy
+  ansible.builtin.assert:
+    that:
+      - stadtplaner_env_app_environment | lower == 'production'
+      - not stadtplaner_otel_required | bool or stadtplaner_env_otel_enabled in ['1', 'true', 'yes', 'on']
+      - not stadtplaner_otel_required | bool or stadtplaner_env_otel_endpoint | length > 0
+      - stadtplaner_env_otel_endpoint == stadtplaner_otel_endpoint
+      - stadtplaner_env_otel_protocol == stadtplaner_otel_protocol
+      - stadtplaner_env_otel_service_name == stadtplaner_otel_service_name
+    fail_msg: >-
+      Production deployment requires OpenTelemetry tracing. OTEL_ENABLED must be
+      true and OTEL endpoint, protocol and service name must match the validated
+      target release environment.
+
 - name: Prepare the versioned release tree
   ansible.builtin.file:
     path: "{{ stadtplaner_release_path }}"
@@ -268,21 +463,21 @@
     RELEASE_DIR: "{{ stadtplaner_release_path }}"
   become_user: "{{ stadtplaner_service_user }}"
 
-- name: Link persistent backend environment into the release checkout
+- name: Link target backend environment snapshot into the release checkout
   ansible.builtin.file:
-    src: "{{ stadtplaner_backend_env_file }}"
+    src: "{{ stadtplaner_target_backend_env }}"
     dest: "{{ stadtplaner_release_path }}/backend/.env"
     state: link
     force: true
 
-- name: Link persistent frontend environment into the release checkout
+- name: Link target frontend environment snapshot into the release checkout
   ansible.builtin.file:
-    src: "{{ stadtplaner_frontend_env_file }}"
+    src: "{{ stadtplaner_target_frontend_env }}"
     dest: "{{ stadtplaner_release_path }}/frontend/.env"
     state: link
     force: true
 
-- name: Verify the service user can read persistent environments
+- name: Verify the service user can read target environment snapshots
   ansible.builtin.command:
     argv:
       - python3
@@ -325,6 +520,17 @@
     UV_PYTHON_INSTALL_DIR: "{{ stadtplaner_uv_python_dir }}"
   become_user: "{{ stadtplaner_service_user }}"
   notify: Restart Stadtplaner API
+
+- name: Validate target backend settings before release activation
+  ansible.builtin.command:
+    argv:
+      - .venv/bin/python
+      - -c
+      - "from app.core.config import Settings; Settings()"
+    chdir: "{{ stadtplaner_release_path }}/backend"
+  become_user: "{{ stadtplaner_service_user }}"
+  changed_when: false
+  no_log: true
 
 - name: Run optional backend test suite before migration
   ansible.builtin.command:
@@ -757,42 +963,75 @@
   when: stadtplaner_manage_nginx
   notify: Nginx configuration changed
 
-- name: Stop managed primary services before legacy handover
-  ansible.builtin.systemd_service:
-    name: "{{ item }}"
-    state: stopped
-    daemon_reload: true
-  loop:
-    - stadtplaner-api.service
-    - stadtplaner-frontend.service
-    - stadtplaner-map-renderer.service
-  when: stadtplaner_disable_legacy_primary_services
-
-- name: Require application ports to be free after legacy handover
-  ansible.builtin.wait_for:
-    host: 127.0.0.1
-    port: "{{ item }}"
-    state: stopped
-    timeout: 15
-  loop:
-    - "{{ stadtplaner_backend_port }}"
-    - "{{ stadtplaner_frontend_port }}"
-    - "{{ stadtplaner_map_renderer_port }}"
-  when: stadtplaner_disable_legacy_primary_services
-
-- name: Switch the active release atomically
-  ansible.builtin.file:
-    src: "{{ stadtplaner_release_path }}"
-    dest: "{{ stadtplaner_current_path }}"
-    state: link
-    force: true
-  notify:
-    - Restart Stadtplaner API
-    - Restart Stadtplaner frontend
-    - Restart Stadtplaner map renderer
-
 - name: Activate the release and verify the rollout
   block:
+    - name: Stop managed primary services before the code and environment switch
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        daemon_reload: true
+      loop:
+        - stadtplaner-api.service
+        - stadtplaner-frontend.service
+        - stadtplaner-map-renderer.service
+
+    - name: Require application ports to be free before the release switch
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ item }}"
+        state: stopped
+        timeout: 15
+      loop:
+        - "{{ stadtplaner_backend_port }}"
+        - "{{ stadtplaner_frontend_port }}"
+        - "{{ stadtplaner_map_renderer_port }}"
+
+    - name: Activate the target backend environment snapshot
+      ansible.builtin.file:
+        src: "{{ stadtplaner_target_backend_env }}"
+        dest: "{{ stadtplaner_backend_env_file }}"
+        state: link
+        force: true
+
+    - name: Activate the target frontend environment snapshot
+      ansible.builtin.file:
+        src: "{{ stadtplaner_target_frontend_env }}"
+        dest: "{{ stadtplaner_frontend_env_file }}"
+        state: link
+        force: true
+
+    - name: Switch the active release atomically while services are stopped
+      ansible.builtin.file:
+        src: "{{ stadtplaner_release_path }}"
+        dest: "{{ stadtplaner_current_path }}"
+        state: link
+        force: true
+      notify:
+        - Restart Stadtplaner API
+        - Restart Stadtplaner frontend
+        - Restart Stadtplaner map renderer
+
+    - name: Inspect activated code and environment links
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+      loop:
+        - "{{ stadtplaner_current_path }}"
+        - "{{ stadtplaner_backend_env_file }}"
+        - "{{ stadtplaner_frontend_env_file }}"
+      register: stadtplaner_activated_release_links
+
+    - name: Require code and environment links to reference the target release
+      ansible.builtin.assert:
+        that:
+          - stadtplaner_activated_release_links.results[0].stat.islnk
+          - stadtplaner_activated_release_links.results[0].stat.lnk_source == stadtplaner_release_path
+          - stadtplaner_activated_release_links.results[1].stat.islnk
+          - stadtplaner_activated_release_links.results[1].stat.lnk_source == stadtplaner_target_backend_env
+          - stadtplaner_activated_release_links.results[2].stat.islnk
+          - stadtplaner_activated_release_links.results[2].stat.lnk_source == stadtplaner_target_frontend_env
+        fail_msg: "Code and environment activation did not converge on the target release."
+
     - name: Enable and start primary application services
       ansible.builtin.systemd_service:
         name: "{{ item }}"
@@ -830,16 +1069,12 @@
       until: stadtplaner_map_renderer_health.status == 200
       when: stadtplaner_map_renderer_enabled | bool
 
-    - name: Fetch deterministic native render smoke image
-      ansible.builtin.uri:
-        url: "http://{{ stadtplaner_map_renderer_bind_address }}:{{ stadtplaner_map_renderer_port }}/health/smoke.webp"
-        status_code: 200
-        return_content: true
-      register: stadtplaner_map_renderer_smoke
-      failed_when: >-
-        stadtplaner_map_renderer_smoke.status != 200 or
-        (stadtplaner_map_renderer_smoke.content_type | default('')) != 'image/webp' or
-        not (stadtplaner_map_renderer_smoke.content | default('') | b64encode).startswith('UklGR')
+    - name: Fetch and validate deterministic native render smoke image
+      ansible.builtin.include_tasks: webp_smoke.yml
+      vars:
+        stadtplaner_webp_smoke_name: Native renderer smoke
+        stadtplaner_webp_smoke_url: >-
+          http://{{ stadtplaner_map_renderer_bind_address }}:{{ stadtplaner_map_renderer_port }}/health/smoke.webp
       when: stadtplaner_map_renderer_enabled | bool
 
     - name: Verify API readiness
@@ -852,16 +1087,12 @@
         stadtplaner_health.status != 200 or
         (stadtplaner_health.json.status | default('')) != 'ok'
 
-    - name: Verify the FastAPI preview renderer path
-      ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/map-preview.webp"
-        status_code: 200
-        return_content: true
-      register: stadtplaner_map_preview_api_smoke
-      failed_when: >-
-        stadtplaner_map_preview_api_smoke.status != 200 or
-        (stadtplaner_map_preview_api_smoke.content_type | default('')) != 'image/webp' or
-        not (stadtplaner_map_preview_api_smoke.content | default('') | b64encode).startswith('UklGR')
+    - name: Verify the FastAPI preview renderer path with binary-safe validation
+      ansible.builtin.include_tasks: webp_smoke.yml
+      vars:
+        stadtplaner_webp_smoke_name: FastAPI map preview smoke
+        stadtplaner_webp_smoke_url: >-
+          http://127.0.0.1:{{ stadtplaner_backend_port }}/health/map-preview.webp
       when: stadtplaner_map_renderer_enabled | bool
 
     - name: Generate sampled production trace through readiness and database
@@ -904,106 +1135,176 @@
         url: "http://127.0.0.1:{{ stadtplaner_frontend_port }}/"
         status_code: 200
   rescue:
-    - name: Roll back to the previous release
-      ansible.builtin.file:
-        src: "{{ stadtplaner_previous_release_path }}"
-        dest: "{{ stadtplaner_current_path }}"
-        state: link
-        force: true
-      when: stadtplaner_previous_release_path | default('') | length > 0
+    - name: Preserve the original deployment failure
+      ansible.builtin.set_fact:
+        stadtplaner_original_failure_task: "{{ ansible_failed_task.name | default('unknown deployment task') }}"
+        stadtplaner_original_failure_message: >-
+          {{ (ansible_failed_result.msg | default('no module message') | string)
+             | truncate(500, true, '...') }}
 
-    - name: Detect whether the previous release contains the renderer
-      ansible.builtin.stat:
-        path: "{{ stadtplaner_previous_release_path }}/frontend/map-preview-renderer/server.mjs"
-      register: stadtplaner_previous_renderer
-      when: stadtplaner_previous_release_path | default('') | length > 0
+    - name: Restore the previous code and environment release
+      block:
+        - name: Require a complete previous release snapshot for rollback
+          ansible.builtin.assert:
+            that:
+              - stadtplaner_previous_release_path | default('') | length > 0
+              - stadtplaner_previous_backend_env | default('') | length > 0
+              - stadtplaner_previous_frontend_env | default('') | length > 0
+            fail_msg: "No complete previous code and environment snapshot is available for rollback."
 
-    - name: Stop renderer when rolling back across its first deployment
-      ansible.builtin.systemd_service:
-        name: stadtplaner-map-renderer.service
-        enabled: false
-        state: stopped
-      when:
-        - stadtplaner_previous_release_path | default('') | length > 0
-        - not stadtplaner_previous_renderer.stat.exists
+        - name: Stop primary services before restoring rollback links
+          ansible.builtin.systemd_service:
+            name: "{{ item }}"
+            state: stopped
+          loop:
+            - stadtplaner-api.service
+            - stadtplaner-frontend.service
+            - stadtplaner-map-renderer.service
 
-    - name: Restart the primary services after rollback
-      ansible.builtin.systemd_service:
-        name: "{{ item }}"
-        state: restarted
-        daemon_reload: true
-      loop:
-        - stadtplaner-api.service
-        - stadtplaner-frontend.service
-        - stadtplaner-map-renderer.service
-      when:
-        - stadtplaner_previous_release_path | default('') | length > 0
-        - item != 'stadtplaner-map-renderer.service' or stadtplaner_previous_renderer.stat.exists
+        - name: Restore the previous code release link
+          ansible.builtin.file:
+            src: "{{ stadtplaner_previous_release_path }}"
+            dest: "{{ stadtplaner_current_path }}"
+            state: link
+            force: true
 
-    - name: Verify renderer returned to the previous release
-      ansible.builtin.uri:
-        url: "http://{{ stadtplaner_map_renderer_bind_address }}:{{ stadtplaner_map_renderer_port }}/health/ready"
-        status_code: [200, 404, 503]
-        return_content: true
-      register: stadtplaner_rollback_renderer_health
-      retries: 15
-      delay: 2
-      until: >-
-        stadtplaner_rollback_renderer_health.status in [200, 404]
-      when:
-        - stadtplaner_map_renderer_enabled | bool
-        - stadtplaner_previous_release_path | default('') | length > 0
-        - stadtplaner_previous_renderer.stat.exists
+        - name: Restore the previous backend environment link
+          ansible.builtin.file:
+            src: "{{ stadtplaner_previous_backend_env }}"
+            dest: "{{ stadtplaner_backend_env_file }}"
+            state: link
+            force: true
 
-    - name: Require current-format rollback renderer metadata to match
-      ansible.builtin.assert:
-        that:
-          - (stadtplaner_rollback_renderer_health.json.releaseSha | default('')) == (stadtplaner_previous_release_path | basename)
-        fail_msg: "Renderer did not return to the previous release SHA."
-      when:
-        - stadtplaner_map_renderer_enabled | bool
-        - stadtplaner_previous_release_path | default('') | length > 0
-        - stadtplaner_previous_renderer.stat.exists
-        - stadtplaner_rollback_renderer_health.status == 200
+        - name: Restore the previous frontend environment link
+          ansible.builtin.file:
+            src: "{{ stadtplaner_previous_frontend_env }}"
+            dest: "{{ stadtplaner_frontend_env_file }}"
+            state: link
+            force: true
 
-    - name: Verify legacy renderer health during the one-time unit transition
-      ansible.builtin.uri:
-        url: "http://{{ stadtplaner_map_renderer_bind_address }}:{{ stadtplaner_map_renderer_port }}/health"
-        status_code: 200
-        return_content: true
-      register: stadtplaner_rollback_legacy_renderer_health
-      failed_when: >-
-        stadtplaner_rollback_legacy_renderer_health.status != 200 or
-        (stadtplaner_rollback_legacy_renderer_health.json.renderer | default('')) != 'maplibre-native'
-      when:
-        - stadtplaner_map_renderer_enabled | bool
-        - stadtplaner_previous_release_path | default('') | length > 0
-        - stadtplaner_previous_renderer.stat.exists
-        - stadtplaner_rollback_renderer_health.status == 404
+        - name: Verify rollback code and environment links
+          ansible.builtin.stat:
+            path: "{{ item }}"
+            follow: false
+          loop:
+            - "{{ stadtplaner_current_path }}"
+            - "{{ stadtplaner_backend_env_file }}"
+            - "{{ stadtplaner_frontend_env_file }}"
+          register: stadtplaner_rollback_release_links
 
-    - name: Verify API after rollback
-      ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/ready"
-        status_code: 200
-      register: stadtplaner_rollback_api_health
-      retries: 15
-      delay: 2
-      until: stadtplaner_rollback_api_health.status == 200
-      when: stadtplaner_previous_release_path | default('') | length > 0
+        - name: Require rollback links to reference one previous release
+          ansible.builtin.assert:
+            that:
+              - stadtplaner_rollback_release_links.results[0].stat.lnk_source == stadtplaner_previous_release_path
+              - stadtplaner_rollback_release_links.results[1].stat.lnk_source == stadtplaner_previous_backend_env
+              - stadtplaner_rollback_release_links.results[2].stat.lnk_source == stadtplaner_previous_frontend_env
+            fail_msg: "Rollback code and environment links do not reference the previous release."
 
-    - name: Verify frontend after rollback
-      ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ stadtplaner_frontend_port }}/"
-        status_code: 200
-      register: stadtplaner_rollback_frontend_health
-      retries: 15
-      delay: 2
-      until: stadtplaner_rollback_frontend_health.status == 200
-      when: stadtplaner_previous_release_path | default('') | length > 0
+        - name: Detect whether the previous release contains the renderer
+          ansible.builtin.stat:
+            path: "{{ stadtplaner_previous_release_path }}/frontend/map-preview-renderer/server.mjs"
+          register: stadtplaner_previous_renderer
 
-    - name: Fail after automatic rollback
+        - name: Stop renderer when rolling back across its first deployment
+          ansible.builtin.systemd_service:
+            name: stadtplaner-map-renderer.service
+            enabled: false
+            state: stopped
+          when: not stadtplaner_previous_renderer.stat.exists
+
+        - name: Start previous API and frontend releases
+          ansible.builtin.systemd_service:
+            name: "{{ item }}"
+            enabled: true
+            state: started
+          loop:
+            - stadtplaner-api.service
+            - stadtplaner-frontend.service
+
+        - name: Start previous renderer when the release provides it
+          ansible.builtin.systemd_service:
+            name: stadtplaner-map-renderer.service
+            enabled: true
+            state: started
+          when: stadtplaner_previous_renderer.stat.exists
+
+        - name: Wait for API port after rollback
+          ansible.builtin.wait_for:
+            host: 127.0.0.1
+            port: "{{ stadtplaner_backend_port }}"
+            timeout: 30
+
+        - name: Verify API readiness after rollback
+          ansible.builtin.uri:
+            url: "http://127.0.0.1:{{ stadtplaner_backend_port }}/health/ready"
+            status_code: 200
+          register: stadtplaner_rollback_api_health
+          retries: 15
+          delay: 2
+          until: stadtplaner_rollback_api_health.status == 200
+
+        - name: Wait for frontend port after rollback
+          ansible.builtin.wait_for:
+            host: 127.0.0.1
+            port: "{{ stadtplaner_frontend_port }}"
+            timeout: 30
+
+        - name: Verify frontend after rollback
+          ansible.builtin.uri:
+            url: "http://127.0.0.1:{{ stadtplaner_frontend_port }}/"
+            status_code: 200
+
+        - name: Verify renderer returned to the previous release
+          ansible.builtin.uri:
+            url: "http://{{ stadtplaner_map_renderer_bind_address }}:{{ stadtplaner_map_renderer_port }}/health/ready"
+            status_code: 200
+            return_content: true
+          register: stadtplaner_rollback_renderer_health
+          retries: 15
+          delay: 2
+          until: stadtplaner_rollback_renderer_health.status == 200
+          failed_when: >-
+            stadtplaner_rollback_renderer_health.status != 200 or
+            (stadtplaner_rollback_renderer_health.json.releaseSha | default('')) != stadtplaner_previous_release_sha
+          when: stadtplaner_previous_renderer.stat.exists
+      rescue:
+        - name: Preserve the rollback failure separately
+          ansible.builtin.set_fact:
+            stadtplaner_rollback_failure_task: "{{ ansible_failed_task.name | default('unknown rollback task') }}"
+            stadtplaner_rollback_failure_message: >-
+              {{ (ansible_failed_result.msg | default('no module message') | string)
+                 | truncate(500, true, '...') }}
+
+        - name: Collect secret-free API service state after rollback failure
+          ansible.builtin.command:
+            argv:
+              - systemctl
+              - show
+              - stadtplaner-api.service
+              - --property=ActiveState
+              - --property=SubState
+              - --property=Result
+              - --property=ExecMainStatus
+              - --property=NRestarts
+          register: stadtplaner_rollback_api_service_state
+          changed_when: false
+          failed_when: false
+
+        - name: Report both deployment and rollback failures
+          ansible.builtin.fail:
+            msg: >-
+              Deployment failed at '{{ stadtplaner_original_failure_task }}':
+              {{ stadtplaner_original_failure_message }}.
+              Rollback also failed at '{{ stadtplaner_rollback_failure_task }}':
+              {{ stadtplaner_rollback_failure_message }}.
+              API service state: {{ stadtplaner_rollback_api_service_state.stdout | default('unavailable') }}
+
+    - name: Report original deployment failure after successful rollback
       ansible.builtin.fail:
-        msg: "Release {{ stadtplaner_release_path }} failed smoke tests and was rolled back to {{ stadtplaner_previous_release_path }}"
+        msg: >-
+          Deployment failed at '{{ stadtplaner_original_failure_task }}':
+          {{ stadtplaner_original_failure_message }}.
+          Rollback to code and environment release {{ stadtplaner_previous_release_sha }} succeeded.
 
 - name: Require a safe release retention
   ansible.builtin.assert:
@@ -1018,16 +1319,29 @@
     recurse: false
   register: stadtplaner_release_directories
 
+- name: Select older inactive releases for pruning
+  ansible.builtin.set_fact:
+    stadtplaner_release_paths_to_prune: >-
+      {{ ((stadtplaner_release_directories.files | sort(attribute='mtime', reverse=true))
+          | rejectattr('path', 'equalto', stadtplaner_release_path) | list)
+         [(stadtplaner_release_retention | int - 1):] }}
+
 - name: Prune older inactive release directories
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
-  loop: >-
-    {{ ((stadtplaner_release_directories.files | sort(attribute='mtime', reverse=true))
-        | rejectattr('path', 'equalto', stadtplaner_release_path) | list)
-       [(stadtplaner_release_retention | int - 1):] }}
+  loop: "{{ stadtplaner_release_paths_to_prune }}"
   loop_control:
     label: "{{ item.path }}"
+
+- name: Prune environment snapshots for removed releases
+  ansible.builtin.file:
+    path: "{{ stadtplaner_env_releases_dir }}/{{ item.path | basename }}"
+    state: absent
+  loop: "{{ stadtplaner_release_paths_to_prune }}"
+  loop_control:
+    label: "{{ stadtplaner_env_releases_dir }}/{{ item.path | basename }}"
+  no_log: true
 
 - name: Report deployed revision
   ansible.builtin.debug:

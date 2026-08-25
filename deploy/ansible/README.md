@@ -31,7 +31,7 @@ Für diesen Server ist ein idempotenter Deployment-Ablauf sicherer als wiederhol
 - OpenTelemetry Collector: OTLP/gRPC nur auf `127.0.0.1:4317`, Health auf `127.0.0.1:13133`
 - Grafana Tempo: lokales Trace-Backend auf `127.0.0.1:3200`, 14 Tage Retention
 
-Backend-Settings werden aus `backend/.env` geladen. Ansible verlinkt diese Datei auf `/etc/stadtplaner/backend.env`, damit Secrets nicht im Git-Checkout liegen. Für das Frontend wird analog `/etc/stadtplaner/frontend.env` verwendet. Der OSM-Sync liest `/etc/stadtplaner/osm-sync.env`.
+Backend-Settings werden aus `backend/.env` geladen. Jeder Release erhält dafür einen geschützten Snapshot unter `/etc/stadtplaner/releases/<sha>/backend.env`; `/etc/stadtplaner/backend.env` zeigt auf den aktiven Snapshot. Für das Frontend gilt dasselbe mit `frontend.env`. Verzeichnisse sind `root:oklab`/`0750`, Dateien `root:oklab`/`0640`; Secrets liegen nicht im Git-Checkout und werden mit `no_log` verarbeitet. Der OSM-Sync liest weiterhin `/etc/stadtplaner/osm-sync.env`.
 
 ## Controller installieren
 
@@ -237,16 +237,20 @@ Der Ablauf ist:
 
 Ein Fehler stoppt den Lauf. `serial: 1` und `any_errors_fatal: true` verhindern ein Weiterrollen nach einem Fehler.
 
-Vor dem Handover prüft Ansible, dass der konfigurierte Service-Benutzer die persistenten Environment-Dateien lesen kann. Anschließend stoppt es die verwalteten primären Dienste und verlangt freie Anwendungsports, bevor es die aktuellen Units startet. Frühere `stadtplanner-*`-Legacy-Units werden nicht mehr durch das Deployment verwaltet und müssen vor dem ersten Handover administrativ entfernt werden.
+Vor dem Handover prüft Ansible, dass der konfigurierte Service-Benutzer die target Environment-Snapshots lesen und der target Backend-Release seine strikten Settings laden kann. Anschließend stoppt es die verwalteten primären Dienste, verlangt freie Anwendungsports und schaltet Code sowie beide Environment-Symlinks, bevor es die aktuellen Units startet. Frühere `stadtplanner-*`-Legacy-Units werden nicht mehr durch das Deployment verwaltet und müssen vor dem ersten Handover administrativ entfernt werden.
 
 ## Release-Verzeichnisse und Rollback
 
-Jeder Produktionsdeploy baut ein eigenes, unveränderliches Release-Verzeichnis unter `/opt/stadtplaner/releases/<sha>` auf. Die eigentliche Produktivroute wird atomar mit einem Symlink auf `/opt/stadtplaner/current` umgebogen; Systemd-Units referenzieren ausschließlich diesen Pfad. Eine zuvor aktive Release bleibt als direktes Rollback-Ziel erhalten, bis die konfigurierte Retention (`stadtplaner_release_retention`) erreicht ist.
+Jeder Produktionsdeploy baut ein eigenes, unveränderliches Release-Verzeichnis unter `/opt/stadtplaner/releases/<sha>` und passende Environment-Snapshots unter `/etc/stadtplaner/releases/<sha>` auf. Vor der Aktivierung validiert der target Backend-Release seine strikten Settings gegen den target Snapshot. Während API, Frontend und Renderer gestoppt sind, werden `/opt/stadtplaner/current`, `/etc/stadtplaner/backend.env` und `/etc/stadtplaner/frontend.env` gemeinsam auf den target Stand geschaltet. Eine zuvor aktive Code-/Konfigurationseinheit bleibt als direktes Rollback-Ziel erhalten, bis die konfigurierte Retention (`stadtplaner_release_retention`) erreicht ist.
 
 Nach dem Aktivieren der Services führt Ansible als Smoke-Tests lokale Health-
-und Frontend-Checks sowie einen gepollten Trace-Nachweis in Tempo aus. Wenn ein
-solcher Test fehlschlägt, wird der Symlink sofort wieder auf das vorherige
-Release zurückgesetzt und die Services werden neu gestartet. Der Collector ist
+und Frontend-Checks, binärsichere WebP-Downloads sowie einen gepollten
+Trace-Nachweis in Tempo aus. WebP-Daten werden in eine temporäre Datei geladen,
+als RIFF/WEBP-Bytes validiert und zuverlässig gelöscht; sie durchlaufen nie
+Ansibles UTF-8-Deserialisierung. Wenn ein Test fehlschlägt, werden Code- und
+Environment-Symlinks auf den vorherigen Release zurückgesetzt und erst danach
+die Services neu gestartet. Die ursprüngliche Ursache bleibt neben einem
+möglichen Rollbackfehler sichtbar. Der Collector ist
 über `Wants`/`After`, aber bewusst nicht über `Requires` an die API gekoppelt:
 Ein späterer Telemetrieausfall stoppt keine Nutzeranfragen.
 
