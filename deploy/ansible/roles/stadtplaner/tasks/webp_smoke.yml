@@ -1,0 +1,38 @@
+---
+- name: Create temporary file for binary WebP smoke response
+  ansible.builtin.tempfile:
+    state: file
+    suffix: .webp
+  register: stadtplaner_webp_smoke_tempfile
+
+- name: Download and validate binary WebP smoke response
+  block:
+    - name: Download binary WebP smoke response without deserializing content
+      ansible.builtin.get_url:
+        url: "{{ stadtplaner_webp_smoke_url }}"
+        dest: "{{ stadtplaner_webp_smoke_tempfile.path }}"
+        force: true
+        mode: '0600'
+        timeout: 30
+        use_proxy: false
+      register: stadtplaner_webp_smoke_download
+
+    - name: Require HTTP 200 for binary WebP smoke response
+      ansible.builtin.assert:
+        that: stadtplaner_webp_smoke_download.status_code | int == 200
+        fail_msg: "{{ stadtplaner_webp_smoke_name }} returned HTTP {{ stadtplaner_webp_smoke_download.status_code | default('unknown') }}."
+
+    - name: Validate downloaded WebP bytes
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ stadtplaner_release_path }}/deploy/ansible/scripts/validate_webp.py"
+          - "{{ stadtplaner_webp_smoke_tempfile.path }}"
+          - --minimum-size
+          - '64'
+      changed_when: false
+  always:
+    - name: Remove temporary binary WebP smoke response
+      ansible.builtin.file:
+        path: "{{ stadtplaner_webp_smoke_tempfile.path }}"
+        state: absent

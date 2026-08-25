@@ -208,7 +208,11 @@ class Settings(BaseSettings):
     mastodon_screenshot_timeout_seconds: float = 30.0
 
     # Resolve the backend environment independently of the process working directory.
-    model_config = SettingsConfigDict(env_file=BACKEND_ENV_FILE, env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=BACKEND_ENV_FILE,
+        env_file_encoding="utf-8",
+        extra="forbid",
+    )
 
     @property
     def cors_origin_list(self) -> list[str]:

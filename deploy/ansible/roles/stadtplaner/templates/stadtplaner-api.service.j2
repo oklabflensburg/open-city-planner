@@ -9,11 +9,6 @@ User={{ stadtplaner_service_user }}
 Group={{ stadtplaner_service_group }}
 WorkingDirectory={{ stadtplaner_current_path }}/backend
 EnvironmentFile={{ stadtplaner_backend_env_file }}
-Environment=STADTPLANER_RELEASE_SHA={{ stadtplaner_release_sha }}
-Environment=MAP_PREVIEW_RENDERER_URL=http://{{ stadtplaner_map_renderer_bind_address }}:{{ stadtplaner_map_renderer_port }}
-Environment=MAP_PREVIEW_RENDERER_TIMEOUT_SECONDS={{ stadtplaner_map_renderer_timeout_seconds }}
-Environment=MAP_PREVIEW_CACHE_DIR={{ stadtplaner_map_preview_cache_dir }}
-Environment=MAP_PREVIEW_STYLE_PATH={{ stadtplaner_current_path }}/frontend/public/map-styles/stadtplaner-light.json
 ExecStart={{ stadtplaner_current_path }}/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port {{ stadtplaner_backend_port }} --proxy-headers --forwarded-allow-ips=127.0.0.1,::1
 Restart=on-failure
 RestartSec=3

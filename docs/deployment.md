@@ -25,7 +25,9 @@ Andere produktive PostgreSQL-, PostGIS- oder Redis-Versionen sind im Repository 
 
 ## Installationspfad und Service-Benutzer
 
-Der verwaltete Produktionsdeploy assembliert unveränderliche Releases unter `/opt/stadtplaner/releases/<sha>` und aktiviert sie über `/opt/stadtplaner/current`. Der Arbeitscheckout unter `/opt/git/open-city-planner` dient nur als Quelle für das Release-Archiv und ist kein Runtime-Pfad. API, Frontend und Hintergrundjobs laufen als `oklab`; der Native-Renderer verwendet den getrennten Benutzer `stadtplaner-map-renderer`. Ältere statische Beispiel-Units außerhalb der Ansible-Rollen können noch historische Pfade enthalten und sind für den hier beschriebenen Produktionsdeploy nicht maßgeblich.
+Der verwaltete Produktionsdeploy assembliert unveränderliche Releases unter `/opt/stadtplaner/releases/<sha>` und aktiviert sie über `/opt/stadtplaner/current`. Backend- und Frontend-Environment werden als gleichwertiger Teil derselben Release-Einheit unter `/etc/stadtplaner/releases/<sha>/` gespeichert. Die stabilen Pfade `/etc/stadtplaner/backend.env` und `/etc/stadtplaner/frontend.env` sind Symlinks auf den aktiven Snapshot. Der Arbeitscheckout unter `/opt/git/open-city-planner` dient nur als Quelle für das Release-Archiv und ist kein Runtime-Pfad. API, Frontend und Hintergrundjobs laufen als `oklab`; der Native-Renderer verwendet den getrennten Benutzer `stadtplaner-map-renderer`. Ältere statische Beispiel-Units außerhalb der Ansible-Rollen können noch historische Pfade enthalten und sind für den hier beschriebenen Produktionsdeploy nicht maßgeblich.
+
+Snapshot-Verzeichnisse sind `root:oklab` mit Modus `0750`, Environmentdateien `root:oklab` mit Modus `0640`. Sie liegen ausdrücklich nicht im für den App-Benutzer breit lesbaren Release-Checkout. Ansible verarbeitet ihren Inhalt mit `no_log`; reale Secrets werden weder committed noch im Deploylog ausgegeben. `STADTPLANER_RELEASE_SHA` wird in jeden Backend- und Frontend-Snapshot geschrieben, damit Code, Konfiguration und Observability-Kennung auch nach einem Rollback denselben Release bezeichnen.
 
 Persistente Verzeichnisse wie Uploads, OSM-Daten und Social-Screenshots dürfen nicht bei jedem Deployment ersetzt werden. Der Service-Benutzer benötigt nur für die tatsächlich verwendeten Pfade Schreibrechte.
 
@@ -88,6 +90,32 @@ Wichtige Backend-Gruppen:
 - Dateien: `AVATAR_UPLOAD_DIR`, `MEDIA_BASE_URL`, `MASTODON_SCREENSHOT_DIRECTORY`.
 
 Wichtige Frontend-Variablen beginnen mit `NUXT_PUBLIC_` und sind per Definition öffentlich. Secrets dürfen dort niemals gespeichert werden.
+
+Vor der Aktivierung lädt der target Backend-Release seine strikten Pydantic-Settings mit dem target Snapshot. Unbekannte Variablen bleiben ein Fehler; `extra=ignore` wird nicht verwendet. Das Frontend-Environment wird mit Node validiert und anschließend beim Build des target Releases verwendet. Erst wenn diese Prüfungen erfolgreich waren, stoppt Ansible die primären Dienste und schaltet Code-, Backend-Env- und Frontend-Env-Symlink in kontrollierter Reihenfolge um. Während dieses kurzen Fensters läuft kein primärer Dienst mit einem gemischten Zustand.
+
+Beim automatischen Rollback werden zunächst die Dienste gestoppt, danach alle drei Symlinks auf den vorherigen Release-Stand zurückgesetzt. Erst anschließend startet die API; Ansible wartet zunächst auf den TCP-Port und prüft danach `/health/ready`. Frontend und – sofern im vorherigen Release vorhanden – Renderer werden ebenfalls geprüft. Beim erstmaligen Renderer-Deploy wird der Renderer beim Rollback gestoppt und deaktiviert. Die ursprüngliche Deployment-Ursache und ein möglicher zusätzlicher Rollbackfehler werden getrennt ausgegeben.
+
+### Einmalige Recovery nach dem fehlgeschlagenen Renderer-Erstdeploy
+
+Der fehlgeschlagene Deploy von `3cef932` hat den alten Code aktiviert gelassen, aber `/etc/stadtplaner/backend.env` bereits um vier für diesen alten Release unbekannte `MAP_PREVIEW_*`-Variablen erweitert. Vor dem nächsten Deploy muss die aktive Konfiguration einmalig repariert werden. Wenn bereits ein nachweislich korrekter Snapshot des vorherigen Releases existiert, verlinken Sie bevorzugt diesen. Andernfalls:
+
+```bash
+sudo systemctl stop stadtplaner-api.service
+sudo install -o root -g root -m 0600 \
+  /etc/stadtplaner/backend.env \
+  /etc/stadtplaner/backend.env.before-map-preview-recovery
+sudo sed -i -E \
+  '/^MAP_PREVIEW_(RENDERER_URL|RENDERER_TIMEOUT_SECONDS|CACHE_DIR|STYLE_PATH)=/d' \
+  /etc/stadtplaner/backend.env
+sudo chown root:oklab /etc/stadtplaner/backend.env
+sudo chmod 0640 /etc/stadtplaner/backend.env
+sudo systemctl start stadtplaner-api.service
+sudo systemctl show stadtplaner-api.service \
+  --property=ActiveState --property=SubState --property=Result --property=ExecMainStatus
+curl --fail http://127.0.0.1:8008/health/ready
+```
+
+Die Sicherung enthält Secrets und bleibt deshalb `root:root` mit Modus `0600`. Geben Sie ihren Inhalt nicht im Terminal, Ticket oder Deploylog aus. Der neue Deploy verweigert die Aktivierung, wenn der aktuell aktive Backend-Code sein aktuelles Environment nicht laden kann; dadurch wird eine noch ausstehende Recovery vor weiteren Änderungen sichtbar.
 
 ## Datenbank und Backups
 
@@ -225,7 +253,7 @@ Typische Prüfungen:
 
 ## Observability anbinden
 
-Ansible injiziert den exakt ausgecheckten Git-SHA als `STADTPLANER_RELEASE_SHA` in API, Frontend und One-shot-Jobs. Behalten Sie `LOG_FORMAT=json`, `METRICS_ENABLED=true` und `ASSISTANT_QUERY_LOGGING=false` in Produktion. OpenTelemetry ist für den produktiven Deploy verpflichtend:
+Ansible bindet den exakt ausgecheckten Git-SHA als `STADTPLANER_RELEASE_SHA` an die versionierten Backend- und Frontend-Environment-Snapshots. Backend-basierte One-shot-Jobs lesen denselben aktiven Snapshot. Behalten Sie `LOG_FORMAT=json`, `METRICS_ENABLED=true` und `ASSISTANT_QUERY_LOGGING=false` in Produktion. OpenTelemetry ist für den produktiven Deploy verpflichtend:
 
 ```env
 OTEL_ENABLED=true
