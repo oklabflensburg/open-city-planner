@@ -1,6 +1,6 @@
 # Serverseitige Kartenvorschauen
 
-Die Startseite verwendet dynamische WebP-Kartenvorschauen für öffentliche Flächen und Analysegebiete. Der Produktionsrenderer ist kein Browser: `stadtplaner-map-renderer.service` lädt MapLibre Native in einem isolierten Node.js-Prozess auf `127.0.0.1:3020`. FastAPI kennt MapLibre nicht, sondern spricht ausschließlich mit der internen `MapPreviewRenderer`-Schnittstelle.
+Die Startseite verwendet dynamische WebP-Kartenvorschauen für öffentliche Flächen und Analysegebiete. Öffentliche Gebiets- und Flächendetailseiten verweisen in ihren serverseitigen OpenGraph- und Twitter-Metadaten auf dieselben FastAPI-Endpunkte mit 1200×630 Pixeln. Der Produktionsrenderer ist kein Browser: `stadtplaner-map-renderer.service` lädt MapLibre Native in einem isolierten Node.js-Prozess auf `127.0.0.1:3020`. FastAPI kennt MapLibre nicht, sondern spricht ausschließlich mit der internen `MapPreviewRenderer`-Schnittstelle.
 
 ## Technische Auswahl
 

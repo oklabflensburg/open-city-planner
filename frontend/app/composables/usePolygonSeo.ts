@@ -1,4 +1,5 @@
 import type { PublicPolygonDetail } from '~/types/geo'
+import { buildApiUrl } from '~/utils/apiUrl'
 import { buildAbsoluteUrl, buildBreadcrumbStructuredData, serializeStructuredData, toMetaDescription } from '~/utils/seo'
 
 export function usePolygonSeo(polygon: MaybeRefOrGetter<PublicPolygonDetail>) {
@@ -11,6 +12,11 @@ export function usePolygonSeo(polygon: MaybeRefOrGetter<PublicPolygonDetail>) {
     `Informationen zur Fläche „${data.value.name}“ mit Kategorie, Größe und interaktiver Kartendarstellung.`
   ))
   const title = computed(() => `${data.value.name} – ${config.public.siteName}`)
+  const image = computed(() => buildApiUrl(
+    config.public.apiBaseUrl,
+    `/polygons/by-slug/${encodeURIComponent(data.value.slug)}/preview.webp?width=1200&height=630`
+  ))
+  const imageAlt = computed(() => `Kartenansicht der Fläche „${data.value.name}“ mit Lage und öffentlichen Flächendaten im Stadtplaner Flensburg`)
   const structuredData = computed(() => [
     {
       '@context': 'https://schema.org',
@@ -41,9 +47,13 @@ export function usePolygonSeo(polygon: MaybeRefOrGetter<PublicPolygonDetail>) {
     ogUrl: () => url.value,
     ogSiteName: config.public.siteName,
     ogLocale: config.public.siteLocale,
-    twitterCard: 'summary',
+    ogImage: () => image.value,
+    ogImageAlt: () => imageAlt.value,
+    twitterCard: 'summary_large_image',
     twitterTitle: () => title.value,
-    twitterDescription: () => description.value
+    twitterDescription: () => description.value,
+    twitterImage: () => image.value,
+    twitterImageAlt: () => imageAlt.value
   })
   useHead(() => ({
     link: [{ rel: 'canonical', href: url.value }],
