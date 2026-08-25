@@ -65,6 +65,11 @@ def assignments(content: str) -> dict[str, str]:
     return result
 
 
+def normalize_dotenv_content(content: str) -> str:
+    """Return dotenv content with deterministic LF line endings and one final newline."""
+    return "\n".join(content.splitlines()).strip() + "\n"
+
+
 def truthy(value: str | None) -> bool:
     return (value or "").strip().strip('"').lower() in {"1", "true", "yes", "on"}
 
@@ -159,10 +164,11 @@ def main() -> None:
     secret_dotenv_keys = set(SECRET_KEYS.values())
 
     for ansible_key, environment_name in CONFIG_VARIABLES.items():
-        content = os.environ.get(environment_name, "").strip()
-        if not content:
+        content = os.environ.get(environment_name, "")
+        if not content.strip():
             raise SystemExit(f"Missing GitHub environment variable: {environment_name}")
-        supplied = assignments(content)
+        normalized_content = normalize_dotenv_content(content)
+        supplied = assignments(normalized_content)
         expected = set(assignments(reference[ansible_key]))
         forbidden = sorted(set(supplied) & secret_dotenv_keys)
         if forbidden:
@@ -176,7 +182,7 @@ def main() -> None:
             raise SystemExit(
                 f"Invalid {environment_name}; missing={missing or 'none'}, extra={extra or 'none'}"
             )
-        generated[ansible_key] = content + "\n"
+        generated[ansible_key] = normalized_content
 
     backend_values = assignments(generated["stadtplaner_backend_env_content"])
     try:

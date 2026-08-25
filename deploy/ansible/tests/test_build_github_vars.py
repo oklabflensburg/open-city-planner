@@ -94,6 +94,31 @@ class GitHubVarsBuilderTest(unittest.TestCase):
             self.assertEqual(generated["stadtplaner_otel_service_name"], "stadtplaner-api")
             self.assertEqual(output.stat().st_mode & 0o777, 0o600)
 
+    def test_normalizes_crlf_configuration_before_appending_secrets(self) -> None:
+        self.environment["STADTPLANER_BACKEND_ENV_CONFIG"] = self.environment[
+            "STADTPLANER_BACKEND_ENV_CONFIG"
+        ].replace("\n", "\r\n")
+        self.environment["STADTPLANER_FRONTEND_ENV_CONFIG"] = self.environment[
+            "STADTPLANER_FRONTEND_ENV_CONFIG"
+        ].replace("\n", "\r\n")
+        self.environment["STADTPLANER_OSM_ENV_CONFIG"] = self.environment[
+            "STADTPLANER_OSM_ENV_CONFIG"
+        ].replace("\n", "\r\n")
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "vars.yml"
+            result = self.run_builder(output)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            generated = yaml.safe_load(output.read_text(encoding="utf-8"))
+            for key in BUILDER.CONFIG_VARIABLES:
+                self.assertNotIn("\r", generated[key])
+                self.assertTrue(generated[key].endswith("\n"))
+            self.assertIn(
+                'MASTODON_ACCESS_TOKEN=""\n',
+                generated["stadtplaner_backend_env_content"],
+            )
+
     def test_rejects_secret_in_open_configuration(self) -> None:
         self.environment["STADTPLANER_BACKEND_ENV_CONFIG"] += "\nDATABASE_URL=exposed"
         with tempfile.TemporaryDirectory() as directory:
