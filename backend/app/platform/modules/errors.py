@@ -153,3 +153,73 @@ class ModuleDependencyCycleError(ModuleDependencyError):
         cycle_path = tuple(cycle)
         super().__init__(f"Module dependency cycle detected: {' -> '.join(cycle_path)}.")
         self.cycle = cycle_path
+
+
+class ModuleRuntimeError(RuntimeError):
+    """Basisklasse für Fehler während einer Phase der Module Runtime."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        phase: str,
+        module_id: str | None = None,
+        origin: str | None = None,
+    ) -> None:
+        context = [f"phase={phase}"]
+        if module_id is not None:
+            context.append(f"module_id={module_id}")
+        if origin is not None:
+            context.append(f"origin={origin}")
+        super().__init__(f"Module runtime error ({', '.join(context)}): {message}")
+        self.phase = phase
+        self.module_id = module_id
+        self.origin = origin
+
+
+class ModuleDiscoveryError(ModuleRuntimeError):
+    """Discovery eines aktivierten Moduls ist fehlgeschlagen."""
+
+    def __init__(
+        self, message: str, *, module_id: str | None = None, origin: str | None = None
+    ) -> None:
+        super().__init__(message, phase="discovery", module_id=module_id, origin=origin)
+
+
+class ModuleValidationError(ModuleRuntimeError):
+    """Ein entdecktes Modul konnte nicht validiert werden."""
+
+    def __init__(
+        self, message: str, *, module_id: str | None = None, origin: str | None = None
+    ) -> None:
+        super().__init__(message, phase="validation", module_id=module_id, origin=origin)
+
+
+class ModuleLoadError(ModuleRuntimeError):
+    """Die Instanziierung eines validierten Moduls ist fehlgeschlagen."""
+
+    def __init__(self, message: str, *, module_id: str, origin: str | None = None) -> None:
+        super().__init__(message, phase="import", module_id=module_id, origin=origin)
+
+
+class ModuleRegistrationError(ModuleRuntimeError):
+    """Die deklarative Registrierung eines Moduls ist fehlgeschlagen."""
+
+    def __init__(
+        self, message: str, *, module_id: str | None = None, origin: str | None = None
+    ) -> None:
+        super().__init__(message, phase="registration", module_id=module_id, origin=origin)
+
+
+class ModuleStartupError(ModuleRuntimeError):
+    """Ein Modul konnte nicht vollständig gestartet werden."""
+
+    def __init__(self, message: str, *, module_id: str | None = None) -> None:
+        super().__init__(message, phase="startup", module_id=module_id)
+
+
+class ModuleShutdownError(ModuleRuntimeError):
+    """Mindestens ein Modul konnte nicht sauber beendet werden."""
+
+    def __init__(self, message: str, *, module_id: str | None = None) -> None:
+        super().__init__(message, phase="shutdown", module_id=module_id)
