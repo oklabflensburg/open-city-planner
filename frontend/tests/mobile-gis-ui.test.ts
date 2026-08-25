@@ -90,15 +90,28 @@ describe('mobile GIS interface', () => {
     expect(appFile('components/ui/AppBottomSheet.vue')).toContain("querySelector<HTMLElement>('[data-sheet-autofocus]')")
   })
 
-  it('uses the released map space and keeps the four-action toolbar overflow-safe', () => {
+  it('keeps three GIS tools in the mobile bar and moves creation to an authenticated FAB', () => {
     const shell = appFile('components/layout/AppShell.vue')
     const padding = appFile('utils/mapViewportPadding.ts')
+    const actionBar = shell.slice(shell.indexOf('<nav'), shell.indexOf('</nav>'))
     expect(padding).toContain('top: 56')
     expect(padding).not.toContain('top: 104')
+    expect(actionBar.match(/<button class="map-action"/g)).toHaveLength(3)
+    expect(actionBar).toContain('aria-label="Suche öffnen"')
+    expect(actionBar).toContain('aria-label="Filter öffnen"')
+    expect(actionBar).toContain('aria-label="Analyse öffnen"')
+    expect(actionBar).not.toContain('/flaechen/neu')
     expect(shell).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))')
     expect(shell).toContain('@media (min-width: 480px)')
-    expect(shell).toContain('grid-template-columns: repeat(4, max-content)')
-    expect(shell).toContain('grid-column: 1 / -1')
+    expect(shell).toContain('grid-template-columns: repeat(3, max-content)')
+    expect(shell).not.toContain('grid-column: 1 / -1')
+    expect(shell).toContain('data-mobile-create-fab')
+    expect(shell).toContain('v-if="authStore.authenticated && (mapStore.activeGisPanel === null || isCompact)"')
+    expect(shell).toContain('to="/flaechen/neu"')
+    expect(shell).toContain('aria-label="Neue Fläche anlegen"')
+    expect(shell).toContain('bottom: calc(env(safe-area-inset-bottom) + 6.5rem)')
+    expect(shell).toContain('width: 3.25rem; height: 3.25rem')
+    expect(shell).toContain('@media (min-width: 1024px) { .mobile-create-fab { display: none; } }')
   })
 
   it('docks a bounded, non-modal panel beside the map in the compact workbench', () => {

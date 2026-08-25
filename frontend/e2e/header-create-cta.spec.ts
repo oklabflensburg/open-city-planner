@@ -92,18 +92,42 @@ test('desktop create CTA stays on one line without colliding with adjacent actio
   expect(hydrationWarnings).toEqual([])
 })
 
-test('mobile keeps creation in navigation and the top bar overflow-free', async ({ page }) => {
+test('mobile exposes authenticated creation as a floating action without covering the tool bar', async ({ page }) => {
   await page.setViewportSize({ width: 430, height: 932 })
   const hydrationWarnings = trackHydrationWarnings(page)
-  await mockOverview(page)
+  const session = { authenticated: true }
+  await mockOverview(page, session)
   await page.goto('/karte')
 
   for (const width of [320, 390, 430]) {
     await page.setViewportSize({ width, height: 844 })
     await expect(page.getByRole('button', { name: 'Navigation öffnen' })).toBeVisible()
     await expect(page.locator('[data-header-create-cta]')).toBeHidden()
+    const actionBar = page.locator('[data-mobile-map-actions]')
+    const createFab = page.locator('[data-mobile-create-fab]')
+    await expect(actionBar.getByRole('button')).toHaveCount(3)
+    await expect(createFab).toBeVisible()
+    await expect(createFab).toHaveAttribute('href', '/flaechen/neu')
+    await expect(createFab).toHaveAttribute('aria-label', 'Neue Fläche anlegen')
+    const [actionBarBox, createFabBox] = await Promise.all([
+      actionBar.boundingBox(), createFab.boundingBox()
+    ])
+    expect(createFabBox!.width).toBeGreaterThanOrEqual(44)
+    expect(createFabBox!.height).toBeGreaterThanOrEqual(44)
+    expect(createFabBox!.x + createFabBox!.width).toBeLessThanOrEqual(width)
+    expect(createFabBox!.y + createFabBox!.height).toBeLessThan(actionBarBox!.y)
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
   }
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ path: 'test-results/mobile-create-fab-390.png' })
+  await page.getByRole('button', { name: 'Suche öffnen' }).click()
+  await expect(page.locator('[data-mobile-create-fab]')).toHaveCount(0)
+  await page.goBack()
+  await expect(page.locator('[data-mobile-create-fab]')).toBeVisible()
+  session.authenticated = false
+  await page.reload()
+  await expect(page.locator('[data-mobile-create-fab]')).toHaveCount(0)
   expect(hydrationWarnings).toEqual([])
 })
 
