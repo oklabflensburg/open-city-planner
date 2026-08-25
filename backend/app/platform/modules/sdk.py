@@ -5,10 +5,15 @@ Plattform-Ports und importiert keine Host-Infrastruktur oder Fachdomänen.
 """
 
 import logging
+import math
+import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from types import MappingProxyType
 from typing import Protocol, TypeVar
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +27,10 @@ from app.platform.modules.manifest import (
 type ModuleLifecycleHook = Callable[[], Awaitable[None]]
 type ModuleLoader = Callable[[], "BackendModule"]
 type JobHandler = Callable[[], Awaitable[None]]
+type JsonScalar = str | int | float | bool | None
+type JsonValue = JsonScalar | list["JsonValue"] | Mapping[str, "JsonValue"]
 T = TypeVar("T")
+_EVENT_NAME = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
 
 
 class ApiRegistrar(Protocol):
@@ -55,16 +63,130 @@ class DatabaseSessionProvider(Protocol):
 
 
 class DomainEvent(Protocol):
-    """Minimale Identität eines vom Fachmodul definierten Domain Events."""
+    """Kompatible minimale Event-Identität aus SDK 1.0."""
 
     event_type: str
     event_version: int
 
 
-class EventBusPort(Protocol):
-    """Publiziert Domain Events; Zustellung und Outbox folgen in #96."""
+class SerializableDomainEvent(Protocol):
+    """Vom Producer besessener, stark typisierbarer Event-Payload-Contract."""
 
-    async def publish(self, event: DomainEvent) -> None: ...
+    event_name: str
+    event_version: int
+
+    def to_payload(self) -> Mapping[str, JsonValue]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class EventEnvelope:
+    """Fachneutraler, persistierbarer Event-Envelope mit stabiler Identität."""
+
+    event_id: UUID
+    event_name: str
+    event_version: int
+    occurred_at: datetime
+    payload: Mapping[str, JsonValue]
+    correlation_id: str | None = None
+    causation_id: str | None = None
+    trace_context: Mapping[str, str] = MappingProxyType({})
+    producer_module: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.event_id, UUID):
+            raise TypeError("Event IDs must be UUID values.")
+        if not isinstance(self.event_name, str) or not _EVENT_NAME.fullmatch(self.event_name):
+            raise ValueError("Event names must use the form <module-id>.<event-name>.")
+        if len(self.event_name) > 160:
+            raise ValueError("Event names must not exceed 160 characters.")
+        if type(self.event_version) is not int or self.event_version < 1:
+            raise ValueError("Event versions must be positive integers.")
+        if self.occurred_at.tzinfo is None or self.occurred_at.utcoffset() is None:
+            raise ValueError("Event timestamps must include a timezone.")
+        if self.occurred_at.utcoffset() != UTC.utcoffset(self.occurred_at):
+            raise ValueError("Event timestamps must use UTC.")
+        if not isinstance(self.payload, Mapping):
+            raise TypeError("Event payloads must be JSON objects.")
+        _validate_json_value(self.payload, path="payload")
+        _validate_string_mapping(self.trace_context, name="trace_context")
+        object.__setattr__(self, "payload", MappingProxyType(dict(self.payload)))
+        object.__setattr__(self, "trace_context", MappingProxyType(dict(self.trace_context)))
+
+
+type EventHandler = Callable[[EventEnvelope], Awaitable[None] | None]
+
+
+def event_envelope(
+    event: DomainEvent | SerializableDomainEvent,
+    *,
+    event_id: UUID | None = None,
+    occurred_at: datetime | None = None,
+    correlation_id: str | None = None,
+    causation_id: str | None = None,
+    trace_context: Mapping[str, str] | None = None,
+) -> EventEnvelope:
+    """Erzeuge Metadaten für ein fachlich typisiertes Event ohne implizite Serialisierung."""
+
+    event_name = getattr(event, "event_name", None) or event.event_type
+    serializer = getattr(event, "to_payload", None)
+    payload = serializer() if serializer is not None else {}
+    return EventEnvelope(
+        event_id=event_id or uuid4(),
+        event_name=event_name,
+        event_version=event.event_version,
+        occurred_at=occurred_at or datetime.now(UTC),
+        payload=payload,
+        correlation_id=correlation_id,
+        causation_id=causation_id,
+        trace_context=trace_context or {},
+    )
+
+
+def _validate_json_value(value: object, *, path: str) -> None:
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError(f"{path} contains a non-finite number.")
+    if value is None or isinstance(value, str | bool | int | float):
+        return
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            _validate_json_value(item, path=f"{path}[{index}]")
+        return
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise TypeError(f"{path} contains a non-string object key.")
+            _validate_json_value(item, path=f"{path}.{key}")
+        return
+    raise TypeError(f"{path} contains the non-JSON value {type(value).__name__}.")
+
+
+def _validate_string_mapping(value: Mapping[object, object], *, name: str) -> None:
+    if not all(isinstance(key, str) and isinstance(item, str) for key, item in value.items()):
+        raise TypeError(f"{name} must contain only string keys and values.")
+
+
+class EventBusPort(Protocol):
+    """Publiziert Events direkt oder atomar über die transaktionale Outbox."""
+
+    async def publish(
+        self, event: DomainEvent | SerializableDomainEvent | EventEnvelope
+    ) -> None: ...
+
+    async def publish_after_commit(
+        self,
+        event: DomainEvent | SerializableDomainEvent | EventEnvelope,
+        *,
+        session: AsyncSession,
+    ) -> EventEnvelope: ...
+
+    def subscribe(
+        self,
+        event_name: str,
+        *,
+        handler_id: str,
+        versions: frozenset[int],
+        handler: EventHandler,
+    ) -> None: ...
 
 
 class ServiceRegistryPort(Protocol):
@@ -277,10 +399,14 @@ __all__ = [
     "DatabaseSessionProvider",
     "DomainEvent",
     "EventBusPort",
+    "EventEnvelope",
+    "EventHandler",
     "HttpClientFactoryPort",
     "HttpClientPort",
     "HttpResponsePort",
     "JobHandler",
+    "JsonScalar",
+    "JsonValue",
     "LifecycleRegistrar",
     "MetricsPort",
     "ModuleContext",
@@ -291,9 +417,11 @@ __all__ = [
     "ObservabilityPort",
     "PermissionPort",
     "SchedulerPort",
+    "SerializableDomainEvent",
     "ServiceRegistryPort",
     "SpanPort",
     "StoragePort",
     "TracerPort",
+    "event_envelope",
     "parse_manifest",
 ]

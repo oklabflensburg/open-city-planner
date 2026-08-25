@@ -68,6 +68,39 @@ OUTBOX_PROCESSED = Counter(
 OUTBOX_FAILED = Counter("outbox_failed_total", "Failed outbox entries", ("outbox_type",), registry=REGISTRY)
 OUTBOX_RETRY = Counter("outbox_retry_total", "Retried outbox entries", ("outbox_type",), registry=REGISTRY)
 
+EVENT_OUTBOX_PENDING = Gauge(
+    "event_outbox_pending", "Incomplete domain events", registry=REGISTRY
+)
+EVENT_OUTBOX_OLDEST_AGE = Gauge(
+    "event_outbox_oldest_age_seconds",
+    "Age of the oldest incomplete domain event",
+    registry=REGISTRY,
+)
+EVENT_DISPATCH = Counter(
+    "event_dispatch_total",
+    "Domain event handler dispatches",
+    ("event_name", "handler_id", "result"),
+    registry=REGISTRY,
+)
+EVENT_DISPATCH_FAILURES = Counter(
+    "event_dispatch_failures_total",
+    "Failed domain event handler dispatches",
+    ("event_name", "handler_id"),
+    registry=REGISTRY,
+)
+EVENT_DEAD_LETTER = Counter(
+    "event_dead_letter_total",
+    "Domain event deliveries moved to dead letter",
+    ("event_name", "handler_id"),
+    registry=REGISTRY,
+)
+EVENT_HANDLER_DURATION = Histogram(
+    "event_handler_duration_seconds",
+    "Domain event handler duration",
+    ("event_name", "handler_id", "result"),
+    registry=REGISTRY,
+)
+
 JOB_RUNS = Counter("job_runs_total", "Background job runs", ("job_name",), registry=REGISTRY)
 JOB_FAILURES = Counter("job_failures_total", "Background job failures", ("job_name",), registry=REGISTRY)
 JOB_DURATION = Histogram(

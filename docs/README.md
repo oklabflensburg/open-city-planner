@@ -16,6 +16,7 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 - [Module Manifest Schema V1](modules/module-manifest-v1.md)
 - [Backend-Module-Runtime](modules/backend-module-runtime.md)
 - [Öffentliches Backend-Module-SDK](modules/backend-module-sdk.md)
+- [Domain Events und transaktionale Outbox](modules/domain-events.md)
 - [Frontend-Design und Analyse](frontend-design.md)
 - [Reihenfolge der GIS-Layer](map-layer-order.md)
 - [Intelligente Suche](intelligent-search.md)

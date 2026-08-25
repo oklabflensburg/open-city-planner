@@ -854,6 +854,19 @@
         on_calendar: ''
         accuracy: 10s
         randomized_delay: ''
+      - name: stadtplaner-domain-event-outbox
+        description: Stadtplaner Domain-Event-Outbox verarbeiten
+        enabled: "{{ stadtplaner_enable_domain_event_outbox_timer }}"
+        working_directory: "{{ stadtplaner_current_path }}/backend"
+        environment_file: "{{ stadtplaner_backend_env_file }}"
+        exec_start: "{{ stadtplaner_current_path }}/backend/.venv/bin/python -m app.cli.process_domain_event_outbox --limit 50"
+        read_write_paths: ["{{ stadtplaner_observability_dir }}"]
+        timer_description: Fällige Stadtplaner Domain Events regelmäßig zustellen
+        on_boot: 1m
+        on_unit_active: 1m
+        on_calendar: ''
+        accuracy: 10s
+        randomized_delay: ''
       - name: stadtplaner-social-publisher
         description: Stadtplaner Mastodon outbox publisher
         enabled: "{{ stadtplaner_enable_social_publisher_timer }}"

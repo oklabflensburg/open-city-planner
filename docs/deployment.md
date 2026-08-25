@@ -196,6 +196,7 @@ Social Publishing ist optional und wird in [social-publishing.md](social-publish
 sudo systemctl enable --now stadtplaner-polygon-outbox.timer
 sudo systemctl enable --now stadtplaner-social-publisher.timer
 sudo systemctl enable --now stadtplaner-email-outbox.timer
+sudo systemctl enable --now stadtplaner-domain-event-outbox.timer
 systemctl list-timers 'stadtplaner-*'
 ```
 
@@ -237,6 +238,7 @@ curl --fail --silent https://<frontend-origin>/dokumentation
 sudo journalctl -u <api-service> -n 200 --no-pager
 sudo journalctl -u <frontend-service> -n 200 --no-pager
 sudo journalctl -u stadtplaner-email-outbox.service -n 100 --no-pager
+sudo journalctl -u stadtplaner-domain-event-outbox.service -n 100 --no-pager
 sudo journalctl -u stadtplaner-polygon-outbox.service -n 100 --no-pager
 sudo journalctl -u stadtplaner-social-publisher.service -n 100 --no-pager
 sudo systemctl list-timers 'stadtplaner-*'

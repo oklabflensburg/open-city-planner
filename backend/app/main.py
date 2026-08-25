@@ -20,20 +20,24 @@ from app.observability.logging import configure_logging
 from app.observability.metrics import REDIS_AVAILABLE, REGISTRY, set_build_info
 from app.observability.middleware import ObservabilityMiddleware
 from app.observability.tracing import configure_tracing
+from app.platform.events import InProcessEventBus
 from app.platform.modules import (
     EntryPointModuleDiscovery,
     FirstPartyModuleDiscovery,
     create_module_runtime,
 )
+from app.platform.modules.context import ModuleContextFactory
 from app.security.request_limits import RequestBodyLimitMiddleware
 from app.services.assistant_provider import close_assistant_provider
 from app.services.map_previews import MapPreviewError, map_preview_service
 
 settings = get_settings()
+event_bus = InProcessEventBus()
 module_runtime = create_module_runtime(
     enabled_module_ids=settings.enabled_module_list,
     discovery_providers=(FirstPartyModuleDiscovery(), EntryPointModuleDiscovery()),
     host_version=settings.api_version,
+    context_factory=ModuleContextFactory(event_bus=event_bus),
 )
 configure_logging(
     level=settings.log_level,
@@ -140,6 +144,7 @@ app.add_middleware(
 
 app.include_router(api_router)
 module_runtime.register(app)
+event_bus.seal()
 
 
 @app.exception_handler(RequestValidationError)

@@ -48,6 +48,7 @@ stadtplaner_manage_background_timers: true
 stadtplaner_enable_osm_timer: true
 stadtplaner_enable_statistics_timer: true
 stadtplaner_enable_email_outbox_timer: true
+stadtplaner_enable_domain_event_outbox_timer: true
 stadtplaner_enable_social_publisher_timer: false
 
 stadtplaner_public_host: stadtplaner.oklabflensburg.de

@@ -26,7 +26,7 @@ from app.platform.modules.manifest import ModuleManifestV1, parse_manifest, vali
 from app.platform.modules.sdk import BackendModule, ModuleContext, ModuleDefinition
 
 logger = logging.getLogger(__name__)
-MODULE_SDK_VERSION = "1.0.0"
+MODULE_SDK_VERSION = "1.1.0"
 
 
 @dataclass(slots=True)
