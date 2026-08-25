@@ -278,7 +278,7 @@ def validate_manifest(
     host_version: str,
     sdk_version: str,
 ) -> ModuleManifestV1:
-    """Prüfe ein Manifest isoliert gegen explizit übergebene Host-/SDK-Versionen."""
+    """Isolierte Validierung eines Manifests gegen übergebene Host-/SDK-Versionen."""
 
     if manifest.id in manifest.requires.modules:
         raise ModuleSelfDependencyError(manifest.id, optional=False)
@@ -309,7 +309,7 @@ def validate_manifests(
     sdk_version: str,
     origins: Sequence[str | None] | None = None,
 ) -> tuple[ModuleManifestV1, ...]:
-    """Prüfe Compatibility und Dependencies einer verfügbaren/aktiven Modulmenge."""
+    """Validierung von Kompatibilität und Abhängigkeiten einer verfügbaren Modulmenge."""
 
     if origins is not None and len(origins) != len(manifests):
         raise ValueError("origins must have the same length as manifests")
