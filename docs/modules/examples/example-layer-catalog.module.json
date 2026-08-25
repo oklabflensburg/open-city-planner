@@ -1,0 +1,20 @@
+{
+  "manifest_version": 1,
+  "id": "example-layer-catalog",
+  "name": "Beispiel-Layerkatalog",
+  "version": "1.1.0",
+  "requires": {
+    "host": ">=1.0.0,<2.0.0",
+    "sdk": ">=1.0.0,<2.0.0"
+  },
+  "frontend": {
+    "package": "@open-city-planner/example-layer-catalog"
+  },
+  "capabilities": [
+    "map.layer",
+    "ui.navigation"
+  ],
+  "permissions": [
+    "example-layer-catalog.read"
+  ]
+}

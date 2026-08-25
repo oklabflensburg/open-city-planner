@@ -12,6 +12,9 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 
 ## Architektur und Frontend
 
+- [ADR: Modularer Host und Grenzen von Fachmodulen](architecture/adr-modular-host-and-module-boundaries.md)
+- [Module Manifest Schema V1](modules/module-manifest-v1.md)
+- [Backend-Module-Runtime](modules/backend-module-runtime.md)
 - [Frontend-Design und Analyse](frontend-design.md)
 - [Reihenfolge der GIS-Layer](map-layer-order.md)
 - [Intelligente Suche](intelligent-search.md)

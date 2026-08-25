@@ -1,0 +1,39 @@
+"""Bewusst kleines, ausschließlich in Tests aktiviertes Runtime-Modul."""
+
+from fastapi import APIRouter
+
+from app.platform.modules import ModuleDefinition, ModuleManifestV1, ModuleRegistrationContext
+from app.platform.modules.manifest import parse_manifest
+
+MANIFEST = parse_manifest(
+    {
+        "manifest_version": 1,
+        "id": "test-example-module",
+        "name": "Runtime-Testmodul",
+        "version": "1.0.0",
+        "requires": {"host": ">=0.2.0,<1.0.0", "sdk": ">=1.0.0,<2.0.0"},
+        "capabilities": ["test.ping"],
+    },
+    origin="tests.fixtures.example_backend_module",
+)
+
+
+class ExampleBackendModule:
+    manifest: ModuleManifestV1 = MANIFEST
+
+    def register(self, context: ModuleRegistrationContext) -> None:
+        router = APIRouter()
+
+        @router.get("/ping")
+        async def ping() -> dict[str, str]:
+            return {"status": "ok"}
+
+        context.include_router(router, prefix="/api/v1/module-test", tags=("Module test",))
+
+
+DEFINITION = ModuleDefinition(
+    manifest=MANIFEST,
+    loader=ExampleBackendModule,
+    origin="tests.fixtures.example_backend_module",
+    declared_id=MANIFEST.id,
+)

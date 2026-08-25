@@ -1,0 +1,250 @@
+{
+  "$defs": {
+    "ModuleBackendPackage": {
+      "additionalProperties": false,
+      "description": "Deklarativer Python-Distributionsname; keine Import-Anweisung.",
+      "properties": {
+        "package": {
+          "maxLength": 214,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$",
+          "title": "Package",
+          "type": "string"
+        }
+      },
+      "required": [
+        "package"
+      ],
+      "title": "ModuleBackendPackage",
+      "type": "object"
+    },
+    "ModuleConfig": {
+      "additionalProperties": false,
+      "description": "Stabile Identität für das spätere Settings-Namespace aus #99.",
+      "properties": {
+        "namespace": {
+          "$ref": "#/$defs/ModuleId"
+        }
+      },
+      "required": [
+        "namespace"
+      ],
+      "title": "ModuleConfig",
+      "type": "object"
+    },
+    "ModuleFrontendPackage": {
+      "additionalProperties": false,
+      "description": "Deklarativer npm-Paketname; kein Runtime-Bundle oder Download-Endpunkt.",
+      "properties": {
+        "package": {
+          "maxLength": 214,
+          "minLength": 1,
+          "pattern": "^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$",
+          "title": "Package",
+          "type": "string"
+        }
+      },
+      "required": [
+        "package"
+      ],
+      "title": "ModuleFrontendPackage",
+      "type": "object"
+    },
+    "ModuleId": {
+      "maxLength": 63,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "type": "string"
+    },
+    "ModuleOptionalRequirements": {
+      "additionalProperties": false,
+      "description": "Optionale Module, deren vorhandene Version dennoch kompatibel sein muss.",
+      "properties": {
+        "modules": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SemanticVersionRange"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/ModuleId"
+          },
+          "title": "Modules",
+          "type": "object"
+        }
+      },
+      "title": "ModuleOptionalRequirements",
+      "type": "object"
+    },
+    "ModulePersistence": {
+      "additionalProperties": false,
+      "description": "Deklarative Metadaten für das spätere Migrations-Ownership aus #97.",
+      "properties": {
+        "migrations": {
+          "default": false,
+          "title": "Migrations",
+          "type": "boolean"
+        },
+        "schema": {
+          "maxLength": 63,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Schema",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema"
+      ],
+      "title": "ModulePersistence",
+      "type": "object"
+    },
+    "ModuleRequirements": {
+      "additionalProperties": false,
+      "description": "Pflichtkompatibilität und erforderliche Modulabhängigkeiten.",
+      "properties": {
+        "host": {
+          "$ref": "#/$defs/SemanticVersionRange"
+        },
+        "modules": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SemanticVersionRange"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/ModuleId"
+          },
+          "title": "Modules",
+          "type": "object"
+        },
+        "sdk": {
+          "$ref": "#/$defs/SemanticVersionRange"
+        }
+      },
+      "required": [
+        "host",
+        "sdk"
+      ],
+      "title": "ModuleRequirements",
+      "type": "object"
+    },
+    "NamespacedId": {
+      "maxLength": 127,
+      "minLength": 3,
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)+$",
+      "type": "string"
+    },
+    "SemanticVersion": {
+      "examples": [
+        "1.2.3"
+      ],
+      "format": "semver",
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "SemanticVersionRange": {
+      "examples": [
+        ">=1.2.0,<2.0.0"
+      ],
+      "format": "semver-range",
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versionierter, deklarativer Kernvertrag eines Open-City-Planner-Moduls.",
+  "properties": {
+    "backend": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModuleBackendPackage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "capabilities": {
+      "items": {
+        "$ref": "#/$defs/NamespacedId"
+      },
+      "title": "Capabilities",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "config": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModuleConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "frontend": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModuleFrontendPackage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "id": {
+      "$ref": "#/$defs/ModuleId"
+    },
+    "manifest_version": {
+      "const": 1,
+      "title": "Manifest Version",
+      "type": "integer"
+    },
+    "name": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "optional": {
+      "$ref": "#/$defs/ModuleOptionalRequirements"
+    },
+    "permissions": {
+      "items": {
+        "$ref": "#/$defs/NamespacedId"
+      },
+      "title": "Permissions",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "persistence": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModulePersistence"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "requires": {
+      "$ref": "#/$defs/ModuleRequirements"
+    },
+    "version": {
+      "$ref": "#/$defs/SemanticVersion"
+    }
+  },
+  "required": [
+    "manifest_version",
+    "id",
+    "name",
+    "version",
+    "requires"
+  ],
+  "title": "ModuleManifestV1",
+  "type": "object"
+}
