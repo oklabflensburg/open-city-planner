@@ -100,3 +100,6 @@ jobs:
       - name: Upgrade fresh database
         working-directory: backend
         run: uv run alembic upgrade head
+      - name: Verify module persistence and migration contracts
+        working-directory: backend
+        run: uv run pytest tests/test_module_persistence.py

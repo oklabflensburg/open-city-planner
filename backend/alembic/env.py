@@ -6,50 +6,52 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 from app.core.config import get_settings
-from app.db.base import Base
-from app.models import (  # noqa: F401
-    AdminAuditLog,
-    AnalysisArea,
-    AuthMfaChallenge,
-    CacheVersion,
-    CityMetrics,
-    DomainEventOutbox,
-    EmailCampaign,
-    EmailCampaignDelivery,
-    EmailOutbox,
-    EmailTemplate,
-    EmailUnsubscribeToken,
-    EmailVerificationToken,
-    EventDelivery,
-    MastodonOAuthInstance,
-    OAuthFlowGrant,
-    OsmFeature,
-    PasswordResetToken,
-    PolygonAnalysisArea,
-    SocialPublication,
-    SocialPublicationOutbox,
-    SocialPublishingSettings,
-    User,
-    UserMfaMethod,
-    UserMfaRecoveryCode,
-    UserOAuthAccount,
-    UserPolygon,
-    UserSession,
+from app.platform.modules import EntryPointModuleDiscovery, FirstPartyModuleDiscovery
+from app.platform.modules.persistence import (
+    build_persistence_registry,
+    include_autogenerate_object,
 )
+from app.platform.modules.runtime import resolve_module_definitions
+
+settings = get_settings()
+resolved_modules = resolve_module_definitions(
+    enabled_module_ids=settings.enabled_module_list,
+    discovery_providers=(FirstPartyModuleDiscovery(), EntryPointModuleDiscovery()),
+    host_version=settings.api_version,
+)
+registry = build_persistence_registry(resolved_modules)
 
 config = context.config
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+database_url = config.attributes.get("database_url", settings.database_url)
+config.set_main_option("sqlalchemy.url", database_url)
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+if config.config_file_name is not None and config.attributes.get("configure_logger", True):
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
-target_metadata = Base.metadata
+target_metadata = registry.target_metadata
+
+
+def include_name(name: str | None, type_: str, parent_names: dict[str, str | None]) -> bool:
+    """Reflektiere nur das Legacy-/Public-Schema und explizit registrierte Module."""
+
+    if type_ == "schema":
+        return name in {None, "public", *registry.owned_schemas}
+    return parent_names.get("schema_name") in {None, "public", *registry.owned_schemas}
+
+
+def configure_context(**kwargs) -> None:
+    context.configure(
+        target_metadata=target_metadata,
+        include_schemas=True,
+        include_name=include_name,
+        include_object=include_autogenerate_object,
+        **kwargs,
+    )
 
 
 def run_migrations_offline() -> None:
-    context.configure(
-        url=get_settings().database_url,
-        target_metadata=target_metadata,
+    configure_context(
+        url=database_url,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -58,7 +60,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    configure_context(connection=connection)
     with context.begin_transaction():
         context.run_migrations()
 

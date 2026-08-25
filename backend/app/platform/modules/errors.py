@@ -71,6 +71,18 @@ class DuplicateConfigNamespaceError(ModuleManifestError):
         self.module_ids = tuple(module_ids)
 
 
+class DuplicatePersistenceSchemaError(ModuleManifestError):
+    """Zwei Module beanspruchen dasselbe PostgreSQL-Schema."""
+
+    def __init__(self, schema: str, module_ids: Sequence[str]) -> None:
+        joined_ids = ", ".join(module_ids)
+        super().__init__(
+            f'Persistence schema "{schema}" is owned by multiple modules: {joined_ids}.'
+        )
+        self.schema = schema
+        self.module_ids = tuple(module_ids)
+
+
 class ModuleCompatibilityError(ModuleManifestError):
     """Ein Modul ist mit der aktuellen Host- oder SDK-Version inkompatibel."""
 
@@ -223,3 +235,25 @@ class ModuleShutdownError(ModuleRuntimeError):
 
     def __init__(self, message: str, *, module_id: str | None = None) -> None:
         super().__init__(message, phase="shutdown", module_id=module_id)
+
+
+class ModulePersistenceError(RuntimeError):
+    """Ein passiver Persistence-Beitrag verletzt den Ownership-Contract."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        module_id: str | None = None,
+        schema: str | None = None,
+        phase: str = "preflight",
+    ) -> None:
+        context = [f"phase={phase}"]
+        if module_id is not None:
+            context.append(f"module_id={module_id}")
+        if schema is not None:
+            context.append(f"schema={schema}")
+        super().__init__(f"Module persistence error ({', '.join(context)}): {message}")
+        self.module_id = module_id
+        self.schema = schema
+        self.phase = phase

@@ -265,8 +265,12 @@ def test_public_sdk_has_no_host_internal_or_domain_imports() -> None:
     assert forbidden_domain_names.isdisjoint(tree_names(tree))
 
 
-def test_fixture_module_uses_only_public_app_sdk_import() -> None:
-    fixture_path = Path(__file__).resolve().parent / "fixtures/example_backend_module.py"
+@pytest.mark.parametrize(
+    "fixture_name",
+    ("example_backend_module.py", "example_persistence_module.py"),
+)
+def test_fixture_module_uses_only_public_app_sdk_import(fixture_name: str) -> None:
+    fixture_path = Path(__file__).resolve().parent / f"fixtures/{fixture_name}"
     tree = ast.parse(fixture_path.read_text(encoding="utf-8"))
     app_imports = {
         node.module

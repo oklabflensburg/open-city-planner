@@ -15,6 +15,7 @@ from app.platform.modules.discovery import (
 from app.platform.modules.errors import (
     DuplicateConfigNamespaceError,
     DuplicateModuleIdError,
+    DuplicatePersistenceSchemaError,
     InvalidRuntimeVersionError,
     MissingModuleDependencyError,
     ModuleCompatibilityError,
@@ -24,6 +25,7 @@ from app.platform.modules.errors import (
     ModuleDiscoveryError,
     ModuleLoadError,
     ModuleManifestError,
+    ModulePersistenceError,
     ModuleRegistrationError,
     ModuleRuntimeError,
     ModuleSelfDependencyError,
@@ -51,8 +53,14 @@ from app.platform.modules.runtime import (
     ModuleRegistry,
     ModuleRuntime,
     create_module_runtime,
+    resolve_module_definitions,
 )
-from app.platform.modules.sdk import BackendModule, ModuleContext
+from app.platform.modules.sdk import (
+    BackendModule,
+    ModuleContext,
+    ModuleMigrationSource,
+    ModulePersistenceContribution,
+)
 
 __all__ = [
     "ENTRY_POINT_GROUP",
@@ -60,6 +68,7 @@ __all__ = [
     "BackendModule",
     "DuplicateConfigNamespaceError",
     "DuplicateModuleIdError",
+    "DuplicatePersistenceSchemaError",
     "EntryPointModuleDiscovery",
     "FirstPartyModuleDiscovery",
     "InvalidRuntimeVersionError",
@@ -79,8 +88,11 @@ __all__ = [
     "ModuleLoadError",
     "ModuleManifestError",
     "ModuleManifestV1",
+    "ModuleMigrationSource",
     "ModuleOptionalRequirements",
     "ModulePersistence",
+    "ModulePersistenceContribution",
+    "ModulePersistenceError",
     "ModuleRecord",
     "ModuleRegistrationContext",
     "ModuleRegistrationError",
@@ -96,6 +108,7 @@ __all__ = [
     "create_module_runtime",
     "module_manifest_json_schema",
     "parse_manifest",
+    "resolve_module_definitions",
     "resolve_module_order",
     "validate_manifest",
     "validate_manifests",

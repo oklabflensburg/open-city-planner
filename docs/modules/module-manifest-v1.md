@@ -101,7 +101,7 @@ definiert. Auswertung und Registrierung der Permissions folgen in #104.
 | `permissions` | stabile, vom Modul namespacete Permission-IDs |
 | `config.namespace` | eindeutige Identität für die spätere Config Runtime aus #99 |
 | `persistence.schema` | deklarativer, unquoted-sicherer PostgreSQL-Schemaname |
-| `persistence.migrations` | kündigt eigene Migrationen für #97 deklarativ an |
+| `persistence.migrations` | kündigt eigene, durch #97 koordinierte Migrationen an |
 
 Backend-only-, Frontend-only- und kombinierte Module sind darstellbar. Die
 Package-Felder lösen in #93 weder Imports noch Downloads aus. Das Manifest enthält
@@ -109,8 +109,9 @@ keine Secrets, SQL-Anweisungen, Entry-Point-Ausführung oder Settingswerte.
 
 `config.namespace` ist über die validierte Manifestmenge eindeutig und stabil.
 Environment-Namen, Secret-Zugriff und Settings-Lifecycle werden erst in #99
-definiert. Persistence-Metadaten erzeugen weder DB-Schemas noch Migrationen; der
-Alembic-Runner bleibt bis #97 unverändert.
+definiert. Persistence-Metadaten führen selbst keine DB-Operation aus; Metadata,
+Migration Sources, Schema-Ownership und Alembic-Preflight sind im
+[Datenbank- und Migrationsvertrag](database-and-migrations.md) beschrieben.
 
 ## Dependency-Semantik
 

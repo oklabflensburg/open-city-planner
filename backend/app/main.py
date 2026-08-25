@@ -26,7 +26,8 @@ from app.platform.modules import (
     FirstPartyModuleDiscovery,
     create_module_runtime,
 )
-from app.platform.modules.context import ModuleContextFactory
+from app.platform.modules.context import ModuleContextFactory, ModuleHostServices
+from app.platform.modules.persistence import HostDatabaseSessionProvider
 from app.security.request_limits import RequestBodyLimitMiddleware
 from app.services.assistant_provider import close_assistant_provider
 from app.services.map_previews import MapPreviewError, map_preview_service
@@ -37,7 +38,9 @@ module_runtime = create_module_runtime(
     enabled_module_ids=settings.enabled_module_list,
     discovery_providers=(FirstPartyModuleDiscovery(), EntryPointModuleDiscovery()),
     host_version=settings.api_version,
-    context_factory=ModuleContextFactory(event_bus=event_bus),
+    context_factory=ModuleContextFactory(
+        ModuleHostServices(database=HostDatabaseSessionProvider()), event_bus=event_bus
+    ),
 )
 configure_logging(
     level=settings.log_level,

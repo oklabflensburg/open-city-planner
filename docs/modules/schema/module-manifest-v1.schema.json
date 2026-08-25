@@ -76,7 +76,7 @@
     },
     "ModulePersistence": {
       "additionalProperties": false,
-      "description": "Deklarative Metadaten für das spätere Migrations-Ownership aus #97.",
+      "description": "Deklarative Schema- und Migrations-Ownership aus #97.",
       "properties": {
         "migrations": {
           "default": false,
