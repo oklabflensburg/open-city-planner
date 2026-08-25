@@ -25,7 +25,7 @@ describe('polygon create and delete UI', () => {
     expect(header).toContain('<span class="whitespace-nowrap">Neue Fläche</span>')
     expect(header).toContain('aria-label="Neue Fläche anlegen"')
     expect(header).toContain('min-[1400px]:flex')
-    expect(shell).toContain('v-if="authStore.authenticated"')
+    expect(shell).toContain('v-if="authStore.authenticated && (mapStore.activeGisPanel === null || isCompact)"')
     expect(shell).toContain('to="/flaechen/neu"')
     expect(shell).toContain('aria-label="Neue Fläche anlegen"')
     expect(shell).toContain('<ClientOnly>')
