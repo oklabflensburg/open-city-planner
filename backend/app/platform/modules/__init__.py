@@ -1,0 +1,55 @@
+"""Öffentlicher Contract für Modulmanifeste und Abhängigkeitsauflösung."""
+
+from app.platform.modules.dependency_graph import resolve_module_order
+from app.platform.modules.errors import (
+    DuplicateConfigNamespaceError,
+    DuplicateModuleIdError,
+    InvalidRuntimeVersionError,
+    MissingModuleDependencyError,
+    ModuleCompatibilityError,
+    ModuleDependencyCycleError,
+    ModuleDependencyError,
+    ModuleDependencyVersionError,
+    ModuleManifestError,
+    ModuleSelfDependencyError,
+    UnsupportedManifestVersionError,
+)
+from app.platform.modules.manifest import (
+    ModuleBackendPackage,
+    ModuleConfig,
+    ModuleFrontendPackage,
+    ModuleManifestV1,
+    ModuleOptionalRequirements,
+    ModulePersistence,
+    ModuleRequirements,
+    module_manifest_json_schema,
+    parse_manifest,
+    validate_manifest,
+    validate_manifests,
+)
+
+__all__ = [
+    "DuplicateConfigNamespaceError",
+    "DuplicateModuleIdError",
+    "InvalidRuntimeVersionError",
+    "MissingModuleDependencyError",
+    "ModuleBackendPackage",
+    "ModuleCompatibilityError",
+    "ModuleConfig",
+    "ModuleDependencyCycleError",
+    "ModuleDependencyError",
+    "ModuleDependencyVersionError",
+    "ModuleFrontendPackage",
+    "ModuleManifestError",
+    "ModuleManifestV1",
+    "ModuleOptionalRequirements",
+    "ModulePersistence",
+    "ModuleRequirements",
+    "ModuleSelfDependencyError",
+    "UnsupportedManifestVersionError",
+    "module_manifest_json_schema",
+    "parse_manifest",
+    "resolve_module_order",
+    "validate_manifest",
+    "validate_manifests",
+]
