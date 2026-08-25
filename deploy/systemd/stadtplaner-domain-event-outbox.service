@@ -1,0 +1,16 @@
+[Unit]
+Description=Stadtplaner Domain-Event-Outbox verarbeiten
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=oklab
+Group=www-data
+WorkingDirectory=/opt/git/open-city-planner/backend
+EnvironmentFile=/opt/git/open-city-planner/backend/.env
+ExecStart=/opt/git/open-city-planner/backend/.venv/bin/python -m app.cli.process_domain_event_outbox --limit 50
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/data/stadtplaner/observability

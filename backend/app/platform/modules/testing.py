@@ -11,12 +11,16 @@ from typing import TypeVar, cast
 from app.platform.modules.contracts import ModuleRegistrationContext
 from app.platform.modules.sdk import (
     DomainEvent,
+    EventEnvelope,
+    EventHandler,
     HttpClientPort,
     HttpResponsePort,
     JobHandler,
     ModuleContext,
     ObservabilityPort,
+    SerializableDomainEvent,
     SpanPort,
+    event_envelope,
 )
 
 T = TypeVar("T")
@@ -56,10 +60,35 @@ class FakeCache:
 
 class FakeEventBus:
     def __init__(self) -> None:
-        self.published: list[DomainEvent] = []
+        self.published: list[DomainEvent | SerializableDomainEvent | EventEnvelope] = []
+        self.queued: list[EventEnvelope] = []
+        self.subscriptions: list[tuple[str, str, frozenset[int], EventHandler]] = []
 
-    async def publish(self, event: DomainEvent) -> None:
+    async def publish(
+        self, event: DomainEvent | SerializableDomainEvent | EventEnvelope
+    ) -> None:
         self.published.append(event)
+
+    async def publish_after_commit(
+        self,
+        event: DomainEvent | SerializableDomainEvent | EventEnvelope,
+        *,
+        session,
+    ) -> EventEnvelope:
+        del session
+        envelope = event if isinstance(event, EventEnvelope) else event_envelope(event)
+        self.queued.append(envelope)
+        return envelope
+
+    def subscribe(
+        self,
+        event_name: str,
+        *,
+        handler_id: str,
+        versions: frozenset[int],
+        handler: EventHandler,
+    ) -> None:
+        self.subscriptions.append((event_name, handler_id, versions, handler))
 
 
 class FakeServiceRegistry:

@@ -322,6 +322,7 @@ Standardmäßig:
 - `stadtplaner-osm-update.timer`: aktiv
 - `stadtplaner-flensburg-statistics-sync.timer`: aktiv
 - `stadtplaner-email-outbox.timer`: aktiv
+- `stadtplaner-domain-event-outbox.timer`: aktiv
 - `stadtplaner-social-publisher.timer`: aus
 
 Mastodon nur aktivieren, wenn die Backend-Konfiguration vollständig ist:

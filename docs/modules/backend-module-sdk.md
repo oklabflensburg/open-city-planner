@@ -60,7 +60,7 @@ Sub-Interfaces `context.api` und `context.lifecycle`.
 | `api` | `ApiRegistrar` | durch die Runtime implementiert |
 | `lifecycle` | `LifecycleRegistrar` | durch die Runtime implementiert |
 | `database` | `DatabaseSessionProvider` | optionaler Port; Adapter folgt mit DB-/Migrationsarbeit |
-| `events` | `EventBusPort` | optionaler Port; echte Zustellung/Outbox folgt in #96 |
+| `events` | `EventBusPort` | In-Process Dispatch und transaktionale Outbox aus #96 |
 | `services` | `ServiceRegistryPort` | optionaler Port; Registry folgt in #98 |
 | `permissions` | `PermissionPort` | optionaler Port; Policy Engine folgt in #104 |
 | `cache` | `CachePort` | optionaler, modulgebundener Byte-Cache |
@@ -93,10 +93,10 @@ Die Ports machen keine Redis-, Dateisystem- oder Cloud-SDK-Typen öffentlich.
 
 ### Events, Services, Permissions und Jobs
 
-Diese Ports definieren nur die Richtung künftiger Hostadapter. #95 implementiert
-weder Event-Zustellung noch Outbox, Service Registry, Permission Policy oder Job-
-Ausführung. Die Service-Auflösung ist ausschließlich für explizite öffentliche
-Cross-Module-Contracts vorgesehen und kein allgemeiner Service Locator.
+Der Event-Port ist durch die [Domain-Event- und Outbox-Infrastruktur](domain-events.md)
+implementiert. Service Registry, Permission Policy und Job-Ausführung bleiben ihren
+Folge-Issues vorbehalten. Die Service-Auflösung ist ausschließlich für explizite
+öffentliche Cross-Module-Contracts vorgesehen und kein allgemeiner Service Locator.
 
 ### HTTP
 
@@ -130,8 +130,9 @@ unter `app.*` ausschließlich den öffentlichen SDK-Pfad verwendet.
 ## SDK-Versionierung
 
 `MODULE_SDK_VERSION` ist eine SemVer-Version und unabhängig von Release-SHA und
-Host-API-Version. Der Context wurde unter SDK `1.0.0` additiv eingeführt; die
-kompatiblen #94-Proxys bleiben erhalten.
+Host-API-Version. Der Context wurde unter SDK `1.0.0` eingeführt. Die additive
+Event-/Outbox-API aus #96 erhöht die SDK-Version auf `1.1.0`; der minimale
+`DomainEvent`-Contract aus 1.0 und die #94-Proxys bleiben kompatibel.
 
 - **MAJOR:** Entfernen oder Umbenennen öffentlicher Methoden, inkompatible Änderungen
   an vorhandener Semantik oder eine inkompatible Context-Struktur.

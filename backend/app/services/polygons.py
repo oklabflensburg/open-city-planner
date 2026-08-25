@@ -279,7 +279,8 @@ async def create_polygon(
     from sqlalchemy import select
     from sqlalchemy.exc import IntegrityError
 
-    from app.services.polygon_outbox import enqueue_polygon_mutation_event
+    from app.services.polygon_event_publisher import enqueue_polygon_event
+    from app.services.polygon_events import PolygonCreated
     
     if payload.idempotency_key:
         existing = await session.scalar(select(UserPolygon).where(UserPolygon.idempotency_key == payload.idempotency_key))
@@ -315,7 +316,7 @@ async def create_polygon(
         raise
 
     await refresh_polygon_area_assignments(session, polygon.id)
-    await enqueue_polygon_mutation_event(session, polygon.uuid, "CREATED", {})
+    await enqueue_polygon_event(session, PolygonCreated(polygon.uuid))
     await invalidate_gis_after_mutation(session)
     await session.commit()
     await session.refresh(polygon)
@@ -466,13 +467,21 @@ async def update_polygon(
     if geometry_changed:
         await refresh_polygon_area_assignments(session, polygon.id)
     
-    from app.services.polygon_outbox import enqueue_polygon_mutation_event
-    await enqueue_polygon_mutation_event(session, polygon.uuid, "UPDATED", {
-        "geometry_changed": geometry_changed,
-        "previous_occupancy_status": previous_occupancy_status,
-        "occupancy_status_changed": "occupancy_status" in data and polygon.occupancy_status != previous_occupancy_status,
-        "actor_user_id": str(user_id) if user_id else None
-    })
+    from app.services.polygon_event_publisher import enqueue_polygon_event
+    from app.services.polygon_events import PolygonUpdated
+
+    await enqueue_polygon_event(
+        session,
+        PolygonUpdated(
+            polygon_id=polygon.uuid,
+            geometry_changed=geometry_changed,
+            occupancy_status_changed=(
+                "occupancy_status" in data
+                and polygon.occupancy_status != previous_occupancy_status
+            ),
+            actor_user_id=user_id,
+        ),
+    )
     
     await invalidate_gis_after_mutation(session)
     await session.commit()
@@ -501,13 +510,21 @@ async def update_polygon_verwaltung(
     polygon.updated_at = utcnow()
     await invalidate_gis_after_mutation(session)
     
-    from app.services.polygon_outbox import enqueue_polygon_mutation_event
-    await enqueue_polygon_mutation_event(session, polygon.uuid, "UPDATED", {
-        "geometry_changed": False,
-        "previous_occupancy_status": previous_occupancy_status,
-        "occupancy_status_changed": "occupancy_status" in data and polygon.occupancy_status != previous_occupancy_status,
-        "actor_user_id": str(user_id) if user_id else None
-    })
+    from app.services.polygon_event_publisher import enqueue_polygon_event
+    from app.services.polygon_events import PolygonUpdated
+
+    await enqueue_polygon_event(
+        session,
+        PolygonUpdated(
+            polygon_id=polygon.uuid,
+            geometry_changed=False,
+            occupancy_status_changed=(
+                "occupancy_status" in data
+                and polygon.occupancy_status != previous_occupancy_status
+            ),
+            actor_user_id=user_id,
+        ),
+    )
     
     await session.commit()
     await session.refresh(polygon)
@@ -528,13 +545,19 @@ async def delete_polygon(
 
     polygon_id = polygon.uuid
     
-    from app.services.polygon_outbox import enqueue_polygon_mutation_event
-    await enqueue_polygon_mutation_event(session, polygon_id, "DELETED", {
-        "deleted_by_user_id": str(deleted_by_user_id),
-        "slug": polygon.slug,
-        "name": polygon.name,
-        "created_by_user_id": str(polygon.created_by_user_id) if polygon.created_by_user_id else None
-    })
+    from app.services.polygon_event_publisher import enqueue_polygon_event
+    from app.services.polygon_events import PolygonDeleted
+
+    await enqueue_polygon_event(
+        session,
+        PolygonDeleted(
+            polygon_id=polygon_id,
+            deleted_by_user_id=deleted_by_user_id,
+            created_by_user_id=polygon.created_by_user_id,
+            slug=polygon.slug,
+            name=polygon.name,
+        ),
+    )
 
     session.add(
         AdminAuditLog(
