@@ -3,6 +3,7 @@ import { fetch, setup } from '@nuxt/test-utils/e2e'
 import { describe, expect, it } from 'vitest'
 
 const siteUrl = 'https://stadtplaner.example'
+const apiBaseUrl = 'http://127.0.0.1:3012/api/v1'
 
 await setup({
   rootDir: fileURLToPath(new URL('..', import.meta.url)),
@@ -10,13 +11,13 @@ await setup({
   port: 3012,
   setupTimeout: 180_000,
   env: {
-    NUXT_PUBLIC_API_BASE_URL: 'http://127.0.0.1:3012/api/v1',
+    NUXT_PUBLIC_API_BASE_URL: apiBaseUrl,
     NUXT_PUBLIC_SITE_URL: siteUrl
   },
   nuxtConfig: {
     runtimeConfig: {
       public: {
-        apiBaseUrl: 'http://127.0.0.1:3012/api/v1',
+        apiBaseUrl,
         siteUrl
       }
     },
@@ -45,6 +46,15 @@ function expectCanonical(html: string, path: string, robots: 'index,follow' | 'n
   expect(links.find(item => item.rel === 'canonical')?.href).toBe(`${siteUrl}${path}`)
   expect(meta.find(item => item.property === 'og:url')?.content).toBe(`${siteUrl}${path}`)
   expect(meta.find(item => item.name === 'robots')?.content).toBe(robots)
+}
+
+function expectSocialImage(html: string, image: string, imageAlt: string) {
+  const meta = tags(html, 'meta').map(attributes)
+  expect(meta.find(item => item.property === 'og:image')?.content).toBe(image)
+  expect(meta.find(item => item.property === 'og:image:alt')?.content).toBe(imageAlt)
+  expect(meta.find(item => item.name === 'twitter:image')?.content).toBe(image)
+  expect(meta.find(item => item.name === 'twitter:image:alt')?.content).toBe(imageAlt)
+  expect(meta.find(item => item.name === 'twitter:card')?.content).toBe('summary_large_image')
 }
 
 describe('SEO routes over Nuxt HTTP', () => {
@@ -144,4 +154,24 @@ describe('SEO routes over Nuxt HTTP', () => {
       expect(html).toContain('Seite nicht gefunden')
     }
   )
+
+  it('renders the native area preview in OpenGraph and Twitter metadata', async () => {
+    const response = await fetch('/gebiete/altstadt')
+    expect(response.status).toBe(200)
+    expectSocialImage(
+      await response.text(),
+      `${apiBaseUrl}/analysis-areas/by-slug/altstadt/preview.webp?width=1200&height=630`,
+      'Kartenansicht und Standortdaten für den Stadtteil Altstadt im Stadtplaner Flensburg'
+    )
+  })
+
+  it('renders the native polygon preview in OpenGraph and Twitter metadata', async () => {
+    const response = await fetch('/flaechen/test-flaeche')
+    expect(response.status).toBe(200)
+    expectSocialImage(
+      await response.text(),
+      `${apiBaseUrl}/polygons/by-slug/test-flaeche/preview.webp?width=1200&height=630`,
+      'Kartenansicht der Fläche „Testfläche“ mit Lage und öffentlichen Flächendaten im Stadtplaner Flensburg'
+    )
+  })
 })

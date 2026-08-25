@@ -1,4 +1,5 @@
 import type { AnalysisAreaDetail } from '~/types/analysisArea'
+import { buildApiUrl } from '~/utils/apiUrl'
 import { buildAbsoluteUrl, buildBreadcrumbStructuredData, serializeStructuredData, toMetaDescription } from '~/utils/seo'
 
 export function useAnalysisAreaSeo(area: MaybeRefOrGetter<AnalysisAreaDetail>) {
@@ -13,6 +14,15 @@ export function useAnalysisAreaSeo(area: MaybeRefOrGetter<AnalysisAreaDetail>) {
       ? `${data.value.name} Flensburg – Standortanalyse | Stadtplaner`
       : `${data.value.name} – Standortdaten im Quartier | Stadtplaner Flensburg`)
   const description = computed(() => toMetaDescription('', `Statistische Kennzahlen, Standort- und Einzelhandelsdaten für ${data.value.name}: Verkaufsflächen, Leerstand, Branchen, Bevölkerung und POIs.`))
+  const image = computed(() => buildApiUrl(
+    config.public.apiBaseUrl,
+    `/analysis-areas/by-slug/${encodeURIComponent(data.value.slug)}/preview.webp?width=1200&height=630`
+  ))
+  const imageAlt = computed(() => data.value.area_type === 'MUNICIPALITY'
+    ? `Kartenansicht der Gemeinde ${data.value.name} im Stadtplaner`
+    : data.value.area_type === 'DISTRICT'
+      ? `Kartenansicht und Standortdaten für den Stadtteil ${data.value.name} im Stadtplaner Flensburg`
+      : `Kartenansicht und Standortdaten für das Quartier ${data.value.name} im Stadtplaner Flensburg`)
   const breadcrumbItems = computed(() => [
     { name: 'Start', path: '/' },
     { name: 'Gebiete', path: '/gebiete' },
@@ -48,9 +58,13 @@ export function useAnalysisAreaSeo(area: MaybeRefOrGetter<AnalysisAreaDetail>) {
     ogUrl: () => url.value,
     ogSiteName: config.public.siteName,
     ogLocale: config.public.siteLocale,
-    twitterCard: 'summary',
+    ogImage: () => image.value,
+    ogImageAlt: () => imageAlt.value,
+    twitterCard: 'summary_large_image',
     twitterTitle: () => title.value,
-    twitterDescription: () => description.value
+    twitterDescription: () => description.value,
+    twitterImage: () => image.value,
+    twitterImageAlt: () => imageAlt.value
   })
   useHead(() => ({
     link: [{ rel: 'canonical', href: url.value }],

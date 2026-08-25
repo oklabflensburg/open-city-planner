@@ -60,4 +60,15 @@ describe('native map preview rendering helpers', () => {
     expect(validPayload({ ...payload, bbox: [9.45, 54.77, 9.42, 54.80] })).toBe(false)
     expect(validPayload({ ...payload, width: 801 })).toBe(false)
   })
+
+  it('accepts the 1200 by 630 social-card size', () => {
+    expect(validPayload({
+      geometry: { type: 'Polygon', coordinates: [[[9.43, 54.78], [9.44, 54.78], [9.44, 54.79], [9.43, 54.78]]] },
+      bbox: [9.42, 54.77, 9.45, 54.80],
+      width: 1200,
+      height: 630,
+      featureKind: 'area',
+      category: null
+    })).toBe(true)
+  })
 })
