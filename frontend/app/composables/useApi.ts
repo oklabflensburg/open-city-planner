@@ -105,7 +105,10 @@ export const useApi = () => {
     const csrf = csrfToken(options.method)
     if (csrf) headers.set('X-CSRF-Token', csrf)
 
-    return await fetch(buildApiUrl(config.public.apiBaseUrl, path), {
+    const baseUrl = import.meta.server
+      ? config.apiInternalBaseUrl || config.public.apiBaseUrl
+      : config.public.apiBaseUrl
+    return await fetch(buildApiUrl(baseUrl, path), {
       ...options,
       credentials: 'include',
       headers

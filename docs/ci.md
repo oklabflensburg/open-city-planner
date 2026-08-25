@@ -14,7 +14,7 @@ bei reinen Dokumentationsänderungen nicht.
 | Backend CI | `backend-migrations` | genau ein Alembic-Head und Upgrade einer frischen PostGIS-Datenbank |
 | Frontend CI | `frontend-tests` | vollständige Vitest-Suite |
 | Frontend CI | `frontend-typecheck` | Nuxt-/Vue-Typecheck |
-| Frontend CI | `frontend-build` | produktiver Nuxt-Build |
+| Frontend CI | `frontend-build` | produktiver Nuxt-Build und zentraler SSR-/SEO-Audit über Sitemap-, Noindex-, Redirect- und Fehler-Routen |
 | Frontend CI | `frontend-language-audit` | Audit der sichtbaren Sprache |
 | E2E Tests | `e2e` | vollständige Playwright-Suite mit echtem Frontend, Backend und frischer PostGIS-Datenbank |
 | Security | `security-policy-validation` | Format, Vollständigkeit und Ablauf befristeter Security-Ausnahmen sowie negative Policy-Tests |
@@ -68,7 +68,16 @@ pnpm test
 pnpm typecheck
 pnpm build
 pnpm audit:language
+pnpm audit:seo
 ```
+
+`pnpm audit:seo` startet den zuvor erzeugten Nitro-Production-Server und eine
+lokale Fixture-API auf freien Loopback-Ports. SSR-Aufrufe verwenden dabei die
+private `NUXT_API_INTERNAL_BASE_URL`; alle geprüften Canonical-, OpenGraph-,
+Twitter-, Sitemap- und JSON-LD-URLs verwenden weiterhin ausschließlich die
+production-artigen öffentlichen HTTPS-Origins. Der Audit crawlt alle
+Sitemap-Ziele sowie eine kompakte Matrix aus Noindex-, Auth-, Admin-,
+Social-Preview-, Redirect- und 404-Routen.
 
 E2E benötigt eine leere PostGIS-Datenbank. `DATABASE_URL` muss auf diese
 Testdatenbank zeigen:

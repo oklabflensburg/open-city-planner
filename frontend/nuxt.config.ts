@@ -65,6 +65,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     environment: process.env.APP_ENVIRONMENT || process.env.NODE_ENV || 'development',
     releaseSha: process.env.STADTPLANER_RELEASE_SHA || 'dev',
+    apiInternalBaseUrl: process.env.NUXT_API_INTERNAL_BASE_URL || '',
     public: {
       siteName: 'OK Lab Flensburg',
       siteUrl: configuredSiteUrl || 'http://localhost:3000',
@@ -103,8 +104,7 @@ export default defineNuxtConfig({
       '/**': { headers: securityHeaders },
       '/_nuxt/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
       '/branding/**': { headers: { 'cache-control': 'public, max-age=86400' } },
-      '/map-styles/**': { headers: { 'cache-control': 'public, max-age=86400' } },
-      '/flaechen/neu': { redirect: { to: '/flaechen/neu/', statusCode: 301 } }
+      '/map-styles/**': { headers: { 'cache-control': 'public, max-age=86400' } }
     }
   },
   typescript: {

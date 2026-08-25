@@ -15,11 +15,13 @@ pnpm dev
 pnpm test
 pnpm typecheck
 pnpm build
+pnpm audit:language
+pnpm audit:seo
 ```
 
-`NUXT_PUBLIC_API_BASE_URL` zeigt auf die FastAPI-Basis (typisch `http://localhost:8000/api/v1`). `NUXT_PUBLIC_SITE_URL` muss in Produktion die öffentliche Origin enthalten. Kartenstil, Startposition und optionale Medien-/OG-URLs werden über die Variablen in `.env.example` konfiguriert; ohne externen Kartenstil wird der lokale `stadtplaner-light`-Stil genutzt.
+`NUXT_PUBLIC_API_BASE_URL` zeigt auf die öffentliche FastAPI-Basis (typisch `http://localhost:8000/api/v1`). Optional kann `NUXT_API_INTERNAL_BASE_URL` ausschließlich für serverseitige/SSR-Aufrufe auf eine interne Basis zeigen; ohne den Wert wird die öffentliche API-Basis verwendet. `NUXT_PUBLIC_SITE_URL` muss in Produktion die öffentliche Origin enthalten. Kartenstil, Startposition und optionale Medien-/OG-URLs werden über die Variablen in `.env.example` konfiguriert; ohne externen Kartenstil wird der lokale `stadtplaner-light`-Stil genutzt.
 
-Alle `NUXT_PUBLIC_*`-Werte sind im Browser sichtbar und dürfen keine Secrets enthalten. Der produktive Build- und Deploymentablauf steht in [docs/deployment.md](../docs/deployment.md).
+Alle `NUXT_PUBLIC_*`-Werte sind im Browser sichtbar und dürfen keine Secrets enthalten. `NUXT_API_INTERNAL_BASE_URL` bleibt in der privaten Nuxt-Runtime-Konfiguration und darf nicht für Canonical-, OpenGraph-, Twitter-, JSON-LD- oder andere öffentliche URLs verwendet werden. Der produktive Build- und Deploymentablauf steht in [docs/deployment.md](../docs/deployment.md).
 
 ## Gebiete, SEO und Sitemap
 
