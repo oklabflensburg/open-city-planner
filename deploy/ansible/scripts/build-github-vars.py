@@ -70,8 +70,26 @@ def truthy(value: str | None) -> bool:
 
 
 def quoted(value: str) -> str:
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\r", "\\r")
+        .replace("\n", "\\n")
+    )
     return f'"{escaped}"'
+
+
+def validate_secret_values() -> None:
+    invalid = sorted(
+        name
+        for name in SECRET_KEYS
+        if (value := os.environ.get(name)) and ("\r" in value or "\n" in value)
+    )
+    if invalid:
+        raise SystemExit(
+            "GitHub environment secrets must be single-line values without CR/LF characters: "
+            + ", ".join(invalid)
+        )
 
 
 def require_secret(name: str, required: set[str]) -> None:
@@ -133,6 +151,8 @@ def main() -> None:
     parser.add_argument("--example", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+
+    validate_secret_values()
 
     reference = yaml.safe_load(args.example.read_text(encoding="utf-8"))
     generated: dict[str, str] = {}
