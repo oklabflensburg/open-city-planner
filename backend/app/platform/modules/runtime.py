@@ -6,10 +6,9 @@ from dataclasses import dataclass
 
 from fastapi import FastAPI
 
+from app.platform.modules.context import ModuleContextFactory
 from app.platform.modules.contracts import (
-    BackendModule,
     LifecycleContribution,
-    ModuleDefinition,
     ModuleDiscoveryProvider,
     ModuleRegistrationContext,
 )
@@ -24,6 +23,7 @@ from app.platform.modules.errors import (
     ModuleValidationError,
 )
 from app.platform.modules.manifest import ModuleManifestV1, parse_manifest, validate_manifests
+from app.platform.modules.sdk import BackendModule, ModuleContext, ModuleDefinition
 
 logger = logging.getLogger(__name__)
 MODULE_SDK_VERSION = "1.0.0"
@@ -37,7 +37,8 @@ class ModuleRecord:
     module: BackendModule
     origin: str
     load_index: int
-    context: ModuleRegistrationContext
+    context: ModuleContext
+    registration: ModuleRegistrationContext
     registered: bool = False
 
     @property
@@ -89,9 +90,9 @@ class ModuleRuntime:
             logger.info("Module registration started", extra=fields)
             try:
                 record.module.register(record.context)
-                record.context.close()
+                record.registration.close()
             except Exception as exc:
-                record.context.close()
+                record.registration.close()
                 raise ModuleRegistrationError(
                     "The module register() hook failed.",
                     module_id=record.manifest.id,
@@ -101,7 +102,7 @@ class ModuleRuntime:
             logger.info("Module registration completed", extra=fields)
 
         for record in self.registry.records:
-            for contribution in record.context.routers:
+            for contribution in record.registration.routers:
                 try:
                     app.include_router(
                         contribution.router,
@@ -125,7 +126,7 @@ class ModuleRuntime:
             raise ModuleStartupError("The module runtime has already been started.")
 
         for record in self.registry.records:
-            for contribution in record.context.lifecycle:
+            for contribution in record.registration.lifecycle:
                 try:
                     if contribution.startup is not None:
                         await contribution.startup()
@@ -178,6 +179,7 @@ def create_module_runtime(
     discovery_providers: Sequence[ModuleDiscoveryProvider],
     host_version: str,
     sdk_version: str = MODULE_SDK_VERSION,
+    context_factory: ModuleContextFactory | None = None,
 ) -> ModuleRuntime:
     """Discover, validiere, sortiere und instanziiere aktivierte Module fail-fast."""
 
@@ -249,12 +251,11 @@ def create_module_runtime(
                 ),
                 None,
             )
-        raise ModuleValidationError(
-            str(exc), module_id=exc.module_id, origin=origin
-        ) from exc
+        raise ModuleValidationError(str(exc), module_id=exc.module_id, origin=origin) from exc
 
     definitions_by_id = {manifest.id: definition for definition, manifest in parsed}
     records: list[ModuleRecord] = []
+    active_context_factory = context_factory or ModuleContextFactory()
     for load_index, manifest in enumerate(ordered):
         definition = definitions_by_id[manifest.id]
         try:
@@ -270,13 +271,15 @@ def create_module_runtime(
                 module_id=manifest.id,
                 origin=definition.origin,
             ) from exc
+        registration = ModuleRegistrationContext()
         records.append(
             ModuleRecord(
                 manifest=manifest,
                 module=module,
                 origin=definition.origin,
                 load_index=load_index,
-                context=ModuleRegistrationContext(),
+                context=active_context_factory.create(manifest, registration),
+                registration=registration,
             )
         )
     return ModuleRuntime(ModuleRegistry(records))

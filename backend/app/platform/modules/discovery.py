@@ -4,8 +4,8 @@ from collections.abc import Callable, Mapping, Sequence
 from importlib import metadata
 from types import MappingProxyType
 
-from app.platform.modules.contracts import ModuleDefinition
 from app.platform.modules.errors import ModuleDiscoveryError
+from app.platform.modules.sdk import ModuleDefinition
 
 ENTRY_POINT_GROUP = "open_city_planner.modules"
 type DefinitionSource = ModuleDefinition | Callable[[], ModuleDefinition]

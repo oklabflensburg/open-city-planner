@@ -52,10 +52,12 @@ Der Ablauf ist strikt getrennt:
 6. Startup-Hooks in Load Order ausführen;
 7. Shutdown-Hooks in umgekehrter Reihenfolge ausführen.
 
-`ModuleRegistrationContext` enthält bewusst nur Router- und asynchrone Lifecycle-
-Registrierung. Datenbank, Redis, Storage, Events, Services, Jobs und Secrets sind
-nicht Teil dieses kleinen Vertrags. Capabilities stammen unverändert aus dem
-Manifest und sind über `ModuleRegistry.capabilities(module_id)` verfügbar.
+Die Runtime erzeugt pro validiertem Manifest einen unveränderlichen, modulgebundenen
+[`ModuleContext`](backend-module-sdk.md). Seine API- und Lifecycle-Registrare nutzen
+intern weiterhin den kleinen `ModuleRegistrationContext` aus #94. Datenbank, Cache,
+Storage, Events, Services und Jobs werden ausschließlich über die öffentlichen Ports
+des SDK angeboten. Capabilities stammen unverändert aus dem Manifest und sind über
+`ModuleRegistry.capabilities(module_id)` verfügbar.
 
 `ModuleRuntime.register(app)` darf genau einmal aufgerufen werden. Damit entstehen
 keine stillen Router-Duplikate. `register()` ist für deklarative Beiträge bestimmt;
