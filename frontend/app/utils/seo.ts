@@ -4,6 +4,11 @@ export function buildAbsoluteUrl(siteUrl: string, path = '/') {
   return new URL(relativePath, base).toString()
 }
 
+export function buildSeoImageUrl(siteUrl: string, image: string) {
+  if (!image) return null
+  return /^https?:\/\//i.test(image) ? image : buildAbsoluteUrl(siteUrl, image)
+}
+
 export function toMetaDescription(value: string, fallback: string, maxLength = 160) {
   const plainText = value
     .replace(/<[^>]*>/g, ' ')

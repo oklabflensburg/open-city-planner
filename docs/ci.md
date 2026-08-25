@@ -77,7 +77,9 @@ private `NUXT_API_INTERNAL_BASE_URL`; alle geprüften Canonical-, OpenGraph-,
 Twitter-, Sitemap- und JSON-LD-URLs verwenden weiterhin ausschließlich die
 production-artigen öffentlichen HTTPS-Origins. Der Audit crawlt alle
 Sitemap-Ziele sowie eine kompakte Matrix aus Noindex-, Auth-, Admin-,
-Social-Preview-, Redirect- und 404-Routen.
+Social-Preview-, Redirect- und 404-Routen. Zusätzlich prüft er das globale
+Favicon-/Manifest-Set, die tatsächlichen PNG-Abmessungen und den 1200×630-
+Social-Image-Fallback aller indexierbaren Seiten.
 
 E2E benötigt eine leere PostGIS-Datenbank. `DATABASE_URL` muss auf diese
 Testdatenbank zeigen:

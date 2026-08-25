@@ -50,6 +50,8 @@ if (failures.length) {
 }
 
 async function auditApplication(baseUrl) {
+  await auditTechnicalAssets(baseUrl)
+  const metadataOwners = { titles: new Map(), descriptions: new Map() }
   const sitemapResponse = await fetch(`${baseUrl}/sitemap.xml`)
   if (sitemapResponse.status !== 200) {
     fail('/sitemap.xml', `expected HTTP 200, received ${sitemapResponse.status}`)
@@ -90,15 +92,19 @@ async function auditApplication(baseUrl) {
     const dynamic = DYNAMIC_PUBLIC_ROUTES.find(item => item.path === publicUrl.pathname)
     report(publicUrl.pathname, auditIndexableHtml(html, {
       expectedUrl: location,
-      expectSocialImage: Boolean(dynamic)
+      expectSocialImage: true
     }))
+    auditUniqueMetadata(publicUrl.pathname, html, metadataOwners)
     if (dynamic) auditDynamicSocialImage(publicUrl.pathname, html, dynamic.previewPath)
+    else auditDefaultSocialImage(publicUrl.pathname, html)
   }
 
   for (const route of NOINDEX_ROUTES) {
     const response = await fetch(`${baseUrl}${route.path}`, { redirect: 'manual' })
     if (response.status !== 200) fail(route.path, `expected HTTP 200 for ${route.type}, received ${response.status}`)
-    else report(route.path, auditNoindexHtml(await response.text()))
+    else report(route.path, auditNoindexHtml(await response.text(), {
+      expectedRobots: route.robots || 'noindex,nofollow'
+    }))
     if (locations.includes(`${SEO_AUDIT_SITE_ORIGIN}${route.path}`)) fail('/sitemap.xml', `contains ${route.type} route ${route.path}`)
   }
 
@@ -129,6 +135,73 @@ async function auditApplication(baseUrl) {
   }
 }
 
+function auditUniqueMetadata(path, html, owners) {
+  const page = parseHtmlSeo(html)
+  const title = page.titles[0]
+  const description = page.meta.find(item => item.name === 'description')?.content
+  for (const [kind, value, entries] of [
+    ['title', title, owners.titles],
+    ['description', description, owners.descriptions]
+  ]) {
+    if (!value) continue
+    const existing = entries.get(value)
+    if (existing) fail(path, `${kind} duplicates ${existing}`)
+    else entries.set(value, path)
+  }
+}
+
+async function auditTechnicalAssets(baseUrl) {
+  const manifestResponse = await fetch(`${baseUrl}/site.webmanifest`)
+  if (manifestResponse.status !== 200) {
+    fail('/site.webmanifest', `expected HTTP 200, received ${manifestResponse.status}`)
+    return
+  }
+  let manifest
+  try { manifest = await manifestResponse.json() } catch { fail('/site.webmanifest', 'invalid JSON'); return }
+  for (const [key, expected] of Object.entries({
+    name: 'Open City Planner',
+    short_name: 'Stadtplaner',
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#f8fafc',
+    theme_color: '#154d73'
+  })) {
+    if (manifest[key] !== expected) fail('/site.webmanifest', `${key} is ${manifest[key]}, expected ${expected}`)
+  }
+  const expectedIcons = new Map([
+    ['/web-app-manifest-192x192.png', 192],
+    ['/web-app-manifest-512x512.png', 512]
+  ])
+  if (!Array.isArray(manifest.icons) || manifest.icons.length !== expectedIcons.size) {
+    fail('/site.webmanifest', 'expected exactly two manifest icons')
+  }
+  for (const icon of manifest.icons || []) {
+    const size = expectedIcons.get(icon.src)
+    if (!size || icon.sizes !== `${size}x${size}` || icon.type !== 'image/png') {
+      fail('/site.webmanifest', `invalid icon declaration ${JSON.stringify(icon)}`)
+    }
+  }
+
+  for (const [path, size] of [
+    ['/favicon-96x96.png', 96],
+    ['/apple-touch-icon.png', 180],
+    ...expectedIcons,
+    ['/branding/stadtplaner-social-card.png', [1200, 630]]
+  ]) {
+    const response = await fetch(`${baseUrl}${path}`)
+    if (response.status !== 200) { fail(path, `expected HTTP 200, received ${response.status}`); continue }
+    const dimensions = pngDimensions(await response.arrayBuffer())
+    const expected = Array.isArray(size) ? size : [size, size]
+    if (dimensions[0] !== expected[0] || dimensions[1] !== expected[1]) {
+      fail(path, `is ${dimensions.join('x')}, expected ${expected.join('x')}`)
+    }
+  }
+  for (const path of ['/favicon.ico', '/branding/ok-lab-flensburg.svg']) {
+    const response = await fetch(`${baseUrl}${path}`)
+    if (response.status !== 200) fail(path, `expected HTTP 200, received ${response.status}`)
+  }
+}
+
 function auditDynamicSocialImage(path, html, expectedPath) {
   const page = parseHtmlSeo(html)
   const values = [
@@ -144,6 +217,24 @@ function auditDynamicSocialImage(path, html, expectedPath) {
       fail(path, 'social image is not 1200x630')
     }
   }
+}
+
+function auditDefaultSocialImage(path, html) {
+  const page = parseHtmlSeo(html)
+  const expected = `${SEO_AUDIT_SITE_ORIGIN}/branding/stadtplaner-social-card.png`
+  for (const value of [
+    page.meta.find(item => item.property === 'og:image')?.content,
+    page.meta.find(item => item.name === 'twitter:image')?.content
+  ]) {
+    if (value !== expected) fail(path, `default social image is ${value || 'missing'}, expected ${expected}`)
+  }
+}
+
+function pngDimensions(buffer) {
+  const bytes = new Uint8Array(buffer)
+  if (bytes[1] !== 80 || bytes[2] !== 78 || bytes[3] !== 71) return [0, 0]
+  const view = new DataView(buffer)
+  return [view.getUint32(16), view.getUint32(20)]
 }
 
 function startFrontend(port, internalApiBaseUrl) {

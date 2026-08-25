@@ -49,6 +49,8 @@ export function usePolygonSeo(polygon: MaybeRefOrGetter<PublicPolygonDetail>) {
     ogLocale: config.public.siteLocale,
     ogImage: () => image.value,
     ogImageAlt: () => imageAlt.value,
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
     twitterCard: 'summary_large_image',
     twitterTitle: () => title.value,
     twitterDescription: () => description.value,

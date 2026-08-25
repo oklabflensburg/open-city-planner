@@ -72,7 +72,7 @@ export default defineNuxtConfig({
       siteLocale: 'de_DE',
       defaultSeoTitle: 'Interaktive Stadtkarte',
       defaultSeoDescription: 'Interaktive GIS-Karte für Verkaufsflächen, offene Daten und Stadtanalyse in Flensburg.',
-      defaultOgImage: process.env.NUXT_PUBLIC_DEFAULT_OG_IMAGE || '',
+      defaultOgImage: process.env.NUXT_PUBLIC_DEFAULT_OG_IMAGE || '/branding/stadtplaner-social-card.png',
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1',
       mediaBaseUrl: process.env.NUXT_PUBLIC_MEDIA_BASE_URL || '',
       avatarMaxUploadBytes: Number(process.env.NUXT_PUBLIC_AVATAR_MAX_UPLOAD_BYTES || 5242880),
@@ -95,7 +95,17 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'de' },
-      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/branding/ok-lab-flensburg.svg' }]
+      meta: [
+        { name: 'theme-color', content: '#154d73' },
+        { name: 'twitter:site', content: '@oklabflensburg' }
+      ],
+      link: [
+        { rel: 'icon', href: '/favicon.ico' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/branding/ok-lab-flensburg.svg' },
+        { rel: 'icon', type: 'image/png', sizes: '96x96', href: '/favicon-96x96.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+        { rel: 'manifest', href: '/site.webmanifest' }
+      ]
     }
   },
   nitro: {
@@ -104,6 +114,12 @@ export default defineNuxtConfig({
       '/**': { headers: securityHeaders },
       '/_nuxt/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
       '/branding/**': { headers: { 'cache-control': 'public, max-age=86400' } },
+      '/favicon.ico': { headers: { 'cache-control': 'public, max-age=86400' } },
+      '/favicon-96x96.png': { headers: { 'cache-control': 'public, max-age=86400' } },
+      '/apple-touch-icon.png': { headers: { 'cache-control': 'public, max-age=86400' } },
+      '/web-app-manifest-192x192.png': { headers: { 'cache-control': 'public, max-age=86400' } },
+      '/web-app-manifest-512x512.png': { headers: { 'cache-control': 'public, max-age=86400' } },
+      '/site.webmanifest': { headers: { 'cache-control': 'public, max-age=86400' } },
       '/map-styles/**': { headers: { 'cache-control': 'public, max-age=86400' } }
     }
   },

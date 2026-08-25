@@ -36,7 +36,7 @@ export function parseHtmlSeo(html) {
   return { meta, links, titles, headings, jsonLd }
 }
 
-export function auditIndexableHtml(html, { expectedUrl, expectSocialImage = false } = {}) {
+export function auditIndexableHtml(html, { expectedUrl, expectSocialImage = true } = {}) {
   const errors = []
   const page = parseHtmlSeo(html)
   const canonical = page.links.filter(item => item.rel === 'canonical')
@@ -59,7 +59,7 @@ export function auditIndexableHtml(html, { expectedUrl, expectSocialImage = fals
     } catch { /* reported by validatePublicUrl */ }
   }
 
-  for (const key of ['og:title', 'og:description', 'og:url', 'og:type', 'og:site_name']) {
+  for (const key of ['og:title', 'og:description', 'og:url', 'og:type', 'og:site_name', 'og:locale']) {
     const values = propertyMeta(page.meta, key)
     if (values.length !== 1 || !values[0].content?.trim()) errors.push(`missing or duplicate ${key}`)
   }
@@ -70,6 +70,10 @@ export function auditIndexableHtml(html, { expectedUrl, expectSocialImage = fals
     const values = namedMeta(page.meta, key)
     if (values.length !== 1 || !values[0].content?.trim()) errors.push(`missing or duplicate ${key}`)
   }
+  const twitterSite = namedMeta(page.meta, 'twitter:site')
+  if (twitterSite.length !== 1 || twitterSite[0].content !== '@oklabflensburg') {
+    errors.push('expected twitter:site=@oklabflensburg')
+  }
   if (expectSocialImage) {
     for (const [kind, key] of [['property', 'og:image'], ['property', 'og:image:alt'], ['name', 'twitter:image'], ['name', 'twitter:image:alt']]) {
       const values = kind === 'property' ? propertyMeta(page.meta, key) : namedMeta(page.meta, key)
@@ -78,19 +82,41 @@ export function auditIndexableHtml(html, { expectedUrl, expectSocialImage = fals
     if (namedMeta(page.meta, 'twitter:card')[0]?.content !== 'summary_large_image') {
       errors.push('expected twitter:card=summary_large_image')
     }
+    if (propertyMeta(page.meta, 'og:image:width')[0]?.content !== '1200') {
+      errors.push('expected og:image:width=1200')
+    }
+    if (propertyMeta(page.meta, 'og:image:height')[0]?.content !== '630') {
+      errors.push('expected og:image:height=630')
+    }
   }
+
+  auditGlobalHead(page, errors)
 
   auditSeoUrls(page, errors)
   auditJsonLd(page.jsonLd, errors)
   return errors
 }
 
-export function auditNoindexHtml(html, { canonicalUrl } = {}) {
+function auditGlobalHead(page, errors) {
+  const theme = namedMeta(page.meta, 'theme-color')
+  if (theme.length !== 1 || theme[0].content !== '#154d73') errors.push('expected theme-color=#154d73')
+  for (const [rel, href] of [
+    ['icon', '/favicon.ico'],
+    ['icon', '/branding/ok-lab-flensburg.svg'],
+    ['icon', '/favicon-96x96.png'],
+    ['apple-touch-icon', '/apple-touch-icon.png'],
+    ['manifest', '/site.webmanifest']
+  ]) {
+    if (!page.links.some(item => item.rel === rel && item.href === href)) errors.push(`missing global ${rel} ${href}`)
+  }
+}
+
+export function auditNoindexHtml(html, { canonicalUrl, expectedRobots = 'noindex,nofollow' } = {}) {
   const errors = []
   const page = parseHtmlSeo(html)
   const robots = namedMeta(page.meta, 'robots')
-  if (robots.length !== 1 || robots[0].content !== 'noindex,nofollow') {
-    errors.push('expected robots=noindex,nofollow')
+  if (robots.length !== 1 || robots[0].content !== expectedRobots) {
+    errors.push(`expected robots=${expectedRobots}`)
   }
   if (canonicalUrl) {
     const canonicals = page.links.filter(item => item.rel === 'canonical')
