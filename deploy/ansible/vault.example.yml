@@ -28,7 +28,6 @@ stadtplaner_backend_env_content: |
   APP_ENVIRONMENT=production
   APP_BASE_URL=https://stadtplaner.oklabflensburg.de
   API_BASE_URL=https://api.stadtplaner.oklabflensburg.de
-  ENABLED_MODULES=
   MAP_PREVIEW_RENDERER_URL=http://127.0.0.1:3020
   MAP_PREVIEW_RENDERER_TIMEOUT_SECONDS=20
   MAP_PREVIEW_CACHE_DIR=/data/stadtplaner/previews

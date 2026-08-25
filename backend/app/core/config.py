@@ -15,7 +15,6 @@ MINIMUM_JWT_SECRET_LENGTH = 32
 
 class Settings(BaseSettings):
     api_version: str = "0.2.0"
-    enabled_modules: str = ""
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/open_city_map"
     )
@@ -228,10 +227,6 @@ class Settings(BaseSettings):
     @property
     def trusted_proxy_list(self) -> list[str]:
         return [value.strip() for value in self.trusted_proxies.split(",") if value.strip()]
-
-    @property
-    def enabled_module_list(self) -> list[str]:
-        return [value.strip() for value in self.enabled_modules.split(",") if value.strip()]
 
     def validate_security(self) -> None:
         if not self.metrics_path.startswith("/") or "?" in self.metrics_path:
