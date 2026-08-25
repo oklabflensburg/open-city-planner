@@ -9,9 +9,13 @@ Type=simple
 User={{ stadtplaner_map_renderer_service_user }}
 Group={{ stadtplaner_map_renderer_service_group }}
 WorkingDirectory={{ stadtplaner_current_path }}/frontend
+CacheDirectory=stadtplaner-map-renderer
+CacheDirectoryMode=0750
 Environment=NODE_ENV=production
 Environment=LIBGL_ALWAYS_SOFTWARE=1
 Environment=GALLIUM_DRIVER=llvmpipe
+Environment=XDG_CACHE_HOME=/var/cache/stadtplaner-map-renderer
+Environment=MESA_SHADER_CACHE_DIR=/var/cache/stadtplaner-map-renderer/mesa-shader-cache
 Environment=MAP_PREVIEW_HOST={{ stadtplaner_map_renderer_bind_address }}
 Environment=MAP_PREVIEW_PORT={{ stadtplaner_map_renderer_port }}
 Environment=MAP_PREVIEW_STYLE_PATH={{ stadtplaner_current_path }}/frontend/public/map-styles/stadtplaner-light.json
