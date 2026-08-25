@@ -106,6 +106,10 @@ describe('SEO routes over Nuxt HTTP', () => {
     expect(html).toContain('Flächen und Stadtgebiete auf einen Blick')
     expect(html).toContain('Flächen nach Branche')
     expect(html).toContain('Branchenübersicht')
+    expect(html).toContain('Eigene Flächen dauerhaft verwalten')
+    expect(html).toContain('Eigene Flächen anlegen und speichern')
+    expect(html).toContain('href="/registrieren"')
+    expect(html).toContain('href="/login"')
     expect(html).toContain('Testfläche')
     expect(html).toContain('Altstadt')
     for (const href of ['/karte', '/gebiete', '/vergleich', '/open-data', '/dokumentation/methodik', '/flaechen/test-flaeche']) {

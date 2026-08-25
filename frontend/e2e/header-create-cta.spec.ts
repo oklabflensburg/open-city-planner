@@ -107,6 +107,42 @@ test('mobile keeps creation in navigation and the top bar overflow-free', async 
   expect(hydrationWarnings).toEqual([])
 })
 
+test('homepage navigation and signup CTA adapt to viewport and session', async ({ page }) => {
+  const session = { authenticated: false }
+  const hydrationWarnings = trackHydrationWarnings(page)
+  await mockOverview(page, session)
+  await page.goto('/')
+  await page.waitForFunction(() => Boolean((document.querySelector('#__nuxt') as HTMLElement & { __vue_app__?: unknown })?.__vue_app__))
+  await expect(page.getByRole('banner').getByRole('link', { name: 'Anmelden' })).toBeVisible()
+
+  const logo = page.getByRole('banner').getByRole('link').first()
+  await expect(logo).toHaveAttribute('href', '/')
+  const desktopNavigation = page.getByRole('navigation', { name: 'Hauptnavigation' })
+  await expect(desktopNavigation.getByRole('link', { name: 'Start', exact: true })).toHaveCount(0)
+  for (const label of ['Karte', 'Gebiete', 'Über das Projekt', 'Dokumentation']) {
+    await expect(desktopNavigation.getByRole('link', { name: label, exact: true })).toHaveCount(1)
+  }
+
+  const signup = page.locator('[data-home-signup-cta]')
+  await expect(signup).toBeVisible()
+  await expect(signup.getByRole('link', { name: 'Kostenlos registrieren' })).toHaveAttribute('href', '/registrieren')
+  await expect(signup.getByRole('link', { name: 'Anmelden' })).toHaveAttribute('href', '/login')
+
+  await page.setViewportSize({ width: 320, height: 844 })
+  await page.getByRole('button', { name: 'Navigation öffnen' }).click()
+  const mobileNavigation = page.getByRole('navigation', { name: 'Mobile Navigation' })
+  await expect(mobileNavigation.getByRole('link', { name: 'Start', exact: true })).toHaveCount(0)
+  await expect(mobileNavigation.getByRole('link', { name: 'Karte', exact: true })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+
+  session.authenticated = true
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.reload()
+  await expect(page.locator('[data-header-account]')).toBeVisible()
+  await expect(page.locator('[data-home-signup-cta]')).toHaveCount(0)
+  expect(hydrationWarnings).toEqual([])
+})
+
 test('account menu stays open until logout and ends the session', async ({ page }) => {
   const session = { authenticated: true }
   await mockOverview(page, session)

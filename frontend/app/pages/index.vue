@@ -20,6 +20,31 @@
     </section>
 
     <main class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <section
+        v-if="showSignupCta"
+        data-home-signup-cta
+        class="mb-12 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+        aria-labelledby="signup-heading"
+      >
+        <div class="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.75fr)] lg:items-center">
+          <div>
+            <p class="text-sm font-bold text-[#086b78]">Mit einem kostenlosen Konto</p>
+            <h2 id="signup-heading" class="mt-1 text-3xl font-black text-slate-950">Eigene Flächen dauerhaft verwalten</h2>
+            <p class="mt-3 max-w-2xl leading-7 text-slate-600">Mit einem kostenlosen Konto können Sie eigene Flächen anlegen, später wiederfinden und Ihre Arbeit im Stadtplaner fortführen.</p>
+            <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <NuxtLink class="page-button-primary w-full sm:w-auto" to="/registrieren">Kostenlos registrieren</NuxtLink>
+              <NuxtLink class="page-button-secondary w-full sm:w-auto" to="/login">Anmelden</NuxtLink>
+            </div>
+          </div>
+          <ul class="grid gap-3" aria-label="Vorteile eines Kontos">
+            <li v-for="benefit in accountBenefits" :key="benefit" class="flex min-h-12 items-center gap-3 rounded-xl bg-[#edf4f8] px-4 py-3 font-semibold text-slate-800">
+              <Check class="size-5 shrink-0 text-[#086b78]" aria-hidden="true" />
+              <span>{{ benefit }}</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
       <div v-if="error" class="rounded-xl border border-rose-200 bg-white p-5 text-rose-800" role="alert">Das öffentliche Verzeichnis konnte nicht geladen werden. Bitte versuchen Sie es später erneut.</div>
       <template v-else>
         <nav v-if="polygonGroups.length" class="mb-12 rounded-2xl border border-slate-200 bg-white p-5" aria-label="Branchenübersicht">
@@ -102,6 +127,7 @@
 </template>
 
 <script setup lang="ts">
+import { Check } from '@lucide/vue'
 import type { AnalysisArea, AnalysisAreaType } from '~/types/analysisArea'
 import type { OccupancyStatus, PolygonDirectoryItem } from '~/types/geo'
 import { buildApiUrl } from '~/utils/apiUrl'
@@ -109,6 +135,10 @@ import { buildAbsoluteUrl } from '~/utils/seo'
 import { getIndustryColor, getIndustryLabel, industries } from '~/utils/industries'
 
 const config = useRuntimeConfig()
+const authStore = useAuthStore()
+const mounted = ref(false)
+const showSignupCta = computed(() => !mounted.value || !authStore.authenticated)
+onMounted(() => { mounted.value = true })
 const { data, error } = await useAsyncData('public-home-directory', async () => {
   const [polygons, areas] = await Promise.all([
     usePolygonApi().directoryAll(),
@@ -137,6 +167,11 @@ const areaPreviewSrcset = (slug: string) => previewSrcset(`/analysis-areas/by-sl
 const areaTypeLabel = (type: AnalysisAreaType) => ({ MUNICIPALITY: 'Stadt', DISTRICT: 'Stadtteil', QUARTER: 'Statistischer Bezirk' })[type]
 const occupancyLabel = (status: OccupancyStatus) => ({ OCCUPIED: 'Belegt', VACANT: 'Leerstehend', UNKNOWN: 'Status unbekannt' })[status]
 const formatArea = (area: number) => `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(area / 1_000_000)} km²`
+const accountBenefits = [
+  'Eigene Flächen anlegen und speichern',
+  'Gespeicherte Flächen wieder aufrufen',
+  'Eigene Einträge verwalten und weiterbearbeiten'
+]
 const topics = [
   { title: 'Flächen und Leerstände', text: 'Öffentliche Verkaufsflächen nach Status, Branche und Lage finden und ihre Detaildaten nachvollziehen.', to: '/karte', link: 'Flächen auf der Karte erkunden' },
   { title: 'Gebiete vergleichen', text: 'Stadtteile und Quartiere anhand vorhandener Flächen-, Branchen- und Statistikdaten einordnen.', to: '/vergleich', link: 'Zum Gebietsvergleich' },
