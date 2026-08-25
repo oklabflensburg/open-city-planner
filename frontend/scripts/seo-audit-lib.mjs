@@ -30,7 +30,7 @@ export function parseHtmlSeo(html) {
     .map(match => textContent(match[1]))
   const headings = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)]
     .map(match => textContent(match[1]))
-  const jsonLd = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+  const jsonLd = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)]
     .filter(match => attributes(`<script ${match[1]}>`).type === 'application/ld+json')
     .map(match => decodeHtml(match[2]).trim())
   return { meta, links, titles, headings, jsonLd }
