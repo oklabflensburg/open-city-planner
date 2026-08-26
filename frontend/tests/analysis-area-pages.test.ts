@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { mapHostSource } from './map-host-source'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
 
@@ -54,7 +55,7 @@ describe('public analysis area pages', () => {
   it('links area pages and the GIS selection in both directions', () => {
     expect(appFile('pages/gebiete/[slug].vue')).toContain("path: '/karte', query: { gebiet: area.slug }")
     expect(appFile('components/analysis/AnalysisAreaCard.vue')).toContain('`/gebiete/${area.slug}`')
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).toContain('route.query.area')
     expect(map).toContain('route.query.gebiet')
     expect(map).toContain('selectRequestedArea')

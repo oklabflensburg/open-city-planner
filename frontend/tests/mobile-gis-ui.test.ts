@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { mapHostSource } from './map-host-source'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
 
@@ -25,7 +26,7 @@ describe('mobile GIS interface', () => {
   it('renders search, filter, analytics and selection once for both sheet and side panel', () => {
     const shell = appFile('components/layout/AppShell.vue')
     const content = appFile('components/layout/GisPanelContent.vue')
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     const sheetUses = shell.match(/<AppBottomSheet/g) || []
     expect(sheetUses).toHaveLength(1)
     expect(shell).toContain('aria-label="Suche öffnen"')
@@ -117,15 +118,15 @@ describe('mobile GIS interface', () => {
   it('docks a bounded, non-modal panel beside the map in the compact workbench', () => {
     const shell = appFile('components/layout/AppShell.vue')
     const panel = appFile('components/layout/GisToolPanel.vue')
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(shell).toContain("grid-template-columns: minmax(0, 1fr) clamp(340px, 34vw, 420px)")
     expect(shell).toContain('data-gis-map-stage')
     expect(panel).toContain('data-gis-tool-panel')
     expect(shell).toContain('mapStore.activeGisPanel === null || isCompact')
     expect(panel).toContain('overflow-y-auto overscroll-contain')
     expect(panel).not.toContain('bg-slate-950/30')
-    expect(map).toContain('new ResizeObserver(scheduleMapLayoutResize)')
-    expect(map).toContain('resizeObserver.observe(container)')
+    expect(map).toContain('createResizeObserver: handler => new ResizeObserver(handler)')
+    expect(map).toContain('this.#resizeObserver.observe(container)')
   })
 
   it('keeps the bottom-sheet backdrop exclusive to the mobile component', () => {
@@ -204,7 +205,7 @@ describe('mobile GIS interface', () => {
   })
 
   it('uses visible loading and retryable error states', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).toContain('Karte wird geladen')
     expect(map).toContain('Karte konnte nicht geladen werden.')
     expect(map).toContain('Erneut versuchen')
@@ -228,7 +229,7 @@ describe('mobile GIS interface', () => {
   })
 
   it('anchors every upper-right map control in one stable container', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     const container = appFile('components/map/MapControlsContainer.vue')
     expect(map).toContain('absolute right-3 top-3')
     expect(map).toContain('<MapControlsContainer')

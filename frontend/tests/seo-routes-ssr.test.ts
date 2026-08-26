@@ -12,7 +12,8 @@ await setup({
   setupTimeout: 180_000,
   env: {
     NUXT_PUBLIC_API_BASE_URL: apiBaseUrl,
-    NUXT_PUBLIC_SITE_URL: siteUrl
+    NUXT_PUBLIC_SITE_URL: siteUrl,
+    NUXT_PUBLIC_DEFAULT_OG_IMAGE: '/branding/stadtplaner-social-card.png'
   },
   nuxtConfig: {
     runtimeConfig: {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { mapHostSource } from './map-host-source'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -13,7 +14,7 @@ describe('GIS performance safeguards', () => {
 
   it('retains moveend debouncing, cancellation, identical-key suppression and setData updates', () => {
     const store = appFile('stores/osmViewport.ts')
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(store).toContain('key === this.lastRequestKey')
     expect(store).toContain('this.controller?.abort()')
     expect(map).toContain("instance.on('moveend'")
@@ -24,7 +25,7 @@ describe('GIS performance safeguards', () => {
   })
 
   it('keeps active pan free of reactive map updates and expensive source work', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).toContain('map.value = markRaw(instance)')
     expect(map).toContain("instance.on('moveend'")
     expect(map).not.toContain("instance.on('move',")
@@ -37,7 +38,7 @@ describe('GIS performance safeguards', () => {
 
   it('uses buffered viewport coverage and non-reactive bounded GeoJSON storage', () => {
     const store = appFile('stores/osmViewport.ts')
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(store).toContain('VIEWPORT_BUFFER_RATIO = 0.2')
     expect(store).toContain('VIEWPORT_CACHE_SIZE = 4')
     expect(store).toContain('containsBounds(this.loadedBounds, bounds)')
@@ -46,7 +47,7 @@ describe('GIS performance safeguards', () => {
   })
 
   it('renders every polygon through one bounded selection overlay without click auto-zoom', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).toContain("instance.addSource('selected-polygon-source'")
     expect(map).toContain("id: 'selected-polygon-fill'")
     expect(map).toContain("id: 'selected-polygon-halo'")

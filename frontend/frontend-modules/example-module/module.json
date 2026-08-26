@@ -56,6 +56,43 @@
           "label": "Modulbeispiel"
         }
       }
-    ]
+    ],
+    "map": {
+      "sources": [
+        {
+          "id": "example-module.landmark",
+          "source": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": { "name": "Modulbeispiel" },
+                  "geometry": { "type": "Point", "coordinates": [9.435, 54.783] }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "layers": [
+        {
+          "id": "example-module.landmark",
+          "sourceId": "example-module.landmark",
+          "group": "overlay",
+          "priority": 500,
+          "layer": {
+            "type": "circle",
+            "paint": {
+              "circle-color": "#7c3aed",
+              "circle-radius": 6,
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 2
+            }
+          }
+        }
+      ]
+    }
   }
 }

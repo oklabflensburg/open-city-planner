@@ -127,8 +127,8 @@ function validateContribution(
   if ('to' in contribution && !knownRoutes.has(normalizeStaticRoute(contribution.to))) {
     throw new FrontendContributionError(`Navigation contribution "${contribution.id}" points to unknown static route "${contribution.to}".`)
   }
-  if (contribution.slot === 'header.actions' && !contribution.accessibleLabel.trim()) {
-    throw new FrontendContributionError(`Header action "${contribution.id}" requires an accessible label.`)
+  if ((contribution.slot === 'header.actions' || contribution.slot === 'map.controls') && !contribution.accessibleLabel.trim()) {
+    throw new FrontendContributionError(`UI control "${contribution.id}" requires an accessible label.`)
   }
 }
 

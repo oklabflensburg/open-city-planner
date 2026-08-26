@@ -9,7 +9,8 @@ bereitstellen. Die Architekturentscheidung steht im
 Das öffentliche SDK wird über `#frontend-module-sdk` exportiert. Die wichtigsten
 Typen sind `UiSlotId`, `FrontendModuleUiContribution`, `NavigationContribution`,
 `HeaderActionContribution`, `UiVisibilityRule` und `UiVisibilityContext`.
-`FRONTEND_MODULE_SDK_VERSION` ist `1.1.0`.
+`FRONTEND_MODULE_SDK_VERSION` ist seit #103 additiv `1.2.0`; die UI-Verträge aus
+Version `1.1.0` bleiben unverändert kompatibel.
 
 Unterstützte Slots:
 
@@ -22,7 +23,7 @@ Unterstützte Slots:
 | `sidebar` | lokale Vue-Komponente | Contract für spätere Shell-Erweiterung |
 | `dashboard.widgets` | lokale Vue-Komponente | Contract für ein späteres Dashboard |
 | `profile.sections` | lokale Vue-Komponente | Contract für spätere Profilbereiche |
-| `map.controls` | lokale Vue-Komponente | für #103 reserviert |
+| `map.controls` | lokale Vue-Komponente mit Accessible Label | Kartenhost aus #103 |
 | `map.bottomSheet` | lokale Vue-Komponente | für #103 reserviert |
 | `map.contextMenu` | lokale Vue-Komponente | für #103 reserviert |
 
@@ -132,6 +133,6 @@ Adminlink und `ExampleModuleAction` in `header.actions`. Der Host importiert kei
 dieser Dateien und kennt die Modul-ID nicht. Mit leerem `OCP_FRONTEND_MODULES`
 werden weder Layer, Links noch Component-Snapshot gebaut.
 
-Die Map-Slots sind ausschließlich UI-Platzhalter. MapLibre Sources, Layers,
-Controls, Draw- und Interaction-APIs folgen in #103; die vollständige Permission-
-Registry folgt in #104.
+Die Map-Slots werden durch den Kartenhost aus #103 gerendert. Source-, Layer-,
+Control-, Draw- und Interaction-Verträge stehen im [Map SDK](map-sdk.md); die
+vollständige Permission-Registry folgt in #104.

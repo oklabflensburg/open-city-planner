@@ -1,7 +1,8 @@
 import type { FrontendModuleUiContribution } from './ui-contract.ts'
+import type { FrontendModuleMapContributions } from './map-contract.ts'
 
 export const FRONTEND_HOST_VERSION = '1.0.0'
-export const FRONTEND_MODULE_SDK_VERSION = '1.1.0'
+export const FRONTEND_MODULE_SDK_VERSION = '1.2.0'
 
 export interface FrontendModuleCompatibility {
   host: string
@@ -17,6 +18,7 @@ export interface FrontendModuleRouteContribution {
 export interface FrontendModulePublicContributions {
   readonly routes: readonly FrontendModuleRouteContribution[]
   readonly ui: readonly FrontendModuleUiContribution[]
+  readonly map: FrontendModuleMapContributions
 }
 
 export interface FrontendModuleRequirements {

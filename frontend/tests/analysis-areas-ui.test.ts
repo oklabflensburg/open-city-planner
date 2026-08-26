@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { mapHostSource } from './map-host-source'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -6,7 +7,7 @@ const appFile = (path: string) => readFileSync(resolve(process.cwd(), 'app', pat
 
 describe('hierarchical analysis areas', () => {
   it('renders three zoom-dependent administrative layers with central click priority', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     const picking = appFile('utils/mapFeaturePicking.ts')
     expect(map).toContain("type: 'MUNICIPALITY', minzoom: 7")
     expect(map).toContain("type: 'DISTRICT', minzoom: 9.5")

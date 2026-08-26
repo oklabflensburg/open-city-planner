@@ -6,7 +6,7 @@
       :key="contribution.id"
       v-bind="contribution.props"
       :data-ui-contribution="contribution.id"
-      :aria-label="contribution.slot === 'header.actions' ? contribution.accessibleLabel : undefined"
+      :aria-label="'accessibleLabel' in contribution ? contribution.accessibleLabel : undefined"
     />
   </div>
 </template>

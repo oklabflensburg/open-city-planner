@@ -56,13 +56,19 @@ export interface HeaderActionContribution extends ComponentContributionBase {
   readonly accessibleLabel: string
 }
 
+export interface MapUiControlContribution extends ComponentContributionBase {
+  readonly slot: 'map.controls'
+  readonly accessibleLabel: string
+}
+
 export interface GenericComponentContribution extends ComponentContributionBase {
-  readonly slot: Exclude<ComponentUiSlotId, 'header.actions'>
+  readonly slot: Exclude<ComponentUiSlotId, 'header.actions' | 'map.controls'>
 }
 
 export type FrontendModuleUiContribution =
   | NavigationContribution
   | HeaderActionContribution
+  | MapUiControlContribution
   | GenericComponentContribution
 
 export type UiContribution = FrontendModuleUiContribution & {

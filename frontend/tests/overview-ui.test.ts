@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { mapHostSource } from './map-host-source'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
 
@@ -36,7 +37,7 @@ describe('read-only overview UI', () => {
   })
 
   it('does not initialize drawing or editing tools on the overview map', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).not.toContain('terra-draw')
     expect(map).not.toContain('DrawingToolbar')
     expect(map).not.toContain('deletePolygon')
@@ -63,7 +64,7 @@ describe('read-only overview UI', () => {
   })
 
   it('does not create a late overview map after its component was disposed', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).toContain('disposed || !container?.isConnected')
     expect(map).toContain('disposed = true')
     expect(map).toContain("instance.on('webglcontextrestored'")

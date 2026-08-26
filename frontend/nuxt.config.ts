@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath } from 'node:url'
 import { discoverPageRoutes, resolveFrontendModules } from './module-host/discovery'
 import { createFrontendContributionRegistry } from './module-host/ui-registry'
+import { createMapExtensionDefinitionRegistry } from './module-host/map-definition-registry'
 
 const appPagesDirectory = fileURLToPath(new URL('./app/pages', import.meta.url))
 const frontendModules = resolveFrontendModules({
@@ -14,6 +15,11 @@ const frontendContributionRegistry = createFrontendContributionRegistry(
   frontendModules,
   discoverPageRoutes(appPagesDirectory)
 )
+const mapExtensionSnapshot = createMapExtensionDefinitionRegistry(frontendModules).snapshot()
+const mapExtensionDefinitions = {
+  sources: [...mapExtensionSnapshot.sources],
+  layers: [...mapExtensionSnapshot.layers]
+}
 
 const configuredSiteUrl = process.env.NUXT_PUBLIC_SITE_URL
 const configuredMapStyleUrl = process.env.NUXT_PUBLIC_MAP_STYLE_URL || process.env.NUXT_PUBLIC_VERSATILES_STYLE_URL || ''
@@ -90,6 +96,7 @@ export default defineNuxtConfig({
     public: {
       frontendModules: frontendModules.map(module => module.id),
       frontendUiContributions: [...frontendContributionRegistry.all()],
+      frontendMapContributions: mapExtensionDefinitions,
       siteName: 'OK Lab Flensburg',
       siteUrl: configuredSiteUrl || 'http://localhost:3000',
       siteLocale: 'de_DE',

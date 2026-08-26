@@ -9,6 +9,8 @@ import {
   type ResolvedFrontendModule
 } from './contract.ts'
 import { createFrontendContributionRegistry } from './ui-registry.ts'
+import { createMapExtensionDefinitionRegistry } from './map-definition-registry.ts'
+import { MAP_LAYER_GROUPS } from './map-contract.ts'
 
 const moduleId = z.string().regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/).max(63)
 const uiVisibility = z.strictObject({
@@ -40,13 +42,17 @@ const headerActionContribution = z.strictObject({
   slot: z.literal('header.actions'),
   accessibleLabel: z.string().min(1)
 })
+const mapControlContribution = z.strictObject({
+  ...componentContributionBase,
+  slot: z.literal('map.controls'),
+  accessibleLabel: z.string().min(1)
+})
 const componentContribution = z.strictObject({
   ...componentContributionBase,
   slot: z.enum([
     'sidebar',
     'dashboard.widgets',
     'profile.sections',
-    'map.controls',
     'map.bottomSheet',
     'map.contextMenu'
   ])
@@ -55,6 +61,18 @@ const componentContribution = z.strictObject({
 const route = z.strictObject({
   path: z.string().startsWith('/'),
   source: z.string().min(1)
+})
+const mapSourceContribution = z.strictObject({
+  id: z.string().min(3),
+  source: z.record(z.string(), z.json())
+})
+const mapLayerContribution = z.strictObject({
+  id: z.string().min(3),
+  sourceId: z.string().min(3),
+  layer: z.record(z.string(), z.json()),
+  group: z.enum(MAP_LAYER_GROUPS),
+  priority: z.number().int().min(-1_000_000).max(1_000_000).optional(),
+  visible: z.boolean().optional()
 })
 const definitionSchema = z.strictObject({
   schemaVersion: z.literal(1),
@@ -72,7 +90,11 @@ const definitionSchema = z.strictObject({
   }),
   publicContributions: z.strictObject({
     routes: z.array(route),
-    ui: z.array(z.union([navigationContribution, headerActionContribution, componentContribution])).default([])
+    ui: z.array(z.union([navigationContribution, headerActionContribution, mapControlContribution, componentContribution])).default([]),
+    map: z.strictObject({
+      sources: z.array(mapSourceContribution).default([]),
+      layers: z.array(mapLayerContribution).default([])
+    }).default({ sources: [], layers: [] })
   })
 })
 
@@ -113,6 +135,7 @@ export function resolveFrontendModules(options: ResolveFrontendModulesOptions): 
   const ordered = resolveModuleOrder(enabled)
   validateRouteCollisions(ordered, options.appPagesDirectory)
   createFrontendContributionRegistry(ordered, discoverPageRoutes(options.appPagesDirectory))
+  createMapExtensionDefinitionRegistry(ordered)
   return ordered
 }
 
@@ -137,7 +160,7 @@ export function discoverFrontendModules(modulesDirectory: string): ResolvedFront
     if (!parsed.success) {
       throw new FrontendModuleError(`Frontend module definition ${source} is invalid: ${parsed.error.issues[0]?.message ?? 'unknown validation error'}.`)
     }
-    const definition = parsed.data as FrontendModuleDefinition
+    const definition = parsed.data as unknown as FrontendModuleDefinition
     validateDefinitionVersions(definition, source)
     if (definition.backendModuleId && definition.backendModuleId !== definition.id) {
       throw new FrontendModuleError(`Frontend module "${definition.id}" declares backend module "${definition.backendModuleId}"; full-stack modules must share one stable module ID.`)

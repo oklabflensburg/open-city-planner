@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { mapHostSource } from './map-host-source'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
 
@@ -8,7 +9,7 @@ describe('market and location analytics UI', () => {
   it('uses one filter state for map, overview and benchmarks', () => {
     const filter = appFile('stores/filter.ts')
     const analytics = appFile('stores/analytics.ts')
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     const polygons = appFile('stores/polygon.ts')
     expect(filter).toContain('occupancyStatuses')
     expect(filter).toContain('businessStructures')
@@ -52,7 +53,7 @@ describe('market and location analytics UI', () => {
 
   it('offers one thematic polygon style with a matching legend', () => {
     const layer = appFile('components/map/MapLayerControl.vue')
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     const sidebar = appFile('components/layout/LeftSidebar.vue')
     const themes = appFile('utils/mapThemes.ts')
     expect(layer).toContain('v-model="mapStore.thematicStyle"')

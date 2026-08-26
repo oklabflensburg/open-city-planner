@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { mapHostSource } from './map-host-source'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
 
 describe('map information architecture', () => {
   it('keeps legend and OSM details out of the map overlay', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).not.toContain('<MapLegend')
     expect(map).not.toContain('<OsmFeatureSidebar')
     expect(map).not.toContain('<OsmFeaturePreview')
@@ -44,7 +45,7 @@ describe('map information architecture', () => {
   })
 
   it('selects OSM features, clears both selections on empty map clicks and opens the responsive selection panel', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).toContain('mapSelection.selectOsm(feature)')
     expect(map).toContain('mapSelection.clearSelection()')
     expect(map).toContain("mapStore.openGisPanel('selection')")

@@ -6,3 +6,6 @@ enthält keine Fachdomäne.
 Es registriert deklarativ einen Eintrag in `navigation.primary`, einen
 permission-sensitiven Admin-Eintrag und die lokale Komponente
 `ExampleModuleAction` in `header.actions`.
+Außerdem registriert das Modul eine kleine GeoJSON-Source und einen Circle-Layer
+über das Map SDK. `MapCanvas.vue` kennt weder die Modul-ID noch den Layer;
+deaktiviert ist die Kartenerweiterung nicht im Build-Snapshot.
