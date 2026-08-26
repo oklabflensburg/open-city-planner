@@ -13,12 +13,14 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 ## Architektur und Frontend
 
 - [ADR: Modularer Host und Grenzen von Fachmodulen](architecture/adr-modular-host-and-module-boundaries.md)
+- [ADR: Frontend-Module als Build-Time Nuxt Layers](architecture/adr-frontend-build-time-modules.md)
 - [ADR: Datenbank- und Migrations-Ownership von Modulen](architecture/adr-module-database-and-migration-ownership.md)
 - [Module Manifest Schema V1](modules/module-manifest-v1.md)
 - [Backend-Module-Runtime](modules/backend-module-runtime.md)
 - [Öffentliches Backend-Module-SDK](modules/backend-module-sdk.md)
 - [Domain Events und transaktionale Outbox](modules/domain-events.md)
 - [Modulare Background Jobs](modules/background-jobs.md)
+- [Frontend-Host und Build-Time-Module](modules/frontend-host.md)
 - [Modul-Datenbanken und Migrationen](modules/database-and-migrations.md)
 - [Frontend-Design und Analyse](frontend-design.md)
 - [Reihenfolge der GIS-Layer](map-layer-order.md)

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "example-module",
+  "version": "1.0.0",
+  "compatibility": {
+    "host": ">=1.0.0 <2.0.0",
+    "sdk": ">=1.0.0 <2.0.0"
+  },
+  "layer": "layer",
+  "requires": {
+    "modules": {}
+  },
+  "publicContributions": {
+    "routes": [
+      {
+        "path": "/module-example",
+        "source": "layer/app/pages/module-example.vue"
+      }
+    ]
+  }
+}
