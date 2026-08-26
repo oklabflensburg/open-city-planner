@@ -66,7 +66,7 @@ def test_module_context_has_typed_public_ports() -> None:
     }
 
 
-def test_runtime_context_is_bound_to_manifest_and_optional_ports_are_absent() -> None:
+def test_runtime_context_is_bound_to_manifest_and_unimplemented_ports_are_absent() -> None:
     runtime = runtime_for([EXAMPLE_DEFINITION])
     context = runtime.registry.get("test-example-module").context
 
@@ -74,7 +74,7 @@ def test_runtime_context_is_bound_to_manifest_and_optional_ports_are_absent() ->
     assert context.module_version == "1.0.0"
     assert context.database is None
     assert context.events is None
-    assert context.services is None
+    assert context.services is not None
     assert context.permissions is None
     assert context.cache is None
     assert context.storage is None

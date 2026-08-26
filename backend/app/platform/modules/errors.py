@@ -257,3 +257,66 @@ class ModulePersistenceError(RuntimeError):
         self.module_id = module_id
         self.schema = schema
         self.phase = phase
+
+
+class ServiceRegistryError(RuntimeError):
+    """Basisklasse für verletzte Cross-Module-Service-Verträge."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        service_id: str | None = None,
+        requested_version: int | None = None,
+        provider_module: str | None = None,
+        consumer_module: str | None = None,
+        available_versions: Sequence[int] = (),
+        available_services: Sequence[str] = (),
+    ) -> None:
+        context: list[str] = []
+        if service_id is not None:
+            context.append(f"service_id={service_id}")
+        if requested_version is not None:
+            context.append(f"requested_version={requested_version}")
+        if provider_module is not None:
+            context.append(f"provider_module={provider_module}")
+        if consumer_module is not None:
+            context.append(f"consumer_module={consumer_module}")
+        if available_versions:
+            context.append(
+                "available_versions=" + ",".join(str(version) for version in available_versions)
+            )
+        if available_services:
+            context.append("available_services=" + ",".join(available_services))
+        suffix = f" ({', '.join(context)})" if context else ""
+        super().__init__(f"Service registry error{suffix}: {message}")
+        self.service_id = service_id
+        self.requested_version = requested_version
+        self.provider_module = provider_module
+        self.consumer_module = consumer_module
+        self.available_versions = tuple(available_versions)
+        self.available_services = tuple(available_services)
+
+
+class DuplicateServiceRegistrationError(ServiceRegistryError):
+    """Dieselbe Service-ID und Version wurde mehr als einmal registriert."""
+
+
+class MissingRequiredServiceError(ServiceRegistryError):
+    """Ein erforderlicher öffentlicher Service ist nicht registriert."""
+
+
+class IncompatibleServiceVersionError(ServiceRegistryError):
+    """Eine Service-ID existiert, aber nicht in der angeforderten Version."""
+
+
+class ServiceContractMismatchError(ServiceRegistryError):
+    """Die Service-ID und Version sind an einen anderen Protocol-Typ gebunden."""
+
+
+class UndeclaredServiceDependencyError(ServiceRegistryError):
+    """Der Consumer hat den Service-Owner nicht passend im Manifest deklariert."""
+
+
+class ServiceRegistrySealedError(ServiceRegistryError):
+    """Nach Abschluss der Modulregistrierung sind Mutationen verboten."""

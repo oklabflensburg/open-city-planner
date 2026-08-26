@@ -229,7 +229,22 @@ class EventBusPort(Protocol):
 
 
 class ServiceRegistryPort(Protocol):
-    """Löst ausschließlich explizite öffentliche Cross-Module-Contracts auf."""
+    """Registriert und löst explizite öffentliche Cross-Module-Contracts auf."""
+
+    def register(
+        self,
+        contract: type[T],
+        implementation: T,
+        *,
+        service_id: str,
+        version: int,
+        deprecated_since: str | None = None,
+        replacement: str | None = None,
+    ) -> None: ...
+
+    def require(self, contract: type[T], *, service_id: str, version: int) -> T: ...
+
+    def optional(self, contract: type[T], *, service_id: str, version: int) -> T | None: ...
 
     def resolve(self, contract: type[T]) -> T: ...
 
