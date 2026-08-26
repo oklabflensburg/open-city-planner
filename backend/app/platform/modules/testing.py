@@ -94,11 +94,50 @@ class FakeEventBus:
 class FakeServiceRegistry:
     def __init__(self, services: Mapping[type[object], object] | None = None) -> None:
         self.services = dict(services or {})
+        self.versioned_services: dict[tuple[str, int], tuple[type[object], object]] = {}
+        self.sealed = False
+
+    def register(
+        self,
+        contract: type[T],
+        implementation: T,
+        *,
+        service_id: str,
+        version: int,
+        deprecated_since: str | None = None,
+        replacement: str | None = None,
+    ) -> None:
+        del deprecated_since, replacement
+        if self.sealed:
+            raise RuntimeError("The fake service registry is sealed.")
+        key = (service_id, version)
+        if key in self.versioned_services:
+            raise ValueError(f'Test service "{service_id}" version {version} is duplicated.')
+        self.versioned_services[key] = (cast(type[object], contract), implementation)
+        self.services[contract] = implementation
+
+    def require(self, contract: type[T], *, service_id: str, version: int) -> T:
+        key = (service_id, version)
+        if key not in self.versioned_services:
+            raise LookupError(f'No test service "{service_id}" version {version} is registered.')
+        registered_contract, implementation = self.versioned_services[key]
+        if registered_contract is not contract:
+            raise TypeError(f'Test service "{service_id}" uses a different contract.')
+        return cast(T, implementation)
+
+    def optional(self, contract: type[T], *, service_id: str, version: int) -> T | None:
+        key = (service_id, version)
+        if key not in self.versioned_services:
+            return None
+        return self.require(contract, service_id=service_id, version=version)
 
     def resolve(self, contract: type[T]) -> T:
         if contract not in self.services:
             raise LookupError(f"No test service is registered for {contract.__name__}.")
         return cast(T, self.services[contract])
+
+    def seal(self) -> None:
+        self.sealed = True
 
 
 class FakePermissions:

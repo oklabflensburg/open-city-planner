@@ -16,8 +16,11 @@ from app.platform.modules.errors import (
     DuplicateConfigNamespaceError,
     DuplicateModuleIdError,
     DuplicatePersistenceSchemaError,
+    DuplicateServiceRegistrationError,
+    IncompatibleServiceVersionError,
     InvalidRuntimeVersionError,
     MissingModuleDependencyError,
+    MissingRequiredServiceError,
     ModuleCompatibilityError,
     ModuleDependencyCycleError,
     ModuleDependencyError,
@@ -32,6 +35,10 @@ from app.platform.modules.errors import (
     ModuleShutdownError,
     ModuleStartupError,
     ModuleValidationError,
+    ServiceContractMismatchError,
+    ServiceRegistryError,
+    ServiceRegistrySealedError,
+    UndeclaredServiceDependencyError,
     UnsupportedManifestVersionError,
 )
 from app.platform.modules.manifest import (
@@ -61,6 +68,7 @@ from app.platform.modules.sdk import (
     ModuleMigrationSource,
     ModulePersistenceContribution,
 )
+from app.platform.modules.services import ServiceRegistry
 
 __all__ = [
     "ENTRY_POINT_GROUP",
@@ -69,10 +77,13 @@ __all__ = [
     "DuplicateConfigNamespaceError",
     "DuplicateModuleIdError",
     "DuplicatePersistenceSchemaError",
+    "DuplicateServiceRegistrationError",
     "EntryPointModuleDiscovery",
     "FirstPartyModuleDiscovery",
+    "IncompatibleServiceVersionError",
     "InvalidRuntimeVersionError",
     "MissingModuleDependencyError",
+    "MissingRequiredServiceError",
     "ModuleBackendPackage",
     "ModuleCompatibilityError",
     "ModuleConfig",
@@ -104,6 +115,11 @@ __all__ = [
     "ModuleShutdownError",
     "ModuleStartupError",
     "ModuleValidationError",
+    "ServiceContractMismatchError",
+    "ServiceRegistry",
+    "ServiceRegistryError",
+    "ServiceRegistrySealedError",
+    "UndeclaredServiceDependencyError",
     "UnsupportedManifestVersionError",
     "create_module_runtime",
     "module_manifest_json_schema",

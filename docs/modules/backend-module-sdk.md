@@ -61,7 +61,7 @@ Sub-Interfaces `context.api` und `context.lifecycle`.
 | `lifecycle` | `LifecycleRegistrar` | durch die Runtime implementiert |
 | `database` | `DatabaseSessionProvider` | transaktionaler Hostadapter aus #97 |
 | `events` | `EventBusPort` | In-Process Dispatch und transaktionale Outbox aus #96 |
-| `services` | `ServiceRegistryPort` | optionaler Port; Registry folgt in #98 |
+| `services` | `ServiceRegistryPort` | runtime-skopierte Cross-Module-Registry aus #98 |
 | `permissions` | `PermissionPort` | optionaler Port; Policy Engine folgt in #104 |
 | `cache` | `CachePort` | optionaler, modulgebundener Byte-Cache |
 | `observability` | `ObservabilityPort` | immer vorhanden; Logger ist an Modul-ID/-Version gebunden |
@@ -98,9 +98,10 @@ Die Ports machen keine Redis-, Dateisystem- oder Cloud-SDK-Typen öffentlich.
 ### Events, Services, Permissions und Jobs
 
 Der Event-Port ist durch die [Domain-Event- und Outbox-Infrastruktur](domain-events.md)
-implementiert. Service Registry, Permission Policy und Job-Ausführung bleiben ihren
-Folge-Issues vorbehalten. Die Service-Auflösung ist ausschließlich für explizite
-öffentliche Cross-Module-Contracts vorgesehen und kein allgemeiner Service Locator.
+implementiert. Die [Cross-Module-Service-Registry](service-contracts.md) stellt
+versionierte öffentliche Query-/Service-Contracts bereit. Permission Policy und
+Job-Ausführung bleiben ihren Folge-Issues vorbehalten. Die Service-Auflösung ist
+kein allgemeiner Service Locator.
 
 ### HTTP
 
@@ -136,9 +137,10 @@ unter `app.*` ausschließlich den öffentlichen SDK-Pfad verwendet.
 `MODULE_SDK_VERSION` ist eine SemVer-Version und unabhängig von Release-SHA und
 Host-API-Version. Der Context wurde unter SDK `1.0.0` eingeführt. Die additive
 Event-/Outbox-API aus #96 erhöhte die SDK-Version auf `1.1.0`. Die additiven
-Persistence-Contracts und der produktive Datenbank-Session-Adapter aus #97 erhöhen
-sie auf `1.2.0`; der minimale `DomainEvent`-Contract aus 1.0 und die #94-Proxys
-bleiben kompatibel.
+Persistence-Contracts und der produktive Datenbank-Session-Adapter aus #97 erhöhten
+sie auf `1.2.0`. Die additive, versionierte Service-Registry aus #98 erhöht sie auf
+`1.3.0`; der minimale `DomainEvent`-Contract aus 1.0 und die #94-Proxys bleiben
+kompatibel.
 
 - **MAJOR:** Entfernen oder Umbenennen öffentlicher Methoden, inkompatible Änderungen
   an vorhandener Semantik oder eine inkompatible Context-Struktur.

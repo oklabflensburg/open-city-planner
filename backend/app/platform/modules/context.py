@@ -24,6 +24,7 @@ from app.platform.modules.sdk import (
     StoragePort,
     TracerPort,
 )
+from app.platform.modules.services import ServiceRegistry
 
 if TYPE_CHECKING:
     from app.platform.events.bus import InProcessEventBus
@@ -102,6 +103,13 @@ class ModuleContextFactory:
     ) -> None:
         self._services = services or ModuleHostServices()
         self._event_bus = event_bus
+        self._service_registry: ServiceRegistry | None = None
+        if self._services.services is None:
+            self._service_registry = ServiceRegistry()
+
+    @property
+    def service_registry(self) -> "ServiceRegistry | None":
+        return self._service_registry
 
     def create(
         self,
@@ -122,6 +130,9 @@ class ModuleContextFactory:
         event_adapter = self._services.events
         if event_adapter is None and self._event_bus is not None:
             event_adapter = HostEventBusAdapter(self._event_bus, module_id=manifest.id)
+        service_adapter = self._services.services
+        if service_adapter is None and self._service_registry is not None:
+            service_adapter = self._service_registry.bind(manifest)
         return ModuleContext(
             module_id=manifest.id,
             module_version=manifest.version,
@@ -130,7 +141,7 @@ class ModuleContextFactory:
             observability=observability,
             database=self._services.database,
             events=event_adapter,
-            services=self._services.services,
+            services=service_adapter,
             permissions=self._services.permissions,
             cache=self._services.cache,
             storage=self._services.storage,

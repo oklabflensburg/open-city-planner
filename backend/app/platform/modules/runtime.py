@@ -24,9 +24,10 @@ from app.platform.modules.errors import (
 )
 from app.platform.modules.manifest import ModuleManifestV1, parse_manifest, validate_manifests
 from app.platform.modules.sdk import BackendModule, ModuleContext, ModuleDefinition
+from app.platform.modules.services import ServiceRegistry
 
 logger = logging.getLogger(__name__)
-MODULE_SDK_VERSION = "1.2.0"
+MODULE_SDK_VERSION = "1.3.0"
 
 
 @dataclass(slots=True)
@@ -69,8 +70,14 @@ class ModuleRegistry:
 class ModuleRuntime:
     """Registriert Router und orchestriert asynchrone Module-Lifecycles."""
 
-    def __init__(self, registry: ModuleRegistry) -> None:
+    def __init__(
+        self,
+        registry: ModuleRegistry,
+        *,
+        service_registry: ServiceRegistry | None = None,
+    ) -> None:
         self.registry = registry
+        self._service_registry = service_registry
         self._attached_app: FastAPI | None = None
         self._started: list[tuple[ModuleRecord, LifecycleContribution]] = []
         self._running = False
@@ -100,6 +107,9 @@ class ModuleRuntime:
                 ) from exc
             record.registered = True
             logger.info("Module registration completed", extra=fields)
+
+        if self._service_registry is not None:
+            self._service_registry.seal()
 
         for record in self.registry.records:
             for contribution in record.registration.routers:
@@ -220,7 +230,10 @@ def create_module_runtime(
                 registration=registration,
             )
         )
-    return ModuleRuntime(ModuleRegistry(records))
+    return ModuleRuntime(
+        ModuleRegistry(records),
+        service_registry=active_context_factory.service_registry,
+    )
 
 
 def resolve_module_definitions(
