@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.models.analysis_area import AnalysisArea
 from app.models.city_metrics import CityMetrics
+from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.schemas.analytics import AreaCompareFilters, AreaCompareRequest
 from app.services import analytics as analytics_service
 from app.services.analytics import (

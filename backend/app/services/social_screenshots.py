@@ -8,9 +8,9 @@ from urllib.parse import urlencode, urlsplit, urlunsplit
 from PIL import Image, ImageOps
 
 from app.core.config import Settings
-from app.models.analysis_area import AnalysisArea
 from app.models.social_publication import SocialPublicationOutbox, SocialPublishingSettings
 from app.models.user_polygon import UserPolygon
+from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.services.social_policy import VIEWPORTS
 
 

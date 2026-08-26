@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from app.main import app
-from app.schemas.analysis_area import AnalysisAreaDetail, AnalysisAreaPolygon
+from app.modules.analysis_areas.api.schemas import AnalysisAreaDetail, AnalysisAreaPolygon
 
 
 def test_openapi_documents_public_area_routes_and_unique_operations() -> None:

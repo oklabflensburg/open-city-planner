@@ -36,6 +36,9 @@ const questions = [
   'Kann ich ein Gebiet direkt auf der Karte öffnen?'
 ]
 
+process.env.OCP_FRONTEND_MODULES = 'analysis-areas'
+process.env.OCP_BACKEND_MODULES = 'analysis-areas@1.0.0'
+
 await setup({
   rootDir: fileURLToPath(new URL('..', import.meta.url)),
   browser: false,

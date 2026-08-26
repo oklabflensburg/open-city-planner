@@ -82,7 +82,12 @@ def test_knowledge_catalog_tracks_canonical_categories_and_has_version() -> None
 
 
 def test_knowledge_sources_are_explicitly_allowlisted_and_public() -> None:
-    allowed_prefixes = ("backend/app/services/", "backend/app/schemas/", "docs/")
+    allowed_prefixes = (
+        "backend/app/modules/analysis_areas/",
+        "backend/app/services/",
+        "backend/app/schemas/",
+        "docs/",
+    )
     forbidden = (".env", "auth", "users", "owner", "admin", "email")
     assert all(entry.source_path.startswith(allowed_prefixes) for entry in KNOWLEDGE_CATALOG)
     assert all(not any(term in entry.source_path.casefold() for term in forbidden) for entry in KNOWLEDGE_CATALOG)

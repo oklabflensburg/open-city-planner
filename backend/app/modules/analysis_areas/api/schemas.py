@@ -1,10 +1,10 @@
+"""Stable public API schemas owned by the Analysis Areas module."""
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.schemas.analytics import BenchmarkMetrics, IndustryCount
-from app.schemas.external_links import ExternalLinks
-from app.schemas.geojson import AreaGeometry
+from ..integrations.legacy import AreaGeometry, BenchmarkMetrics, ExternalLinks, IndustryCount
 
 AnalysisAreaExternalLinks = ExternalLinks
 

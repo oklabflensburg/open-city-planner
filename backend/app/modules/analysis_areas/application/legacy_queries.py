@@ -1,3 +1,5 @@
+"""Analysis Areas queries plus isolated compatibility queries for legacy domains."""
+
 import uuid
 from collections.abc import Sequence
 from urllib.parse import quote
@@ -5,12 +7,7 @@ from urllib.parse import quote
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.cache.keys import build_cache_key
-from app.cache.service import cache_service
-from app.core.config import get_settings
-from app.models.analysis_area import AnalysisArea, PolygonAnalysisArea
-from app.models.user_polygon import UserPolygon
-from app.schemas.analysis_area import (
+from app.modules.analysis_areas.api.schemas import (
     AnalysisAreaAnalytics,
     AnalysisAreaComparison,
     AnalysisAreaDetail,
@@ -21,11 +18,28 @@ from app.schemas.analysis_area import (
     AnalysisAreaSitemapEntry,
     MetricDifference,
 )
-from app.schemas.analytics import IndustryCount
-from app.schemas.external_links import WikidataExternalLink, WikipediaExternalLink
-from app.services.analytics import _base_filters, _benchmark_metrics, _counts
-from app.services.cache_versions import cache_version
-from app.services.poi_categories import AREA_POI_CATEGORY_SQL
+from app.modules.analysis_areas.persistence.models import AnalysisArea, PolygonAnalysisArea
+
+from ..integrations.legacy import (
+    AREA_POI_CATEGORY_SQL,
+    IndustryCount,
+    UserPolygon,
+    WikidataExternalLink,
+    WikipediaExternalLink,
+    build_cache_key,
+    cache_service,
+    cache_version,
+    get_settings,
+)
+from ..integrations.legacy import (
+    base_filters as _base_filters,
+)
+from ..integrations.legacy import (
+    benchmark_metrics as _benchmark_metrics,
+)
+from ..integrations.legacy import (
+    counts as _counts,
+)
 
 AREA_SELECT = text("""
 SELECT area.uuid::text AS id, area.slug, area.name, area.area_type, parent.uuid::text AS parent_id,

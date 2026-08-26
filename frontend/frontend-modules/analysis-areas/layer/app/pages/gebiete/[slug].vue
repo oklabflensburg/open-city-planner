@@ -139,8 +139,12 @@
 </template>
 
 <script setup lang="ts">
-import { getIndustryColor, getIndustryLabel } from '~/utils/industries'
-import { areaPoiMapLink, getPoiCategoryLabel } from '~/utils/poiCategories'
+import {
+  areaPoiMapLink,
+  getIndustryColor,
+  getIndustryLabel,
+  getPoiCategoryLabel
+} from '#frontend-module-sdk'
 
 const route = useRoute()
 const authStore = useAuthStore()

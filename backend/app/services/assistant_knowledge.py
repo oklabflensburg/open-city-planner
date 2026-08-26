@@ -182,13 +182,13 @@ def _entries() -> tuple[KnowledgeEntry, ...]:
             "Einzelhandelsflächendichte",
             ("einzelhandelsdichte", "einzelhandelsflächendichte", "retail area density", "retail_area_density_m2_per_km2"),
             "Die Einzelhandelsflächendichte setzt die erfasste Verkaufsfläche in Quadratmetern zur Gebietsfläche in Quadratkilometern ins Verhältnis.",
-            "CODE", "backend/app/services/analysis_area_api.py", "retail_area_density_m2_per_km2",
+            "CODE", "backend/app/modules/analysis_areas/application/legacy_queries.py", "retail_area_density_m2_per_km2",
         ),
         KnowledgeEntry(
             "metric.poi_count", KnowledgeType.METRIC, "POI-Anzahl",
             ("poi", "pois", "poi anzahl", "anzahl pois"),
             "Die POI-Anzahl zählt die im lokalen OSM-Datenbestand innerhalb der exakten Analysis-Area-Geometrie erfassten relevanten Objekte.",
-            "CODE", "backend/app/services/analysis_area_api.py", "poi_count",
+            "CODE", "backend/app/modules/analysis_areas/application/legacy_queries.py", "poi_count",
         ),
         KnowledgeEntry(
             "filter.floor.EG", KnowledgeType.FILTER, "Erdgeschoss",

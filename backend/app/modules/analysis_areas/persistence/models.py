@@ -1,3 +1,5 @@
+"""Module-owned ORM models for the existing public Analysis Areas tables."""
+
 import uuid as uuid_pkg
 from datetime import UTC, datetime
 

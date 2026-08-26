@@ -76,8 +76,8 @@ test('Gebietsbefehl schaltet den Stadtteil-Layer', async ({ page }) => {
   await expect(page.locator('[data-search-confirmation]')).toContainText('1 Gebiet')
   await expect.poll(() => page.evaluate(() => {
     const map = (window as any).__stadtplanerMapPerformance?.map
-    return map?.getLayer('analysis-areas-district')
-      ? map.getLayoutProperty('analysis-areas-district', 'visibility') || 'visible'
+    return map?.getLayer('analysis-areas.district')
+      ? map.getLayoutProperty('analysis-areas.district', 'visibility') || 'visible'
       : 'fehlt'
   })).toBe('visible')
 })

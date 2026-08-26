@@ -11,7 +11,7 @@ import { ensureStadtplanerLayerOrder, getStadtplanerLayerOrder, hasValidStadtpla
 import { setMapCursor } from '~/utils/mapCursor'
 import { getMapViewportPadding } from '~/utils/mapViewportPadding'
 import { loadMapStyle } from '~/config/mapStyles'
-import type { MapContext } from '#frontend-module-sdk'
+import type { MapContext, MapInteractionEvent } from '#frontend-module-sdk'
 import { MAP_CONTEXT_KEY } from '../../module-host/map-vue'
 import { createMapRuntime, resolveMapExtensionSnapshot } from '~/map-runtime/MapRuntime'
 
@@ -115,6 +115,27 @@ export function useMapCanvasHost() {
   const runtimeContext = shallowRef<MapContext | null>(null)
   provide(MAP_CONTEXT_KEY, runtimeContext)
 
+  runtime.interactions.register({
+    id: 'host.entity-selection',
+    moduleId: 'host',
+    event: 'click',
+    priority: 10,
+    handler: async (event, context) => ({
+      handled: await handleMapClick(context.unsafeMapLibre(), event)
+    })
+  })
+  runtime.interactions.register({
+    id: 'host.clear-selection',
+    moduleId: 'host',
+    event: 'click',
+    priority: 10_000,
+    handler: () => {
+      mapSelection.clearSelection()
+      mapStore.closeGisPanels()
+      return { handled: true }
+    }
+  })
+
   const visibleFeatureCollection = computed<FeatureCollection>(() => polygonStore.featureCollection as FeatureCollection)
   const showEmptyState = computed(() => osmStore.areaPoiFilter
     ? !osmStore.loading && (osmStore.data?.meta.count || 0) === 0
@@ -125,7 +146,6 @@ export function useMapCanvasHost() {
   runtime.onReady(async (instance, reason) => {
     if (disposed) return
     if (reason === 'load') {
-      await analysisAreasStore.load()
       ensureMapInfrastructure(instance)
       runtime.layers.ensureOrder()
       layersReady = true
@@ -170,7 +190,6 @@ export function useMapCanvasHost() {
       installPerformanceDebug(instance)
       instance.touchZoomRotate.enable()
       instance.dragRotate.enable()
-      instance.on('click', event => void handleMapClick(instance, event))
       instance.on('mousemove', event => handleMapHover(instance, event))
       instance.on('dragstart', () => {
         mapDragging = true
@@ -254,7 +273,6 @@ export function useMapCanvasHost() {
     applyFeatureStyles()
     updateSelectedPolygonOverlay()
   })
-  watch(() => analysisAreasStore.visibility, setAnalysisAreaVisibility, { deep: true })
   watch(() => mapStore.polygonsVisible, setPolygonVisibility)
   watch(() => mapStore.searchActionGeneration, scheduleSearchMapAction)
   watch(
@@ -411,23 +429,20 @@ export function useMapCanvasHost() {
     }
   }
 
-  async function handleMapClick(instance: Map, event: MapMouseEvent) {
+  async function handleMapClick(instance: Map, event: MapInteractionEvent) {
+    if (!event.point) return false
     const tolerance = window.matchMedia('(pointer: coarse)').matches ? 12 : 8
     const picked = pickMapEntityAtPoint(instance, event.point, tolerance)
-    if (!picked) {
-      mapSelection.clearSelection()
-      mapStore.closeGisPanels()
-      return
-    }
+    if (!picked) return false
 
     if (picked.kind === 'point-poi') {
       const featureId = picked.feature.properties?.feature_id
       const feature = osmStore.data?.features.find(item => item.id === featureId)
-      if (!feature) return
+      if (!feature) return true
       const detailRequest = mapSelection.selectOsm(feature)
       if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openGisPanel('selection')
       await detailRequest
-      return
+      return true
     }
 
     if (picked.kind === 'cluster' && picked.feature.properties?.cluster_id != null) {
@@ -437,12 +452,13 @@ export function useMapCanvasHost() {
       if (coordinates?.[0] != null && coordinates[1] != null) {
         instance.easeTo({ center: [coordinates[0], coordinates[1]], zoom })
       }
-      return
+      return true
     }
 
     if (picked.kind === 'interactive-polygon') {
       await selectInteractivePolygon(picked.polygon)
     }
+    return true
   }
 
   function handleMapHover(instance: Map, event: MapMouseEvent) {
@@ -467,7 +483,6 @@ export function useMapCanvasHost() {
   }
 
   function ensureMapInfrastructure(instance: Map) {
-    ensureAnalysisAreaInfrastructure(instance)
     ensureOsmInfrastructure(instance)
     ensurePolygonInfrastructure(instance)
     ensureSearchInfrastructure(instance)
@@ -494,8 +509,8 @@ export function useMapCanvasHost() {
     } else if (action.type === 'FIT_AREA') {
       source?.setData({ type: 'FeatureCollection', features: [] })
     }
-    if (action.type === 'HIGHLIGHT_AREAS' && instance.getLayer('analysis-areas-assistant-highlight')) {
-      instance.setFilter('analysis-areas-assistant-highlight', ['in', ['get', 'slug'], ['literal', action.areaSlugs]])
+    if (action.type === 'HIGHLIGHT_AREAS' && instance.getLayer('analysis-areas.assistant-highlight')) {
+      instance.setFilter('analysis-areas.assistant-highlight', ['in', ['get', 'slug'], ['literal', action.areaSlugs]])
     }
     const areaFeatures = action.areaSlugs.length
       ? analysisAreasStore.featureCollection.features.filter(feature => action.areaSlugs.includes(String(feature.properties?.slug)))
@@ -517,54 +532,6 @@ export function useMapCanvasHost() {
     return geometry.type === 'GeometryCollection'
       ? geometry.geometries.map(geometryCoordinateTree)
       : geometry.coordinates
-  }
-
-  function ensureAnalysisAreaInfrastructure(instance: Map) {
-    const source = instance.getSource('analysis-areas') as GeoJSONSource | undefined
-    if (source) source.setData(analysisAreasStore.featureCollection)
-    else instance.addSource('analysis-areas', { type: 'geojson', data: analysisAreasStore.featureCollection })
-    const layers = [
-      { id: 'analysis-areas-municipality', type: 'MUNICIPALITY', minzoom: 7, maxzoom: 10.5, color: '#2563eb', opacity: 0.035, width: 2.2 },
-      { id: 'analysis-areas-district', type: 'DISTRICT', minzoom: 9.5, maxzoom: 13.5, color: '#15803d', opacity: 0.045, width: 1.5 },
-      { id: 'analysis-areas-quarter', type: 'QUARTER', minzoom: 11.5, maxzoom: 24, color: '#b45309', opacity: 0.045, width: 1 }
-    ] as const
-    for (const layer of layers) {
-      if (!instance.getLayer(`${layer.id}-fill`)) instance.addLayer({
-        id: `${layer.id}-fill`, type: 'fill', source: 'analysis-areas', minzoom: layer.minzoom, maxzoom: layer.maxzoom,
-        filter: ['==', ['get', 'area_type'], layer.type], paint: { 'fill-color': layer.color, 'fill-opacity': layer.opacity }
-      })
-      if (!instance.getLayer(layer.id)) instance.addLayer({
-        id: layer.id, type: 'line', source: 'analysis-areas', minzoom: layer.minzoom, maxzoom: layer.maxzoom,
-        filter: ['==', ['get', 'area_type'], layer.type], paint: { 'line-color': layer.color, 'line-opacity': 0.72, 'line-width': layer.width }
-      })
-      if (!instance.getLayer(`${layer.id}-label`)) instance.addLayer({
-        id: `${layer.id}-label`, type: 'symbol', source: 'analysis-areas', minzoom: layer.minzoom + 0.8, maxzoom: layer.maxzoom,
-        filter: ['==', ['get', 'area_type'], layer.type],
-        layout: { 'text-field': ['get', 'name'], 'text-font': ['noto_sans_regular'], 'text-size': layer.type === 'MUNICIPALITY' ? 13 : 11, 'text-optional': true },
-        paint: { 'text-color': layer.color, 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 }
-      })
-    }
-    if (!instance.getLayer('analysis-areas-assistant-highlight')) instance.addLayer({
-      id: 'analysis-areas-assistant-highlight',
-      type: 'line',
-      source: 'analysis-areas',
-      filter: ['in', ['get', 'slug'], ['literal', []]],
-      paint: { 'line-color': '#e11d48', 'line-opacity': 0.95, 'line-width': 4 }
-    })
-    setAnalysisAreaVisibility()
-  }
-
-  function setAnalysisAreaVisibility() {
-    if (!map.value) return
-    for (const [type, suffix] of [['MUNICIPALITY', 'municipality'], ['DISTRICT', 'district'], ['QUARTER', 'quarter']] as const) {
-      const visibility = analysisAreasStore.visibility[type] ? 'visible' : 'none'
-      for (const ending of ['-fill', '', '-label']) {
-        const layer = `analysis-areas-${suffix}${ending}`
-        if (map.value.getLayer(layer)) map.value.setLayoutProperty(layer, 'visibility', visibility)
-      }
-    }
-    const selected = analysisAreasStore.selectedArea
-    if (selected && !analysisAreasStore.visibility[selected.area_type]) mapSelection.clearSelection()
   }
 
   function ensurePolygonInfrastructure(instance: Map) {
@@ -668,8 +635,8 @@ export function useMapCanvasHost() {
     const feature = analysisAreasStore.featureCollection.features.find(item => item.properties.id === entity.id)
     setSelectedPolygonOverlay(feature ? {
       id: entity.id,
-      source: 'analysis-areas',
-      layerId: `analysis-areas-${feature.properties.area_type.toLowerCase()}-fill`,
+      source: 'analysis-areas.data',
+      layerId: `analysis-areas.${feature.properties.area_type.toLowerCase()}-fill`,
       featureType: feature.properties.area_type,
       geometryType: feature.geometry.type,
       selectionKey: `analysis-areas:${feature.properties.area_type}:${entity.id}`,
@@ -698,7 +665,7 @@ export function useMapCanvasHost() {
   }
 
   function interactivePolygonColor(polygon: InteractivePolygonFeature) {
-    if (polygon.source === 'analysis-areas') {
+    if (polygon.source === 'analysis-areas.data') {
       return polygon.featureType === 'MUNICIPALITY' ? '#2563eb' : polygon.featureType === 'DISTRICT' ? '#15803d' : '#b45309'
     }
     const canonicalCategory = polygon.properties?.canonical_category

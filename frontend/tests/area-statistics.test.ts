@@ -3,10 +3,11 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
+const moduleFile = (path: string) => readFileSync(fileURLToPath(new URL(`../frontend-modules/analysis-areas/layer/app/${path}`, import.meta.url)), 'utf8')
 
 describe('municipal area statistics', () => {
   it('loads statistics and a real time series during SSR', () => {
-    const page = appFile('pages/gebiete/[slug].vue')
+    const page = moduleFile('pages/gebiete/[slug].vue')
     const api = appFile('composables/useAnalysisAreaApi.ts')
     expect(page).toContain('api.statisticsBySlug(slug)')
     expect(page).toContain("api.statisticSeriesBySlug(slug, 'population')")

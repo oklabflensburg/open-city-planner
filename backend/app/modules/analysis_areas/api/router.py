@@ -1,3 +1,5 @@
+"""Module-owned router preserving the production `/api/v1/analysis-areas` contract."""
+
 import uuid
 from typing import Annotated, NoReturn
 
@@ -5,20 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.cache.service import last_cache_status
-from app.core.config import get_settings
-from app.db.session import get_session
-from app.schemas.analysis_area import (
-    AnalysisAreaAnalytics,
-    AnalysisAreaComparison,
-    AnalysisAreaDetail,
-    AnalysisAreaPolygon,
-    AnalysisAreaRead,
-    AnalysisAreaSitemapEntry,
-)
-from app.schemas.polygon_filters import PolygonFilterParams, polygon_filter_query
-from app.schemas.statistics import AreaStatisticSeriesRead, AreaStatisticsRead
-from app.services.analysis_area_api import (
+from ..application.legacy_queries import (
     analysis_area_sitemap_entries,
     area_analytics,
     area_comparison,
@@ -29,9 +18,29 @@ from app.services.analysis_area_api import (
     areas_geojson,
     list_areas,
 )
-from app.services.area_statistics import area_statistic_series, area_statistics
-from app.services.map_previews import MapPreviewError, map_preview_service
-from app.services.public_query_security import guard_public_query, is_statement_timeout_error
+from ..integrations.legacy import (
+    AreaStatisticSeriesRead,
+    AreaStatisticsRead,
+    MapPreviewError,
+    PolygonFilterParams,
+    area_statistic_series,
+    area_statistics,
+    get_session,
+    get_settings,
+    guard_public_query,
+    is_statement_timeout_error,
+    last_cache_status,
+    map_preview_service,
+    polygon_filter_query,
+)
+from .schemas import (
+    AnalysisAreaAnalytics,
+    AnalysisAreaComparison,
+    AnalysisAreaDetail,
+    AnalysisAreaPolygon,
+    AnalysisAreaRead,
+    AnalysisAreaSitemapEntry,
+)
 
 router = APIRouter(prefix="/analysis-areas", tags=["Analysis Areas"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]

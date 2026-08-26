@@ -156,6 +156,19 @@ Autogenerate-Ziel. Bestehende Tabellen verbleiben im bisherigen Schema. Ein spä
 Umzug verwendet eine eigene, geprüfte Migration wie `ALTER TABLE ... SET SCHEMA`;
 er ist keine Voraussetzung für neue Module und nicht Teil von #97.
 
+Ein Produktionsmodul, das eine bereits vorhandene Tabelle zunächst ohne physischen
+Umzug übernimmt, deklariert diese Tabelle zusätzlich explizit als
+`adopted_tables=frozenset({"existing_table"})` in seinem
+`ModulePersistenceContribution`. Die Tabelle bleibt unqualifiziert im bisherigen
+Schema, muss den unqualifizierten Metadata-Beitrag des Moduls exakt abdecken und wird
+dadurch genau einem Modul zugeordnet. Für Alembic Autogenerate bleibt während dieser
+Übergangsphase die identische Definition aus `LegacyPersistenceProvider` maßgeblich;
+der Modulbeitrag wird dort nicht ein zweites Mal eingespeist. Diese Deklaration
+erzeugt weder eine Migration noch eine Tabelle und erlaubt keine pauschale Ownership
+des öffentlichen Schemas. Ein Adoption-Beitrag enthält deshalb nicht gleichzeitig
+neue schemaqualifizierte Tabellen; diese folgen erst mit einer expliziten
+Ownership-Migration, welche die Übergangsdeklaration ersetzt.
+
 Autogenerate schlägt keine Drops für reflektierte Tabellen, Indizes oder Constraints
 vor, denen kein registriertes Metadata-Objekt gegenübersteht. Ein echter Drop wird
 immer explizit geschrieben und hinsichtlich Ownership und Datenverlust geprüft.

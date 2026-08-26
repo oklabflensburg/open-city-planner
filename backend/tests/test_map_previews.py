@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from importlib import import_module
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
@@ -7,8 +8,9 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-import app.api.analysis_areas as analysis_area_api
 import app.api.polygons as polygon_api
+
+analysis_area_api = import_module("app.modules.analysis_areas.api.router")
 from app.schemas.polygon_directory import PolygonDirectoryItem
 from app.services.map_previews import (
     MapPreview,

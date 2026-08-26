@@ -1,3 +1,5 @@
+"""Legacy OSM synchronization adapter tracked by #127 and #108."""
+
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -6,10 +8,13 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
-from app.models.analysis_area import AnalysisArea
-from app.services.cache_versions import bump_cache_versions
-from app.services.social_publishing import enqueue_area_publication
+from app.modules.analysis_areas.persistence.models import AnalysisArea
+
+from ..integrations.legacy import (
+    bump_cache_versions,
+    enqueue_area_publication,
+    get_settings,
+)
 
 
 @dataclass

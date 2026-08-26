@@ -6,6 +6,7 @@ import { documentationPages } from '~/config/documentation'
 import { projectConfig } from '~/config/project'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
+const moduleFile = (path: string) => readFileSync(fileURLToPath(new URL(`../frontend-modules/analysis-areas/layer/app/${path}`, import.meta.url)), 'utf8')
 
 describe('Mastodon and Fediverse integration', () => {
   it('defines the official account centrally without exposing a backend token', () => {
@@ -84,7 +85,7 @@ describe('Mastodon and Fediverse integration', () => {
   })
 
   it('provides a public noindex screenshot-ready mode for allowlisted area pages', () => {
-    const areaPage = appFile('pages/gebiete/[slug].vue')
+    const areaPage = moduleFile('pages/gebiete/[slug].vue')
     const map = appFile('components/analysis/AnalysisAreaDetailMap.vue')
     expect(areaPage).toContain('data-social-preview-capture')
     expect(areaPage).toContain('data-social-preview-ready')

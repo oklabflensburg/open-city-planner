@@ -11,9 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.polygon_osm_source import PolygonOsmSource
 from app.models.user_polygon import UserPolygon
+from app.modules.analysis_areas.application.legacy_sync import refresh_polygon_area_assignments
 from app.schemas.geojson import AreaGeometry
 from app.schemas.osm import OsmPolygonImportRead, OsmPolygonImportRequest
-from app.services.analysis_areas import refresh_polygon_area_assignments
 from app.services.geometry import to_wkb_element
 from app.services.gis_mutations import invalidate_gis_after_mutation
 from app.services.notification_policy import DomainEvent, NotificationEventType

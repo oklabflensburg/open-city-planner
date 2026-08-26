@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "analysis-areas",
+  "version": "1.0.0",
+  "backendModuleId": "analysis-areas",
+  "compatibility": {
+    "host": ">=1.0.0 <2.0.0",
+    "sdk": ">=1.2.0 <2.0.0",
+    "backend": ">=1.0.0 <2.0.0"
+  },
+  "layer": "layer",
+  "requires": { "modules": {} },
+  "publicContributions": {
+    "routes": [
+      { "path": "/gebiete", "source": "layer/app/pages/gebiete/index.vue" },
+      { "path": "/gebiete/:slug", "source": "layer/app/pages/gebiete/[slug].vue" }
+    ],
+    "ui": [
+      {
+        "id": "analysis-areas.primary-navigation",
+        "slot": "navigation.primary",
+        "priority": 200,
+        "visibility": { "auth": "public", "module": "analysis-areas" },
+        "label": "Gebiete",
+        "to": "/gebiete",
+        "exact": false
+      },
+      {
+        "id": "analysis-areas.map-runtime",
+        "slot": "map.controls",
+        "priority": 10,
+        "visibility": { "module": "analysis-areas" },
+        "component": "AnalysisAreasMapRuntime",
+        "source": "layer/app/components/AnalysisAreasMapRuntime.vue",
+        "accessibleLabel": "Analysegebiete auf der Karte"
+      }
+    ],
+    "map": {
+      "sources": [
+        {
+          "id": "analysis-areas.data",
+          "source": { "type": "geojson", "data": { "type": "FeatureCollection", "features": [] } }
+        }
+      ],
+      "layers": [
+        { "id": "analysis-areas.municipality-fill", "sourceId": "analysis-areas.data", "group": "analysis", "priority": 10, "layer": { "type": "fill", "minzoom": 7, "maxzoom": 10.5, "filter": ["==", ["get", "area_type"], "MUNICIPALITY"], "paint": { "fill-color": "#2563eb", "fill-opacity": 0.035 } } },
+        { "id": "analysis-areas.municipality", "sourceId": "analysis-areas.data", "group": "analysis", "priority": 11, "layer": { "type": "line", "minzoom": 7, "maxzoom": 10.5, "filter": ["==", ["get", "area_type"], "MUNICIPALITY"], "paint": { "line-color": "#2563eb", "line-opacity": 0.72, "line-width": 2.2 } } },
+        { "id": "analysis-areas.municipality-label", "sourceId": "analysis-areas.data", "group": "labels", "priority": 10, "layer": { "type": "symbol", "minzoom": 7.8, "maxzoom": 10.5, "filter": ["==", ["get", "area_type"], "MUNICIPALITY"], "layout": { "text-field": ["get", "name"], "text-font": ["noto_sans_regular"], "text-size": 13, "text-optional": true }, "paint": { "text-color": "#2563eb", "text-halo-color": "#ffffff", "text-halo-width": 1.5 } } },
+        { "id": "analysis-areas.district-fill", "sourceId": "analysis-areas.data", "group": "analysis", "priority": 20, "layer": { "type": "fill", "minzoom": 9.5, "maxzoom": 13.5, "filter": ["==", ["get", "area_type"], "DISTRICT"], "paint": { "fill-color": "#15803d", "fill-opacity": 0.045 } } },
+        { "id": "analysis-areas.district", "sourceId": "analysis-areas.data", "group": "analysis", "priority": 21, "layer": { "type": "line", "minzoom": 9.5, "maxzoom": 13.5, "filter": ["==", ["get", "area_type"], "DISTRICT"], "paint": { "line-color": "#15803d", "line-opacity": 0.72, "line-width": 1.5 } } },
+        { "id": "analysis-areas.district-label", "sourceId": "analysis-areas.data", "group": "labels", "priority": 20, "layer": { "type": "symbol", "minzoom": 10.3, "maxzoom": 13.5, "filter": ["==", ["get", "area_type"], "DISTRICT"], "layout": { "text-field": ["get", "name"], "text-font": ["noto_sans_regular"], "text-size": 11, "text-optional": true }, "paint": { "text-color": "#15803d", "text-halo-color": "#ffffff", "text-halo-width": 1.5 } } },
+        { "id": "analysis-areas.quarter-fill", "sourceId": "analysis-areas.data", "group": "analysis", "priority": 30, "layer": { "type": "fill", "minzoom": 11.5, "maxzoom": 24, "filter": ["==", ["get", "area_type"], "QUARTER"], "paint": { "fill-color": "#b45309", "fill-opacity": 0.045 } } },
+        { "id": "analysis-areas.quarter", "sourceId": "analysis-areas.data", "group": "analysis", "priority": 31, "layer": { "type": "line", "minzoom": 11.5, "maxzoom": 24, "filter": ["==", ["get", "area_type"], "QUARTER"], "paint": { "line-color": "#b45309", "line-opacity": 0.72, "line-width": 1 } } },
+        { "id": "analysis-areas.quarter-label", "sourceId": "analysis-areas.data", "group": "labels", "priority": 30, "layer": { "type": "symbol", "minzoom": 12.3, "maxzoom": 24, "filter": ["==", ["get", "area_type"], "QUARTER"], "layout": { "text-field": ["get", "name"], "text-font": ["noto_sans_regular"], "text-size": 11, "text-optional": true }, "paint": { "text-color": "#b45309", "text-halo-color": "#ffffff", "text-halo-width": 1.5 } } },
+        { "id": "analysis-areas.assistant-highlight", "sourceId": "analysis-areas.data", "group": "overlay", "priority": 100, "layer": { "type": "line", "filter": ["in", ["get", "slug"], ["literal", []]], "paint": { "line-color": "#e11d48", "line-opacity": 0.95, "line-width": 4 } } }
+      ]
+    }
+  }
+}

@@ -15,6 +15,7 @@ from app.db.session import AsyncSessionLocal
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.polygon_osm_source import PolygonOsmSource
 from app.models.user_polygon import UserPolygon, utcnow
+from app.modules.analysis_areas.application.legacy_sync import refresh_polygon_area_assignments
 from app.schemas.geojson import (
     Feature,
     FeatureCollection,
@@ -32,7 +33,6 @@ from app.schemas.geojson import (
     PublicPolygonRead,
 )
 from app.schemas.polygon_filters import PolygonFilterParams
-from app.services.analysis_areas import refresh_polygon_area_assignments
 from app.services.cache_versions import cache_version
 from app.services.external_links import external_links_from_osm_tags
 from app.services.geometry import from_wkb_element, to_wkb_element

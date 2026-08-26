@@ -55,6 +55,7 @@ security = [
 ]
 
 [project.entry-points."open_city_planner.modules"]
+analysis-areas = "app.modules.analysis_areas.module:DEFINITION"
 reference = "app.modules.reference.module:DEFINITION"
 
 [tool.ruff]

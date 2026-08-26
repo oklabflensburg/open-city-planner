@@ -9,9 +9,9 @@ from decimal import Decimal
 from geoalchemy2.elements import WKTElement
 
 from app.db.session import AsyncSessionLocal
-from app.models.analysis_area import AnalysisArea, PolygonAnalysisArea
 from app.models.statistics import StatisticalDataset, StatisticalMetric, StatisticalObservation
 from app.models.user_polygon import UserPolygon
+from app.modules.analysis_areas.persistence.models import AnalysisArea, PolygonAnalysisArea
 
 
 def area(

@@ -11,7 +11,6 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.admin_audit_log import AdminAuditLog
-from app.models.analysis_area import AnalysisArea
 from app.models.statistics import (
     ExternalAreaMapping,
     StatisticalDataset,
@@ -19,6 +18,7 @@ from app.models.statistics import (
     StatisticalMetric,
     StatisticalObservation,
 )
+from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.services.cache_versions import bump_cache_versions
 from app.services.flensburg_superset import DATASET_SPECS, FlensburgSupersetClient
 from app.services.notification_policy import DomainEvent, NotificationEventType
