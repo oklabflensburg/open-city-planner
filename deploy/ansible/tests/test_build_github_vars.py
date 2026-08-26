@@ -37,6 +37,7 @@ class GitHubVarsBuilderTest(unittest.TestCase):
                 "stadtplaner_frontend_env_content"
             ],
             "STADTPLANER_OSM_ENV_CONFIG": self.reference["stadtplaner_osm_env_content"],
+            "STADTPLANER_MODULE_ENV_CONFIG": "",
         }
         required = BUILDER.ALWAYS_REQUIRED_SECRETS | {
             "STADTPLANER_SMTP_HOST",
@@ -126,6 +127,40 @@ class GitHubVarsBuilderTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Secrets must not be present", result.stderr)
+
+    def test_appends_generic_namespaced_module_environment_from_secret(self) -> None:
+        self.environment["STADTPLANER_MODULE_ENV_CONFIG"] = (
+            "OCP_MODULE_BIOTOPES_API_URL=https://example.org\n"
+            "OCP_MODULE_BIOTOPES_API_TOKEN=module-secret\n"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "vars.yml"
+            result = self.run_builder(output)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            generated = yaml.safe_load(output.read_text(encoding="utf-8"))
+            values = BUILDER.assignments(generated["stadtplaner_backend_env_content"])
+            self.assertEqual(values["OCP_MODULE_BIOTOPES_API_URL"], "https://example.org")
+            self.assertEqual(values["OCP_MODULE_BIOTOPES_API_TOKEN"], "module-secret")
+
+    def test_rejects_non_namespaced_key_in_module_environment(self) -> None:
+        self.environment["STADTPLANER_MODULE_ENV_CONFIG"] = "API_TOKEN=not-namespaced"
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_builder(Path(directory) / "vars.yml")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("all keys must start with OCP_MODULE_", result.stderr)
+
+    def test_rejects_duplicate_module_environment_key(self) -> None:
+        self.environment["STADTPLANER_MODULE_ENV_CONFIG"] = (
+            "OCP_MODULE_BIOTOPES_API_TOKEN=first\n"
+            "OCP_MODULE_BIOTOPES_API_TOKEN=second\n"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_builder(Path(directory) / "vars.yml")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Duplicate dotenv key", result.stderr)
 
     def test_rejects_enabled_otel_without_endpoint(self) -> None:
         self.set_backend_value("OTEL_EXPORTER_OTLP_ENDPOINT", "")

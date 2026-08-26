@@ -13,10 +13,11 @@ from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from types import MappingProxyType
-from typing import Protocol, TypeVar
+from typing import Protocol, TypeVar, overload
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +33,7 @@ type JobHandler = Callable[[], Awaitable[None]]
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list["JsonValue"] | Mapping[str, "JsonValue"]
 T = TypeVar("T")
+TSettings = TypeVar("TSettings", bound=BaseModel)
 _EVENT_NAME = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
 _REVISION_NAMESPACE = re.compile(r"^mod_[a-z][a-z0-9_]*$")
 _PYTHON_IMPORT_PACKAGE = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$")
@@ -99,6 +101,15 @@ class ModulePersistenceContribution:
     metadata: MetaData
     schema: str
     migration_source: ModuleMigrationSource | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ModuleSettingsContribution:
+    """Passives, vom Modul besessenes Schema für dessen namespacete Konfiguration."""
+
+    module_id: str
+    namespace: str
+    model: type[BaseModel]
 
 
 class DomainEvent(Protocol):
@@ -379,10 +390,18 @@ class SchedulerPort(Protocol):
 
 
 class ModuleSettingsPort(Protocol):
-    """Liest ausschließlich Werte aus dem Namespace des aktuellen Moduls."""
+    """Liefert ausschließlich das validierte Settings-Modell des aktuellen Moduls."""
 
+    @overload
+    def get(self, settings_type: type[TSettings]) -> TSettings | None: ...
+
+    @overload
     def get(self, key: str, default: T | None = None) -> object | T | None: ...
 
+    @overload
+    def require(self, settings_type: type[TSettings]) -> TSettings: ...
+
+    @overload
     def require(self, key: str) -> object: ...
 
 
@@ -445,6 +464,7 @@ class ModuleDefinition:
     origin: str
     declared_id: str
     persistence: ModulePersistenceContribution | None = None
+    settings: ModuleSettingsContribution | None = None
 
 
 __all__ = [
@@ -470,6 +490,7 @@ __all__ = [
     "ModuleManifestV1",
     "ModuleMigrationSource",
     "ModulePersistenceContribution",
+    "ModuleSettingsContribution",
     "ModuleSettingsPort",
     "ObservabilityPort",
     "PermissionPort",

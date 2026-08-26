@@ -16,6 +16,8 @@ CONFIG_VARIABLES = {
     "stadtplaner_frontend_env_content": "STADTPLANER_FRONTEND_ENV_CONFIG",
     "stadtplaner_osm_env_content": "STADTPLANER_OSM_ENV_CONFIG",
 }
+MODULE_ENV_CONFIG = "STADTPLANER_MODULE_ENV_CONFIG"
+MODULE_ENV_PREFIX = "OCP_MODULE_"
 
 SECRET_KEYS = {
     "STADTPLANER_DATABASE_URL": "DATABASE_URL",
@@ -183,6 +185,26 @@ def main() -> None:
                 f"Invalid {environment_name}; missing={missing or 'none'}, extra={extra or 'none'}"
             )
         generated[ansible_key] = normalized_content
+
+    module_content = os.environ.get(MODULE_ENV_CONFIG, "")
+    if module_content.strip():
+        normalized_modules = normalize_dotenv_content(module_content)
+        module_values = assignments(normalized_modules)
+        invalid_module_keys = sorted(
+            key for key in module_values if not key.startswith(MODULE_ENV_PREFIX)
+        )
+        if invalid_module_keys:
+            raise SystemExit(
+                f"Invalid {MODULE_ENV_CONFIG}; all keys must start with "
+                f"{MODULE_ENV_PREFIX}: {', '.join(invalid_module_keys)}"
+            )
+        backend_keys = set(assignments(generated["stadtplaner_backend_env_content"]))
+        duplicates = sorted(backend_keys.intersection(module_values))
+        if duplicates:
+            raise SystemExit(
+                f"Invalid {MODULE_ENV_CONFIG}; duplicate backend keys: {', '.join(duplicates)}"
+            )
+        generated["stadtplaner_backend_env_content"] += normalized_modules
 
     backend_values = assignments(generated["stadtplaner_backend_env_content"])
     try:

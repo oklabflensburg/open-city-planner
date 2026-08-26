@@ -68,7 +68,7 @@ Sub-Interfaces `context.api` und `context.lifecycle`.
 | `storage` | `StoragePort` | optionaler modulgebundener Blob-Storage |
 | `http` | `HttpClientFactoryPort` | optionaler sicherer Client-Port |
 | `scheduler` | `SchedulerPort` | optionaler Port; Job Runtime folgt in #100 |
-| `settings` | `ModuleSettingsPort` | optionaler, namespaced Port; Runtime folgt in #99 |
+| `settings` | `ModuleSettingsPort` | typisierte, namespacete Runtime aus #99 |
 
 Ein optionaler Port mit dem Wert `None` ist nicht durch den Host bereitgestellt. Das
 ist ein definierter Zustand und kein stiller Fallback auf Host-Interna. Ein Modul
@@ -102,6 +102,14 @@ implementiert. Die [Cross-Module-Service-Registry](service-contracts.md) stellt
 versionierte öffentliche Query-/Service-Contracts bereit. Permission Policy und
 Job-Ausführung bleiben ihren Folge-Issues vorbehalten. Die Service-Auflösung ist
 kein allgemeiner Service Locator.
+
+### Modulkonfiguration
+
+Die [namespacete Modulkonfiguration](configuration.md) validiert passive
+`ModuleSettingsContribution`-Schemas ausschließlich für aktive Module, bevor deren
+Runtimecode geladen wird. Der modulgebundene Port liefert das eigene unveränderliche
+Pydantic-Modell. Secrets bleiben backend-private; öffentliche Felder benötigen ein
+explizites Opt-in.
 
 ### HTTP
 
@@ -139,8 +147,9 @@ Host-API-Version. Der Context wurde unter SDK `1.0.0` eingeführt. Die additive
 Event-/Outbox-API aus #96 erhöhte die SDK-Version auf `1.1.0`. Die additiven
 Persistence-Contracts und der produktive Datenbank-Session-Adapter aus #97 erhöhten
 sie auf `1.2.0`. Die additive, versionierte Service-Registry aus #98 erhöht sie auf
-`1.3.0`; der minimale `DomainEvent`-Contract aus 1.0 und die #94-Proxys bleiben
-kompatibel.
+`1.3.0`. Die additive typisierte Settings-API und `ModuleSettingsContribution` aus
+#99 erhöhen sie auf `1.4.0`; der minimale `DomainEvent`-Contract aus 1.0 und die
+#94-Proxys bleiben kompatibel.
 
 - **MAJOR:** Entfernen oder Umbenennen öffentlicher Methoden, inkompatible Änderungen
   an vorhandener Semantik oder eine inkompatible Context-Struktur.

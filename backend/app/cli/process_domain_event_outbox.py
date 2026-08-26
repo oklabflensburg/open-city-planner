@@ -5,7 +5,7 @@ import socket
 
 from fastapi import FastAPI
 
-from app.core.config import get_settings
+from app.core.config import BACKEND_ENV_FILE, get_settings
 from app.db.session import AsyncSessionLocal
 from app.observability.jobs import observed_job
 from app.platform.events import InProcessEventBus, OutboxDispatcher
@@ -29,7 +29,9 @@ async def run(limit: int) -> dict[str, int]:
         discovery_providers=(FirstPartyModuleDiscovery(), EntryPointModuleDiscovery()),
         host_version=settings.api_version,
         context_factory=ModuleContextFactory(
-            ModuleHostServices(database=HostDatabaseSessionProvider()), event_bus=bus
+            ModuleHostServices(database=HostDatabaseSessionProvider()),
+            event_bus=bus,
+            module_env_file=BACKEND_ENV_FILE,
         ),
     )
     runtime.register(FastAPI())

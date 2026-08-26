@@ -38,6 +38,15 @@ describe('Ansible deployment contract', () => {
       expect(vault).toMatch(new RegExp(`^${variable}:`, 'm'))
   })
 
+  it('never exposes backend module settings through Nuxt public runtime config', () => {
+    const nuxt = repositoryFile('frontend/nuxt.config.ts')
+    const frontendEnvironment = repositoryFile('frontend/.env.example')
+
+    expect(nuxt).not.toContain('OCP_MODULE_')
+    expect(nuxt).not.toContain('STADTPLANER_MODULE_ENV_CONFIG')
+    expect(frontendEnvironment).not.toContain('OCP_MODULE_')
+  })
+
   it('runs managed runtime preparation before the application role', () => {
     const deploy = repositoryFile('deploy/ansible/playbooks/deploy.yml')
     expect(deploy.indexOf('role: stadtplaner_dns_preflight')).toBeLessThan(deploy.indexOf('role: stadtplaner_runtime'))
@@ -150,6 +159,7 @@ describe('Ansible deployment contract', () => {
     expect(workflow).toContain('secrets.STADTPLANER_ANSIBLE_REMOTE_USER')
     expect(workflow).toContain('STADTPLANER_SSH_KNOWN_HOSTS')
     expect(workflow).toContain('vars.STADTPLANER_BACKEND_ENV_CONFIG')
+    expect(workflow).toContain('secrets.STADTPLANER_MODULE_ENV_CONFIG')
     expect(workflow).toContain('secrets.STADTPLANER_DATABASE_URL')
     expect(workflow).toContain('stadtplaner_deploy_ref=${STADTPLANER_DEPLOY_SHA}')
     expect(workflow.match(/--become-password-file/g)).toHaveLength(2)

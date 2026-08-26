@@ -29,6 +29,13 @@ Der verwaltete Produktionsdeploy assembliert unveränderliche Releases unter `/o
 
 Snapshot-Verzeichnisse sind `root:oklab` mit Modus `0750`, Environmentdateien `root:oklab` mit Modus `0640`. Sie liegen ausdrücklich nicht im für den App-Benutzer breit lesbaren Release-Checkout. Ansible verarbeitet ihren Inhalt mit `no_log`; reale Secrets werden weder committed noch im Deploylog ausgegeben. `STADTPLANER_RELEASE_SHA` wird in jeden Backend- und Frontend-Snapshot geschrieben, damit Code, Konfiguration und Observability-Kennung auch nach einem Rollback denselben Release bezeichnen.
 
+Aktivierte Backend-Module lesen typisierte Einstellungen ausschließlich aus
+`OCP_MODULE_<MODULE-ID>_<SETTING>`. Der automatische Deploy übernimmt diese Werte
+aus dem geschützten mehrzeiligen Environment Secret
+`STADTPLANER_MODULE_ENV_CONFIG`; deaktivierte Module verlangen keine Pflichtwerte.
+Der Vertrag und die Legacy-Migrationsstrategie stehen unter
+[Namespacete Modulkonfiguration](modules/configuration.md).
+
 Persistente Verzeichnisse wie Uploads, OSM-Daten und Social-Screenshots dürfen nicht bei jedem Deployment ersetzt werden. Der Service-Benutzer benötigt nur für die tatsächlich verwendeten Pfade Schreibrechte.
 
 ## Repository aktualisieren
