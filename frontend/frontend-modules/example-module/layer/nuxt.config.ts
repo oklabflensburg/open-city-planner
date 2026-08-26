@@ -1,1 +1,3 @@
-export default defineNuxtConfig({})
+export default defineNuxtConfig({
+  components: [{ path: './app/components', pathPrefix: false }]
+})

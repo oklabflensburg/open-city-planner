@@ -1,13 +1,19 @@
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath } from 'node:url'
-import { resolveFrontendModules } from './module-host/discovery'
+import { discoverPageRoutes, resolveFrontendModules } from './module-host/discovery'
+import { createFrontendContributionRegistry } from './module-host/ui-registry'
 
+const appPagesDirectory = fileURLToPath(new URL('./app/pages', import.meta.url))
 const frontendModules = resolveFrontendModules({
   modulesDirectory: fileURLToPath(new URL('./frontend-modules', import.meta.url)),
-  appPagesDirectory: fileURLToPath(new URL('./app/pages', import.meta.url)),
+  appPagesDirectory,
   enabledModules: process.env.OCP_FRONTEND_MODULES,
   backendModules: process.env.OCP_BACKEND_MODULES
 })
+const frontendContributionRegistry = createFrontendContributionRegistry(
+  frontendModules,
+  discoverPageRoutes(appPagesDirectory)
+)
 
 const configuredSiteUrl = process.env.NUXT_PUBLIC_SITE_URL
 const configuredMapStyleUrl = process.env.NUXT_PUBLIC_MAP_STYLE_URL || process.env.NUXT_PUBLIC_VERSATILES_STYLE_URL || ''
@@ -67,6 +73,9 @@ export default defineNuxtConfig({
     }
   },
   modules: ['@pinia/nuxt'],
+  alias: {
+    '#frontend-module-sdk': fileURLToPath(new URL('./module-host/public.ts', import.meta.url))
+  },
   components: [
     {
       path: '~/components',
@@ -79,6 +88,8 @@ export default defineNuxtConfig({
     releaseSha: process.env.STADTPLANER_RELEASE_SHA || 'dev',
     apiInternalBaseUrl: process.env.NUXT_API_INTERNAL_BASE_URL || '',
     public: {
+      frontendModules: frontendModules.map(module => module.id),
+      frontendUiContributions: [...frontendContributionRegistry.all()],
       siteName: 'OK Lab Flensburg',
       siteUrl: configuredSiteUrl || 'http://localhost:3000',
       siteLocale: 'de_DE',

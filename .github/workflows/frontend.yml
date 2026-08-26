@@ -38,7 +38,7 @@ jobs:
         run: pnpm test
       - name: Verify frontend module contracts explicitly
         working-directory: frontend
-        run: pnpm vitest run tests/frontend-module-host.test.ts
+        run: pnpm vitest run tests/frontend-module-host.test.ts tests/frontend-ui-contributions.test.ts
       - name: Verify enabled frontend module SSR explicitly
         working-directory: frontend
         run: pnpm test:modules:ssr

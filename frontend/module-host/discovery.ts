@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
+import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { satisfies, valid, validRange } from 'semver'
 import { z } from 'zod'
 import {
@@ -8,8 +8,50 @@ import {
   type FrontendModuleDefinition,
   type ResolvedFrontendModule
 } from './contract.ts'
+import { createFrontendContributionRegistry } from './ui-registry.ts'
 
 const moduleId = z.string().regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/).max(63)
+const uiVisibility = z.strictObject({
+  auth: z.enum(['public', 'authenticated', 'anonymous']).optional(),
+  permission: z.string().min(1).optional(),
+  feature: z.string().min(1).optional(),
+  module: moduleId.optional()
+})
+const uiContributionBase = {
+  id: z.string().min(3),
+  priority: z.number().int().min(-1_000_000).max(1_000_000).optional(),
+  visibility: uiVisibility.optional()
+}
+const navigationContribution = z.strictObject({
+  ...uiContributionBase,
+  slot: z.enum(['navigation.primary', 'navigation.user', 'navigation.admin']),
+  label: z.string().min(1),
+  to: z.string().startsWith('/'),
+  exact: z.boolean().optional()
+})
+const componentContributionBase = {
+  ...uiContributionBase,
+  component: z.string().regex(/^[A-Z][A-Za-z0-9]*$/),
+  source: z.string().min(1),
+  props: z.record(z.string(), z.json()).optional()
+}
+const headerActionContribution = z.strictObject({
+  ...componentContributionBase,
+  slot: z.literal('header.actions'),
+  accessibleLabel: z.string().min(1)
+})
+const componentContribution = z.strictObject({
+  ...componentContributionBase,
+  slot: z.enum([
+    'sidebar',
+    'dashboard.widgets',
+    'profile.sections',
+    'map.controls',
+    'map.bottomSheet',
+    'map.contextMenu'
+  ])
+})
+
 const route = z.strictObject({
   path: z.string().startsWith('/'),
   source: z.string().min(1)
@@ -29,7 +71,8 @@ const definitionSchema = z.strictObject({
     modules: z.record(moduleId, z.string().min(1))
   }),
   publicContributions: z.strictObject({
-    routes: z.array(route)
+    routes: z.array(route),
+    ui: z.array(z.union([navigationContribution, headerActionContribution, componentContribution])).default([])
   })
 })
 
@@ -69,6 +112,7 @@ export function resolveFrontendModules(options: ResolveFrontendModulesOptions): 
   )
   const ordered = resolveModuleOrder(enabled)
   validateRouteCollisions(ordered, options.appPagesDirectory)
+  createFrontendContributionRegistry(ordered, discoverPageRoutes(options.appPagesDirectory))
   return ordered
 }
 
@@ -118,6 +162,22 @@ export function discoverFrontendModules(modulesDirectory: string): ResolvedFront
         throw new FrontendModuleError(`Route "${contribution.path}" of frontend module "${definition.id}" has no file at ${routeSource}.`)
       }
     }
+    for (const contribution of definition.publicContributions.ui) {
+      if (!('source' in contribution)) continue
+      const componentSource = safeChildPath(moduleRoot, contribution.source, `component source of UI contribution "${contribution.id}"`)
+      const componentsDirectory = resolve(layerPath, 'app/components')
+      const sourceFromComponents = relative(componentsDirectory, componentSource)
+      if (sourceFromComponents === '..' || sourceFromComponents.startsWith(`..${sep}`)) {
+        throw new FrontendModuleError(`UI contribution "${contribution.id}" must point into its own layer app/components directory.`)
+      }
+      if (!existsSync(componentSource) || !statSync(componentSource).isFile()) {
+        throw new FrontendModuleError(`UI contribution "${contribution.id}" has no component file at ${componentSource}.`)
+      }
+      if (!componentSource.endsWith('.vue') || basename(componentSource, '.vue') !== contribution.component) {
+        throw new FrontendModuleError(`UI contribution "${contribution.id}" component name "${contribution.component}" must match its local Vue filename.`)
+      }
+    }
+    validateModuleImports(definition.id, moduleRoot, layerPath)
     discovered.push({ ...definition, source, layerPath })
   }
   return discovered
@@ -257,6 +317,26 @@ function walkFiles(directory: string): string[] {
       const path = resolve(directory, entry.name)
       return entry.isDirectory() ? walkFiles(path) : [path]
     })
+}
+
+function validateModuleImports(moduleId: string, moduleRoot: string, layerPath: string) {
+  const sourceFiles = walkFiles(layerPath).filter(file => /\.(?:vue|[cm]?[jt]sx?)$/.test(file))
+  const importPattern = /(?:from\s*|import\s*\()\s*['"]([^'"]+)['"]/g
+  for (const file of sourceFiles) {
+    const contents = readFileSync(file, 'utf8')
+    for (const match of contents.matchAll(importPattern)) {
+      const specifier = match[1]!
+      if (specifier.startsWith('~/') || specifier.startsWith('@/') || specifier.includes('frontend-modules/')) {
+        throw new FrontendModuleError(`Frontend module "${moduleId}" imports private host or module internals via "${specifier}" in ${file}.`)
+      }
+      if (!specifier.startsWith('.')) continue
+      const target = resolve(dirname(file), specifier)
+      const fromModule = relative(moduleRoot, target)
+      if (fromModule === '..' || fromModule.startsWith(`..${sep}`)) {
+        throw new FrontendModuleError(`Frontend module "${moduleId}" imports outside its own module through "${specifier}" in ${file}.`)
+      }
+    }
+  }
 }
 
 function validateDefinitionVersions(definition: FrontendModuleDefinition, source: string) {

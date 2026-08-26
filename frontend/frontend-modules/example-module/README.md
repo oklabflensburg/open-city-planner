@@ -2,4 +2,7 @@
 
 Dieses rein technische Modul beweist die Build-Time-Integration aus #101. Es wird
 nur mit `OCP_FRONTEND_MODULES=example-module` in den Nuxt-Build aufgenommen und
-enthält keine Fachdomäne oder Navigation Contribution.
+enthält keine Fachdomäne.
+Es registriert deklarativ einen Eintrag in `navigation.primary`, einen
+permission-sensitiven Admin-Eintrag und die lokale Komponente
+`ExampleModuleAction` in `header.actions`.

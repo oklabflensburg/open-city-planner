@@ -68,6 +68,9 @@ describe('SEO routes over Nuxt HTTP', () => {
     const meta = tags(html, 'meta').map(attributes)
     const links = tags(html, 'link').map(attributes)
 
+    expect(html).not.toContain('Beispielmodul')
+    expect(html).not.toContain('data-ui-contribution="example-module.')
+
     expect(meta.find(item => item.name === 'theme-color')?.content).toBe('#154d73')
     expect(meta.find(item => item.name === 'twitter:site')?.content).toBe('@oklabflensburg')
     expect(links).toEqual(expect.arrayContaining([
