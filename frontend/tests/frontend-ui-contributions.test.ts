@@ -77,6 +77,26 @@ describe('frontend UI contribution registry', () => {
       .toThrowError(/unknown static route/)
   })
 
+  it('requires accessible labels for module map controls', () => {
+    const registry = new FrontendContributionRegistry(['/known'])
+    const registrar = registry.registrar('alpha', 0)
+    expect(() => registrar.register({
+      id: 'alpha.map-control',
+      slot: 'map.controls',
+      component: 'AlphaMapControl',
+      source: 'layer/app/components/AlphaMapControl.vue',
+      accessibleLabel: ''
+    })).toThrow(/requires an accessible label/)
+    registrar.register({
+      id: 'alpha.accessible-map-control',
+      slot: 'map.controls',
+      component: 'AlphaMapControl',
+      source: 'layer/app/components/AlphaMapControl.vue',
+      accessibleLabel: 'Kartenwerkzeug öffnen'
+    })
+    expect(registry.seal().forSlot('map.controls')).toHaveLength(1)
+  })
+
   it('is read-only after sealing and cannot be read before sealing', () => {
     const registry = new FrontendContributionRegistry(['/known'])
     const registrar = registry.registrar('alpha', 0)

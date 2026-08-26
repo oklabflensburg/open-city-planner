@@ -43,7 +43,8 @@ typisierte Contract liegt in `frontend/module-host/contract.ts`:
         "source": "layer/app/pages/module-example.vue"
       }
     ],
-    "ui": []
+    "ui": [],
+    "map": { "sources": [], "layers": [] }
   }
 }
 ```
@@ -135,8 +136,8 @@ Der Host wird dafür nicht um fachliche Imports oder eine ID-Liste erweitert.
 
 ## Bewusste Grenzen von V1
 
-Der Contract enthält eine kleine Navigation-/UI-Slot-Registry aus #102, aber keine
-Map-Runtime-Extension-Points aus #103. Module dürfen keine unbekannten Bundles
+Der Contract enthält die Navigation-/UI-Slot-Registry aus #102 und die deklarativen
+Map-Source-/Layer-Extension-Points aus #103. Module dürfen keine unbekannten Bundles
 nachladen, keine eigene Pinia-Root oder Tailwind-Pipeline starten und nicht direkt
 in Interna anderer Module importieren. Externe npm-Pakete können später als bereits
 installierte, lokale Quellen an denselben Contract angebunden werden; Download und

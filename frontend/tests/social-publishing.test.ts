@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { mapHostSource } from './map-host-source'
 import { documentationPages } from '~/config/documentation'
 import { projectConfig } from '~/config/project'
 
@@ -94,7 +95,7 @@ describe('Mastodon and Fediverse integration', () => {
   it('provides anonymous screenshot-ready modes for polygon detail and GIS targets', () => {
     const detail = appFile('pages/flaechen/[slug].vue')
     const shell = appFile('components/layout/AppShell.vue')
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(detail).toContain('data-social-preview-capture')
     expect(detail).toContain('data-social-preview-ready')
     expect(detail).toContain("robots: 'noindex,nofollow'")

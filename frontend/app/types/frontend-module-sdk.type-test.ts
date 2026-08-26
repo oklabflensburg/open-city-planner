@@ -1,4 +1,4 @@
-import type { FrontendModuleUiContribution } from '#frontend-module-sdk'
+import type { FrontendModuleUiContribution, MapLayerContribution, MapSourceContribution } from '#frontend-module-sdk'
 
 export const validNavigationContribution: FrontendModuleUiContribution = {
   id: 'type-test.primary-navigation',
@@ -21,4 +21,16 @@ export const invalidSlotContribution: FrontendModuleUiContribution = {
   slot: 'unknown.slot',
   label: 'Ungültig',
   to: '/'
+}
+
+export const validMapSource: MapSourceContribution = {
+  id: 'type-test.landmark',
+  source: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } }
+}
+
+export const validMapLayer: MapLayerContribution = {
+  id: 'type-test.landmark',
+  sourceId: validMapSource.id,
+  group: 'overlay',
+  layer: { type: 'circle', paint: { 'circle-color': '#154d73' } }
 }

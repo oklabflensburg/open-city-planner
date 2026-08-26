@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { mapHostSource } from './map-host-source'
 import {
   fallbackIndustryColor,
   getIndustryColor,
@@ -95,7 +96,7 @@ describe('central category presentation', () => {
   })
 
   it('uses category colors on overview, detail map, badge, filter and analytics', () => {
-    expect(appFile('components/map/MapCanvas.vue')).toContain('industryColorExpression')
+    expect(mapHostSource()).toContain('industryColorExpression')
     expect(appFile('components/polygon/PolygonDetailMap.vue')).toContain("'fill-color': props.color")
     expect(appFile('components/polygon/PolygonCategoryBadge.vue')).toContain('getIndustryColor')
     expect(appFile('components/filters/IndustryFilter.vue')).toContain('industryColors[industry.key]')
@@ -103,7 +104,7 @@ describe('central category presentation', () => {
   })
 
   it('keeps the overview map read-only and confines drawing to the create route', () => {
-    expect(appFile('components/map/MapCanvas.vue')).not.toContain('TerraDraw')
+    expect(mapHostSource()).not.toContain('TerraDraw')
     expect(appFile('components/polygon/PolygonCreateMap.vue')).toContain('TerraDrawPolygonMode')
   })
 })

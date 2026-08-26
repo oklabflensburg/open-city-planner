@@ -66,6 +66,7 @@ cd frontend
 pnpm install --frozen-lockfile
 pnpm modules:check
 pnpm test
+pnpm vitest run tests/map-runtime.test.ts tests/map-sdk.test.ts
 pnpm test:modules:ssr
 pnpm typecheck
 pnpm build

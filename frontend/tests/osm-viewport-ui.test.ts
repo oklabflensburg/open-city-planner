@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { mapHostSource } from './map-host-source'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
 
 describe('dynamic OSM viewport layer', () => {
   it('loads initial and moved viewports from MapLibre bounds', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).toContain('refreshOsmViewportForCurrentMap({ force: true })')
     expect(map).toContain("instance.on('moveend'")
     expect(map).not.toContain("instance.on('zoomend'")
@@ -15,7 +16,7 @@ describe('dynamic OSM viewport layer', () => {
 
   it('debounces, aborts and sequences requests so the latest viewport wins', () => {
     const store = appFile('stores/osmViewport.ts')
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).toContain('delay = 220')
     expect(store).toContain('new AbortController()')
     expect(store).toContain('this.controller?.abort()')
@@ -24,7 +25,7 @@ describe('dynamic OSM viewport layer', () => {
   })
 
   it('uses buffered coverage and a bounded local cache before refreshing', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     const store = appFile('stores/osmViewport.ts')
     expect(map).toContain('osmStore.covers(viewport, zoom)')
     expect(map).toContain('expandOsmBounds(viewport)')
@@ -36,8 +37,8 @@ describe('dynamic OSM viewport layer', () => {
   })
 
   it('recreates missing custom sources and layers after a style reload', () => {
-    const map = appFile('components/map/MapCanvas.vue')
-    expect(map).toContain("instance.on('style.load'")
+    const map = mapHostSource()
+    expect(map).toContain("map.on('style.load'")
     expect(map).toContain("if (!instance.getSource('osm-pois'))")
     expect(map).toContain("if (!instance.getSource('osm-polygons'))")
     expect(map).toContain("if (!instance.getLayer('osm-poi-circle'))")
@@ -45,7 +46,7 @@ describe('dynamic OSM viewport layer', () => {
   })
 
   it('restores the saved map view without resizing for each viewport read', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).toContain('center: mapStore.center')
     expect(map).toContain('zoom: mapStore.zoom')
     expect(map).toContain('bearing: mapStore.bearing')
@@ -53,7 +54,7 @@ describe('dynamic OSM viewport layer', () => {
   })
 
   it('creates layers once and updates long-lived GeoJSON sources with setData', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).toContain("instance.addSource('osm-pois'")
     expect(map).toContain("instance.addSource('osm-polygons'")
     expect(map).toContain('?.setData(points)')
@@ -61,7 +62,7 @@ describe('dynamic OSM viewport layer', () => {
   })
 
   it('uses feature state only in paint expressions, never in layer filters', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     const filterLines = map.split('\n').filter(line => line.includes('filter:'))
     expect(filterLines).not.toEqual(expect.arrayContaining([expect.stringContaining("['feature-state'")]))
     expect(map).toContain("'circle-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]")
@@ -69,21 +70,21 @@ describe('dynamic OSM viewport layer', () => {
   })
 
   it('defensively removes peninsula features before rendering and from pickable layers', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).toContain('!shouldExcludeOsmFeature(feature)')
     expect(map).toContain("['!=', ['get', 'natural'], 'peninsula']")
     expect(map.indexOf('const safeFeatures')).toBeLessThan(map.indexOf('?.setData(points)'))
   })
 
   it('clusters points and zooms into a tapped cluster', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     expect(map).toContain('clusterMaxZoom: 14')
     expect(map).toContain("id: 'osm-clusters'")
     expect(map).toContain('getClusterExpansionZoom')
   })
 
   it('uses central POI-first picking for points, clusters and polygons', () => {
-    const map = appFile('components/map/MapCanvas.vue')
+    const map = mapHostSource()
     const picking = appFile('utils/mapFeaturePicking.ts')
     expect(map).toContain('pickMapEntityAtPoint(instance, event.point, tolerance)')
     expect(picking.indexOf("kind: 'point-poi'")).toBeLessThan(picking.indexOf("kind: 'cluster'"))

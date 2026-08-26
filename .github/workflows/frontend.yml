@@ -36,9 +36,9 @@ jobs:
       - name: Run Vitest
         working-directory: frontend
         run: pnpm test
-      - name: Verify frontend module contracts explicitly
+      - name: Verify frontend module and map SDK contracts explicitly
         working-directory: frontend
-        run: pnpm vitest run tests/frontend-module-host.test.ts tests/frontend-ui-contributions.test.ts
+        run: pnpm vitest run tests/frontend-module-host.test.ts tests/frontend-ui-contributions.test.ts tests/map-runtime.test.ts tests/map-sdk.test.ts
       - name: Verify enabled frontend module SSR explicitly
         working-directory: frontend
         run: pnpm test:modules:ssr

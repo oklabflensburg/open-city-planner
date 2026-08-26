@@ -7,9 +7,10 @@ import {
   loadMapStyle,
   resolveMapStyleUrl
 } from '../app/config/mapStyles'
+import { mapHostSource } from './map-host-source'
 
 const style = JSON.parse(readFileSync(resolve(process.cwd(), 'public/map-styles/stadtplaner-light.json'), 'utf8'))
-const mapCanvas = readFileSync(resolve(process.cwd(), 'app/components/map/MapCanvas.vue'), 'utf8')
+const mapCanvas = mapHostSource()
 const availableSourceLayers = new Set([
   'ocean', 'water_polygons', 'land', 'water_lines', 'dam_polygons', 'dam_lines',
   'pier_polygons', 'pier_lines', 'sites', 'street_polygons', 'streets', 'buildings',

@@ -14,6 +14,12 @@ Die dauerhafte Reihenfolge von unten nach oben lautet:
 
 Die Reihenfolge wird nach dem ersten Kartenladen und nach jedem `style.load` wiederhergestellt. Während `move`, `drag` oder `render` wird sie nicht neu berechnet.
 
+Map-SDK-Beiträge verwenden dieselben semantischen Gruppen über die
+`LayerRegistry`. Der host-owned Suchergebnis-Pilot (`host.search-results-*`) und
+explizite Modul-Overlays liegen in `overlay` oberhalb der dauerhaften
+Anwendungslayer. Beiträge anderer Gruppen werden an den hier dokumentierten
+Legacy-Layern verankert, bis diese selbst über das SDK registriert sind.
+
 ## Semantik der GIS-Bedienelemente
 
 Die Sidebar verwendet pro Interaktionsmodell genau einen Bedienelementtyp:

@@ -27,13 +27,12 @@ describe('frontend bundle boundaries', () => {
   })
 
   it('loads MapLibre from map components rather than the app entry', () => {
-    for (const component of [
-      'app/components/map/MapCanvas.vue',
-      'app/components/polygon/PolygonDetailMap.vue',
-      'app/components/analysis/AnalysisAreaDetailMap.vue',
-      'app/components/polygon/PolygonCreateMap.vue'
+    for (const componentSource of [
+      source('app/composables/useMapCanvasHost.ts'),
+      source('app/components/polygon/PolygonDetailMap.vue'),
+      source('app/components/analysis/AnalysisAreaDetailMap.vue'),
+      source('app/components/polygon/PolygonCreateMap.vue')
     ]) {
-      const componentSource = source(component)
       expect(componentSource).toContain("import('maplibre-gl')")
       expect(componentSource).toContain("import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url')")
       expect(componentSource).toContain('maplibregl.setWorkerUrl(worker.default)')
