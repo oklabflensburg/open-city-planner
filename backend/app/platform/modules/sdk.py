@@ -6,6 +6,7 @@ Plattform-Ports und importiert keine Host-Infrastruktur oder Fachdomänen.
 
 import logging
 import math
+import posixpath
 import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
@@ -16,6 +17,7 @@ from typing import Protocol, TypeVar
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter
+from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.platform.modules.manifest import (
@@ -31,6 +33,8 @@ type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list["JsonValue"] | Mapping[str, "JsonValue"]
 T = TypeVar("T")
 _EVENT_NAME = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
+_REVISION_NAMESPACE = re.compile(r"^mod_[a-z][a-z0-9_]*$")
+_PYTHON_IMPORT_PACKAGE = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$")
 
 
 class ApiRegistrar(Protocol):
@@ -60,6 +64,41 @@ class DatabaseSessionProvider(Protocol):
     """Öffnet eine vom Host verwaltete SQLAlchemy-Session."""
 
     def session(self) -> AbstractAsyncContextManager[AsyncSession]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ModuleMigrationSource:
+    """Installierte, lokale Alembic-Quelle eines Moduls."""
+
+    package: str
+    resource: str
+    revision_namespace: str
+
+    def __post_init__(self) -> None:
+        if not _PYTHON_IMPORT_PACKAGE.fullmatch(self.package):
+            raise ValueError("Migration packages must be installed Python package names.")
+        normalized = posixpath.normpath(self.resource)
+        if (
+            not self.resource
+            or self.resource.startswith(("/", "\\"))
+            or normalized in {".", ".."}
+            or normalized.startswith("../")
+            or "://" in self.resource
+            or "\\" in self.resource
+        ):
+            raise ValueError("Migration resources must be relative installed-package paths.")
+        if not _REVISION_NAMESPACE.fullmatch(self.revision_namespace):
+            raise ValueError('Revision namespaces must use the form "mod_<module_id>".')
+
+
+@dataclass(frozen=True, slots=True)
+class ModulePersistenceContribution:
+    """Passive ORM- und Migrationsmetadaten einer ModuleDefinition."""
+
+    module_id: str
+    metadata: MetaData
+    schema: str
+    migration_source: ModuleMigrationSource | None = None
 
 
 class DomainEvent(Protocol):
@@ -390,6 +429,7 @@ class ModuleDefinition:
     loader: ModuleLoader
     origin: str
     declared_id: str
+    persistence: ModulePersistenceContribution | None = None
 
 
 __all__ = [
@@ -413,6 +453,8 @@ __all__ = [
     "ModuleDefinition",
     "ModuleLifecycleHook",
     "ModuleManifestV1",
+    "ModuleMigrationSource",
+    "ModulePersistenceContribution",
     "ModuleSettingsPort",
     "ObservabilityPort",
     "PermissionPort",

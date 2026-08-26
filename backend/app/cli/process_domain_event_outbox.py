@@ -14,7 +14,8 @@ from app.platform.modules import (
     FirstPartyModuleDiscovery,
     create_module_runtime,
 )
-from app.platform.modules.context import ModuleContextFactory
+from app.platform.modules.context import ModuleContextFactory, ModuleHostServices
+from app.platform.modules.persistence import HostDatabaseSessionProvider
 from app.services.polygon_event_handlers import register_polygon_event_handlers
 
 
@@ -27,7 +28,9 @@ async def run(limit: int) -> dict[str, int]:
         enabled_module_ids=settings.enabled_module_list,
         discovery_providers=(FirstPartyModuleDiscovery(), EntryPointModuleDiscovery()),
         host_version=settings.api_version,
-        context_factory=ModuleContextFactory(event_bus=bus),
+        context_factory=ModuleContextFactory(
+            ModuleHostServices(database=HostDatabaseSessionProvider()), event_bus=bus
+        ),
     )
     runtime.register(FastAPI())
     bus.seal()

@@ -23,6 +23,7 @@ from semantic_version import SimpleSpec, Version
 from app.platform.modules.errors import (
     DuplicateConfigNamespaceError,
     DuplicateModuleIdError,
+    DuplicatePersistenceSchemaError,
     InvalidRuntimeVersionError,
     MissingModuleDependencyError,
     ModuleCompatibilityError,
@@ -168,7 +169,7 @@ class ModuleConfig(StrictManifestModel):
 
 
 class ModulePersistence(StrictManifestModel):
-    """Deklarative Metadaten für das spätere Migrations-Ownership aus #97."""
+    """Deklarative Schema- und Migrations-Ownership aus #97."""
 
     schema_name: str = Field(
         alias="schema",
@@ -326,15 +327,22 @@ def validate_manifests(
         first_index_by_id[manifest.id] = index
 
     config_owners: dict[str, str] = {}
+    schema_owners: dict[str, str] = {}
     for manifest in manifests:
-        if manifest.config is None:
-            continue
-        namespace = manifest.config.namespace
-        if namespace in config_owners:
-            raise DuplicateConfigNamespaceError(
-                namespace, (config_owners[namespace], manifest.id)
-            )
-        config_owners[namespace] = manifest.id
+        if manifest.config is not None:
+            namespace = manifest.config.namespace
+            if namespace in config_owners:
+                raise DuplicateConfigNamespaceError(
+                    namespace, (config_owners[namespace], manifest.id)
+                )
+            config_owners[namespace] = manifest.id
+        if manifest.persistence is not None:
+            schema = manifest.persistence.schema_name
+            if schema in schema_owners:
+                raise DuplicatePersistenceSchemaError(
+                    schema, (schema_owners[schema], manifest.id)
+                )
+            schema_owners[schema] = manifest.id
 
     for manifest in manifests:
         validate_manifest(

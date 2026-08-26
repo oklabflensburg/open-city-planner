@@ -11,7 +11,7 @@ bei reinen Dokumentationsänderungen nicht.
 | --- | --- | --- |
 | Backend CI | `backend-lint` | Ruff sowie Import- und Startkonfigurations-Smoke-Test |
 | Backend CI | `backend-tests` | vollständige Pytest-Suite |
-| Backend CI | `backend-migrations` | genau ein Alembic-Head und Upgrade einer frischen PostGIS-Datenbank |
+| Backend CI | `backend-migrations` | genau ein Alembic-Head, Upgrade einer frischen PostGIS-Datenbank sowie Modul-Persistence-, Schema- und Migrationscontracts |
 | Frontend CI | `frontend-tests` | vollständige Vitest-Suite |
 | Frontend CI | `frontend-typecheck` | Nuxt-/Vue-Typecheck |
 | Frontend CI | `frontend-build` | produktiver Nuxt-Build und zentraler SSR-/SEO-Audit über Sitemap-, Noindex-, Redirect- und Fehler-Routen |
@@ -97,12 +97,13 @@ pnpm test:e2e
 Produktivdatenbanken dürfen niemals als E2E-Ziel verwendet werden. Der Seed ist
 für eine frische, isolierte Datenbank vorgesehen.
 
-`alembic check` ist derzeit absichtlich kein CI-Schritt. Die Autogenerierung
-behandelt Tabellen der von PostGIS installierten Tiger-/Topology-Schemata sowie
-einzelne bestehende, nicht in der Alembic-Metadatenmenge registrierte Objekte als
-zu entfernende Anwendungstabellen. Das erzeugt auf einer korrekt migrierten,
-frischen Datenbank Fehlalarme. Bis die Alembic-Filter und die Metadatenregistrierung
-bereinigt sind, prüft CI deshalb den eindeutigen Head und das vollständige Upgrade.
+`alembic check` ist derzeit absichtlich kein CI-Schritt. Die modulare
+Metadata-Registry filtert PostGIS-Systemschemas und erzeugt für nicht registrierte
+Legacy-Objekte keine automatischen Drops mehr. Einzelne historische Unterschiede
+bei Nullability und serverseitigen Defaults erzeugen auf einer korrekt migrierten,
+frischen Datenbank aber weiterhin nicht-destruktive Fehlalarme. Bis diese Legacy-
+Baseline separat bereinigt ist, prüft CI deshalb den eindeutigen Head, das
+vollständige Upgrade und die gezielten Modul-Autogenerate-Contracts.
 
 ## Security-Workflow
 

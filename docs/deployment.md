@@ -55,6 +55,14 @@ uv run alembic heads
 uv run alembic upgrade head
 ```
 
+Der bestehende Befehl bleibt für die veröffentlichte Host-/Legacy-Historie
+maßgeblich. Installierte Module mit eigenen Migrationen werden vor ihrer Aktivierung
+zusätzlich über den in
+[ADR #97](architecture/adr-module-database-and-migration-ownership.md)
+beschriebenen Persistence-Preflight geprüft. Bereits angewandte Migrationsquellen
+müssen auch bei deaktiviertem Modul installiert und im Migrationsinventar auflösbar
+bleiben; Deaktivierung führt nie automatisch einen Downgrade aus.
+
 Die produktive Installation verwendet keine Development-Extras. CI und lokale
 Vorabprüfungen ergänzen dagegen `--extra dev` für Pytest und Ruff. Beide Pfade
 verwenden dasselbe `backend/uv.lock`; eine Auflösung auf dem Produktionsserver

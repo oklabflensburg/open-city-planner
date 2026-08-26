@@ -26,7 +26,7 @@ from app.platform.modules.manifest import ModuleManifestV1, parse_manifest, vali
 from app.platform.modules.sdk import BackendModule, ModuleContext, ModuleDefinition
 
 logger = logging.getLogger(__name__)
-MODULE_SDK_VERSION = "1.1.0"
+MODULE_SDK_VERSION = "1.2.0"
 
 
 @dataclass(slots=True)
@@ -183,6 +183,55 @@ def create_module_runtime(
 ) -> ModuleRuntime:
     """Discover, validiere, sortiere und instanziiere aktivierte Module fail-fast."""
 
+    resolved = resolve_module_definitions(
+        enabled_module_ids=enabled_module_ids,
+        discovery_providers=discovery_providers,
+        host_version=host_version,
+        sdk_version=sdk_version,
+    )
+    definitions_by_id = {manifest.id: definition for definition, manifest in resolved}
+    ordered = tuple(manifest for _, manifest in resolved)
+
+    records: list[ModuleRecord] = []
+    active_context_factory = context_factory or ModuleContextFactory()
+    for load_index, manifest in enumerate(ordered):
+        definition = definitions_by_id[manifest.id]
+        try:
+            module = definition.loader()
+            if module.manifest != manifest:
+                raise ValueError("loaded module manifest does not match its validated definition")
+            register = module.register
+            if not callable(register):
+                raise TypeError("loaded module has no callable register hook")
+        except Exception as exc:
+            raise ModuleLoadError(
+                "The validated module could not be instantiated.",
+                module_id=manifest.id,
+                origin=definition.origin,
+            ) from exc
+        registration = ModuleRegistrationContext()
+        records.append(
+            ModuleRecord(
+                manifest=manifest,
+                module=module,
+                origin=definition.origin,
+                load_index=load_index,
+                context=active_context_factory.create(manifest, registration),
+                registration=registration,
+            )
+        )
+    return ModuleRuntime(ModuleRegistry(records))
+
+
+def resolve_module_definitions(
+    *,
+    enabled_module_ids: Sequence[str],
+    discovery_providers: Sequence[ModuleDiscoveryProvider],
+    host_version: str,
+    sdk_version: str = MODULE_SDK_VERSION,
+) -> tuple[tuple[ModuleDefinition, ModuleManifestV1], ...]:
+    """Entdecke und ordne passive Definitionen, ohne Modul-Runtimecode zu laden."""
+
     enabled = frozenset(enabled_module_ids)
     definitions: list[ModuleDefinition] = []
     for provider in discovery_providers:
@@ -254,35 +303,7 @@ def create_module_runtime(
         raise ModuleValidationError(str(exc), module_id=exc.module_id, origin=origin) from exc
 
     definitions_by_id = {manifest.id: definition for definition, manifest in parsed}
-    records: list[ModuleRecord] = []
-    active_context_factory = context_factory or ModuleContextFactory()
-    for load_index, manifest in enumerate(ordered):
-        definition = definitions_by_id[manifest.id]
-        try:
-            module = definition.loader()
-            if module.manifest != manifest:
-                raise ValueError("loaded module manifest does not match its validated definition")
-            register = module.register
-            if not callable(register):
-                raise TypeError("loaded module has no callable register hook")
-        except Exception as exc:
-            raise ModuleLoadError(
-                "The validated module could not be instantiated.",
-                module_id=manifest.id,
-                origin=definition.origin,
-            ) from exc
-        registration = ModuleRegistrationContext()
-        records.append(
-            ModuleRecord(
-                manifest=manifest,
-                module=module,
-                origin=definition.origin,
-                load_index=load_index,
-                context=active_context_factory.create(manifest, registration),
-                registration=registration,
-            )
-        )
-    return ModuleRuntime(ModuleRegistry(records))
+    return tuple((definitions_by_id[manifest.id], manifest) for manifest in ordered)
 
 
 def _log_fields(record: ModuleRecord, phase: str) -> dict[str, str]:

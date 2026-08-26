@@ -1,11 +1,13 @@
 """Bewusst kleines, ausschließlich in Tests aktiviertes Runtime-Modul."""
 
 from fastapi import APIRouter
+from sqlalchemy import Column, Integer, MetaData, String, Table
 
 from app.platform.modules.sdk import (
     ModuleContext,
     ModuleDefinition,
     ModuleManifestV1,
+    ModulePersistenceContribution,
     parse_manifest,
 )
 
@@ -17,8 +19,18 @@ MANIFEST = parse_manifest(
         "version": "1.0.0",
         "requires": {"host": ">=0.2.0,<1.0.0", "sdk": ">=1.0.0,<2.0.0"},
         "capabilities": ["test.ping"],
+        "persistence": {"schema": "test_example_module", "migrations": False},
     },
     origin="tests.fixtures.example_backend_module",
+)
+
+METADATA = MetaData()
+Table(
+    "items",
+    METADATA,
+    Column("id", Integer, primary_key=True),
+    Column("name", String(80), nullable=False),
+    schema="test_example_module",
 )
 
 
@@ -44,4 +56,9 @@ DEFINITION = ModuleDefinition(
     loader=ExampleBackendModule,
     origin="tests.fixtures.example_backend_module",
     declared_id=MANIFEST.id,
+    persistence=ModulePersistenceContribution(
+        module_id=MANIFEST.id,
+        metadata=METADATA,
+        schema="test_example_module",
+    ),
 )

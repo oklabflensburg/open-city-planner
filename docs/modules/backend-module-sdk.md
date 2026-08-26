@@ -59,7 +59,7 @@ Sub-Interfaces `context.api` und `context.lifecycle`.
 |---|---|---|
 | `api` | `ApiRegistrar` | durch die Runtime implementiert |
 | `lifecycle` | `LifecycleRegistrar` | durch die Runtime implementiert |
-| `database` | `DatabaseSessionProvider` | optionaler Port; Adapter folgt mit DB-/Migrationsarbeit |
+| `database` | `DatabaseSessionProvider` | transaktionaler Hostadapter aus #97 |
 | `events` | `EventBusPort` | In-Process Dispatch und transaktionale Outbox aus #96 |
 | `services` | `ServiceRegistryPort` | optionaler Port; Registry folgt in #98 |
 | `permissions` | `PermissionPort` | optionaler Port; Policy Engine folgt in #104 |
@@ -83,7 +83,11 @@ einer SQLAlchemy-`AsyncSession`. SQLAlchemy ist bewusst Teil dieses stabilen Por
 weil es eine Kerntechnologie des Hosts ist und eine künstliche parallele ORM-
 Abstraktion keinen Mehrwert bietet. Fachliche ORM-Modelle, globale Session Factories,
 Engines und `app.db.session` sind dagegen nicht Teil des SDK. Ownership und modulare
-Migrationen bleiben #97 vorbehalten.
+Migrationen sind im
+[Datenbank- und Migrationsvertrag](database-and-migrations.md) definiert.
+`ModulePersistenceContribution` hängt Metadata und eine optionale installierte
+`ModuleMigrationSource` passiv an die `ModuleDefinition`; Alembic muss dafür weder
+`register()` ausführen noch Modul-Interna durchsuchen.
 
 ### Cache und Storage
 
@@ -131,8 +135,10 @@ unter `app.*` ausschließlich den öffentlichen SDK-Pfad verwendet.
 
 `MODULE_SDK_VERSION` ist eine SemVer-Version und unabhängig von Release-SHA und
 Host-API-Version. Der Context wurde unter SDK `1.0.0` eingeführt. Die additive
-Event-/Outbox-API aus #96 erhöht die SDK-Version auf `1.1.0`; der minimale
-`DomainEvent`-Contract aus 1.0 und die #94-Proxys bleiben kompatibel.
+Event-/Outbox-API aus #96 erhöhte die SDK-Version auf `1.1.0`. Die additiven
+Persistence-Contracts und der produktive Datenbank-Session-Adapter aus #97 erhöhen
+sie auf `1.2.0`; der minimale `DomainEvent`-Contract aus 1.0 und die #94-Proxys
+bleiben kompatibel.
 
 - **MAJOR:** Entfernen oder Umbenennen öffentlicher Methoden, inkompatible Änderungen
   an vorhandener Semantik oder eine inkompatible Context-Struktur.
