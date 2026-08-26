@@ -79,7 +79,7 @@ def test_runtime_context_is_bound_to_manifest_and_unimplemented_ports_are_absent
     assert context.cache is None
     assert context.storage is None
     assert context.http is None
-    assert context.scheduler is None
+    assert context.scheduler is not None
     assert context.settings is None
     assert context.logger.extra == {
         "module_id": "test-example-module",
@@ -203,7 +203,7 @@ async def test_public_test_context_fakes_need_no_infrastructure() -> None:
         assert (await client.request("GET", "/status")).json() == {"status": "ok"}
 
     context.scheduler.register("refresh", _noop_hook)
-    assert context.scheduler.jobs == {"refresh": _noop_hook}
+    assert tuple(context.scheduler.jobs) == ("example-module.refresh",)
     assert context.settings.require("endpoint") == "https://example.invalid"
 
 

@@ -67,7 +67,7 @@ Sub-Interfaces `context.api` und `context.lifecycle`.
 | `observability` | `ObservabilityPort` | immer vorhanden; Logger ist an Modul-ID/-Version gebunden |
 | `storage` | `StoragePort` | optionaler modulgebundener Blob-Storage |
 | `http` | `HttpClientFactoryPort` | optionaler sicherer Client-Port |
-| `scheduler` | `SchedulerPort` | optionaler Port; Job Runtime folgt in #100 |
+| `scheduler` | `SchedulerPort` | modulgebundene Job-Registry und Job-Definitionen aus #100 |
 | `settings` | `ModuleSettingsPort` | typisierte, namespacete Runtime aus #99 |
 
 Ein optionaler Port mit dem Wert `None` ist nicht durch den Host bereitgestellt. Das
@@ -99,9 +99,10 @@ Die Ports machen keine Redis-, Dateisystem- oder Cloud-SDK-Typen öffentlich.
 
 Der Event-Port ist durch die [Domain-Event- und Outbox-Infrastruktur](domain-events.md)
 implementiert. Die [Cross-Module-Service-Registry](service-contracts.md) stellt
-versionierte öffentliche Query-/Service-Contracts bereit. Permission Policy und
-Job-Ausführung bleiben ihren Folge-Issues vorbehalten. Die Service-Auflösung ist
-kein allgemeiner Service Locator.
+versionierte öffentliche Query-/Service-Contracts bereit. Der
+[Background-Job-Vertrag](background-jobs.md) registriert stabile Job-IDs, Retry,
+Timeout und optionale Intervallanforderungen. Permission Policy bleibt #104
+vorbehalten. Die Service-Auflösung ist kein allgemeiner Service Locator.
 
 ### Modulkonfiguration
 
@@ -149,7 +150,9 @@ Persistence-Contracts und der produktive Datenbank-Session-Adapter aus #97 erhö
 sie auf `1.2.0`. Die additive, versionierte Service-Registry aus #98 erhöht sie auf
 `1.3.0`. Die additive typisierte Settings-API und `ModuleSettingsContribution` aus
 #99 erhöhen sie auf `1.4.0`; der minimale `DomainEvent`-Contract aus 1.0 und die
-#94-Proxys bleiben kompatibel.
+#94-Proxys bleiben kompatibel. Die additive Job-Definition, Registry und Ausführung
+aus #100 erhöhen sie auf `1.5.0`; die einfache Scheduler-Registrierung aus #95
+bleibt als Kompatibilitätsform erhalten.
 
 - **MAJOR:** Entfernen oder Umbenennen öffentlicher Methoden, inkompatible Änderungen
   an vorhandener Semantik oder eine inkompatible Context-Struktur.

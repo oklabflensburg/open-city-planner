@@ -18,6 +18,7 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 - [Backend-Module-Runtime](modules/backend-module-runtime.md)
 - [Öffentliches Backend-Module-SDK](modules/backend-module-sdk.md)
 - [Domain Events und transaktionale Outbox](modules/domain-events.md)
+- [Modulare Background Jobs](modules/background-jobs.md)
 - [Modul-Datenbanken und Migrationen](modules/database-and-migrations.md)
 - [Frontend-Design und Analyse](frontend-design.md)
 - [Reihenfolge der GIS-Layer](map-layer-order.md)

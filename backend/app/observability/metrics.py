@@ -109,6 +109,36 @@ JOB_DURATION = Histogram(
 JOB_LAST_SUCCESS = Gauge(
     "job_last_success_timestamp_seconds", "Last successful job completion", ("job_name",), registry=REGISTRY
 )
+MODULE_JOB_RUNS = Counter(
+    "module_job_runs_total",
+    "Completed module job runs",
+    ("module_id", "job_id", "result"),
+    registry=REGISTRY,
+)
+MODULE_JOB_FAILURES = Counter(
+    "module_job_failures_total",
+    "Failed module job attempts",
+    ("module_id", "job_id"),
+    registry=REGISTRY,
+)
+MODULE_JOB_RETRIES = Counter(
+    "module_job_retries_total",
+    "Retried module job attempts",
+    ("module_id", "job_id"),
+    registry=REGISTRY,
+)
+MODULE_JOB_DURATION = Histogram(
+    "module_job_duration_seconds",
+    "Module job run duration",
+    ("module_id", "job_id", "result"),
+    registry=REGISTRY,
+)
+MODULE_JOB_LAST_SUCCESS = Gauge(
+    "module_job_last_success_timestamp_seconds",
+    "Last successful module job completion",
+    ("module_id", "job_id"),
+    registry=REGISTRY,
+)
 OSM_REPLICATION_LAG = Gauge(
     "osm_replication_lag_seconds", "Age of the newest locally imported OSM feature", registry=REGISTRY
 )

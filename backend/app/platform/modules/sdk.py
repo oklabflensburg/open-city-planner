@@ -29,12 +29,14 @@ from app.platform.modules.manifest import (
 
 type ModuleLifecycleHook = Callable[[], Awaitable[None]]
 type ModuleLoader = Callable[[], "BackendModule"]
-type JobHandler = Callable[[], Awaitable[None]]
+type JobHandler = Callable[["ModuleContext"], Awaitable[object | None]]
+type LegacyJobHandler = Callable[[], Awaitable[object | None]]
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list["JsonValue"] | Mapping[str, "JsonValue"]
 T = TypeVar("T")
 TSettings = TypeVar("TSettings", bound=BaseModel)
 _EVENT_NAME = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
+_JOB_NAME = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 _REVISION_NAMESPACE = re.compile(r"^mod_[a-z][a-z0-9_]*$")
 _PYTHON_IMPORT_PACKAGE = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$")
 
@@ -383,10 +385,94 @@ class HttpClientFactoryPort(Protocol):
     ) -> AbstractAsyncContextManager[HttpClientPort]: ...
 
 
-class SchedulerPort(Protocol):
-    """Registriert modulgebundene Jobs; Ausführung und Scheduling folgen in #100."""
+@dataclass(frozen=True, slots=True)
+class RetryPolicy:
+    """Kleine, deterministische Retry-Policy für einen Joblauf."""
 
-    def register(self, job_id: str, handler: JobHandler) -> None: ...
+    max_attempts: int = 1
+    initial_delay_seconds: float = 0
+    backoff_multiplier: float = 2
+    max_delay_seconds: float = 300
+
+    def __post_init__(self) -> None:
+        values = (
+            self.initial_delay_seconds,
+            self.backoff_multiplier,
+            self.max_delay_seconds,
+        )
+        if type(self.max_attempts) is not int or self.max_attempts < 1:
+            raise ValueError("Job retry max_attempts must be a positive integer.")
+        if any(type(value) not in (int, float) or not math.isfinite(value) for value in values):
+            raise ValueError("Job retry delays and multiplier must be finite numbers.")
+        if self.initial_delay_seconds < 0 or self.max_delay_seconds < 0:
+            raise ValueError("Job retry delays must not be negative.")
+        if self.backoff_multiplier < 1:
+            raise ValueError("Job retry backoff_multiplier must be at least one.")
+
+    def delay_after(self, attempt: int) -> float:
+        if type(attempt) is not int or attempt < 1:
+            raise ValueError("Job retry attempts must be positive integers.")
+        try:
+            delay = self.initial_delay_seconds * self.backoff_multiplier ** (attempt - 1)
+        except OverflowError:
+            return self.max_delay_seconds
+        return min(delay, self.max_delay_seconds)
+
+
+@dataclass(frozen=True, slots=True)
+class JobSchedule:
+    """Technologieunabhängige V1-Anforderung für ein Ausführungsintervall."""
+
+    interval_seconds: int
+
+    def __post_init__(self) -> None:
+        if type(self.interval_seconds) is not int or self.interval_seconds < 1:
+            raise ValueError("Job schedule intervals must be positive integer seconds.")
+
+
+@dataclass(frozen=True, slots=True)
+class JobDefinition:
+    """Öffentlicher, stabiler Job-Contract eines Moduls."""
+
+    job_id: str
+    handler: JobHandler
+    retry: RetryPolicy = RetryPolicy()
+    timeout_seconds: float | None = None
+    schedule: JobSchedule | None = None
+    allow_concurrent_runs: bool = False
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.retry, RetryPolicy):
+            raise TypeError("Job retry must be a RetryPolicy.")
+        if self.schedule is not None and not isinstance(self.schedule, JobSchedule):
+            raise TypeError("Job schedule must be a JobSchedule.")
+        if (
+            not (_JOB_NAME.fullmatch(self.job_id) or _EVENT_NAME.fullmatch(self.job_id))
+            or len(self.job_id) > 160
+        ):
+            raise ValueError(
+                "Jobs must use a local job name or the form <module-id>.<job-name>."
+            )
+        if not callable(self.handler):
+            raise TypeError("Job handlers must be callable.")
+        if self.timeout_seconds is not None and (
+            type(self.timeout_seconds) not in (int, float)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
+            raise ValueError("Job timeouts must be positive finite seconds.")
+        if type(self.allow_concurrent_runs) is not bool:
+            raise TypeError("allow_concurrent_runs must be a boolean.")
+
+
+class SchedulerPort(Protocol):
+    """Registriert Jobs ausschließlich im Namespace des gebundenen Moduls."""
+
+    @overload
+    def register(self, definition: JobDefinition) -> None: ...
+
+    @overload
+    def register(self, job_id: str, handler: LegacyJobHandler) -> None: ...
 
 
 class ModuleSettingsPort(Protocol):
@@ -479,9 +565,12 @@ __all__ = [
     "HttpClientFactoryPort",
     "HttpClientPort",
     "HttpResponsePort",
+    "JobDefinition",
     "JobHandler",
+    "JobSchedule",
     "JsonScalar",
     "JsonValue",
+    "LegacyJobHandler",
     "LifecycleRegistrar",
     "MetricsPort",
     "ModuleContext",
@@ -494,6 +583,7 @@ __all__ = [
     "ModuleSettingsPort",
     "ObservabilityPort",
     "PermissionPort",
+    "RetryPolicy",
     "SchedulerPort",
     "SerializableDomainEvent",
     "ServiceRegistryPort",

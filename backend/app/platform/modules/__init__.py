@@ -14,11 +14,16 @@ from app.platform.modules.discovery import (
 )
 from app.platform.modules.errors import (
     DuplicateConfigNamespaceError,
+    DuplicateJobRegistrationError,
     DuplicateModuleIdError,
     DuplicatePersistenceSchemaError,
     DuplicateServiceRegistrationError,
     IncompatibleServiceVersionError,
     InvalidRuntimeVersionError,
+    JobExecutionError,
+    JobRegistryError,
+    JobRegistrySealedError,
+    JobTimeoutError,
     MissingModuleDependencyError,
     MissingRequiredServiceError,
     ModuleCompatibilityError,
@@ -43,6 +48,7 @@ from app.platform.modules.errors import (
     ServiceRegistryError,
     ServiceRegistrySealedError,
     UndeclaredServiceDependencyError,
+    UnknownJobError,
     UnsupportedManifestVersionError,
 )
 from app.platform.modules.manifest import (
@@ -68,10 +74,13 @@ from app.platform.modules.runtime import (
 )
 from app.platform.modules.sdk import (
     BackendModule,
+    JobDefinition,
+    JobSchedule,
     ModuleContext,
     ModuleMigrationSource,
     ModulePersistenceContribution,
     ModuleSettingsContribution,
+    RetryPolicy,
 )
 from app.platform.modules.services import ServiceRegistry
 
@@ -80,6 +89,7 @@ __all__ = [
     "MODULE_SDK_VERSION",
     "BackendModule",
     "DuplicateConfigNamespaceError",
+    "DuplicateJobRegistrationError",
     "DuplicateModuleIdError",
     "DuplicatePersistenceSchemaError",
     "DuplicateServiceRegistrationError",
@@ -87,6 +97,12 @@ __all__ = [
     "FirstPartyModuleDiscovery",
     "IncompatibleServiceVersionError",
     "InvalidRuntimeVersionError",
+    "JobDefinition",
+    "JobExecutionError",
+    "JobRegistryError",
+    "JobRegistrySealedError",
+    "JobSchedule",
+    "JobTimeoutError",
     "MissingModuleDependencyError",
     "MissingRequiredServiceError",
     "ModuleBackendPackage",
@@ -125,11 +141,13 @@ __all__ = [
     "ModuleShutdownError",
     "ModuleStartupError",
     "ModuleValidationError",
+    "RetryPolicy",
     "ServiceContractMismatchError",
     "ServiceRegistry",
     "ServiceRegistryError",
     "ServiceRegistrySealedError",
     "UndeclaredServiceDependencyError",
+    "UnknownJobError",
     "UnsupportedManifestVersionError",
     "create_module_runtime",
     "module_manifest_json_schema",

@@ -365,3 +365,56 @@ class ModuleSettingsNamespaceError(ModuleSettingsError):
 
 class ModulePublicConfigError(ModuleSettingsError):
     """Ein als öffentlich markierter Wert ist nicht sicher exportierbar."""
+
+
+class JobRegistryError(RuntimeError):
+    """Basisklasse für sichere Fehler der modularen Job-Infrastruktur."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        job_id: str | None = None,
+        module_id: str | None = None,
+        provider_modules: Sequence[str] = (),
+        run_id: str | None = None,
+        attempt: int | None = None,
+    ) -> None:
+        context: list[str] = []
+        if job_id is not None:
+            context.append(f"job_id={job_id}")
+        if module_id is not None:
+            context.append(f"module_id={module_id}")
+        if provider_modules:
+            context.append(f"provider_modules={','.join(provider_modules)}")
+        if run_id is not None:
+            context.append(f"run_id={run_id}")
+        if attempt is not None:
+            context.append(f"attempt={attempt}")
+        suffix = f" ({', '.join(context)})" if context else ""
+        super().__init__(f"Module job error{suffix}: {message}")
+        self.job_id = job_id
+        self.module_id = module_id
+        self.provider_modules = tuple(provider_modules)
+        self.run_id = run_id
+        self.attempt = attempt
+
+
+class DuplicateJobRegistrationError(JobRegistryError):
+    """Eine globale Job-ID wurde durch mehrere Provider registriert."""
+
+
+class UnknownJobError(JobRegistryError):
+    """Die angeforderte stabile Job-ID ist nicht registriert."""
+
+
+class JobRegistrySealedError(JobRegistryError):
+    """Nach dem Bootstrap sind keine Job-Mutationen mehr erlaubt."""
+
+
+class JobExecutionError(JobRegistryError):
+    """Ein Job blieb nach seiner begrenzten Retry-Policy fehlerhaft."""
+
+
+class JobTimeoutError(JobExecutionError):
+    """Ein Job überschritt in seinem letzten Versuch das deklarierte Timeout."""

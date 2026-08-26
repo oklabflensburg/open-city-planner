@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from app.platform.modules.contracts import ModuleRegistrationContext
+from app.platform.modules.jobs import JobRegistry
 from app.platform.modules.manifest import ModuleManifestV1
 from app.platform.modules.sdk import (
     CachePort,
@@ -103,6 +104,7 @@ class ModuleContextFactory:
         *,
         event_bus: "InProcessEventBus | None" = None,
         settings_registry: ModuleSettingsRegistry | None = None,
+        job_registry: JobRegistry | None = None,
         module_environment: Mapping[str, str] | None = None,
         module_env_file: Path | None = None,
     ) -> None:
@@ -119,6 +121,9 @@ class ModuleContextFactory:
                     environment=module_environment,
                 )
             )
+        self._job_registry: JobRegistry | None = None
+        if self._services.scheduler is None:
+            self._job_registry = job_registry or JobRegistry()
 
     @property
     def service_registry(self) -> "ServiceRegistry | None":
@@ -127,6 +132,10 @@ class ModuleContextFactory:
     @property
     def settings_registry(self) -> ModuleSettingsRegistry | None:
         return self._settings_registry
+
+    @property
+    def job_registry(self) -> JobRegistry | None:
+        return self._job_registry
 
     def create(
         self,
@@ -153,7 +162,10 @@ class ModuleContextFactory:
         settings_adapter = self._services.settings
         if settings_adapter is None and self._settings_registry is not None:
             settings_adapter = self._settings_registry.bind(manifest)
-        return ModuleContext(
+        scheduler_adapter = self._services.scheduler
+        if scheduler_adapter is None and self._job_registry is not None:
+            scheduler_adapter = self._job_registry.bind(manifest)
+        context = ModuleContext(
             module_id=manifest.id,
             module_version=manifest.version,
             api=registration,
@@ -166,6 +178,9 @@ class ModuleContextFactory:
             cache=self._services.cache,
             storage=self._services.storage,
             http=self._services.http,
-            scheduler=self._services.scheduler,
+            scheduler=scheduler_adapter,
             settings=settings_adapter,
         )
+        if scheduler_adapter is not None and self._job_registry is not None:
+            scheduler_adapter.attach_context(context)
+        return context
