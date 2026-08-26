@@ -29,6 +29,9 @@ stadtplaner_backend_env_content: |
   APP_BASE_URL=https://stadtplaner.oklabflensburg.de
   API_BASE_URL=https://api.stadtplaner.oklabflensburg.de
   ENABLED_MODULES=
+  # Aktive Module ergänzen OCP_MODULE_<MODULE_ID>_<SETTING> aus sicherer Secret-Konfiguration.
+  # OCP_MODULE_BIOTOPES_API_URL=https://example.org
+  # OCP_MODULE_BIOTOPES_API_TOKEN=
   MAP_PREVIEW_RENDERER_URL=http://127.0.0.1:3020
   MAP_PREVIEW_RENDERER_TIMEOUT_SECONDS=20
   MAP_PREVIEW_CACHE_DIR=/data/stadtplaner/previews

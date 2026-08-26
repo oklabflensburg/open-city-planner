@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TypeVar, cast
 
+from pydantic import BaseModel
+
 from app.platform.modules.contracts import ModuleRegistrationContext
 from app.platform.modules.sdk import (
     DomainEvent,
@@ -24,6 +26,7 @@ from app.platform.modules.sdk import (
 )
 
 T = TypeVar("T")
+TSettings = TypeVar("TSettings", bound=BaseModel)
 
 
 class FakeCache:
@@ -301,16 +304,35 @@ class FakeScheduler:
 
 
 class FakeModuleSettings:
-    def __init__(self, values: Mapping[str, object] | None = None) -> None:
+    def __init__(
+        self,
+        values: Mapping[str, object] | None = None,
+        *,
+        model: BaseModel | None = None,
+    ) -> None:
         self.values = MappingProxyType(dict(values or {}))
+        self.model = model
 
-    def get(self, key: str, default: T | None = None) -> object | T | None:
-        return self.values.get(key, default)
+    def get(
+        self,
+        settings_type_or_key: type[TSettings] | str,
+        default: T | None = None,
+    ) -> TSettings | object | T | None:
+        if isinstance(settings_type_or_key, str):
+            return self.values.get(settings_type_or_key, default)
+        if self.model is not None and isinstance(self.model, settings_type_or_key):
+            return cast(TSettings, self.model)
+        return None
 
-    def require(self, key: str) -> object:
-        if key not in self.values:
-            raise KeyError(key)
-        return self.values[key]
+    def require(self, settings_type_or_key: type[TSettings] | str) -> TSettings | object:
+        value = self.get(settings_type_or_key)
+        if value is None:
+            raise KeyError(
+                settings_type_or_key
+                if isinstance(settings_type_or_key, str)
+                else settings_type_or_key.__name__
+            )
+        return value
 
 
 def create_test_module_context(
@@ -318,6 +340,7 @@ def create_test_module_context(
     module_id: str = "test-module",
     module_version: str = "1.0.0",
     settings: Mapping[str, object] | None = None,
+    settings_model: BaseModel | None = None,
 ) -> ModuleContext:
     """Erzeuge einen vollständigen Context ohne DB, Redis, Netzwerk oder Dateisystem."""
 
@@ -343,7 +366,7 @@ def create_test_module_context(
         storage=FakeStorage(module_id),
         http=FakeHttpClientFactory(),
         scheduler=FakeScheduler(),
-        settings=FakeModuleSettings(settings),
+        settings=FakeModuleSettings(settings, model=settings_model),
     )
 
 

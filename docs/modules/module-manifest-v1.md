@@ -99,7 +99,7 @@ definiert. Auswertung und Registrierung der Permissions folgen in #104.
 | `frontend.package` | optionaler npm-Paketbezeichner |
 | `capabilities` | offene, stabile Capability-IDs |
 | `permissions` | stabile, vom Modul namespacete Permission-IDs |
-| `config.namespace` | eindeutige Identität für die spätere Config Runtime aus #99 |
+| `config.namespace` | eindeutige Identität für die Config Runtime aus #99 |
 | `persistence.schema` | deklarativer, unquoted-sicherer PostgreSQL-Schemaname |
 | `persistence.migrations` | kündigt eigene, durch #97 koordinierte Migrationen an |
 
@@ -107,7 +107,10 @@ Backend-only-, Frontend-only- und kombinierte Module sind darstellbar. Die
 Package-Felder lösen in #93 weder Imports noch Downloads aus. Das Manifest enthält
 keine Secrets, SQL-Anweisungen, Entry-Point-Ausführung oder Settingswerte.
 
-`config.namespace` ist über die validierte Manifestmenge eindeutig und stabil.
+`config.namespace` ist über die validierte Manifestmenge eindeutig und stabil. Für
+aktive Settings-Contributions muss es der owning Modul-ID entsprechen; daraus leitet
+die Runtime deterministisch `OCP_MODULE_<MODULE-ID>_` ab. Der vollständige Vertrag
+steht unter [Namespacete Modulkonfiguration](configuration.md).
 Environment-Namen, Secret-Zugriff und Settings-Lifecycle werden erst in #99
 definiert. Persistence-Metadaten führen selbst keine DB-Operation aus; Metadata,
 Migration Sources, Schema-Ownership und Alembic-Preflight sind im

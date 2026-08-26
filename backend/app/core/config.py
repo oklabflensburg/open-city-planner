@@ -4,13 +4,28 @@ from urllib.parse import urlsplit
 
 from cryptography.fernet import Fernet
 from pydantic import AliasChoices, Field, SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    DotEnvSettingsSource,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
+
+from app.platform.modules.settings_namespace import MODULE_ENV_PREFIX
 
 BACKEND_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 DEVELOPMENT_JWT_SECRET = "development-only-change-me-32-bytes-minimum"
 DEVELOPMENT_OAUTH_STATE_SECRET = "development-oauth-state-change-me-32-bytes"
 DEVELOPMENT_MFA_RECOVERY_PEPPER = "development-recovery-pepper-change-me-32-bytes"
 MINIMUM_JWT_SECRET_LENGTH = 32
+
+
+class _HostDotEnvSettingsSource(DotEnvSettingsSource):
+    """Reserviert Modulwerte für deren Registry, ohne andere Tippfehler zu erlauben."""
+
+    def __call__(self) -> dict[str, object]:
+        prefix = MODULE_ENV_PREFIX.lower()
+        return {key: value for key, value in super().__call__().items() if not key.startswith(prefix)}
 
 
 class Settings(BaseSettings):
@@ -214,6 +229,29 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="forbid",
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        assert isinstance(dotenv_settings, DotEnvSettingsSource)
+        module_aware_dotenv = _HostDotEnvSettingsSource(
+            settings_cls,
+            env_file=dotenv_settings.env_file,
+            env_file_encoding=dotenv_settings.env_file_encoding,
+            case_sensitive=dotenv_settings.case_sensitive,
+            env_prefix=dotenv_settings.env_prefix,
+            env_nested_delimiter=dotenv_settings.env_nested_delimiter,
+            env_ignore_empty=dotenv_settings.env_ignore_empty,
+            env_parse_none_str=dotenv_settings.env_parse_none_str,
+            env_parse_enums=dotenv_settings.env_parse_enums,
+        )
+        return init_settings, env_settings, module_aware_dotenv, file_secret_settings
 
     @property
     def cors_origin_list(self) -> list[str]:

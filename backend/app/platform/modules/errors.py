@@ -320,3 +320,48 @@ class UndeclaredServiceDependencyError(ServiceRegistryError):
 
 class ServiceRegistrySealedError(ServiceRegistryError):
     """Nach Abschluss der Modulregistrierung sind Mutationen verboten."""
+
+
+class ModuleSettingsError(RuntimeError):
+    """Basisklasse für namespacete Modulkonfigurationsfehler ohne Werteausgabe."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        module_id: str | None = None,
+        namespace: str | None = None,
+        field_name: str | None = None,
+        environment_key: str | None = None,
+        error_type: str | None = None,
+    ) -> None:
+        context: list[str] = []
+        if module_id is not None:
+            context.append(f"module_id={module_id}")
+        if namespace is not None:
+            context.append(f"namespace={namespace}")
+        if field_name is not None:
+            context.append(f"field={field_name}")
+        if environment_key is not None:
+            context.append(f"environment_key={environment_key}")
+        if error_type is not None:
+            context.append(f"error_type={error_type}")
+        suffix = f" ({', '.join(context)})" if context else ""
+        super().__init__(f"Module settings error{suffix}: {message}")
+        self.module_id = module_id
+        self.namespace = namespace
+        self.field_name = field_name
+        self.environment_key = environment_key
+        self.error_type = error_type
+
+
+class ModuleSettingsValidationError(ModuleSettingsError):
+    """Ein aktives Modul konnte seine Konfiguration nicht sicher validieren."""
+
+
+class ModuleSettingsNamespaceError(ModuleSettingsError):
+    """Manifest, Contribution oder Environment verletzen das Namespace-Ownership."""
+
+
+class ModulePublicConfigError(ModuleSettingsError):
+    """Ein als öffentlich markierter Wert ist nicht sicher exportierbar."""

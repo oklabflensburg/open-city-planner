@@ -46,6 +46,7 @@ class FirstPartyModuleDiscovery:
                     origin=definition.origin,
                     declared_id=module_id,
                     persistence=definition.persistence,
+                    settings=definition.settings,
                 )
             )
         return tuple(definitions)
@@ -82,6 +83,7 @@ class EntryPointModuleDiscovery:
                     origin=origin,
                     declared_id=entry_point.name,
                     persistence=definition.persistence,
+                    settings=definition.settings,
                 )
             )
         return tuple(definitions)

@@ -134,6 +134,15 @@ Lege unter **Environment variables** drei mehrzeilige Konfigurationswerte an:
 
 Die drei Blöcke müssen alle zugehörigen Schlüssel aus `vault.example.yml` enthalten. Aus dem Backend-Block müssen `DATABASE_URL`, `JWT_SECRET_KEY`, `OAUTH_STATE_SECRET`, `MFA_RECOVERY_PEPPER`, `MFA_ENCRYPTION_KEY`, `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `CONTACT_TO_EMAIL`, `CONTACT_TO_NAME`, `REDIS_URL`, `TURNSTILE_SECRET_KEY`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `MASTODON_SSO_ENCRYPTION_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `NOMINATIM_BASE_URL`, `NOMINATIM_EMAIL` und `MASTODON_ACCESS_TOKEN` entfernt werden. Der Workflow lehnt doppelte, fehlende, zusätzliche oder versehentlich offen eingetragene Secret-Schlüssel ab.
 
+Aktive Module verwenden ausschließlich
+`OCP_MODULE_<MODULE-ID>_<SETTING>`. Hinterlege diese dynamische, potentiell geheime
+Zusatzkonfiguration gesammelt im optionalen Environment Secret
+`STADTPLANER_MODULE_ENV_CONFIG`, nicht in einer GitHub Environment Variable. Der
+Builder akzeptiert in diesem Block nur das Modulpräfix, lehnt doppelte Keys ab und
+hängt ihn ohne Wertausgabe an dieselbe atomare Backend-Environmentdatei an. Details
+zu Schema, Defaults, Secrets und Public Export stehen in
+[`docs/modules/configuration.md`](../../docs/modules/configuration.md).
+
 `STADTPLANER_BACKEND_ENV_CONFIG` muss für Produktion außerdem exakt die
 OpenTelemetry-Werte aus `vault.example.yml` enthalten: Tracing aktiviert,
 Service `stadtplaner-api`, gRPC und `http://127.0.0.1:4317`. Der Builder prüft
@@ -147,6 +156,7 @@ Unter **Environment secrets** gehören die vier Deployment-Zugangsdaten:
 - `STADTPLANER_SSH_PRIVATE_KEY`
 - `STADTPLANER_SSH_KNOWN_HOSTS`
 - `STADTPLANER_BECOME_PASSWORD`
+- optional bei aktivierten Modulen: `STADTPLANER_MODULE_ENV_CONFIG`
 
 Hinzu kommen die individuellen Applikations-Secrets:
 

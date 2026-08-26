@@ -25,9 +25,13 @@ from app.platform.modules.errors import (
 from app.platform.modules.manifest import ModuleManifestV1, parse_manifest, validate_manifests
 from app.platform.modules.sdk import BackendModule, ModuleContext, ModuleDefinition
 from app.platform.modules.services import ServiceRegistry
+from app.platform.modules.settings import (
+    ModuleSettingsRegistry,
+    build_module_settings_registry,
+)
 
 logger = logging.getLogger(__name__)
-MODULE_SDK_VERSION = "1.3.0"
+MODULE_SDK_VERSION = "1.4.0"
 
 
 @dataclass(slots=True)
@@ -75,9 +79,11 @@ class ModuleRuntime:
         registry: ModuleRegistry,
         *,
         service_registry: ServiceRegistry | None = None,
+        settings_registry: ModuleSettingsRegistry | None = None,
     ) -> None:
         self.registry = registry
         self._service_registry = service_registry
+        self._settings_registry = settings_registry
         self._attached_app: FastAPI | None = None
         self._started: list[tuple[ModuleRecord, LifecycleContribution]] = []
         self._running = False
@@ -85,6 +91,12 @@ class ModuleRuntime:
     @property
     def module_ids(self) -> tuple[str, ...]:
         return tuple(record.manifest.id for record in self.registry.records)
+
+    @property
+    def public_module_config(self) -> dict[str, dict[str, object]]:
+        if self._settings_registry is None:
+            return {}
+        return self._settings_registry.public_config
 
     def register(self, app: FastAPI) -> None:
         """Deklariere Beiträge einmalig und binde Router kontrolliert an den Host."""
@@ -204,6 +216,11 @@ def create_module_runtime(
 
     records: list[ModuleRecord] = []
     active_context_factory = context_factory or ModuleContextFactory()
+    if active_context_factory.settings_registry is not None:
+        build_module_settings_registry(
+            resolved,
+            registry=active_context_factory.settings_registry,
+        )
     for load_index, manifest in enumerate(ordered):
         definition = definitions_by_id[manifest.id]
         try:
@@ -233,6 +250,7 @@ def create_module_runtime(
     return ModuleRuntime(
         ModuleRegistry(records),
         service_registry=active_context_factory.service_registry,
+        settings_registry=active_context_factory.settings_registry,
     )
 
 

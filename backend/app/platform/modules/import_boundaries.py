@@ -36,6 +36,20 @@ class ContractPersistenceLeak:
         return f'Public contract {self.source}:{self.line} leaks persistence type "{self.name}".'
 
 
+@dataclass(frozen=True, slots=True)
+class HostSettingsImportViolation:
+    module_id: str
+    source: Path
+    imported_module: str
+    line: int
+
+    def __str__(self) -> str:
+        return (
+            f'Module "{self.module_id}" imports host settings "{self.imported_module}" '
+            f"in {self.source}:{self.line}; use the module-scoped context.settings port."
+        )
+
+
 def find_cross_module_import_violations(
     modules_root: Path,
     *,
@@ -112,6 +126,36 @@ def find_contract_persistence_leaks(modules_root: Path) -> tuple[ContractPersist
     return tuple(leaks)
 
 
+def find_host_settings_import_violations(
+    modules_root: Path,
+) -> tuple[HostSettingsImportViolation, ...]:
+    """Ermittelt direkte Host-Settings-Imports in modularen Python-Paketen."""
+
+    violations: list[HostSettingsImportViolation] = []
+    for source in sorted(modules_root.rglob("*.py")):
+        relative = source.relative_to(modules_root)
+        if len(relative.parts) < 2:
+            continue
+        tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        for node in ast.walk(tree):
+            imported: tuple[str, ...] = ()
+            if isinstance(node, ast.Import):
+                imported = tuple(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module is not None:
+                imported = (node.module,)
+            for imported_module in imported:
+                if imported_module == "app.core.config":
+                    violations.append(
+                        HostSettingsImportViolation(
+                            module_id=relative.parts[0],
+                            source=source,
+                            imported_module=imported_module,
+                            line=node.lineno,
+                        )
+                    )
+    return tuple(violations)
+
+
 def _current_package(prefix: tuple[str, ...], relative: Path) -> tuple[str, ...]:
     return (*prefix, *relative.parent.parts)
 
@@ -139,7 +183,9 @@ def _imported_names(node: ast.AST, current_package: tuple[str, ...]) -> tuple[st
 
 __all__ = [
     "ContractPersistenceLeak",
+    "HostSettingsImportViolation",
     "ModuleImportViolation",
     "find_contract_persistence_leaks",
     "find_cross_module_import_violations",
+    "find_host_settings_import_violations",
 ]

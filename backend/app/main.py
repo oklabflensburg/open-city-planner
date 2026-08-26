@@ -14,7 +14,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.api.router import api_router
 from app.cache.redis import close_redis, initialize_redis, redis_health
-from app.core.config import get_settings
+from app.core.config import BACKEND_ENV_FILE, get_settings
 from app.db.session import database_health, engine
 from app.observability.logging import configure_logging
 from app.observability.metrics import REDIS_AVAILABLE, REGISTRY, set_build_info
@@ -39,7 +39,9 @@ module_runtime = create_module_runtime(
     discovery_providers=(FirstPartyModuleDiscovery(), EntryPointModuleDiscovery()),
     host_version=settings.api_version,
     context_factory=ModuleContextFactory(
-        ModuleHostServices(database=HostDatabaseSessionProvider()), event_bus=event_bus
+        ModuleHostServices(database=HostDatabaseSessionProvider()),
+        event_bus=event_bus,
+        module_env_file=BACKEND_ENV_FILE,
     ),
 )
 configure_logging(

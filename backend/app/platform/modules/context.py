@@ -4,6 +4,7 @@ import logging
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from app.platform.modules.contracts import ModuleRegistrationContext
@@ -25,6 +26,7 @@ from app.platform.modules.sdk import (
     TracerPort,
 )
 from app.platform.modules.services import ServiceRegistry
+from app.platform.modules.settings import ModuleSettingsRegistry, read_module_environment
 
 if TYPE_CHECKING:
     from app.platform.events.bus import InProcessEventBus
@@ -100,16 +102,31 @@ class ModuleContextFactory:
         services: ModuleHostServices | None = None,
         *,
         event_bus: "InProcessEventBus | None" = None,
+        settings_registry: ModuleSettingsRegistry | None = None,
+        module_environment: Mapping[str, str] | None = None,
+        module_env_file: Path | None = None,
     ) -> None:
         self._services = services or ModuleHostServices()
         self._event_bus = event_bus
         self._service_registry: ServiceRegistry | None = None
         if self._services.services is None:
             self._service_registry = ServiceRegistry()
+        self._settings_registry: ModuleSettingsRegistry | None = None
+        if self._services.settings is None:
+            self._settings_registry = settings_registry or ModuleSettingsRegistry(
+                read_module_environment(
+                    env_file=module_env_file,
+                    environment=module_environment,
+                )
+            )
 
     @property
     def service_registry(self) -> "ServiceRegistry | None":
         return self._service_registry
+
+    @property
+    def settings_registry(self) -> ModuleSettingsRegistry | None:
+        return self._settings_registry
 
     def create(
         self,
@@ -133,6 +150,9 @@ class ModuleContextFactory:
         service_adapter = self._services.services
         if service_adapter is None and self._service_registry is not None:
             service_adapter = self._service_registry.bind(manifest)
+        settings_adapter = self._services.settings
+        if settings_adapter is None and self._settings_registry is not None:
+            settings_adapter = self._settings_registry.bind(manifest)
         return ModuleContext(
             module_id=manifest.id,
             module_version=manifest.version,
@@ -147,5 +167,5 @@ class ModuleContextFactory:
             storage=self._services.storage,
             http=self._services.http,
             scheduler=self._services.scheduler,
-            settings=self._services.settings,
+            settings=settings_adapter,
         )
