@@ -21,6 +21,7 @@ from app.platform.modules.sdk import (
     ModuleContext,
     ModuleSettingsPort,
     ObservabilityPort,
+    PermissionDependencyFactory,
     PermissionPort,
     SchedulerPort,
     ServiceRegistryPort,
@@ -58,6 +59,7 @@ def test_module_context_has_typed_public_ports() -> None:
         "events": EventBusPort | None,
         "services": ServiceRegistryPort | None,
         "permissions": PermissionPort | None,
+        "permission_dependencies": PermissionDependencyFactory | None,
         "cache": CachePort | None,
         "storage": StoragePort | None,
         "http": HttpClientFactoryPort | None,
@@ -76,6 +78,7 @@ def test_runtime_context_is_bound_to_manifest_and_unimplemented_ports_are_absent
     assert context.events is None
     assert context.services is not None
     assert context.permissions is None
+    assert context.permission_dependencies is None
     assert context.cache is None
     assert context.storage is None
     assert context.http is None

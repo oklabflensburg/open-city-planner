@@ -54,6 +54,9 @@ security = [
   "pyyaml==6.0.3"
 ]
 
+[project.entry-points."open_city_planner.modules"]
+reference = "app.modules.reference.module:DEFINITION"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

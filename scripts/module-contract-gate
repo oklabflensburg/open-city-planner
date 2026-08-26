@@ -7,7 +7,7 @@ scope="${1:-all}"
 run_backend() {
   cd "${repository_root}/backend"
   uv run python ../scripts/check_module_architecture.py
-  uv run pytest tests/test_module_*.py tests/test_domain_events.py
+  uv run pytest tests/test_module_*.py tests/test_domain_events.py tests/modules/reference
 }
 
 run_frontend() {
@@ -19,7 +19,8 @@ run_frontend() {
     tests/frontend-module-host.test.ts \
     tests/frontend-ui-contributions.test.ts \
     tests/map-runtime.test.ts \
-    tests/map-sdk.test.ts
+    tests/map-sdk.test.ts \
+    tests/reference-module/reference-module.test.ts
   pnpm test:modules:ssr
 }
 

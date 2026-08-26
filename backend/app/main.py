@@ -14,6 +14,7 @@ from fastapi.responses import Response as FastAPIResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.api.router import api_router
+from app.auth.module_sdk import HostPermissionDependencies
 from app.cache.redis import close_redis, initialize_redis, redis_health
 from app.core.config import BACKEND_ENV_FILE, get_settings
 from app.db.session import AsyncSessionLocal, database_health, engine
@@ -84,7 +85,10 @@ module_runtime = create_module_runtime(
     discovery_providers=(FirstPartyModuleDiscovery(), EntryPointModuleDiscovery()),
     host_version=settings.api_version,
     context_factory=ModuleContextFactory(
-        ModuleHostServices(database=HostDatabaseSessionProvider()),
+        ModuleHostServices(
+            database=HostDatabaseSessionProvider(),
+            permission_dependencies=HostPermissionDependencies(),
+        ),
         event_bus=event_bus,
         permission_engine=permission_engine,
         permission_subject_loader=load_permission_subject,

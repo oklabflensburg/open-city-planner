@@ -105,6 +105,17 @@ Owner am einen globalen Head angehängt. `MigrationCoordinator.preflight()` prü
 - passende Revision-Namespaces;
 - Host- und Modulgruppen in Dependency-Reihenfolge.
 
+Der generische CLI-Einstieg verwendet exakt diese Registry und den aktiven
+Modulbestand:
+
+```bash
+ENABLED_MODULES=reference uv run python -m app.cli.module_migrations preflight
+ENABLED_MODULES=reference uv run python -m app.cli.module_migrations upgrade
+```
+
+Ein Downgrade akzeptiert absichtlich nur ein explizites Ziel, zum Beispiel
+`python -m app.cli.module_migrations downgrade <revision>`.
+
 Migrationen sind vertrauenswürdiger Code mit weitreichenden DB-Rechten. Jede
 Revision benötigt manuelles Review; der Preflight ist keine Sandbox.
 
