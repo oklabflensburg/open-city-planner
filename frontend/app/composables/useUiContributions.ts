@@ -1,5 +1,5 @@
 import type { AuthUser } from '~/types/auth'
-import { hasVerwaltungRole } from '~/utils/roles'
+import { hasPermissionSnapshot } from '~/utils/permissions'
 import {
   isUiContributionVisible,
   type UiContribution,
@@ -32,7 +32,5 @@ export function useUiContributions<S extends UiSlotId>(slot: S, overrides: UiVis
 }
 
 export function resolveHostUiPermission(user: AuthUser | null, permission: string) {
-  if (permission === 'platform.verwaltung') return hasVerwaltungRole(user)
-  if (permission === 'platform.superuser') return Boolean(user?.is_superuser)
-  return false
+  return hasPermissionSnapshot(user, permission)
 }

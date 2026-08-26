@@ -24,6 +24,7 @@ from app.platform.modules.errors import (
 )
 from app.platform.modules.jobs import JobRegistry
 from app.platform.modules.manifest import ModuleManifestV1, parse_manifest, validate_manifests
+from app.platform.modules.permissions import PermissionRegistry
 from app.platform.modules.sdk import BackendModule, ModuleContext, ModuleDefinition
 from app.platform.modules.services import ServiceRegistry
 from app.platform.modules.settings import (
@@ -32,7 +33,7 @@ from app.platform.modules.settings import (
 )
 
 logger = logging.getLogger(__name__)
-MODULE_SDK_VERSION = "1.5.0"
+MODULE_SDK_VERSION = "1.6.0"
 
 
 @dataclass(slots=True)
@@ -82,11 +83,13 @@ class ModuleRuntime:
         service_registry: ServiceRegistry | None = None,
         settings_registry: ModuleSettingsRegistry | None = None,
         job_registry: JobRegistry | None = None,
+        permission_registry: PermissionRegistry | None = None,
     ) -> None:
         self.registry = registry
         self._service_registry = service_registry
         self._settings_registry = settings_registry
         self._job_registry = job_registry
+        self.permission_registry = permission_registry or PermissionRegistry()
         self._attached_app: FastAPI | None = None
         self._started: list[tuple[ModuleRecord, LifecycleContribution]] = []
         self._running = False
@@ -131,6 +134,7 @@ class ModuleRuntime:
             self._service_registry.seal()
         if self._job_registry is not None:
             self._job_registry.seal()
+        self.permission_registry.seal()
 
         for record in self.registry.records:
             for contribution in record.registration.routers:
@@ -211,6 +215,7 @@ def create_module_runtime(
     host_version: str,
     sdk_version: str = MODULE_SDK_VERSION,
     context_factory: ModuleContextFactory | None = None,
+    permission_registry: PermissionRegistry | None = None,
 ) -> ModuleRuntime:
     """Discover, validiere, sortiere und instanziiere aktivierte Module fail-fast."""
 
@@ -225,6 +230,9 @@ def create_module_runtime(
 
     records: list[ModuleRecord] = []
     active_context_factory = context_factory or ModuleContextFactory()
+    active_permission_registry = permission_registry or PermissionRegistry()
+    for manifest in ordered:
+        active_permission_registry.register_manifest(manifest)
     if active_context_factory.settings_registry is not None:
         build_module_settings_registry(
             resolved,
@@ -261,6 +269,7 @@ def create_module_runtime(
         service_registry=active_context_factory.service_registry,
         settings_registry=active_context_factory.settings_registry,
         job_registry=active_context_factory.job_registry,
+        permission_registry=active_permission_registry,
     )
 
 

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Request, Response, UploadFile
 from sqlalchemy import select
 
 from app.auth.csrf import validate_csrf
-from app.auth.dependencies import SessionDep, get_current_active_user
+from app.auth.dependencies import SessionDep, get_current_active_user, serialize_current_user
 from app.auth.jwt import decode_jwt
 from app.core.config import get_settings
 from app.models.user import User
@@ -44,8 +44,10 @@ def _access_authenticated_at(request: Request) -> datetime | None:
 
 
 @router.get("/me", response_model=UserRead)
-async def get_user_me(user: Annotated[User, Depends(get_current_active_user)]) -> UserRead:
-    return UserRead.model_validate(user)
+async def get_user_me(
+    request: Request, user: Annotated[User, Depends(get_current_active_user)]
+) -> UserRead:
+    return serialize_current_user(request, user)
 
 
 @router.patch("/me", response_model=UserRead)
@@ -61,7 +63,7 @@ async def patch_user_me(
         setattr(user, key, value)
     await session.commit()
     await session.refresh(user)
-    return UserRead.model_validate(user)
+    return serialize_current_user(request, user)
 
 
 @router.post("/me/avatar", response_model=UserRead)
@@ -83,7 +85,7 @@ async def post_user_avatar(
         delete_avatar_file(new_avatar_url)
         raise
     delete_avatar_file(old_avatar_url)
-    return UserRead.model_validate(user)
+    return serialize_current_user(request, user)
 
 
 @router.delete("/me/avatar", response_model=UserRead)
@@ -98,7 +100,7 @@ async def delete_user_avatar(
     await session.commit()
     await session.refresh(user)
     delete_avatar_file(old_avatar_url)
-    return UserRead.model_validate(user)
+    return serialize_current_user(request, user)
 
 
 @router.get("/me/oauth-accounts", response_model=list[UserOAuthAccountRead])

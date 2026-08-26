@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from app.auth.dependencies import (
     SessionDep,
     require_csrf_superuser,
+    require_permission,
     require_superuser,
 )
 from app.cache.service import cache_service
@@ -86,9 +87,16 @@ from app.services.cache_versions import bump_cache_versions
 from app.services.email_service import EmailTemplateValidationError
 from app.services.mfa_service import require_recent_auth
 from app.services.rate_limit import check_rate_limit, rate_limit_key
+from app.services.social_permissions import SOCIAL_PUBLISH
 from app.services.social_screenshots import ScreenshotService
 
 router = APIRouter(prefix="/admin", tags=["Administration"])
+require_social_publish = require_permission(
+    SOCIAL_PUBLISH, strong_admin_auth=True
+)
+require_csrf_social_publish = require_permission(
+    SOCIAL_PUBLISH, csrf=True, strong_admin_auth=True
+)
 CACHE_NAMESPACES = {"osm", "analytics", "analysis-areas", "polygons"}
 
 
@@ -410,7 +418,7 @@ async def cancel_email_campaign_admin(
 async def get_mastodon_status(
     response: Response,
     session: SessionDep,
-    _actor: Annotated[User, Depends(require_superuser)],
+    _actor: Annotated[User, Depends(require_social_publish)],
 ) -> MastodonAdminStatusRead:
     private_no_store(response)
     return await mastodon_admin_status(session)
@@ -420,7 +428,7 @@ async def get_mastodon_status(
 async def get_social_publications(
     response: Response,
     session: SessionDep,
-    _actor: Annotated[User, Depends(require_superuser)],
+    _actor: Annotated[User, Depends(require_social_publish)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=100),
     publication_status: str | None = Query(
@@ -440,7 +448,7 @@ async def retry_failed_social_publication(
     event_id: uuid.UUID,
     response: Response,
     session: SessionDep,
-    actor: Annotated[User, Depends(require_csrf_superuser)],
+    actor: Annotated[User, Depends(require_csrf_social_publish)],
 ) -> SocialPublicationItemRead:
     private_no_store(response)
     try:
@@ -459,7 +467,7 @@ async def retry_failed_social_publication(
 async def get_social_settings_admin(
     response: Response,
     session: SessionDep,
-    _actor: Annotated[User, Depends(require_superuser)],
+    _actor: Annotated[User, Depends(require_social_publish)],
 ) -> SocialPublishingSettingsRead:
     private_no_store(response)
     return await social_settings_read(session)
@@ -470,7 +478,7 @@ async def patch_social_settings_admin(
     payload: SocialPublishingSettingsUpdate,
     response: Response,
     session: SessionDep,
-    actor: Annotated[User, Depends(require_csrf_superuser)],
+    actor: Annotated[User, Depends(require_csrf_social_publish)],
 ) -> SocialPublishingSettingsRead:
     """Partially update social publishing settings. Superuser only."""
     private_no_store(response)
@@ -488,7 +496,7 @@ async def get_social_publication_preview(
     event_id: uuid.UUID,
     response: Response,
     session: SessionDep,
-    _actor: Annotated[User, Depends(require_superuser)],
+    _actor: Annotated[User, Depends(require_social_publish)],
 ) -> SocialPublicationPreviewRead:
     private_no_store(response)
     try:
@@ -502,7 +510,7 @@ async def get_social_publication_screenshot(
     event_id: uuid.UUID,
     response: Response,
     session: SessionDep,
-    _actor: Annotated[User, Depends(require_superuser)],
+    _actor: Annotated[User, Depends(require_social_publish)],
 ) -> Response:
     event = await session.get(SocialPublicationOutbox, event_id)
     if event is None or not event.screenshot_path:
@@ -534,7 +542,7 @@ async def approve_social_publication_admin(
     payload: SocialPublicationApprovalUpdate,
     response: Response,
     session: SessionDep,
-    actor: Annotated[User, Depends(require_csrf_superuser)],
+    actor: Annotated[User, Depends(require_csrf_social_publish)],
 ) -> SocialPublicationItemRead:
     private_no_store(response)
     try:
@@ -555,7 +563,7 @@ async def approve_and_publish_social_publication_admin(
     payload: SocialPublicationApproveAndPublishUpdate,
     response: Response,
     session: SessionDep,
-    actor: Annotated[User, Depends(require_csrf_superuser)],
+    actor: Annotated[User, Depends(require_csrf_social_publish)],
 ) -> SocialPublicationItemRead:
     """Approve one publication and enqueue screenshot generation and delivery."""
     private_no_store(response)
@@ -573,7 +581,7 @@ async def cancel_social_publication_admin(
     event_id: uuid.UUID,
     response: Response,
     session: SessionDep,
-    actor: Annotated[User, Depends(require_csrf_superuser)],
+    actor: Annotated[User, Depends(require_csrf_social_publish)],
 ) -> SocialPublicationItemRead:
     private_no_store(response)
     try:

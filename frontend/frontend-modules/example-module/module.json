@@ -36,7 +36,7 @@
         "priority": 900,
         "visibility": {
           "auth": "authenticated",
-          "permission": "platform.superuser"
+          "permission": "example-module.admin"
         },
         "label": "Modulbeispiel verwalten",
         "to": "/module-example",

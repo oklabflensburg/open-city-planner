@@ -48,7 +48,7 @@ describe('Mastodon and Fediverse integration', () => {
   it('provides a protected admin view with status, history and confirmed retry', () => {
     const page = appFile('pages/admin/social.vue')
     const composable = appFile('composables/useSocialPublishing.ts')
-    expect(page).toContain("definePageMeta({ middleware: 'superuser' })")
+    expect(page).toContain("definePageMeta({ middleware: 'social-publish' })")
     expect(page).toContain('Publication History')
     expect(page).toContain('Automatisch veröffentlichte Themen')
     expect(page).toContain('Screenshot-Einstellungen')

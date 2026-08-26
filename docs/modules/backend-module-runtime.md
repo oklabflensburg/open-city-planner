@@ -58,6 +58,9 @@ intern weiterhin den kleinen `ModuleRegistrationContext` aus #94. Datenbank, Cac
 Storage, Events, Services und Jobs werden ausschließlich über die öffentlichen Ports
 des SDK angeboten. Capabilities stammen unverändert aus dem Manifest und sind über
 `ModuleRegistry.capabilities(module_id)` verfügbar.
+Permissions aktiver Module werden aus demselben Manifest in die hostseitige
+`PermissionRegistry` übernommen. Die Runtime versiegelt sie nach der deklarativen
+Registrierung; deaktivierte Module hinterlassen keine aktive Permission.
 
 `ModuleRuntime.register(app)` darf genau einmal aufgerufen werden. Damit entstehen
 keine stillen Router-Duplikate. `register()` ist für deklarative Beiträge bestimmt;

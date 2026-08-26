@@ -62,7 +62,7 @@ Sub-Interfaces `context.api` und `context.lifecycle`.
 | `database` | `DatabaseSessionProvider` | transaktionaler Hostadapter aus #97 |
 | `events` | `EventBusPort` | In-Process Dispatch und transaktionale Outbox aus #96 |
 | `services` | `ServiceRegistryPort` | runtime-skopierte Cross-Module-Registry aus #98 |
-| `permissions` | `PermissionPort` | optionaler Port; Policy Engine folgt in #104 |
+| `permissions` | `PermissionPort` | hostseitige, fail-closed Policy-Auswertung aus #104 |
 | `cache` | `CachePort` | optionaler, modulgebundener Byte-Cache |
 | `observability` | `ObservabilityPort` | immer vorhanden; Logger ist an Modul-ID/-Version gebunden |
 | `storage` | `StoragePort` | optionaler modulgebundener Blob-Storage |
@@ -101,8 +101,10 @@ Der Event-Port ist durch die [Domain-Event- und Outbox-Infrastruktur](domain-eve
 implementiert. Die [Cross-Module-Service-Registry](service-contracts.md) stellt
 versionierte öffentliche Query-/Service-Contracts bereit. Der
 [Background-Job-Vertrag](background-jobs.md) registriert stabile Job-IDs, Retry,
-Timeout und optionale Intervallanforderungen. Permission Policy bleibt #104
-vorbehalten. Die Service-Auflösung ist kein allgemeiner Service Locator.
+Timeout und optionale Intervallanforderungen. Permission-Definitionen stammen aus
+dem aktiven Manifest und werden durch die
+[Permission-Registry](permissions.md) ausgewertet. Die Service-Auflösung ist kein
+allgemeiner Service Locator.
 
 ### Modulkonfiguration
 
@@ -153,6 +155,9 @@ sie auf `1.2.0`. Die additive, versionierte Service-Registry aus #98 erhöht sie
 #94-Proxys bleiben kompatibel. Die additive Job-Definition, Registry und Ausführung
 aus #100 erhöhen sie auf `1.5.0`; die einfache Scheduler-Registrierung aus #95
 bleibt als Kompatibilitätsform erhalten.
+Die additive Permission-Definition und hostseitige Registry aus #104 erhöhen die
+SDK-Version auf `1.6.0`; die bestehende `PermissionPort.is_allowed()`-Signatur
+bleibt kompatibel.
 
 - **MAJOR:** Entfernen oder Umbenennen öffentlicher Methoden, inkompatible Änderungen
   an vorhandener Semantik oder eine inkompatible Context-Struktur.

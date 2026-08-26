@@ -62,6 +62,7 @@ test('superuser can inspect social publishing and queue a failed event for retry
         is_active: true,
         is_verified: true,
         is_superuser: true,
+        permissions: ['platform.superuser', 'platform.verwaltung', 'social.publish'],
         roles: [],
         created_at: '2026-08-16T10:00:00Z',
         updated_at: '2026-08-16T10:00:00Z'
