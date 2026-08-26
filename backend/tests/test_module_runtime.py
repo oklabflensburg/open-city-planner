@@ -40,6 +40,7 @@ def manifest_data(
     host: str = ">=0.2.0,<1.0.0",
     sdk: str = ">=1.0.0,<2.0.0",
     capabilities: list[str] | None = None,
+    permissions: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "manifest_version": 1,
@@ -49,6 +50,7 @@ def manifest_data(
         "requires": {"host": host, "sdk": sdk, "modules": required or {}},
         "optional": {"modules": optional or {}},
         "capabilities": capabilities or [],
+        "permissions": permissions or [],
     }
 
 
@@ -94,6 +96,7 @@ def definition(
     registration_error: Exception | None = None,
     startup_error: Exception | None = None,
     capabilities: list[str] | None = None,
+    permissions: list[str] | None = None,
 ) -> ModuleDefinition:
     manifest = parse_manifest(
         manifest_data(
@@ -103,6 +106,7 @@ def definition(
             host=host,
             sdk=sdk,
             capabilities=capabilities,
+            permissions=permissions,
         )
     )
     return ModuleDefinition(
@@ -287,6 +291,20 @@ def test_loader_failure_contains_import_phase_and_module_id() -> None:
 def test_registry_exposes_manifest_capabilities() -> None:
     runtime = runtime_for([definition("capable-module", capabilities=["map.layer"])])
     assert runtime.registry.capabilities("capable-module") == ("map.layer",)
+
+
+def test_runtime_exposes_only_enabled_module_permissions_and_seals_them() -> None:
+    runtime = runtime_for(
+        [
+            definition("enabled-module", permissions=["enabled-module.use"]),
+            definition("disabled-module", permissions=["disabled-module.use"]),
+        ],
+        enabled=("enabled-module",),
+    )
+    runtime.register(FastAPI())
+
+    assert runtime.permission_registry.permission_ids == ("enabled-module.use",)
+    assert runtime.permission_registry.sealed is True
 
 
 def test_registration_failure_is_fail_fast_and_registration_is_single_use() -> None:

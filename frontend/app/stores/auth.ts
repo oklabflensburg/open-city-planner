@@ -39,6 +39,9 @@ export const useAuthStore = defineStore('auth', {
     displayName: (state) => state.user?.display_name || [state.user?.first_name, state.user?.last_name].filter(Boolean).join(' ') || state.user?.email || ''
   },
   actions: {
+    hasPermission(permission: string) {
+      return Boolean(this.user?.permissions?.includes(permission))
+    },
     async initialize() {
       if (this.initialized) return
       const pending = initializationPromises.get(this)

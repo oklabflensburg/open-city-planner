@@ -81,7 +81,9 @@ keine abschließende Capability-Registry ein.
 
 Moduldefinierte Permissions müssen mit `<module-id>.` beginnen, zum Beispiel
 `example-biotopes.read`. Host/Core-Permissions werden nicht über ein Fachmanifest
-definiert. Auswertung und Registrierung der Permissions folgen in #104.
+definiert. Auswertung und Bootstrap-Registry sind unter
+[Modul-Permissions](permissions.md) dokumentiert; das Manifest bleibt ihre
+deklarative Source of Truth.
 
 ## Felder
 

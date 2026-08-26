@@ -13,7 +13,7 @@ import { getMapViewportPadding } from '~/utils/mapViewportPadding'
 import { loadMapStyle } from '~/config/mapStyles'
 import type { MapContext } from '#frontend-module-sdk'
 import { MAP_CONTEXT_KEY } from '../../module-host/map-vue'
-import { createMapRuntime, type MapExtensionSnapshot } from '~/map-runtime/MapRuntime'
+import { createMapRuntime, resolveMapExtensionSnapshot } from '~/map-runtime/MapRuntime'
 
 /**
  * Temporary legacy-domain adapter. Remove domain sections through #108/#137 after
@@ -59,7 +59,7 @@ export function useMapCanvasHost() {
   }
   const performanceDebugEnabled = import.meta.dev || config.public.mapPerformanceDebug
 
-  const configuredExtensions = config.public.frontendMapContributions as unknown as MapExtensionSnapshot
+  const configuredExtensions = resolveMapExtensionSnapshot(config.public.frontendMapContributions)
   const emptyFeatureCollection: FeatureCollection = { type: 'FeatureCollection', features: [] }
   const runtime = createMapRuntime({
     extensions: {

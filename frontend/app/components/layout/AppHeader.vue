@@ -132,6 +132,7 @@
 <script setup lang="ts">
 import { ChevronDown, Menu, Plus, X } from '@lucide/vue'
 import { hasVerwaltungRole } from '~/utils/roles'
+import { hasPermissionSnapshot } from '~/utils/permissions'
 
 const route = useRoute()
 const router = useRouter()
@@ -146,7 +147,8 @@ const accountNavigation = computed(() => sortNavigationItems([...composeNavigati
   { label: 'Meine Flächen', to: '/meine-flaechen' },
   { label: 'Sicherheit', to: '/profil/sicherheit' },
   ...(hasVerwaltungRole(authStore.user) ? [{ label: 'Kennzahlen verwalten', to: '/verwaltung/kennzahlen' }] : []),
-  ...(authStore.user?.is_superuser ? [{ label: 'Administration', to: '/admin/benutzer' }, { label: 'E-Mail-Zentrale', to: '/admin/email-vorlagen' }, { label: 'Social Publishing', to: '/admin/social' }, { label: 'Auditlog', to: '/admin/audit-log' }] : [])
+  ...(authStore.user?.is_superuser ? [{ label: 'Administration', to: '/admin/benutzer' }, { label: 'E-Mail-Zentrale', to: '/admin/email-vorlagen' }, { label: 'Auditlog', to: '/admin/audit-log' }] : []),
+  ...(hasPermissionSnapshot(authStore.user, 'social.publish') ? [{ label: 'Social Publishing', to: '/admin/social' }] : [])
 ]), ...userNavigation.value, ...adminNavigation.value]))
 
 function isActive(item: { to: string, exact?: boolean }) {

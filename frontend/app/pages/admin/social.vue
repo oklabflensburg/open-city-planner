@@ -183,7 +183,7 @@ import { Ban, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, ExternalLink
 import type { SocialPublicationAction, SocialPublicationItem, SocialPublicationPreview, SocialPublicationStatus, SocialPublishingSettings, SocialPublishingSettingsPatch } from '~/types/admin'
 import { buildApiUrl } from '~/utils/apiUrl'
 
-definePageMeta({ middleware: 'superuser' })
+definePageMeta({ middleware: 'social-publish' })
 
 const {
   mastodonStatus, settings, items, total, pages, page, publicationStatus, loading, error,

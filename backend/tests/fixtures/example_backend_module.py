@@ -19,6 +19,7 @@ MANIFEST = parse_manifest(
         "version": "1.0.0",
         "requires": {"host": ">=0.2.0,<1.0.0", "sdk": ">=1.0.0,<2.0.0"},
         "capabilities": ["test.ping"],
+        "permissions": ["test-example-module.use", "test-example-module.admin"],
         "persistence": {"schema": "test_example_module", "migrations": False},
     },
     origin="tests.fixtures.example_backend_module",

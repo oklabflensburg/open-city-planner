@@ -14,6 +14,8 @@ from app.core.config import get_settings
 from app.db.session import get_session
 from app.models.mfa import UserMfaMethod, UserWebAuthnCredential
 from app.models.user import User
+from app.platform.modules.permissions import PermissionEngine
+from app.schemas.user import UserRead
 from app.services.auth_service import get_user_by_id, inactive_account_error
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -126,6 +128,13 @@ async def require_superuser(
                 }
             },
         )
+    await require_strong_admin_auth(request, session, user)
+    return user
+
+
+async def require_strong_admin_auth(
+    request: Request, session: AsyncSession, user: User
+) -> None:
     settings = get_settings()
     if settings.require_mfa_for_superusers or settings.production:
         totp_method = await session.scalar(
@@ -165,7 +174,46 @@ async def require_superuser(
                     }
                 },
             )
-    return user
+
+
+def get_permission_engine(request: Request) -> PermissionEngine:
+    engine = getattr(request.app.state, "permission_engine", None)
+    if not isinstance(engine, PermissionEngine):
+        raise TypeError("Permission engine is not configured.")
+    return engine
+
+
+def serialize_current_user(request: Request, user: User) -> UserRead:
+    return UserRead.model_validate(user).model_copy(
+        update={"permissions": list(get_permission_engine(request).snapshot(user))}
+    )
+
+
+def require_permission(
+    permission_id: str, *, csrf: bool = False, strong_admin_auth: bool = False
+) -> Callable[..., User]:
+    async def dependency(
+        request: Request,
+        session: SessionDep,
+        user: Annotated[User, Depends(get_current_active_user)],
+    ) -> User:
+        if not get_permission_engine(request).allows(user, permission_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": {
+                        "code": "PERMISSION_REQUIRED",
+                        "message": "Für diese Aktion fehlt die erforderliche Berechtigung.",
+                    }
+                },
+            )
+        if strong_admin_auth:
+            await require_strong_admin_auth(request, session, user)
+        if csrf:
+            validate_csrf(request)
+        return user
+
+    return dependency
 
 
 async def require_csrf_superuser(

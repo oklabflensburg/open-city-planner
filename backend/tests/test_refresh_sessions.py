@@ -11,6 +11,7 @@ from app.api.auth import get_auth_session
 from app.auth.jwt import create_jwt, decode_jwt
 from app.auth.tokens import hash_token
 from app.core.config import get_settings
+from app.main import app
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.user import AccountDeactivationReason, User
 from app.models.user_session import UserSession
@@ -29,6 +30,7 @@ def request() -> Request:
         "path": "/api/v1/auth/refresh",
         "headers": [(b"user-agent", b"pytest")],
         "client": ("127.0.0.1", 1234),
+        "app": app,
     })
 
 
@@ -281,5 +283,6 @@ async def test_session_endpoint_returns_user_and_csrf_after_hard_reload() -> Non
     result = await get_auth_session(request(), response, account)
 
     assert result.user.id == account.id
+    assert result.user.permissions == []
     assert result.csrf_token
     assert any("ocm_csrf_token=" in value for value in response.headers.getlist("set-cookie"))

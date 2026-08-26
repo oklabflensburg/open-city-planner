@@ -21,6 +21,20 @@ export interface MapExtensionSnapshot {
   readonly layers: readonly BoundMapLayerContribution[]
 }
 
+const EMPTY_MAP_EXTENSION_SNAPSHOT: MapExtensionSnapshot = Object.freeze({
+  sources: Object.freeze([]),
+  layers: Object.freeze([])
+})
+
+export function resolveMapExtensionSnapshot(value: unknown): MapExtensionSnapshot {
+  if (!value || typeof value !== 'object') return EMPTY_MAP_EXTENSION_SNAPSHOT
+  const snapshot = value as Partial<MapExtensionSnapshot>
+  return {
+    sources: Array.isArray(snapshot.sources) ? snapshot.sources : EMPTY_MAP_EXTENSION_SNAPSHOT.sources,
+    layers: Array.isArray(snapshot.layers) ? snapshot.layers : EMPTY_MAP_EXTENSION_SNAPSHOT.layers
+  }
+}
+
 export interface CreateMapRuntimeOptions extends MapLifecycleOptions {
   readonly extensions?: MapExtensionSnapshot
   readonly reportTelemetry?: ConstructorParameters<typeof MapTelemetry>[0]

@@ -12,6 +12,7 @@ export type AuthUser = {
   email_pending?: boolean
   is_superuser: boolean
   roles?: string[]
+  permissions?: string[]
   created_at: string
   updated_at: string
   last_login_at?: string | null

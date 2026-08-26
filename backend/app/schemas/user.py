@@ -16,6 +16,7 @@ class UserRead(BaseModel):
     email_pending: bool = False
     is_superuser: bool
     roles: list[str] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
     last_login_at: datetime | None

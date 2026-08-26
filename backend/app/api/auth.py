@@ -8,7 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 
 from app.auth.csrf import create_csrf_token, validate_csrf, validate_refresh_origin
-from app.auth.dependencies import SessionDep, get_current_active_user, get_optional_user
+from app.auth.dependencies import (
+    SessionDep,
+    get_current_active_user,
+    get_optional_user,
+    serialize_current_user,
+)
 from app.auth.oauth import (
     OAuthFlowState,
     authorization_url,
@@ -270,7 +275,7 @@ async def post_signup(
     )
     user = await signup(session, payload)
     csrf_token = await issue_session(session, response, user, request)
-    return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
+    return AuthResponse(user=serialize_current_user(request, user), csrf_token=csrf_token)
 
 
 @router.post(
@@ -302,7 +307,7 @@ async def post_login(
             expires_in=challenge.expires_in,
         )
     csrf_token = await issue_session(session, response, user, request, amr=["pwd"])
-    return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
+    return AuthResponse(user=serialize_current_user(request, user), csrf_token=csrf_token)
 
 
 @router.post("/passkeys/register/options", response_model=WebAuthnOptionsResponse)
@@ -362,7 +367,7 @@ async def post_passkey_login_verify(
     )
     user = await verify_passwordless_login(session, payload.ceremony_token, payload.credential)
     csrf_token = await issue_session(session, response, user, request, amr=["webauthn"])
-    return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
+    return AuthResponse(user=serialize_current_user(request, user), csrf_token=csrf_token)
 
 
 @router.post("/mfa/passkey/options", response_model=WebAuthnOptionsResponse)
@@ -417,7 +422,7 @@ async def post_mfa_passkey_verify(
     primary = "oauth" if primary_method.startswith("oauth") else "pwd"
     csrf_token = await issue_session(session, response, user, request, amr=[primary, "webauthn"])
     clear_mfa_cookie(response)
-    return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
+    return AuthResponse(user=serialize_current_user(request, user), csrf_token=csrf_token)
 
 
 @router.post("/passkeys/reauth/options", response_model=WebAuthnOptionsResponse)
@@ -451,7 +456,9 @@ async def post_passkey_reauth_verify(
         session, request.cookies.get(get_settings().auth_refresh_cookie_name)
     )
     csrf_token = await issue_session(session, response, verified_user, request, amr=["webauthn"])
-    return AuthResponse(user=UserRead.model_validate(verified_user), csrf_token=csrf_token)
+    return AuthResponse(
+        user=serialize_current_user(request, verified_user), csrf_token=csrf_token
+    )
 
 
 @router.post("/mfa/verify", response_model=AuthResponse)
@@ -481,7 +488,7 @@ async def post_mfa_verify(
     if factor == "recovery":
         await send_mfa_security_email(session, user, "recovery_used")
     clear_mfa_cookie(response)
-    return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
+    return AuthResponse(user=serialize_current_user(request, user), csrf_token=csrf_token)
 
 
 @router.get("/mfa/security", response_model=MfaSecurityStatus)
@@ -604,7 +611,7 @@ async def post_refresh(session: SessionDep, response: Response, request: Request
         }:
             clear_auth_cookies(response)
         raise
-    return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
+    return AuthResponse(user=serialize_current_user(request, user), csrf_token=csrf_token)
 
 
 @router.post("/logout", response_model=MessageResponse)
@@ -630,8 +637,10 @@ async def post_logout_all(
 
 
 @router.get("/me", response_model=UserRead)
-async def get_me(user: Annotated[User, Depends(get_current_active_user)]) -> UserRead:
-    return UserRead.model_validate(user)
+async def get_me(
+    request: Request, user: Annotated[User, Depends(get_current_active_user)]
+) -> UserRead:
+    return serialize_current_user(request, user)
 
 
 @router.get("/session", response_model=AuthResponse)
@@ -653,7 +662,7 @@ async def get_auth_session(
             path=settings.auth_cookie_path,
             max_age=settings.refresh_token_expire_days * 86400,
         )
-    return AuthResponse(user=UserRead.model_validate(user), csrf_token=csrf_token)
+    return AuthResponse(user=serialize_current_user(request, user), csrf_token=csrf_token)
 
 
 @router.post("/verify-email", response_model=VerificationResponse)

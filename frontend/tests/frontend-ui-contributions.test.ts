@@ -9,6 +9,7 @@ import {
   isUiContributionVisible
 } from '../module-host/ui-registry'
 import { composeNavigation } from '../app/composables/useSiteNavigation'
+import { hasPermissionSnapshot } from '../app/utils/permissions'
 
 const publicContext: UiVisibilityContext = {
   authenticated: false,
@@ -131,6 +132,17 @@ describe('frontend UI contribution registry', () => {
     }
     expect(isUiContributionVisible(contribution({ auth: 'authenticated', permission: 'alpha.read', feature: 'alpha.preview' }), authorized)).toBe(true)
     expect(isUiContributionVisible(contribution({ auth: 'anonymous' }), authorized)).toBe(false)
+  })
+
+  it('uses only the backend permission snapshot and defaults to deny', () => {
+    const user = {
+      is_superuser: false,
+      permissions: ['social.publish', 'example-module.admin']
+    } as never
+    expect(hasPermissionSnapshot(user, 'social.publish')).toBe(true)
+    expect(hasPermissionSnapshot(user, 'unknown.permission')).toBe(false)
+    expect(hasPermissionSnapshot({ is_superuser: true } as never, 'social.publish')).toBe(false)
+    expect(hasPermissionSnapshot(null, 'social.publish')).toBe(false)
   })
 
   it('composes host and primary, user and admin module navigation deterministically', () => {

@@ -13,6 +13,7 @@ const adminUser = {
   is_verified: true,
   email_pending: false,
   is_superuser: true,
+  permissions: ['platform.superuser', 'social.publish'],
   roles: [],
   created_at: '2026-08-16T10:00:00Z',
   updated_at: '2026-08-16T10:00:00Z',

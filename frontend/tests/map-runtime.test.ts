@@ -7,6 +7,7 @@ import { FeatureInfoRegistry } from '../app/map-runtime/FeatureInfoRegistry'
 import { InteractionRegistry } from '../app/map-runtime/InteractionRegistry'
 import { LayerRegistry } from '../app/map-runtime/LayerRegistry'
 import { MapLifecycle } from '../app/map-runtime/MapLifecycle'
+import { resolveMapExtensionSnapshot } from '../app/map-runtime/MapRuntime'
 import { SelectionManager } from '../app/map-runtime/SelectionManager'
 import { DuplicateMapLayerError, DuplicateMapSourceError, UnknownMapSourceError } from '../app/map-runtime/errors'
 
@@ -90,6 +91,18 @@ describe('MapLifecycle', () => {
     lifecycle.destroy()
     expect(observer.disconnect).toHaveBeenCalledOnce()
     expect(map.remove).toHaveBeenCalledOnce()
+  })
+})
+
+describe('map extension runtime configuration', () => {
+  it('falls back to an empty snapshot when a deployment has no map contribution config', () => {
+    expect(resolveMapExtensionSnapshot(undefined)).toEqual({ sources: [], layers: [] })
+    expect(resolveMapExtensionSnapshot({})).toEqual({ sources: [], layers: [] })
+  })
+
+  it('preserves configured extension definitions', () => {
+    const configured = { sources: [source('alpha.data')], layers: [layer('alpha.points', 'alpha.data')] }
+    expect(resolveMapExtensionSnapshot(configured)).toEqual(configured)
   })
 })
 

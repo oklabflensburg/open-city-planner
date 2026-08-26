@@ -1,4 +1,5 @@
 import logging
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from ipaddress import ip_address
@@ -15,7 +16,8 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from app.api.router import api_router
 from app.cache.redis import close_redis, initialize_redis, redis_health
 from app.core.config import BACKEND_ENV_FILE, get_settings
-from app.db.session import database_health, engine
+from app.db.session import AsyncSessionLocal, database_health, engine
+from app.models.user import User
 from app.observability.logging import configure_logging
 from app.observability.metrics import REDIS_AVAILABLE, REGISTRY, set_build_info
 from app.observability.middleware import ObservabilityMiddleware
@@ -27,13 +29,56 @@ from app.platform.modules import (
     create_module_runtime,
 )
 from app.platform.modules.context import ModuleContextFactory, ModuleHostServices
+from app.platform.modules.permissions import (
+    LegacyRolePermissionResolver,
+    PermissionEngine,
+    PermissionRegistry,
+)
 from app.platform.modules.persistence import HostDatabaseSessionProvider
+from app.platform.modules.sdk import PermissionDefinition
 from app.security.request_limits import RequestBodyLimitMiddleware
 from app.services.assistant_provider import close_assistant_provider
 from app.services.map_previews import MapPreviewError, map_preview_service
+from app.services.social_permissions import SOCIAL_PERMISSION_DEFINITIONS
 
 settings = get_settings()
 event_bus = InProcessEventBus()
+permission_registry = PermissionRegistry()
+for definition in (
+    PermissionDefinition(
+        id="platform.superuser",
+        module_id="platform",
+        description="Universeller administrativer Plattformzugriff",
+        category="platform",
+    ),
+    PermissionDefinition(
+        id="platform.verwaltung",
+        module_id="platform",
+        description="Bestehende Verwaltungsrolle verwenden",
+        category="platform",
+    ),
+    *SOCIAL_PERMISSION_DEFINITIONS,
+):
+    if definition.module_id == "platform":
+        permission_registry.register_platform(definition)
+    else:
+        permission_registry.register(definition)
+permission_engine = PermissionEngine(
+    permission_registry,
+    LegacyRolePermissionResolver({"VERWALTUNG": ("platform.verwaltung",)}),
+)
+
+
+async def load_permission_subject(principal_id: str) -> User | None:
+    try:
+        user_id = uuid.UUID(principal_id)
+    except ValueError:
+        return None
+    async with AsyncSessionLocal() as session:
+        user = await session.get(User, user_id)
+        return user if user is not None and user.is_active else None
+
+
 module_runtime = create_module_runtime(
     enabled_module_ids=settings.enabled_module_list,
     discovery_providers=(FirstPartyModuleDiscovery(), EntryPointModuleDiscovery()),
@@ -41,8 +86,11 @@ module_runtime = create_module_runtime(
     context_factory=ModuleContextFactory(
         ModuleHostServices(database=HostDatabaseSessionProvider()),
         event_bus=event_bus,
+        permission_engine=permission_engine,
+        permission_subject_loader=load_permission_subject,
         module_env_file=BACKEND_ENV_FILE,
     ),
+    permission_registry=permission_registry,
 )
 configure_logging(
     level=settings.log_level,
@@ -128,6 +176,7 @@ app = FastAPI(
     openapi_tags=OPENAPI_TAGS,
     lifespan=lifespan,
 )
+app.state.permission_engine = permission_engine
 
 app.add_middleware(GZipMiddleware, minimum_size=1_000, compresslevel=5)
 app.add_middleware(RequestBodyLimitMiddleware)

@@ -4,6 +4,36 @@ from collections.abc import Sequence
 from typing import Any
 
 
+class PermissionRegistryError(ValueError):
+    """Basisklasse fuer Fehler der hostseitigen Permission-Registry."""
+
+
+class DuplicatePermissionError(PermissionRegistryError):
+    def __init__(
+        self, permission_id: str, *, provider_module: str, conflicting_module: str
+    ) -> None:
+        super().__init__(
+            f'Permission "{permission_id}" from module "{conflicting_module}" is already '
+            f'provided by module "{provider_module}".'
+        )
+        self.permission_id = permission_id
+        self.provider_module = provider_module
+        self.conflicting_module = conflicting_module
+
+
+class InvalidPermissionNamespaceError(PermissionRegistryError):
+    def __init__(self, permission_id: str, *, module_id: str) -> None:
+        super().__init__(
+            f'Permission "{permission_id}" is not owned by module "{module_id}".'
+        )
+        self.permission_id = permission_id
+        self.module_id = module_id
+
+
+class PermissionRegistrySealedError(PermissionRegistryError):
+    """Nach Bootstrap duerfen Permission-Definitionen nicht mutiert werden."""
+
+
 class ModuleManifestError(ValueError):
     """Basisklasse für ungültige Manifestdaten."""
 

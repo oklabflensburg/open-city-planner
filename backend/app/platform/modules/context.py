@@ -1,7 +1,7 @@
 """Hostseitige Erzeugung modulgebundener öffentlicher SDK-Contexts."""
 
 import logging
-from collections.abc import Iterator, Mapping
+from collections.abc import Awaitable, Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +10,11 @@ from typing import TYPE_CHECKING
 from app.platform.modules.contracts import ModuleRegistrationContext
 from app.platform.modules.jobs import JobRegistry
 from app.platform.modules.manifest import ModuleManifestV1
+from app.platform.modules.permissions import (
+    PermissionEngine,
+    PermissionSubject,
+    RegistryPermissionPort,
+)
 from app.platform.modules.sdk import (
     CachePort,
     DatabaseSessionProvider,
@@ -105,6 +110,11 @@ class ModuleContextFactory:
         event_bus: "InProcessEventBus | None" = None,
         settings_registry: ModuleSettingsRegistry | None = None,
         job_registry: JobRegistry | None = None,
+        permission_engine: PermissionEngine | None = None,
+        permission_subject_loader: Callable[
+            [str], Awaitable[PermissionSubject | None]
+        ]
+        | None = None,
         module_environment: Mapping[str, str] | None = None,
         module_env_file: Path | None = None,
     ) -> None:
@@ -124,6 +134,15 @@ class ModuleContextFactory:
         self._job_registry: JobRegistry | None = None
         if self._services.scheduler is None:
             self._job_registry = job_registry or JobRegistry()
+        self._permission_port: PermissionPort | None = self._services.permissions
+        if (
+            self._permission_port is None
+            and permission_engine is not None
+            and permission_subject_loader is not None
+        ):
+            self._permission_port = RegistryPermissionPort(
+                permission_engine, permission_subject_loader
+            )
 
     @property
     def service_registry(self) -> "ServiceRegistry | None":
@@ -174,7 +193,7 @@ class ModuleContextFactory:
             database=self._services.database,
             events=event_adapter,
             services=service_adapter,
-            permissions=self._services.permissions,
+            permissions=self._permission_port,
             cache=self._services.cache,
             storage=self._services.storage,
             http=self._services.http,

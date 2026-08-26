@@ -262,8 +262,20 @@ class ServiceRegistryPort(Protocol):
     def resolve(self, contract: type[T]) -> T: ...
 
 
+@dataclass(frozen=True, slots=True)
+class PermissionDefinition:
+    """Module-owned metadata for one stable permission ID."""
+
+    id: str
+    module_id: str
+    description: str
+    category: str | None = None
+    deprecated: bool = False
+    replacement: str | None = None
+
+
 class PermissionPort(Protocol):
-    """Prüft eine stabile Permission-ID; die Policy Engine folgt in #104."""
+    """Prüft eine stabile Permission-ID über die hostseitige Policy Engine."""
 
     async def is_allowed(
         self,
@@ -582,6 +594,7 @@ __all__ = [
     "ModuleSettingsContribution",
     "ModuleSettingsPort",
     "ObservabilityPort",
+    "PermissionDefinition",
     "PermissionPort",
     "RetryPolicy",
     "SchedulerPort",
