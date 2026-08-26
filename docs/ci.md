@@ -12,9 +12,9 @@ bei reinen Dokumentationsänderungen nicht.
 | Backend CI | `backend-lint` | Ruff sowie Import- und Startkonfigurations-Smoke-Test |
 | Backend CI | `backend-tests` | vollständige Pytest-Suite |
 | Backend CI | `backend-migrations` | genau ein Alembic-Head, Upgrade einer frischen PostGIS-Datenbank sowie Modul-Persistence-, Schema- und Migrationscontracts |
-| Frontend CI | `frontend-tests` | vollständige Vitest-Suite |
-| Frontend CI | `frontend-typecheck` | Nuxt-/Vue-Typecheck |
-| Frontend CI | `frontend-build` | produktiver Nuxt-Build und zentraler SSR-/SEO-Audit über Sitemap-, Noindex-, Redirect- und Fehler-Routen |
+| Frontend CI | `frontend-tests` | vollständige Vitest-Suite sowie explizite Frontend-Modul-Contract- und SSR-Smoke-Tests |
+| Frontend CI | `frontend-typecheck` | Nuxt-/Vue-Typecheck ohne optionale Module und mit dem Example-Modul |
+| Frontend CI | `frontend-build` | Modul-Preflight, produktive Nuxt-Builds mit und ohne Example-Modul sowie zentraler SSR-/SEO-Audit über Sitemap-, Noindex-, Redirect- und Fehler-Routen |
 | Frontend CI | `frontend-language-audit` | Audit der sichtbaren Sprache |
 | E2E Tests | `e2e` | vollständige Playwright-Suite mit echtem Frontend, Backend und frischer PostGIS-Datenbank |
 | Security | `security-policy-validation` | Format, Vollständigkeit und Ablauf befristeter Security-Ausnahmen sowie negative Policy-Tests |
@@ -64,9 +64,13 @@ Frontend:
 ```bash
 cd frontend
 pnpm install --frozen-lockfile
+pnpm modules:check
 pnpm test
+pnpm test:modules:ssr
 pnpm typecheck
 pnpm build
+OCP_FRONTEND_MODULES=example-module pnpm typecheck
+OCP_FRONTEND_MODULES=example-module pnpm build
 pnpm audit:language
 pnpm audit:seo
 ```
@@ -80,6 +84,12 @@ Sitemap-Ziele sowie eine kompakte Matrix aus Noindex-, Auth-, Admin-,
 Social-Preview-, Redirect- und 404-Routen. Zusätzlich prüft er das globale
 Favicon-/Manifest-Set, die tatsächlichen PNG-Abmessungen und den 1200×630-
 Social-Image-Fallback aller indexierbaren Seiten.
+
+Der Frontend-Modul-Preflight läuft zusätzlich beim Laden von `nuxt.config.ts` und
+kann daher nicht durch einen direkten Nuxt-Aufruf umgangen werden. CI prüft den
+deaktivierten Host als produktiven Endzustand und davor denselben Commit mit dem
+lokal entdeckten `example-module`. Duplicate IDs, fehlende Module, inkompatible
+Versionen und Routenkollisionen werden durch gezielte negative Tests abgedeckt.
 
 E2E benötigt eine leere PostGIS-Datenbank. `DATABASE_URL` muss auf diese
 Testdatenbank zeigen:

@@ -89,10 +89,19 @@ Vor einer Migration mit Schema- oder Datenänderungen ist ein Datenbankbackup er
 ```bash
 cd /opt/git/open-city-planner/frontend
 pnpm install --frozen-lockfile
+pnpm modules:check
 pnpm build
 ```
 
 Der Produktionsprozess startet den von Nuxt erzeugten Server-Output nach dem für die jeweilige Plattform eingerichteten Verfahren. Das Repository liefert dafür keine allgemeingültige systemd-Unit aus.
+
+Optionale Frontend-Module werden vor diesem Build über `OCP_FRONTEND_MODULES`
+aktiviert. Fullstack-Module verwenden dieselbe stabile ID wie ihr Backend-Modul.
+Setzen Sie zusätzlich `OCP_BACKEND_MODULES` als Build-Inventar (`id` oder
+`id@version`), damit ein aktiviertes Frontend ohne zugehöriges Backend bereits im
+Preflight fehlschlägt. Beide Variablen sind komma-separierte technische IDs und
+enthalten keine Secrets. Leer bedeutet: keine optionalen Frontend-Module. Details
+stehen unter [Frontend-Host und Build-Time-Module](modules/frontend-host.md).
 
 ## Environment
 
@@ -110,7 +119,11 @@ Wichtige Backend-Gruppen:
 - Integrationen: `MASTODON_*`, optionale OAuth-Provider und `MASTODON_SSO_*`;
 - Dateien: `AVATAR_UPLOAD_DIR`, `MEDIA_BASE_URL`, `MASTODON_SCREENSHOT_DIRECTORY`.
 
-Wichtige Frontend-Variablen beginnen mit `NUXT_PUBLIC_` und sind per Definition öffentlich. Secrets dürfen dort niemals gespeichert werden.
+Wichtige öffentliche Frontend-Variablen beginnen mit `NUXT_PUBLIC_` und sind per
+Definition öffentlich. `OCP_FRONTEND_MODULES` und `OCP_BACKEND_MODULES` steuern nur
+den Build-Preflight, sind aber ebenfalls keine Secret-Speicher. Ein Fullstack-Modul
+muss im Backend-Enablement und im Frontend-Buildinventar konsistent aktiviert sein.
+Secrets dürfen in keiner dieser Variablen gespeichert werden.
 
 Vor der Aktivierung lädt der target Backend-Release seine strikten Pydantic-Settings mit dem target Snapshot. Unbekannte Variablen bleiben ein Fehler; `extra=ignore` wird nicht verwendet. Das Frontend-Environment wird mit Node validiert und anschließend beim Build des target Releases verwendet. Erst wenn diese Prüfungen erfolgreich waren, stoppt Ansible die primären Dienste und schaltet Code-, Backend-Env- und Frontend-Env-Symlink in kontrollierter Reihenfolge um. Während dieses kurzen Fensters läuft kein primärer Dienst mit einem gemischten Zustand.
 

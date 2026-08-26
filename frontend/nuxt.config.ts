@@ -1,4 +1,13 @@
 import tailwindcss from '@tailwindcss/vite'
+import { fileURLToPath } from 'node:url'
+import { resolveFrontendModules } from './module-host/discovery'
+
+const frontendModules = resolveFrontendModules({
+  modulesDirectory: fileURLToPath(new URL('./frontend-modules', import.meta.url)),
+  appPagesDirectory: fileURLToPath(new URL('./app/pages', import.meta.url)),
+  enabledModules: process.env.OCP_FRONTEND_MODULES,
+  backendModules: process.env.OCP_BACKEND_MODULES
+})
 
 const configuredSiteUrl = process.env.NUXT_PUBLIC_SITE_URL
 const configuredMapStyleUrl = process.env.NUXT_PUBLIC_MAP_STYLE_URL || process.env.NUXT_PUBLIC_VERSATILES_STYLE_URL || ''
@@ -43,6 +52,9 @@ if (configuredMapStyleUrl && !effectiveMapStyleUrl) {
 }
 
 export default defineNuxtConfig({
+  extends: frontendModules.length
+    ? frontendModules.map(module => module.layerPath)
+    : undefined,
   compatibilityDate: '2026-08-10',
   features: {
     devLogs: false
