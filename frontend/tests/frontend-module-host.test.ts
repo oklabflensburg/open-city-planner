@@ -77,14 +77,14 @@ describe('frontend build-time module host', () => {
   it('accepts compatible SDK versions and rejects incompatible versions', () => {
     const paths = fixture()
     addModule(paths.modulesDirectory, 'compatible')
-    expect(FRONTEND_MODULE_SDK_VERSION).toBe('1.0.0')
+    expect(FRONTEND_MODULE_SDK_VERSION).toBe('1.1.0')
     expect(resolveFrontendModules({ ...paths, enabledModules: 'compatible' })).toHaveLength(1)
 
     addModule(paths.modulesDirectory, 'future', {
       compatibility: { host: '>=1.0.0 <2.0.0', sdk: '>=2.0.0 <3.0.0' }
     })
     expect(() => resolveFrontendModules({ ...paths, enabledModules: 'future' }))
-      .toThrowError(/requires frontend module SDK >=2.0.0 <3.0.0, but found 1.0.0/)
+      .toThrowError(/requires frontend module SDK >=2.0.0 <3.0.0, but found 1.1.0/)
   })
 
   it('requires one shared module ID and validates an explicit backend inventory', () => {
@@ -151,6 +151,42 @@ describe('frontend build-time module host', () => {
     addModule(plugin.modulesDirectory, 'example')
     mkdirSync(resolve(plugin.modulesDirectory, 'example/layer/app/plugins'), { recursive: true })
     expect(() => discoverFrontendModules(plugin.modulesDirectory)).toThrowError(/may not provide host-owned layer path "app\/plugins"/)
+  })
+
+  it('rejects foreign module imports, arbitrary HTML payloads and foreign component sources', () => {
+    const foreignImport = fixture()
+    addModule(foreignImport.modulesDirectory, 'alpha')
+    writeFileSync(
+      resolve(foreignImport.modulesDirectory, 'alpha/layer/app/pages/alpha.vue'),
+      `<script setup>import value from '../../../../beta/internal'</script><template>{{ value }}</template>`
+    )
+    expect(() => discoverFrontendModules(foreignImport.modulesDirectory))
+      .toThrowError(/imports outside its own module/)
+
+    const arbitraryHtml = fixture()
+    addModule(arbitraryHtml.modulesDirectory, 'alpha', {
+      publicContributions: {
+        routes: [{ path: '/alpha', source: 'layer/app/pages/alpha.vue' }],
+        ui: [{ id: 'alpha.unsafe', slot: 'header.actions', html: '<script>alert(1)</script>' }]
+      }
+    })
+    expect(() => discoverFrontendModules(arbitraryHtml.modulesDirectory))
+      .toThrowError(/Frontend module definition .* is invalid/)
+
+    const foreignComponent = fixture()
+    addModule(foreignComponent.modulesDirectory, 'alpha', {
+      publicContributions: {
+        routes: [{ path: '/alpha', source: 'layer/app/pages/alpha.vue' }],
+        ui: [{
+          id: 'alpha.widget',
+          slot: 'dashboard.widgets',
+          component: 'ForeignWidget',
+          source: '../beta/layer/app/components/ForeignWidget.vue'
+        }]
+      }
+    })
+    expect(() => discoverFrontendModules(foreignComponent.modulesDirectory))
+      .toThrowError(/must remain inside/)
   })
 
   it('keeps Nuxt generic and forbids runtime microfrontend loading', () => {

@@ -42,7 +42,8 @@ typisierte Contract liegt in `frontend/module-host/contract.ts`:
         "path": "/module-example",
         "source": "layer/app/pages/module-example.vue"
       }
-    ]
+    ],
+    "ui": []
   }
 }
 ```
@@ -115,9 +116,10 @@ Ein aktivierter Layer wird durch denselben Nuxt-Build verarbeitet wie der Host:
 - Browser-only Code benötigt weiterhin `import.meta.client`, `ClientOnly` oder
   geeignete Lifecycle-Guards.
 
-Das `example-module` demonstriert Page, Component, Composable und Store, registriert
-aber bewusst keine Navigation. Die Route ist `noindex`, weil sie nur ein technischer
-Architekturbeweis ist.
+Das `example-module` demonstriert Page, Component, Composable und Store sowie die
+in #102 ergänzten Navigation- und Component-Contributions. Details stehen unter
+[Frontend UI Contributions](frontend-ui-contributions.md). Die Route ist `noindex`,
+weil sie nur ein technischer Architekturbeweis ist.
 
 ## Neues Modul hinzufügen
 
@@ -133,9 +135,9 @@ Der Host wird dafür nicht um fachliche Imports oder eine ID-Liste erweitert.
 
 ## Bewusste Grenzen von V1
 
-Der Contract enthält noch keine Navigation-/UI-Slot-Registry (#102) und keine Map-
-Extension-Points (#103). Module dürfen keine unbekannten Bundles nachladen, keine
-eigene Pinia-Root oder Tailwind-Pipeline starten und nicht direkt in Interna anderer
-Module importieren. Externe npm-Pakete können später als bereits installierte,
-lokale Quellen an denselben Contract angebunden werden; Download und Packaging sind
-nicht Teil von #101.
+Der Contract enthält eine kleine Navigation-/UI-Slot-Registry aus #102, aber keine
+Map-Runtime-Extension-Points aus #103. Module dürfen keine unbekannten Bundles
+nachladen, keine eigene Pinia-Root oder Tailwind-Pipeline starten und nicht direkt
+in Interna anderer Module importieren. Externe npm-Pakete können später als bereits
+installierte, lokale Quellen an denselben Contract angebunden werden; Download und
+Packaging sind nicht Teil von #101.

@@ -152,7 +152,8 @@ Polygon-, Auth-, OSM-, Assistant- und Analysis-Area-Seiten bleiben unverändert.
 - Shared Dependencies bleiben im Host-Bundle und werden nicht pro Modul isoliert.
 - Discovery fügt nur synchrone lokale Dateiprüfungen vor dem bestehenden Nuxt-
   Lifecycle hinzu und erzeugt keinen Runtime-Failure-Mode.
-- Navigation und UI Slots folgen in #102.
+- Navigation und UI Slots sind additiv im [Folge-ADR zu Frontend UI Extension
+  Points](adr-frontend-ui-extension-points.md) definiert.
 - MapLibre Sources, Layers, Controls und Interaktionen folgen in #103.
 - Externe Paketdistribution und Signierung folgen nicht in #101.
 

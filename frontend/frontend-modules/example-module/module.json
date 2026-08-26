@@ -16,6 +16,46 @@
         "path": "/module-example",
         "source": "layer/app/pages/module-example.vue"
       }
+    ],
+    "ui": [
+      {
+        "id": "example-module.primary-navigation",
+        "slot": "navigation.primary",
+        "priority": 250,
+        "visibility": {
+          "auth": "public",
+          "module": "example-module"
+        },
+        "label": "Beispielmodul",
+        "to": "/module-example",
+        "exact": true
+      },
+      {
+        "id": "example-module.admin-navigation",
+        "slot": "navigation.admin",
+        "priority": 900,
+        "visibility": {
+          "auth": "authenticated",
+          "permission": "platform.superuser"
+        },
+        "label": "Modulbeispiel verwalten",
+        "to": "/module-example",
+        "exact": true
+      },
+      {
+        "id": "example-module.header-action",
+        "slot": "header.actions",
+        "priority": 100,
+        "visibility": {
+          "module": "example-module"
+        },
+        "component": "ExampleModuleAction",
+        "source": "layer/app/components/ExampleModuleAction.vue",
+        "accessibleLabel": "Frontend-Modulbeispiel öffnen",
+        "props": {
+          "label": "Modulbeispiel"
+        }
+      }
     ]
   }
 }

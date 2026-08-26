@@ -7,10 +7,10 @@
         <div class="grid gap-1">
           <NuxtLink
             v-for="item in primaryNavigation"
-            :key="item.to"
+            :key="item.id"
             class="flex min-h-12 items-center rounded-xl px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
-            :class="isActive(item.to) ? 'bg-[#edf4f8] text-slate-950' : ''"
-            :aria-current="isActive(item.to) ? 'page' : undefined"
+            :class="isActive(item) ? 'bg-[#edf4f8] text-slate-950' : ''"
+            :aria-current="isActive(item) ? 'page' : undefined"
             :to="item.to"
             @click="$emit('close')"
           >
@@ -21,10 +21,10 @@
         <div class="grid gap-1">
           <NuxtLink
             v-for="item in secondaryNavigation"
-            :key="item.to"
+            :key="item.id"
             class="flex min-h-12 items-center rounded-xl px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
-            :class="isActive(item.to) ? 'bg-slate-100 text-slate-950' : ''"
-            :aria-current="isActive(item.to) ? 'page' : undefined"
+            :class="isActive(item) ? 'bg-slate-100 text-slate-950' : ''"
+            :aria-current="isActive(item) ? 'page' : undefined"
             :to="item.to"
             @click="$emit('close')"
           >
@@ -62,13 +62,9 @@
 
 <script setup lang="ts">
 import type { AuthUser } from '~/types/auth'
+import type { NavigationItem } from '~/composables/useSiteNavigation'
 
 const route = useRoute()
-
-type NavigationItem = {
-  label: string
-  to: string
-}
 
 defineProps<{
   id: string
@@ -86,8 +82,8 @@ defineEmits<{
   logout: []
 }>()
 
-function isActive(path: string) {
-  if (path === '/') return route.path === '/'
-  return route.path === path || route.path.startsWith(`${path}/`)
+function isActive(item: NavigationItem) {
+  if (item.exact || item.to === '/') return route.path === item.to
+  return route.path === item.to || route.path.startsWith(`${item.to}/`)
 }
 </script>

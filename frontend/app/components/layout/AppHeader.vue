@@ -9,10 +9,10 @@
         <nav class="hidden items-center gap-1 lg:flex" aria-label="Hauptnavigation">
           <NuxtLink
             v-for="item in primaryNavigation"
-            :key="item.to"
+            :key="item.id"
             class="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
-            :class="isActive(item.to) ? 'bg-[#edf4f8] text-slate-950' : ''"
-            :aria-current="isActive(item.to) ? 'page' : undefined"
+            :class="isActive(item) ? 'bg-[#edf4f8] text-slate-950' : ''"
+            :aria-current="isActive(item) ? 'page' : undefined"
             :to="item.to"
           >
             {{ item.label }}
@@ -21,13 +21,14 @@
       </div>
 
       <div class="hidden min-w-0 items-center gap-3 lg:flex">
+        <UiContributionSlot slot="header.actions" class="flex items-center gap-2" />
         <nav class="hidden items-center gap-1 min-[1400px]:flex" aria-label="Rechtliche Navigation">
           <NuxtLink
             v-for="item in legalNavigation"
-            :key="item.to"
+            :key="item.id"
             class="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]"
-            :class="isActive(item.to) ? 'bg-slate-100 text-slate-950' : ''"
-            :aria-current="isActive(item.to) ? 'page' : undefined"
+            :class="isActive(item) ? 'bg-slate-100 text-slate-950' : ''"
+            :aria-current="isActive(item) ? 'page' : undefined"
             :to="item.to"
           >
             {{ item.label }}
@@ -139,17 +140,18 @@ const mobileOpen = ref(false)
 const accountOpen = ref(false)
 const accountButton = ref<HTMLElement | null>(null)
 const accountMenu = ref<HTMLElement | null>(null)
-const { primaryNavigation, legalNavigation } = useSiteNavigation()
-const accountNavigation = computed(() => [
+const { primaryNavigation, legalNavigation, userNavigation, adminNavigation } = useSiteNavigation()
+const accountNavigation = computed(() => sortNavigationItems([...composeNavigation([
   { label: 'Profil', to: '/profil' },
   { label: 'Meine Flächen', to: '/meine-flaechen' },
   { label: 'Sicherheit', to: '/profil/sicherheit' },
   ...(hasVerwaltungRole(authStore.user) ? [{ label: 'Kennzahlen verwalten', to: '/verwaltung/kennzahlen' }] : []),
   ...(authStore.user?.is_superuser ? [{ label: 'Administration', to: '/admin/benutzer' }, { label: 'E-Mail-Zentrale', to: '/admin/email-vorlagen' }, { label: 'Social Publishing', to: '/admin/social' }, { label: 'Auditlog', to: '/admin/audit-log' }] : [])
-])
+]), ...userNavigation.value, ...adminNavigation.value]))
 
-function isActive(path: string) {
-  if (path === '/') return route.path === '/'
+function isActive(item: { to: string, exact?: boolean }) {
+  const path = item.to
+  if (item.exact || path === '/') return route.path === path
   return route.path === path || route.path.startsWith(`${path}/`)
 }
 function toggleMenu() {
