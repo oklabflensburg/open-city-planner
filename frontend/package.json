@@ -8,6 +8,7 @@
     "dev": "nuxt dev",
     "build": "nuxt build",
     "modules:check": "node module-host/check.ts",
+    "modules:architecture": "node module-host/check-architecture.ts",
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
     "test:modules:ssr": "vitest run --config vitest.frontend-modules.config.ts",

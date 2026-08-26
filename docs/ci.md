@@ -24,6 +24,7 @@ bei reinen Dokumentationsänderungen nicht.
 | Security | `secret-scan` | Gitleaks gegen die vollständige Historie mit redigierter Ausgabe und SARIF-Upload |
 | Supply Chain | `verify` | Lockfile-Konsistenz, SHA-/Digest-Pins und negative Policy-Regressionstests |
 | Supply Chain | `sbom` | transitive CycloneDX-SBOMs für Backend und Frontend |
+| Module Contract Gate | `Module contract gate` | Backend-/Frontend-Importgrenzen, Manifest-, Dependency-, Registry-, Map- und SSR-Verträge ohne Playwright |
 
 Die Workflows verwenden exakt Python 3.12.14 aus `.python-version`, Node.js 22.23.2
 aus `.node-version`, uv 0.12.5 und die in `frontend/package.json` festgelegte
@@ -44,6 +45,13 @@ Die Testdaten erzeugt
 für die frische CI-Datenbank.
 
 ## Lokale Prüfung
+
+Das fokussierte Modul-Gate läuft mit einem Befehl (nach Installation beider
+gelockten Dependency-Sätze):
+
+```bash
+scripts/module-contract-gate
+```
 
 Backend:
 
@@ -194,6 +202,7 @@ Checks aus:
 - `secret-scan`
 - `verify`
 - `sbom`
+- `Module contract gate`
 - `gate`
 
 Zusätzlich empfehlen sich mindestens eine Freigabe, „Require conversation

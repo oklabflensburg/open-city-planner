@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "rule": "ARCH-BE-HOST-001",
+      "source": "backend/app/platform/modules/persistence.py",
+      "target": "app.models",
+      "tracking_issue": "#108",
+      "reason": "Kontrollierter Legacy-Persistence-Adapter bis zur Migration der Fachmodelle."
+    }
+  ]
+}

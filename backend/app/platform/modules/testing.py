@@ -10,8 +10,11 @@ from typing import TypeVar, cast
 
 from pydantic import BaseModel
 
-from app.platform.modules.contracts import ModuleRegistrationContext
+from app.platform.modules.contracts import LifecycleContribution, ModuleRegistrationContext
+from app.platform.modules.manifest import validate_manifest
+from app.platform.modules.runtime import MODULE_SDK_VERSION
 from app.platform.modules.sdk import (
+    BackendModule,
     DomainEvent,
     EventEnvelope,
     EventHandler,
@@ -20,10 +23,13 @@ from app.platform.modules.sdk import (
     JobDefinition,
     LegacyJobHandler,
     ModuleContext,
+    ModuleDefinition,
+    ModuleManifestV1,
     ObservabilityPort,
     SerializableDomainEvent,
     SpanPort,
     event_envelope,
+    parse_manifest,
 )
 
 T = TypeVar("T")
@@ -363,6 +369,71 @@ class FakeModuleSettings:
         return value
 
 
+class ModuleTestHost:
+    """Kleiner Modul-Lifecycle fuer Contract-Tests ohne produktive Infrastruktur."""
+
+    def __init__(
+        self,
+        definition: ModuleDefinition,
+        *,
+        host_version: str = "0.2.0",
+        sdk_version: str = MODULE_SDK_VERSION,
+        settings: Mapping[str, object] | None = None,
+    ) -> None:
+        manifest = (
+            definition.manifest
+            if isinstance(definition.manifest, ModuleManifestV1)
+            else parse_manifest(definition.manifest, origin=definition.origin)
+        )
+        if definition.declared_id != manifest.id:
+            raise ValueError("The test module discovery ID does not match its manifest ID.")
+        self.manifest = validate_manifest(
+            manifest,
+            host_version=host_version,
+            sdk_version=sdk_version,
+        )
+        self.definition = definition
+        self.module: BackendModule = definition.loader()
+        if self.module.manifest.id != self.manifest.id:
+            raise ValueError("The loaded test module does not match its definition manifest.")
+        self.context = create_test_module_context(
+            module_id=self.manifest.id,
+            module_version=self.manifest.version,
+            settings=settings,
+        )
+        self._registered = False
+        self._started: list[LifecycleContribution] = []
+
+    def register(self) -> ModuleContext:
+        if self._registered:
+            raise RuntimeError("The test module is already registered.")
+        registration = cast(ModuleRegistrationContext, self.context.api)
+        try:
+            self.module.register(self.context)
+        finally:
+            registration.close()
+            services = self.context.services
+            if isinstance(services, FakeServiceRegistry):
+                services.seal()
+            self._registered = True
+        return self.context
+
+    async def startup(self) -> None:
+        if not self._registered:
+            self.register()
+        registration = cast(ModuleRegistrationContext, self.context.lifecycle)
+        for contribution in registration.lifecycle:
+            if contribution.startup is not None:
+                await contribution.startup()
+                self._started.append(contribution)
+
+    async def shutdown(self) -> None:
+        for contribution in reversed(self._started):
+            if contribution.shutdown is not None:
+                await contribution.shutdown()
+        self._started.clear()
+
+
 def create_test_module_context(
     *,
     module_id: str = "test-module",
@@ -414,5 +485,6 @@ __all__ = [
     "FakeSpan",
     "FakeStorage",
     "FakeTracer",
+    "ModuleTestHost",
     "create_test_module_context",
 ]
