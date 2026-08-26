@@ -24,6 +24,7 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 - [Frontend-Host und Build-Time-Module](modules/frontend-host.md)
 - [Frontend UI Contributions](modules/frontend-ui-contributions.md)
 - [Modul-Datenbanken und Migrationen](modules/database-and-migrations.md)
+- [Ausführbares End-to-End-Referenzmodul](modules/reference-module.md)
 - [Frontend-Design und Analyse](frontend-design.md)
 - [Reihenfolge der GIS-Layer](map-layer-order.md)
 - [Intelligente Suche](intelligent-search.md)

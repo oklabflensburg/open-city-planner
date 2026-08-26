@@ -25,6 +25,7 @@ from app.platform.modules.sdk import (
     ModuleContext,
     ModuleDefinition,
     ModuleManifestV1,
+    ModulePrincipal,
     ObservabilityPort,
     SerializableDomainEvent,
     SpanPort,
@@ -164,6 +165,20 @@ class FakePermissions:
     ) -> bool:
         self.checks.append((permission_id, principal_id, resource_id))
         return permission_id in self.allowed
+
+
+class FakePermissionDependencies:
+    def __init__(self, principal_id: str = "test-user") -> None:
+        self.principal_id = principal_id
+        self.requirements: list[tuple[str, bool]] = []
+
+    def require(self, permission_id: str, *, csrf: bool = False):
+        self.requirements.append((permission_id, csrf))
+
+        async def dependency() -> ModulePrincipal:
+            return ModulePrincipal(id=self.principal_id)
+
+        return dependency
 
 
 class FakeMetrics:
@@ -461,6 +476,7 @@ def create_test_module_context(
         events=FakeEventBus(),
         services=FakeServiceRegistry(),
         permissions=FakePermissions(),
+        permission_dependencies=FakePermissionDependencies(),
         cache=FakeCache(module_id),
         storage=FakeStorage(module_id),
         http=FakeHttpClientFactory(),
@@ -479,6 +495,7 @@ __all__ = [
     "FakeMetrics",
     "FakeModuleSettings",
     "FakeObservability",
+    "FakePermissionDependencies",
     "FakePermissions",
     "FakeScheduler",
     "FakeServiceRegistry",

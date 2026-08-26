@@ -63,6 +63,7 @@ Sub-Interfaces `context.api` und `context.lifecycle`.
 | `events` | `EventBusPort` | In-Process Dispatch und transaktionale Outbox aus #96 |
 | `services` | `ServiceRegistryPort` | runtime-skopierte Cross-Module-Registry aus #98 |
 | `permissions` | `PermissionPort` | hostseitige, fail-closed Policy-Auswertung aus #104 |
+| `permission_dependencies` | `PermissionDependencyFactory` | authentifizierte FastAPI-Dependency mit optionalem CSRF für Modulrouten |
 | `cache` | `CachePort` | optionaler, modulgebundener Byte-Cache |
 | `observability` | `ObservabilityPort` | immer vorhanden; Logger ist an Modul-ID/-Version gebunden |
 | `storage` | `StoragePort` | optionaler modulgebundener Blob-Storage |
@@ -158,6 +159,10 @@ bleibt als Kompatibilitätsform erhalten.
 Die additive Permission-Definition und hostseitige Registry aus #104 erhöhen die
 SDK-Version auf `1.6.0`; die bestehende `PermissionPort.is_allowed()`-Signatur
 bleibt kompatibel.
+Die additive `PermissionDependencyFactory` erhöht die SDK-Version auf `1.7.0`. Sie
+gibt Modulrouten ausschließlich eine minimale `ModulePrincipal`-ID und adaptiert die
+bestehende Host-Authentifizierung, CSRF-Prüfung und Permission Engine, ohne User- oder
+Auth-Interna Teil des SDK zu machen.
 
 - **MAJOR:** Entfernen oder Umbenennen öffentlicher Methoden, inkompatible Änderungen
   an vorhandener Semantik oder eine inkompatible Context-Struktur.

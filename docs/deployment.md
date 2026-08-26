@@ -66,11 +66,15 @@ uv python install 3.12.14
 uv sync --frozen --no-dev --no-editable --python 3.12.14 --managed-python
 uv run alembic heads
 uv run alembic upgrade head
+uv run python -m app.cli.module_migrations preflight
+uv run python -m app.cli.module_migrations upgrade
 ```
 
-Der bestehende Befehl bleibt für die veröffentlichte Host-/Legacy-Historie
-maßgeblich. Installierte Module mit eigenen Migrationen werden vor ihrer Aktivierung
-zusätzlich über den in
+Die Alembic-Befehle bleiben für die veröffentlichte Host-/Legacy-Historie maßgeblich.
+Der anschließende generische Modul-CLI löst die in `ENABLED_MODULES` konfigurierten,
+installierten Migrationsquellen auf, prüft den gemeinsamen linearen Graph und führt
+ausstehende Modulrevisionen vor der Aktivierung aus. Installierte Module mit eigenen
+Migrationen folgen damit dem in
 [ADR #97](architecture/adr-module-database-and-migration-ownership.md)
 beschriebenen Persistence-Preflight geprüft. Bereits angewandte Migrationsquellen
 müssen auch bei deaktiviertem Modul installiert und im Migrationsinventar auflösbar

@@ -24,6 +24,7 @@ from app.platform.modules.sdk import (
     ModuleContext,
     ModuleSettingsPort,
     ObservabilityPort,
+    PermissionDependencyFactory,
     PermissionPort,
     SchedulerPort,
     ServiceRegistryPort,
@@ -93,6 +94,7 @@ class ModuleHostServices:
     events: EventBusPort | None = None
     services: ServiceRegistryPort | None = None
     permissions: PermissionPort | None = None
+    permission_dependencies: PermissionDependencyFactory | None = None
     cache: CachePort | None = None
     storage: StoragePort | None = None
     http: HttpClientFactoryPort | None = None
@@ -194,6 +196,7 @@ class ModuleContextFactory:
             events=event_adapter,
             services=service_adapter,
             permissions=self._permission_port,
+            permission_dependencies=self._services.permission_dependencies,
             cache=self._services.cache,
             storage=self._services.storage,
             http=self._services.http,

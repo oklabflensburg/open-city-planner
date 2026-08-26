@@ -286,6 +286,27 @@ class PermissionPort(Protocol):
     ) -> bool: ...
 
 
+@dataclass(frozen=True, slots=True)
+class ModulePrincipal:
+    """Minimale, fachneutrale Identität einer authentifizierten Request-Person."""
+
+    id: str
+
+
+type ModulePrincipalDependency = Callable[..., Awaitable[ModulePrincipal]]
+
+
+class PermissionDependencyFactory(Protocol):
+    """Erzeugt Host-authentifizierte FastAPI-Dependencies für Modulrouten."""
+
+    def require(
+        self,
+        permission_id: str,
+        *,
+        csrf: bool = False,
+    ) -> ModulePrincipalDependency: ...
+
+
 class CachePort(Protocol):
     """Modulgebundener Byte-Cache mit TTL in positiven ganzen Sekunden."""
 
@@ -516,6 +537,7 @@ class ModuleContext:
     events: EventBusPort | None = None
     services: ServiceRegistryPort | None = None
     permissions: PermissionPort | None = None
+    permission_dependencies: PermissionDependencyFactory | None = None
     cache: CachePort | None = None
     storage: StoragePort | None = None
     http: HttpClientFactoryPort | None = None
@@ -591,10 +613,13 @@ __all__ = [
     "ModuleManifestV1",
     "ModuleMigrationSource",
     "ModulePersistenceContribution",
+    "ModulePrincipal",
+    "ModulePrincipalDependency",
     "ModuleSettingsContribution",
     "ModuleSettingsPort",
     "ObservabilityPort",
     "PermissionDefinition",
+    "PermissionDependencyFactory",
     "PermissionPort",
     "RetryPolicy",
     "SchedulerPort",

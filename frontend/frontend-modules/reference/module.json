@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "id": "reference",
+  "version": "1.0.0",
+  "backendModuleId": "reference",
+  "compatibility": {
+    "host": ">=1.0.0 <2.0.0",
+    "sdk": ">=1.2.0 <2.0.0",
+    "backend": ">=1.0.0 <2.0.0"
+  },
+  "layer": "layer",
+  "requires": { "modules": {} },
+  "publicContributions": {
+    "routes": [
+      {
+        "path": "/referenzmodul",
+        "source": "layer/app/pages/referenzmodul.vue"
+      }
+    ],
+    "ui": [
+      {
+        "id": "reference.primary-navigation",
+        "slot": "navigation.primary",
+        "priority": 260,
+        "visibility": { "auth": "public", "module": "reference" },
+        "label": "Referenzmodul",
+        "to": "/referenzmodul",
+        "exact": true
+      },
+      {
+        "id": "reference.admin-navigation",
+        "slot": "navigation.admin",
+        "priority": 910,
+        "visibility": {
+          "auth": "authenticated",
+          "permission": "reference.items-write",
+          "module": "reference"
+        },
+        "label": "Referenzmarker verwalten",
+        "to": "/referenzmodul",
+        "exact": true
+      },
+      {
+        "id": "reference.map-feature-info",
+        "slot": "map.controls",
+        "priority": 120,
+        "visibility": { "module": "reference" },
+        "component": "ReferenceFeatureInfoControl",
+        "source": "layer/app/components/ReferenceFeatureInfoControl.vue",
+        "accessibleLabel": "Informationen zu Referenzmarkern"
+      }
+    ],
+    "map": {
+      "sources": [
+        {
+          "id": "reference.items",
+          "source": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": []
+            }
+          }
+        }
+      ],
+      "layers": [
+        {
+          "id": "reference.items",
+          "sourceId": "reference.items",
+          "group": "overlay",
+          "priority": 520,
+          "layer": {
+            "type": "circle",
+            "paint": {
+              "circle-color": "#7c3aed",
+              "circle-radius": 8,
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 2
+            }
+          }
+        }
+      ]
+    }
+  }
+}

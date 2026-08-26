@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import get_settings
 from app.db.base import Base
+from app.modules.reference.module import DEFINITION as REFERENCE_DEFINITION
 from app.platform.modules import (
     DuplicatePersistenceSchemaError,
     ModuleDefinition,
@@ -436,6 +437,44 @@ async def test_fresh_upgrade_explicit_downgrade_and_reupgrade_module_migrations(
     async with engine.connect() as connection:
         revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
     assert revision == "mod_example_b_20260825_0001"
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_reference_module_migration_up_down_and_seed_data(
+    fresh_database_url: str,
+) -> None:
+    resolved = resolve_module_definitions(
+        enabled_module_ids=("reference",),
+        discovery_providers=(FakeDiscovery((REFERENCE_DEFINITION,)),),
+        host_version="0.2.0",
+    )
+    config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    config.attributes["database_url"] = fresh_database_url
+    coordinator = MigrationCoordinator(config, build_persistence_registry(resolved))
+
+    await asyncio.to_thread(coordinator.upgrade)
+    engine = create_async_engine(fresh_database_url)
+    async with engine.connect() as connection:
+        count = await connection.scalar(text("SELECT count(*) FROM reference.items"))
+        revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
+    assert count == 2
+    assert revision == "mod_reference_20260826_0001"
+
+    await asyncio.to_thread(coordinator.downgrade, "20260825_0034")
+    async with engine.connect() as connection:
+        schema = await connection.scalar(
+            text(
+                "SELECT schema_name FROM information_schema.schemata "
+                "WHERE schema_name = 'reference'"
+            )
+        )
+    assert schema is None
+
+    await asyncio.to_thread(coordinator.upgrade)
+    async with engine.connect() as connection:
+        revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
+    assert revision == "mod_reference_20260826_0001"
     await engine.dispose()
 
 
