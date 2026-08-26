@@ -4,7 +4,7 @@ import json
 import logging
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 from typing import TypeVar, cast
 
@@ -17,7 +17,8 @@ from app.platform.modules.sdk import (
     EventHandler,
     HttpClientPort,
     HttpResponsePort,
-    JobHandler,
+    JobDefinition,
+    LegacyJobHandler,
     ModuleContext,
     ObservabilityPort,
     SerializableDomainEvent,
@@ -294,13 +295,40 @@ class FakeHttpClientFactory:
 
 
 class FakeScheduler:
-    def __init__(self) -> None:
-        self.jobs: dict[str, JobHandler] = {}
+    def __init__(self, module_id: str | None = None) -> None:
+        self.module_id = module_id
+        self.jobs: dict[str, JobDefinition] = {}
 
-    def register(self, job_id: str, handler: JobHandler) -> None:
-        if job_id in self.jobs:
-            raise ValueError(f'Test job "{job_id}" is already registered.')
-        self.jobs[job_id] = handler
+    def register(
+        self,
+        definition: JobDefinition | str,
+        handler: LegacyJobHandler | None = None,
+    ) -> None:
+        if isinstance(definition, str):
+            if handler is None:
+                raise TypeError("Compatibility job registration requires a handler.")
+
+            async def invoke(_context: ModuleContext) -> object | None:
+                return await handler()
+
+            definition = JobDefinition(job_id=definition, handler=invoke)
+        elif handler is not None:
+            raise TypeError("JobDefinition registration does not accept a second handler.")
+        if "." not in definition.job_id and self.module_id is not None:
+            definition = replace(
+                definition,
+                job_id=f"{self.module_id}.{definition.job_id}",
+            )
+        if definition.job_id in self.jobs:
+            raise ValueError(f'Test job "{definition.job_id}" is already registered.')
+        self.jobs[definition.job_id] = definition
+
+    async def run(self, job_id: str, context: ModuleContext) -> object | None:
+        return await self.jobs[job_id].handler(context)
+
+
+class FakeJobRegistry(FakeScheduler):
+    """Benannter Job-Registry-Fake für Modultests ohne Host-Runner."""
 
 
 class FakeModuleSettings:
@@ -365,7 +393,7 @@ def create_test_module_context(
         cache=FakeCache(module_id),
         storage=FakeStorage(module_id),
         http=FakeHttpClientFactory(),
-        scheduler=FakeScheduler(),
+        scheduler=FakeJobRegistry(module_id),
         settings=FakeModuleSettings(settings, model=settings_model),
     )
 
@@ -376,6 +404,7 @@ __all__ = [
     "FakeHttpClient",
     "FakeHttpClientFactory",
     "FakeHttpResponse",
+    "FakeJobRegistry",
     "FakeMetrics",
     "FakeModuleSettings",
     "FakeObservability",

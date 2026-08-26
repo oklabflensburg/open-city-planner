@@ -155,13 +155,18 @@ Alter des ältesten noch nicht vollständig verarbeiteten Events.
 
 `python -m app.cli.process_domain_event_outbox --limit 50` führt einen begrenzten
 Dispatch-Lauf aus. Das Deployment startet ihn minütlich über
-`stadtplaner-domain-event-outbox.timer`; es wird kein allgemeines Scheduler- oder
-Job-Framework eingeführt.
+`stadtplaner-domain-event-outbox.timer`. Seit #100 wird dieser bestehende Flow als
+Pilotjob `host-events.outbox-dispatch` durch die modulare Job-Registry ausgeführt;
+CLI und systemd-Unit bleiben kompatibel. Der Job-Runner versucht den Dispatcher
+genau einmal. Die persistente Zustell-Retry-/Dead-Letter-Semantik verbleibt allein
+beim Outbox-Dispatcher und wird nicht durch eine zweite unmittelbare Retry-Schicht
+verdoppelt.
 
 Erfolgreich oder endgültig abgeschlossene Events sollen nach einer betrieblich
 festgelegten Diagnosefrist, empfohlen 30 Tage, gelöscht werden. Dafür existiert der
-explizite Service-Hook `delete_processed_events_before`; automatische Planung bleibt
-#100 vorbehalten. Dead-Letter-Details müssen vor einer Bereinigung ausgewertet sein.
+explizite Service-Hook `delete_processed_events_before`; eine automatische
+Bereinigung ist noch nicht registriert. Dead-Letter-Details müssen vor einer
+Bereinigung ausgewertet sein.
 
 ## Sicherheit und Datenschutz
 

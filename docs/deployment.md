@@ -10,7 +10,13 @@ Diese Anleitung bündelt den produktiven Betrieb des aktuellen Repositorys. Spez
 - PostgreSQL mit PostGIS ist die fachliche Datenbank.
 - Redis dient als Cache und als gemeinsames Backend für produktive Sicherheitszähler. Er ist keine fachliche Datenquelle.
 - Ein Reverse Proxy veröffentlicht Frontend und API über HTTPS.
-- systemd-Timer starten OSM-Sync, Statistikimport, E-Mail-Outbox und optional Social Publishing.
+- systemd-Timer starten OSM-Sync, Statistikimport, E-Mail-/Domain-Event-Outbox und optional Social Publishing.
+
+Moduljobs deklarieren fachliche Intervalle über die
+[Job-Registry](modules/background-jobs.md). In V1 bleibt systemd der technische,
+single-owner Scheduler; der Host startet keinen parallelen In-Process-Timer. Der
+bestehende Domain-Event-Outbox-Befehl und seine Unit bleiben unverändert und laufen
+intern über den generischen Job-Runner.
 
 ## Voraussetzungen
 

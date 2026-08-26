@@ -22,6 +22,7 @@ from app.platform.modules.errors import (
     ModuleStartupError,
     ModuleValidationError,
 )
+from app.platform.modules.jobs import JobRegistry
 from app.platform.modules.manifest import ModuleManifestV1, parse_manifest, validate_manifests
 from app.platform.modules.sdk import BackendModule, ModuleContext, ModuleDefinition
 from app.platform.modules.services import ServiceRegistry
@@ -31,7 +32,7 @@ from app.platform.modules.settings import (
 )
 
 logger = logging.getLogger(__name__)
-MODULE_SDK_VERSION = "1.4.0"
+MODULE_SDK_VERSION = "1.5.0"
 
 
 @dataclass(slots=True)
@@ -80,10 +81,12 @@ class ModuleRuntime:
         *,
         service_registry: ServiceRegistry | None = None,
         settings_registry: ModuleSettingsRegistry | None = None,
+        job_registry: JobRegistry | None = None,
     ) -> None:
         self.registry = registry
         self._service_registry = service_registry
         self._settings_registry = settings_registry
+        self._job_registry = job_registry
         self._attached_app: FastAPI | None = None
         self._started: list[tuple[ModuleRecord, LifecycleContribution]] = []
         self._running = False
@@ -97,6 +100,10 @@ class ModuleRuntime:
         if self._settings_registry is None:
             return {}
         return self._settings_registry.public_config
+
+    @property
+    def job_registry(self) -> JobRegistry | None:
+        return self._job_registry
 
     def register(self, app: FastAPI) -> None:
         """Deklariere Beiträge einmalig und binde Router kontrolliert an den Host."""
@@ -122,6 +129,8 @@ class ModuleRuntime:
 
         if self._service_registry is not None:
             self._service_registry.seal()
+        if self._job_registry is not None:
+            self._job_registry.seal()
 
         for record in self.registry.records:
             for contribution in record.registration.routers:
@@ -251,6 +260,7 @@ def create_module_runtime(
         ModuleRegistry(records),
         service_registry=active_context_factory.service_registry,
         settings_registry=active_context_factory.settings_registry,
+        job_registry=active_context_factory.job_registry,
     )
 
 
