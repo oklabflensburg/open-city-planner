@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "rules": [
+    { "id": "ARCH-FE-MODULE-001" },
+    { "id": "ARCH-FE-HOST-001" }
+  ]
+}

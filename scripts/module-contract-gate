@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+scope="${1:-all}"
+
+run_backend() {
+  cd "${repository_root}/backend"
+  uv run python ../scripts/check_module_architecture.py
+  uv run pytest tests/test_module_*.py tests/test_domain_events.py
+}
+
+run_frontend() {
+  cd "${repository_root}/frontend"
+  pnpm modules:architecture
+  pnpm modules:check
+  pnpm vitest run \
+    tests/frontend-module-architecture.test.ts \
+    tests/frontend-module-host.test.ts \
+    tests/frontend-ui-contributions.test.ts \
+    tests/map-runtime.test.ts \
+    tests/map-sdk.test.ts
+  pnpm test:modules:ssr
+}
+
+case "${scope}" in
+  all)
+    run_backend
+    run_frontend
+    ;;
+  backend)
+    run_backend
+    ;;
+  frontend)
+    run_frontend
+    ;;
+  *)
+    echo "Usage: scripts/module-contract-gate [all|backend|frontend]" >&2
+    exit 2
+    ;;
+esac

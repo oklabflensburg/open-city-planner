@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "ARCH-BASELINE-001",
+      "area": "shared",
+      "summary": "Architektur-Ausnahmen sind exakt, begründet und mit einem Issue verknüpft.",
+      "checker": "backend/tests/test_module_architecture_gate.py"
+    },
+    {
+      "id": "ARCH-BE-HOST-001",
+      "area": "backend",
+      "summary": "Der generische Modul-Host importiert keine Fachdomänen.",
+      "checker": "scripts/check_module_architecture.py"
+    },
+    {
+      "id": "ARCH-BE-MODULE-001",
+      "area": "backend",
+      "summary": "Backend-Module importieren fremde Module nur über öffentliche Contracts.",
+      "checker": "scripts/check_module_architecture.py"
+    },
+    {
+      "id": "ARCH-BE-PRIVATE-001",
+      "area": "backend",
+      "summary": "Backend-Module verwenden Host-Funktionen nur über das öffentliche Modul-SDK.",
+      "checker": "scripts/check_module_architecture.py"
+    },
+    {
+      "id": "ARCH-FE-HOST-001",
+      "area": "frontend",
+      "summary": "Der generische Frontend-Host kennt keine konkreten Module.",
+      "checker": "frontend/module-host/import-boundaries.ts"
+    },
+    {
+      "id": "ARCH-FE-MODULE-001",
+      "area": "frontend",
+      "summary": "Frontend-Module importieren weder Host-Interna noch fremde Module.",
+      "checker": "frontend/module-host/import-boundaries.ts"
+    },
+    {
+      "id": "CONTRACT-MANIFEST-001",
+      "area": "shared",
+      "summary": "Manifest-Schema, IDs, SemVer und Kompatibilitaet sind fail-closed.",
+      "checker": "backend/tests/test_module_manifest.py and frontend/tests/frontend-module-host.test.ts"
+    },
+    {
+      "id": "CONTRACT-REGISTRY-001",
+      "area": "shared",
+      "summary": "Beitraege haben genau einen Owner; Duplikate und spaete Registrierung scheitern.",
+      "checker": "backend/tests/test_module_runtime.py and frontend/tests/frontend-ui-contributions.test.ts"
+    },
+    {
+      "id": "CONTRACT-COMPAT-001",
+      "area": "shared",
+      "summary": "Fehlende, zyklische oder inkompatible Abhaengigkeiten blockieren den Start.",
+      "checker": "backend/tests/test_module_manifest.py and frontend/tests/frontend-module-host.test.ts"
+    },
+    {
+      "id": "CONTRACT-TESTHOST-001",
+      "area": "backend",
+      "summary": "Module lassen sich ohne FastAPI-App, Datenbank, Redis oder Netzwerk registrieren.",
+      "checker": "backend/tests/test_module_test_host.py"
+    }
+  ]
+}

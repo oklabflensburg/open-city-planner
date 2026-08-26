@@ -1,0 +1,11 @@
+{
+  "manifest_version": 1,
+  "id": "cycle-b",
+  "name": "Cycle B fixture",
+  "version": "1.0.0",
+  "requires": {
+    "host": ">=0.2.0,<1.0.0",
+    "sdk": ">=1.0.0,<2.0.0",
+    "modules": { "cycle-a": ">=1.0.0,<2.0.0" }
+  }
+}

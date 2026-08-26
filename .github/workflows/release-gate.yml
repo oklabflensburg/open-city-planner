@@ -44,9 +44,13 @@ jobs:
     name: Supply-chain gate
     uses: ./.github/workflows/supply-chain.yml
 
+  module-contract:
+    name: Module contract gate
+    uses: ./.github/workflows/module-contract.yml
+
   gate:
     name: Release gate
-    needs: [backend, frontend, e2e, security, supply-chain]
+    needs: [backend, frontend, e2e, security, supply-chain, module-contract]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: ${{ always() }}
@@ -59,10 +63,11 @@ jobs:
           E2E_RESULT: ${{ needs.e2e.result }}
           SECURITY_RESULT: ${{ needs.security.result }}
           SUPPLY_CHAIN_RESULT: ${{ needs.supply-chain.result }}
+          MODULE_CONTRACT_RESULT: ${{ needs.module-contract.result }}
         run: |
           set -euo pipefail
 
-          for name in BACKEND_RESULT FRONTEND_RESULT E2E_RESULT SECURITY_RESULT SUPPLY_CHAIN_RESULT; do
+          for name in BACKEND_RESULT FRONTEND_RESULT E2E_RESULT SECURITY_RESULT SUPPLY_CHAIN_RESULT MODULE_CONTRACT_RESULT; do
             value="${!name}"
             echo "${name}=${value}"
             if [[ "${value}" != "success" ]]; then
