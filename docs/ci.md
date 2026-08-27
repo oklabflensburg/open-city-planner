@@ -16,7 +16,7 @@ bei reinen Dokumentationsänderungen nicht.
 | Frontend CI | `frontend-typecheck` | Nuxt-/Vue-Typecheck ohne optionale Module und mit dem Example-Modul |
 | Frontend CI | `frontend-build` | Produktiver Modul-Preflight, getrennte Nuxt-Builds für Example-Modul, produktive Analysis Areas und deaktivierten Host sowie SSR-/SEO-Audit des produktiven Analysis-Areas-Artefakts |
 | Frontend CI | `frontend-language-audit` | Audit der sichtbaren Sprache |
-| E2E Tests | `e2e` | vollständige Playwright-Suite mit echtem Frontend, Backend und frischer PostGIS-Datenbank |
+| E2E Tests | `e2e` | vollständige Playwright-Suite mit echtem Frontend, Backend, produktiver `analysis-areas`-Modulkonfiguration und frischer PostGIS-Datenbank |
 | Security | `security-policy-validation` | Format, Vollständigkeit und Ablauf befristeter Security-Ausnahmen sowie negative Policy-Tests |
 | Security | `backend-audit` | `pip-audit 2.10.1` gegen den eingefrorenen Python-Produktionssatz |
 | Security | `frontend-audit` | `pnpm audit --prod` gegen das eingefrorene Frontend-Lockfile |
@@ -42,7 +42,11 @@ weil mehrere Tests denselben Nuxt-Entwicklungsserver verwenden und parallele
 Reloads dessen Hydration und gemockte Browseranfragen gegenseitig beeinflussen.
 Die Testdaten erzeugt
 `backend/tests/e2e_seed.py` nach dem vollständigen Alembic-Upgrade ausschließlich
-für die frische CI-Datenbank.
+für die frische CI-Datenbank. Das E2E-Gate setzt `ENABLED_MODULES=analysis-areas`,
+`OCP_FRONTEND_MODULES=analysis-areas` und
+`OCP_BACKEND_MODULES=analysis-areas@1.0.0` explizit. Playwright vererbt diese
+Workflow-Umgebung an den Uvicorn- und Nuxt-Webserver. Frontend-Modul- und
+Backend-Migrations-Preflight validieren die Konfiguration vor dem Browserlauf.
 
 ## Lokale Prüfung
 
@@ -112,11 +116,13 @@ Testdatenbank zeigen:
 ```bash
 cd backend
 uv sync --frozen --extra dev --no-editable
-uv run alembic upgrade head
-uv run python tests/e2e_seed.py
+ENABLED_MODULES=analysis-areas uv run alembic upgrade head
+ENABLED_MODULES=analysis-areas uv run python tests/e2e_seed.py
+ENABLED_MODULES=analysis-areas uv run python -m app.cli.module_migrations preflight
 cd ../frontend
 pnpm exec playwright install chromium
-pnpm test:e2e
+OCP_FRONTEND_MODULES=analysis-areas OCP_BACKEND_MODULES=analysis-areas@1.0.0 pnpm modules:check
+ENABLED_MODULES=analysis-areas OCP_FRONTEND_MODULES=analysis-areas OCP_BACKEND_MODULES=analysis-areas@1.0.0 pnpm test:e2e
 ```
 
 Produktivdatenbanken dürfen niemals als E2E-Ziel verwendet werden. Der Seed ist
