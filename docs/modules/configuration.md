@@ -97,12 +97,21 @@ SDK-Migration kompatibel, ist aber ebenfalls auf das eigene Modell begrenzt. Neu
 Modulcode verwendet den typisierten Modellzugriff. Module importieren nicht
 `app.core.config.get_settings`; ein fokussierter AST-Test schützt diese Grenze.
 
+Der Architecture-Check blockiert für neue Repository-Module außerdem direktes
+`os.environ`/`os.getenv` und eigene dotenv-/`BaseSettings`-Loader. Das offizielle
+Secret-Primitive bleibt der namespacete Settings-Port.
+
 ## Secrets
 
 Secrets werden ausschließlich explizit mit Pydantic `SecretStr` oder `SecretBytes`
 markiert. Feldnamen wie `TOKEN` oder `PASSWORD` allein gelten nicht als sichere
 Klassifikation. Secret-Typen maskieren ihre Darstellung und dürfen nicht als public
 markiert werden.
+
+Diese Regeln vermeiden versehentliche Zugriffe und Datenabfluss, sind aber keine
+Python-Sandbox. In-Process-Code besitzt faktisch die Rechte des Hostprozesses und
+muss nach dem [Trust-Modell](../architecture/adr-module-trust-model.md) vollständig
+vertrauenswürdig sein.
 
 Die Registry protokolliert keine Konfigurationswerte, speichert keine Werte in
 Metriklabels oder Trace-Attributen und übernimmt keine vollständigen Environment-

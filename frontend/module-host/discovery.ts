@@ -201,7 +201,7 @@ export function discoverFrontendModules(modulesDirectory: string): ResolvedFront
       }
     }
     validateModuleImports(definition.id, moduleRoot, layerPath)
-    discovered.push({ ...definition, source, layerPath })
+    discovered.push({ ...definition, source, layerPath, trustClass: 'first-party' })
   }
   return discovered
 }

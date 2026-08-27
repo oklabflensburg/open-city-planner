@@ -91,11 +91,16 @@ def forbidden_imports(
     prefixes: tuple[str, ...],
 ) -> list[tuple[str, int]]:
     matches = [
-        item for item in imported_names(source, python_root) if item[0].startswith(prefixes)
+        item
+        for item in imported_names(source, python_root)
+        if item[0].startswith(prefixes)
     ]
     selected: list[tuple[str, int]] = []
     for target, line in sorted(matches, key=lambda item: (item[1], len(item[0]))):
-        if any(line == prior_line and target.startswith(f"{prior}.") for prior, prior_line in selected):
+        if any(
+            line == prior_line and target.startswith(f"{prior}.")
+            for prior, prior_line in selected
+        ):
             continue
         selected.append((target, line))
     return selected
@@ -108,7 +113,9 @@ def scan_backend(root: Path = ROOT) -> tuple[Violation, ...]:
     if host_root.exists():
         for source in sorted(host_root.rglob("*.py")):
             for target, line in forbidden_imports(source, backend, HOST_FORBIDDEN):
-                violations.append(_violation(root, "ARCH-BE-HOST-001", source, target, line))
+                violations.append(
+                    _violation(root, "ARCH-BE-HOST-001", source, target, line)
+                )
 
     for modules_root, package_prefix in (
         (backend / "app/modules", "app.modules"),
@@ -144,12 +151,52 @@ def scan_backend(root: Path = ROOT) -> tuple[Violation, ...]:
                     violations.append(
                         _violation(root, "ARCH-BE-PRIVATE-001", source, target, line)
                     )
-    return tuple(sorted(set(violations), key=lambda item: (item.source, item.line, item.rule)))
+            for target, line in forbidden_module_secret_access(source):
+                violations.append(
+                    _violation(root, "ARCH-BE-SECRET-001", source, target, line)
+                )
+    return tuple(
+        sorted(set(violations), key=lambda item: (item.source, item.line, item.rule))
+    )
+
+
+def forbidden_module_secret_access(source: Path) -> tuple[tuple[str, int], ...]:
+    """Find direct environment loaders that bypass namespaced ModuleContext settings."""
+
+    tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+    os_aliases: set[str] = set()
+    forbidden_names: dict[str, str] = {}
+    violations: set[tuple[str, int]] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "os":
+                    os_aliases.add(alias.asname or "os")
+                if alias.name in {"dotenv", "pydantic_settings"}:
+                    violations.add((alias.name, node.lineno))
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == "os":
+                for alias in node.names:
+                    if alias.name in {"environ", "getenv"}:
+                        forbidden_names[alias.asname or alias.name] = f"os.{alias.name}"
+            if node.module in {"dotenv", "pydantic_settings"}:
+                violations.add((node.module, node.lineno))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            if node.value.id in os_aliases and node.attr in {"environ", "getenv"}:
+                violations.add((f"os.{node.attr}", node.lineno))
+        elif isinstance(node, ast.Name) and node.id in forbidden_names:
+            violations.add((forbidden_names[node.id], node.lineno))
+    return tuple(sorted(violations, key=lambda item: (item[1], item[0])))
 
 
 def load_baseline(root: Path = ROOT) -> frozenset[tuple[str, str, str]]:
-    rules_data = json.loads((root / RULES.relative_to(ROOT)).read_text(encoding="utf-8"))
-    baseline_data = json.loads((root / BASELINE.relative_to(ROOT)).read_text(encoding="utf-8"))
+    rules_data = json.loads(
+        (root / RULES.relative_to(ROOT)).read_text(encoding="utf-8")
+    )
+    baseline_data = json.loads(
+        (root / BASELINE.relative_to(ROOT)).read_text(encoding="utf-8")
+    )
     if rules_data.get("version") != 1 or baseline_data.get("version") != 1:
         raise ValueError("Architecture rule and baseline versions must be 1.")
     known = {rule["id"] for rule in rules_data.get("rules", [])}
@@ -161,8 +208,12 @@ def load_baseline(root: Path = ROOT) -> frozenset[tuple[str, str, str]]:
         key = (entry.get("rule"), entry.get("source"), entry.get("target"))
         if key[0] not in known:
             raise ValueError(f"Unknown baseline rule: {key[0]}")
-        if not all(isinstance(value, str) and value and "*" not in value for value in key):
-            raise ValueError("Baseline rule, source and target must be exact non-wildcard strings.")
+        if not all(
+            isinstance(value, str) and value and "*" not in value for value in key
+        ):
+            raise ValueError(
+                "Baseline rule, source and target must be exact non-wildcard strings."
+            )
         if not re.fullmatch(r"#\d+", entry.get("tracking_issue", "")):
             raise ValueError("Every baseline entry needs a tracking_issue like #123.")
         if not str(entry.get("reason", "")).strip():
@@ -180,7 +231,9 @@ def active_violations(root: Path = ROOT) -> tuple[Violation, ...]:
     return tuple(item for item in scan_backend(root) if item.key not in baseline)
 
 
-def _violation(root: Path, rule: str, source: Path, target: str, line: int) -> Violation:
+def _violation(
+    root: Path, rule: str, source: Path, target: str, line: int
+) -> Violation:
     return Violation(rule, source.relative_to(root).as_posix(), target, line)
 
 
@@ -198,13 +251,16 @@ def main() -> int:
             "ARCH-BE-HOST-001": "Use a registration entry point or public contribution contract.",
             "ARCH-BE-MODULE-001": "Use the provider module's public contracts namespace.",
             "ARCH-BE-PRIVATE-001": "Use the matching ModuleContext/SDK port.",
+            "ARCH-BE-SECRET-001": "Use namespaced ModuleContext.settings instead of reading the process environment.",
         }[item.rule]
         print(
             f"::error file={item.source},line={item.line},title={item.rule}::"
             f"Forbidden import {item.target}. {guidance}"
         )
     if violations:
-        print(f"Backend module architecture check failed with {len(violations)} violation(s).")
+        print(
+            f"Backend module architecture check failed with {len(violations)} violation(s)."
+        )
         return 1
     print("Backend module architecture check passed.")
     return 0

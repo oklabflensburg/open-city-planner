@@ -25,11 +25,16 @@ from app.platform.modules.errors import (
 from app.platform.modules.jobs import JobRegistry
 from app.platform.modules.manifest import ModuleManifestV1, parse_manifest, validate_manifests
 from app.platform.modules.permissions import PermissionRegistry
-from app.platform.modules.sdk import BackendModule, ModuleContext, ModuleDefinition
+from app.platform.modules.sdk import BackendModule, ModuleContext
 from app.platform.modules.services import ServiceRegistry
 from app.platform.modules.settings import (
     ModuleSettingsRegistry,
     build_module_settings_registry,
+)
+from app.platform.modules.trust import (
+    ModuleTrustGrant,
+    TrustedModuleDefinition,
+    validate_trust_binding,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,6 +51,7 @@ class ModuleRecord:
     load_index: int
     context: ModuleContext
     registration: ModuleRegistrationContext
+    trust: ModuleTrustGrant
     registered: bool = False
 
     @property
@@ -262,6 +268,7 @@ def create_module_runtime(
                 load_index=load_index,
                 context=active_context_factory.create(manifest, registration),
                 registration=registration,
+                trust=definition.trust,
             )
         )
     return ModuleRuntime(
@@ -279,18 +286,21 @@ def resolve_module_definitions(
     discovery_providers: Sequence[ModuleDiscoveryProvider],
     host_version: str,
     sdk_version: str = MODULE_SDK_VERSION,
-) -> tuple[tuple[ModuleDefinition, ModuleManifestV1], ...]:
+) -> tuple[tuple[TrustedModuleDefinition, ModuleManifestV1], ...]:
     """Entdecke und ordne passive Definitionen, ohne Modul-Runtimecode zu laden."""
 
     enabled = frozenset(enabled_module_ids)
-    definitions: list[ModuleDefinition] = []
+    definitions: list[TrustedModuleDefinition] = []
     for provider in discovery_providers:
         try:
-            definitions.extend(
-                definition
-                for definition in provider.discover(enabled)
-                if definition.declared_id in enabled
-            )
+            discovered = provider.discover(enabled)
+            for definition in discovered:
+                if not isinstance(definition, TrustedModuleDefinition):
+                    raise ModuleDiscoveryError(
+                        "The discovery provider returned a definition without host trust authorization."
+                    )
+                if definition.declared_id in enabled:
+                    definitions.append(definition)
         except ModuleDiscoveryError:
             raise
         except Exception as exc:
@@ -298,7 +308,7 @@ def resolve_module_definitions(
                 f"Discovery provider {type(provider).__name__} failed."
             ) from exc
 
-    parsed: list[tuple[ModuleDefinition, ModuleManifestV1]] = []
+    parsed: list[tuple[TrustedModuleDefinition, ModuleManifestV1]] = []
     for definition in definitions:
         try:
             manifest = (
@@ -312,11 +322,16 @@ def resolve_module_definitions(
                     module_id=definition.declared_id,
                     origin=definition.origin,
                 )
+            validate_trust_binding(definition, manifest)
         except ModuleValidationError:
             raise
         except ModuleManifestError as exc:
             raise ModuleValidationError(
                 str(exc), module_id=exc.module_id, origin=definition.origin
+            ) from exc
+        except ValueError as exc:
+            raise ModuleValidationError(
+                str(exc), module_id=definition.declared_id, origin=definition.origin
             ) from exc
         parsed.append((definition, manifest))
 
@@ -361,4 +376,5 @@ def _log_fields(record: ModuleRecord, phase: str) -> dict[str, str]:
         "module_id": record.manifest.id,
         "module_version": record.manifest.version,
         "module_phase": phase,
+        "module_trust_class": record.trust.trust_class.value,
     }

@@ -15,10 +15,10 @@ from app.db.session import AsyncSessionLocal
 from app.platform.modules.errors import ModulePersistenceError
 from app.platform.modules.manifest import ModuleManifestV1
 from app.platform.modules.sdk import (
-    ModuleDefinition,
     ModuleMigrationSource,
     ModulePersistenceContribution,
 )
+from app.platform.modules.trust import TrustedModuleDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -131,10 +131,7 @@ class PersistenceRegistry:
             table.fullname
             for table in contribution.metadata.tables.values()
             if table.schema != contribution.schema
-            and not (
-                table.schema is None
-                and table.name in contribution.adopted_tables
-            )
+            and not (table.schema is None and table.name in contribution.adopted_tables)
         )
         if foreign_tables:
             raise ModulePersistenceError(
@@ -144,9 +141,7 @@ class PersistenceRegistry:
                 schema=contribution.schema,
             )
         unqualified_tables = {
-            table.name
-            for table in contribution.metadata.tables.values()
-            if table.schema is None
+            table.name for table in contribution.metadata.tables.values() if table.schema is None
         }
         if contribution.adopted_tables != unqualified_tables:
             raise ModulePersistenceError(
@@ -155,8 +150,7 @@ class PersistenceRegistry:
                 schema=contribution.schema,
             )
         if contribution.adopted_tables and any(
-            table.schema == contribution.schema
-            for table in contribution.metadata.tables.values()
+            table.schema == contribution.schema for table in contribution.metadata.tables.values()
         ):
             raise ModulePersistenceError(
                 "Adopted-table metadata cannot be combined with new schema-owned tables.",
@@ -230,7 +224,7 @@ def revision_namespace_for(module_id: str) -> str:
 
 
 def build_persistence_registry(
-    resolved_definitions: Sequence[tuple[ModuleDefinition, ModuleManifestV1]],
+    resolved_definitions: Sequence[tuple[TrustedModuleDefinition, ModuleManifestV1]],
     *,
     include_legacy: bool = True,
 ) -> PersistenceRegistry:

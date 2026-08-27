@@ -109,6 +109,17 @@ Backend-only-, Frontend-only- und kombinierte Module sind darstellbar. Die
 Package-Felder lösen in #93 weder Imports noch Downloads aus. Das Manifest enthält
 keine Secrets, SQL-Anweisungen, Entry-Point-Ausführung oder Settingswerte.
 
+## Trust gehört nicht ins Manifest
+
+Manifest V1 enthält absichtlich weder `trust` noch `trust_class`. Ein fremdes Modul
+darf sich nicht selbst als `first-party` autorisieren. Unbekannte Trust-Felder
+werden wie alle unbekannten Felder fail-closed abgelehnt. Der Host bindet die
+tatsächliche Trust-Klasse und Provenance außerhalb des Modulpakets vor dem Import;
+Details stehen in der
+[Trust-ADR](../architecture/adr-module-trust-model.md). Remote/Untrusted
+Integrationen sind keine In-Process-Module und werden nicht künstlich in dieses
+Schema gezwungen.
+
 `config.namespace` ist über die validierte Manifestmenge eindeutig und stabil. Für
 aktive Settings-Contributions muss es der owning Modul-ID entsprechen; daraus leitet
 die Runtime deterministisch `OCP_MODULE_<MODULE-ID>_` ab. Der vollständige Vertrag

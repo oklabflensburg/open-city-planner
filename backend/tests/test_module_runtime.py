@@ -1,5 +1,6 @@
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -22,8 +23,11 @@ from app.platform.modules import (
     ModuleRegistrationError,
     ModuleShutdownError,
     ModuleStartupError,
+    ModuleTrustClass,
+    ModuleTrustGrant,
     ModuleValidationError,
     create_module_runtime,
+    first_party_definition,
     parse_manifest,
 )
 from app.platform.modules import discovery as discovery_module
@@ -126,8 +130,8 @@ def definition(
 class FakeDiscovery(ModuleDiscoveryProvider):
     definitions: Sequence[ModuleDefinition]
 
-    def discover(self, enabled_module_ids: frozenset[str]) -> Sequence[ModuleDefinition]:
-        return self.definitions
+    def discover(self, enabled_module_ids: frozenset[str]):
+        return tuple(first_party_definition(definition) for definition in self.definitions)
 
 
 def runtime_for(
@@ -174,6 +178,7 @@ def test_first_party_discovery_loads_only_enabled_definitions() -> None:
 
     assert runtime.module_ids == ("module-b",)
     assert loaded == ["module-b"]
+    assert runtime.registry.get("module-b").trust.trust_class is ModuleTrustClass.FIRST_PARTY
 
 
 def test_runtime_ignores_disabled_definition_returned_by_provider() -> None:
@@ -433,17 +438,42 @@ class FakeEntryPoints(list):
 
 
 class FakeEntryPoint:
-    def __init__(self, name: str, value: str, result: object) -> None:
+    def __init__(
+        self,
+        name: str,
+        value: str,
+        result: object,
+        *,
+        package: str = "example-community-module",
+        package_version: str = "1.2.3",
+    ) -> None:
         self.name = name
         self.value = value
         self.result = result
         self.load_count = 0
+        self.dist = type("FakeDistribution", (), {"name": package, "version": package_version})()
 
     def load(self) -> object:
         self.load_count += 1
         if isinstance(self.result, Exception):
             raise self.result
         return self.result
+
+
+def reviewed_install(module_id: str) -> ModuleTrustGrant:
+    return ModuleTrustGrant(
+        module_id=module_id,
+        trust_class=ModuleTrustClass.REVIEWED_COMMUNITY,
+        source="https://github.com/example/community-module",
+        module_version="1.0.0",
+        package="example-community-module",
+        package_version="1.2.3",
+        commit="a" * 40,
+        integrity=f"sha256:{'b' * 64}",
+        license="AGPL-3.0-only",
+        reviewed_at=datetime(2026, 8, 27, tzinfo=UTC),
+        reviewed_by="security-review@example.org",
+    )
 
 
 def test_entry_point_discovery_loads_only_enabled_group_member(
@@ -457,7 +487,11 @@ def test_entry_point_discovery_loads_only_enabled_group_member(
 
     runtime = create_module_runtime(
         enabled_module_ids=("test-example-module",),
-        discovery_providers=(EntryPointModuleDiscovery(),),
+        discovery_providers=(
+            EntryPointModuleDiscovery(
+                {"test-example-module": reviewed_install("test-example-module")}
+            ),
+        ),
         host_version="0.2.0",
     )
 
@@ -477,10 +511,91 @@ def test_broken_enabled_entry_point_has_discovery_context(
     with pytest.raises(ModuleDiscoveryError) as error:
         create_module_runtime(
             enabled_module_ids=("broken-module",),
-            discovery_providers=(EntryPointModuleDiscovery(),),
+            discovery_providers=(
+                EntryPointModuleDiscovery({"broken-module": reviewed_install("broken-module")}),
+            ),
             host_version="0.2.0",
         )
 
     assert error.value.module_id == "broken-module"
     assert error.value.phase == "discovery"
     assert isinstance(error.value.__cause__, ImportError)
+
+
+def test_unreviewed_community_entry_point_is_rejected_before_import(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unreviewed = FakeEntryPoint("community-module", "community:definition", EXAMPLE_DEFINITION)
+    monkeypatch.setattr(
+        discovery_module.metadata, "entry_points", lambda: FakeEntryPoints([unreviewed])
+    )
+
+    with pytest.raises(ModuleDiscoveryError, match="no reviewed host trust grant"):
+        create_module_runtime(
+            enabled_module_ids=("community-module",),
+            discovery_providers=(EntryPointModuleDiscovery(),),
+            host_version="0.2.0",
+        )
+
+    assert unreviewed.load_count == 0
+
+
+def test_first_party_entry_point_requires_the_host_distribution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    impersonated = FakeEntryPoint(
+        "analysis-areas",
+        "malicious:definition",
+        EXAMPLE_DEFINITION,
+        package="lookalike-package",
+    )
+    monkeypatch.setattr(
+        discovery_module.metadata,
+        "entry_points",
+        lambda: FakeEntryPoints([impersonated]),
+    )
+
+    with pytest.raises(ModuleDiscoveryError, match="not provided by the host distribution"):
+        create_module_runtime(
+            enabled_module_ids=("analysis-areas",),
+            discovery_providers=(EntryPointModuleDiscovery(),),
+            host_version="0.2.0",
+        )
+
+    assert impersonated.load_count == 0
+
+
+def test_reviewed_grant_is_bound_to_the_manifest_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    community = FakeEntryPoint(
+        "test-example-module",
+        "community:definition",
+        EXAMPLE_DEFINITION,
+    )
+    monkeypatch.setattr(
+        discovery_module.metadata,
+        "entry_points",
+        lambda: FakeEntryPoints([community]),
+    )
+    mismatched = replace(reviewed_install("test-example-module"), module_version="9.9.9")
+
+    with pytest.raises(ModuleValidationError, match="does not match the manifest version"):
+        create_module_runtime(
+            enabled_module_ids=("test-example-module",),
+            discovery_providers=(EntryPointModuleDiscovery({"test-example-module": mismatched}),),
+            host_version="0.2.0",
+        )
+
+
+def test_bare_module_definition_cannot_self_authorize_first_party() -> None:
+    class UntrustedDiscovery:
+        def discover(self, _enabled_module_ids: frozenset[str]):
+            return (definition("self-authorized"),)
+
+    with pytest.raises(ModuleDiscoveryError, match="without host trust authorization"):
+        create_module_runtime(
+            enabled_module_ids=("self-authorized",),
+            discovery_providers=(UntrustedDiscovery(),),
+            host_version="0.2.0",
+        )

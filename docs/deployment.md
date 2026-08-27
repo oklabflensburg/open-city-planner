@@ -42,6 +42,13 @@ aus dem geschützten mehrzeiligen Environment Secret
 Der Vertrag und die Legacy-Migrationsstrategie stehen unter
 [Namespacete Modulkonfiguration](modules/configuration.md).
 
+In-Process-Module sind nicht sandboxed. Die Standard-Composition autorisiert nur
+die First-Party-Entry-Points der Host-Distribution. Ein Reviewed Community Module
+benötigt vor Installation den vollständigen hostseitigen Review-/Trust-Datensatz
+aus der [Modul-Trust-ADR](architecture/adr-module-trust-model.md); die produktive
+Composition Root akzeptiert derzeit keine frei konfigurierbaren Community-Grants.
+Beliebige URL-/Runtime-Installationen sind kein unterstützter Deploymentpfad.
+
 Persistente Verzeichnisse wie Uploads, OSM-Daten und Social-Screenshots dürfen nicht bei jedem Deployment ersetzt werden. Der Service-Benutzer benötigt nur für die tatsächlich verwendeten Pfade Schreibrechte.
 
 ## Repository aktualisieren

@@ -26,6 +26,12 @@
       "checker": "scripts/check_module_architecture.py"
     },
     {
+      "id": "ARCH-BE-SECRET-001",
+      "area": "backend",
+      "summary": "Backend-Module lesen Konfiguration und Secrets nur ueber namespacete Host-Primitives.",
+      "checker": "scripts/check_module_architecture.py"
+    },
+    {
       "id": "ARCH-FE-HOST-001",
       "area": "frontend",
       "summary": "Der generische Frontend-Host kennt keine konkreten Module.",
