@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { loginAs } from './support/auth'
 
 test.describe.configure({ mode: 'serial' })
 
@@ -23,27 +24,7 @@ const viewports = [
 ]
 
 async function mockAuditLog(page: Page) {
-  await page.route('**/api/v1/auth/session', route => route.fulfill({
-    json: {
-      user: {
-        id: actorId,
-        email: longEmail,
-        first_name: 'Ada',
-        last_name: 'Admin',
-        display_name: longName,
-        avatar_url: null,
-        is_active: true,
-        is_verified: true,
-        email_pending: false,
-        is_superuser: true,
-        roles: [],
-        created_at: '2026-08-16T10:00:00Z',
-        updated_at: '2026-08-16T10:00:00Z',
-        last_login_at: null
-      },
-      csrf_token: 'playwright-csrf'
-    }
-  }))
+  await loginAs(page, 'admin')
   await page.route('**/api/v1/admin/users?*', route => route.fulfill({
     json: {
       items: [{

@@ -1,56 +1,33 @@
 import { expect, test } from '@playwright/test'
+import { e2eAccountEmail, expireAccessToken, loginAs } from './support/auth'
 
-const user = {
-  id: 'restart-user',
-  email: 'restart@example.org',
-  first_name: 'Restart',
-  last_name: 'User',
-  display_name: 'Restart User',
-  avatar_url: null,
-  is_active: true,
-  is_verified: true,
-  email_pending: false,
-  is_superuser: false,
-  roles: [],
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-  last_login_at: null
-}
+test('authenticated session survives profile navigation and reload', async ({ page }) => {
+  await loginAs(page)
 
-test('startup recovers an expired access token through one refresh without logging out', async ({ page }) => {
+  await page.goto('/profil')
+  await expect(page.getByText(e2eAccountEmail(), { exact: true })).toBeVisible()
+  await expect(page).toHaveURL('/profil')
+
+  await page.reload()
+  await expect(page.getByText(e2eAccountEmail(), { exact: true })).toBeVisible()
+  await expect(page).toHaveURL('/profil')
+})
+
+test('startup recovers an expired access token through one real refresh without logging out', async ({ page, context }) => {
+  await loginAs(page)
+  await expireAccessToken(context)
+
   let sessionRequests = 0
   let refreshRequests = 0
-
-  await page.route('**/api/v1/auth/session', async (route) => {
-    sessionRequests += 1
-    if (sessionRequests === 1) {
-      await route.fulfill({
-        status: 401,
-        json: {
-          detail: {
-            error: {
-              code: 'ACCESS_TOKEN_EXPIRED',
-              message: 'Die Zugriffssitzung muss erneuert werden.'
-            }
-          }
-        }
-      })
-      return
-    }
-    await route.fulfill({ json: { user, csrf_token: 'csrf-after-restart' } })
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/v1/auth/session')) sessionRequests += 1
+    if (request.url().endsWith('/api/v1/auth/refresh')) refreshRequests += 1
   })
-  await page.route('**/api/v1/auth/refresh', async (route) => {
-    refreshRequests += 1
-    await route.fulfill({ json: { user, csrf_token: 'csrf-after-restart' } })
-  })
-  await page.route('**/api/v1/notifications*', route => route.fulfill({
-    json: { items: [], total: 0, unread_count: 0 }
-  }))
 
-  await page.goto('/impressum')
+  await page.goto('/profil')
 
-  await expect(page.getByRole('button', { name: /Restart User/ })).toBeVisible()
-  await expect(page).not.toHaveURL(/\/login/)
+  await expect(page.getByText(e2eAccountEmail(), { exact: true })).toBeVisible()
+  await expect(page).toHaveURL('/profil')
   expect(sessionRequests).toBe(2)
   expect(refreshRequests).toBe(1)
 })

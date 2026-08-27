@@ -1,25 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
-
-const baseUser = {
-  id: '22222222-2222-4222-8222-222222222222',
-  email: 'admin@example.org',
-  first_name: 'Ada',
-  last_name: 'Admin',
-  display_name: 'Ada Admin',
-  avatar_url: null,
-  is_active: true,
-  is_verified: true,
-  email_pending: false,
-  roles: [],
-  created_at: '2026-08-19T10:00:00Z',
-  updated_at: '2026-08-19T10:00:00Z',
-  last_login_at: null
-}
+import { loginAs } from './support/auth'
 
 async function session(page: Page, superuser: boolean) {
-  await page.route('**/api/v1/auth/session', route => route.fulfill({
-    json: { user: { ...baseUser, is_superuser: superuser }, csrf_token: 'playwright-csrf' }
-  }))
+  await loginAs(page, superuser ? 'admin' : 'account')
   await page.route('**/api/v1/notifications?*', route => route.fulfill({
     json: { items: [], total: 0, page: 1, page_size: 30, pages: 1, unread_count: 0 }
   }))

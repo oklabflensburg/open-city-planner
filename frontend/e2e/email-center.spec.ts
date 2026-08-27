@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { loginAs } from './support/auth'
 
 const user = {
   id: '22222222-2222-4222-8222-222222222222',
@@ -18,9 +19,7 @@ const user = {
 }
 
 async function mockSession(page: Page) {
-  await page.route('**/api/v1/auth/session', route => route.fulfill({
-    json: { user, csrf_token: 'email-center-csrf' }
-  }))
+  await loginAs(page, 'admin')
   await page.route('**/api/v1/notifications?*', route => route.fulfill({
     json: { items: [], total: 0, page: 1, page_size: 30, pages: 1, unread_count: 0 }
   }))

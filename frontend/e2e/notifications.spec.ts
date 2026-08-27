@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { loginAs } from './support/auth'
 
 const user = {
   id: '22222222-2222-4222-8222-222222222222',
@@ -39,6 +40,7 @@ const items = Array.from({ length: 36 }, (_, index) => ({
 }))
 
 async function mockNotifications(page: Page) {
+  await loginAs(page)
   await page.addInitScript(() => {
     class MockEventSource {
       static readonly CONNECTING = 0
@@ -61,7 +63,6 @@ async function mockNotifications(page: Page) {
     }
     Object.defineProperty(window, 'EventSource', { value: MockEventSource, configurable: true })
   })
-  await page.route('**/api/v1/auth/session', route => route.fulfill({ json: { user, csrf_token: 'notification-csrf' } }))
   await page.route('**/api/v1/auth/oauth/providers', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/notifications/subscriptions', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/notifications/preferences', route => route.fulfill({ json: {

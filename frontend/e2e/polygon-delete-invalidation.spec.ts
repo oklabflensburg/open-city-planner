@@ -1,11 +1,7 @@
 import { expect, test } from '@playwright/test'
+import { loginAs } from './support/auth'
 
 const id = '44444444-4444-4444-8444-444444444444'
-const account = {
-  id: '33333333-3333-4333-8333-333333333333', email: 'owner@example.org', first_name: 'Test', last_name: 'Owner', display_name: 'Test Owner',
-  avatar_url: null, is_active: true, is_verified: true, email_pending: false, is_superuser: false, roles: [],
-  created_at: '2026-08-17T08:00:00Z', updated_at: '2026-08-17T08:00:00Z', last_login_at: null,
-}
 const detail = {
   id, slug: 'delete-test', name: 'Delete Testfläche', description: null, floor: 'EG', area_size: 'M', address_display_name: 'Holm 1, Flensburg',
   address_lookup_status: 'resolved', category: 'fashion', occupancy_status: 'OCCUPIED', occupancy_source: 'MANUAL', business_structure: 'INDEPENDENT',
@@ -26,7 +22,7 @@ const analytics = {
 test('successful delete invalidates map, analytics and linked OSM suppression without reload', async ({ page }) => {
   test.setTimeout(60_000)
   let deleted = false
-  await page.route('**/api/v1/auth/session', route => route.fulfill({ json: { user: account, csrf_token: 'delete-csrf' } }))
+  await loginAs(page)
   await page.route('**/api/v1/auth/oauth/providers', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/users/me/polygons', route => route.fulfill({ json: [{ ...detail, properties: { size: 'M' } }] }))
   await page.route('**/api/v1/polygons/by-slug/delete-test', route => deleted ? route.fulfill({ status: 404, json: { detail: 'Polygon not found' } }) : route.fulfill({ json: detail }))
