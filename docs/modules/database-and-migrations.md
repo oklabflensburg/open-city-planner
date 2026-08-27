@@ -122,18 +122,19 @@ Die vollständige Reihenfolge und Recovery-Policy steht unter
 Die Persistence Registry des Coordinators wird bewusst aus einer zweiten,
 enablement-unabhängigen Menge aufgebaut. Sie entdeckt passive Definitionen aller
 lokalen Built-ins unter `app/modules/*/module.py` und aller installierten Entry
-Points aus `open_city_planner.modules`. Damit bleiben Migrationsquellen deaktivierter
-Module im Alembic-Graph, obwohl diese Module nicht geladen, registriert oder gestartet
-werden. Der Modul-Loader wird bei dieser Discovery nicht aufgerufen.
+Points aus `open_city_planner.modules`. Für separat installierte Pakete liest der
+Migrations-CLI alle Backend-Roots direkt aus dem strict validierten `modules.lock`
+und stellt diese Pfade ausschließlich scoped für Discovery und Coordinator bereit.
+Danach wird `sys.path` exakt wiederhergestellt. Damit bleiben Migrationsquellen
+deaktivierter Module im Alembic-Graph, obwohl diese Module nicht registriert oder
+gestartet werden. Der Modul-Loader wird bei dieser Discovery nicht aufgerufen.
 
 Manifeststruktur, Persistence-Ownership und die lesbare Dependency-Reihenfolge
 bleiben für den Graph erforderlich. Host-/SDK-Compatibility und Modulsettings eines
 deaktivierten Moduls sind dagegen kein Runtime-Gate. Fehlende Secrets eines
-deaktivierten Moduls blockieren den Preflight daher nicht. Diese lokale passive
-Discovery ist weiterhin weder `modules.lock` noch persistentes
-Installationsinventar. Der [Installer aus #173](installer.md) hält deaktivierte
-Backend-Pfade deshalb getrennt im Installationszustand verfügbar, damit diese
-passive Discovery ihre Migrationsressourcen weiterhin auflösen kann.
+deaktivierten Moduls blockieren den Preflight daher nicht. Der
+[Installer aus #173](installer.md) hält deaktivierte Backend-Pfade deshalb im
+Installationszustand verfügbar, ohne sie dem Runtime-Importpfad hinzuzufügen.
 
 Ein Downgrade akzeptiert absichtlich nur ein explizites Ziel, zum Beispiel
 `python -m app.cli.module_migrations downgrade <revision>`.

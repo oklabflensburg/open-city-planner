@@ -105,9 +105,13 @@ Ansible-Playbook, das auch uv und Python exakt bereitstellt.
 
 Der Installer-Output wird ausschließlich aus dem strict validierten
 [`modules.lock`](modules/installer.md) gerendert. Er ergänzt installierte
-Entry-Point-Pfade und deren Enablement für genau diesen Deploymentprozess; Built-ins
-stammen weiterhin aus der vorhandenen Environment-Konfiguration. Der Output enthält
-keine Package-Hooks oder beliebigen Befehle.
+Entry-Point-Pfade aktivierter Module und deren Enablement für genau diesen
+Deploymentprozess; Built-ins stammen weiterhin aus der vorhandenen
+Environment-Konfiguration. `OCP_ENABLED_INSTALLED_BACKEND_PATHS` erreicht nur den
+API-/Job-Runtimeprozess. Der Migrations-CLI ermittelt unabhängig davon alle
+installierten Backend-Roots direkt aus `modules.lock` und hält sie während
+Preflight/Upgrade scoped. Der Output enthält keine Package-Hooks oder beliebigen
+Befehle.
 
 Vor einer Migration mit Schema- oder Datenänderungen ist ein Datenbankbackup erforderlich. Prüfen Sie die konkrete Migration und ihren erwarteten Laufzeitbedarf. Ein pauschales `alembic downgrade` ist kein sicherer Produktionsrollback. Legen Sie für riskante Änderungen einen gezielten Rollback- oder Vorwärtskorrekturplan fest.
 

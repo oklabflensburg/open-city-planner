@@ -1,5 +1,7 @@
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -548,6 +550,7 @@ class FakeEntryPoint:
     def __init__(self, name: str, value: str, result: object) -> None:
         self.name = name
         self.value = value
+        self.group = ENTRY_POINT_GROUP
         self.result = result
         self.load_count = 0
 
@@ -556,6 +559,66 @@ class FakeEntryPoint:
         if isinstance(self.result, Exception):
             raise self.result
         return self.result
+
+
+class FakeDistribution:
+    def __init__(self, entry_points: Sequence[FakeEntryPoint]) -> None:
+        self.entry_points = entry_points
+
+
+def test_entry_point_discovery_constructor_does_not_mutate_sys_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("OCP_ENABLED_INSTALLED_BACKEND_PATHS", str(tmp_path))
+    before = sys.path.copy()
+
+    EntryPointModuleDiscovery()
+
+    assert sys.path == before
+
+
+def test_custom_entry_point_discovery_restores_sys_path_on_success_and_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    enabled = FakeEntryPoint(
+        "test-example-module",
+        "package:definition",
+        EXAMPLE_DEFINITION,
+    )
+    monkeypatch.setattr(
+        discovery_module.metadata,
+        "entry_points",
+        lambda: FakeEntryPoints([]),
+    )
+    monkeypatch.setattr(
+        discovery_module.metadata,
+        "distributions",
+        lambda *, path: (FakeDistribution((enabled,)),),
+    )
+    before = sys.path.copy()
+
+    definitions = EntryPointModuleDiscovery(
+        distribution_paths=(tmp_path,)
+    ).discover(frozenset({"test-example-module"}))
+
+    assert [definition.declared_id for definition in definitions] == [
+        "test-example-module"
+    ]
+    assert sys.path == before
+
+    broken = FakeEntryPoint("broken", "broken:definition", ImportError("broken"))
+    monkeypatch.setattr(
+        discovery_module.metadata,
+        "distributions",
+        lambda *, path: (FakeDistribution((broken,)),),
+    )
+    with pytest.raises(ModuleDiscoveryError):
+        EntryPointModuleDiscovery(distribution_paths=(tmp_path,)).discover(
+            frozenset({"broken"})
+        )
+    assert sys.path == before
 
 
 def test_entry_point_discovery_loads_only_enabled_group_member(

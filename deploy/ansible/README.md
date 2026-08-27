@@ -134,7 +134,7 @@ Lege unter **Environment variables** drei mehrzeilige Konfigurationswerte an:
 
 Die drei Blöcke müssen alle zugehörigen Schlüssel aus `vault.example.yml` enthalten. Aus dem Backend-Block müssen `DATABASE_URL`, `JWT_SECRET_KEY`, `OAUTH_STATE_SECRET`, `MFA_RECOVERY_PEPPER`, `MFA_ENCRYPTION_KEY`, `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `CONTACT_TO_EMAIL`, `CONTACT_TO_NAME`, `REDIS_URL`, `TURNSTILE_SECRET_KEY`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `MASTODON_SSO_ENCRYPTION_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `NOMINATIM_BASE_URL`, `NOMINATIM_EMAIL` und `MASTODON_ACCESS_TOKEN` entfernt werden. Der Workflow lehnt doppelte, fehlende, zusätzliche oder versehentlich offen eingetragene Secret-Schlüssel ab.
 
-`OCP_INSTALLED_BACKEND_PATHS` und `OCP_INSTALLED_FRONTEND_MODULE_ROOTS` bleiben in
+`OCP_ENABLED_INSTALLED_BACKEND_PATHS` und `OCP_INSTALLED_FRONTEND_MODULE_ROOTS` bleiben in
 den Eingabeblöcken leer. Die Rolle rendert beide Werte sowie das Enablement separat
 aus dem strict validierten [`modules.lock`](../../docs/modules/installer.md) im
 host-owned `stadtplaner_module_install_root` und bindet sie vor den Modul-

@@ -7,10 +7,12 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
 import tempfile
+import zipfile
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
@@ -239,7 +241,7 @@ class InstalledModuleInventory(_StrictModel):
 class EnablementEnvironment(_StrictModel):
     enabled_modules: str
     frontend_modules: str
-    installed_backend_paths: str
+    runtime_backend_paths: str
     installed_frontend_module_roots: str
 
 
@@ -488,14 +490,15 @@ class ModuleInstaller:
         active_lock = lock or read_modules_lock(self.lock_path)
         backend_ids = set(self.builtin_enabled_ids)
         frontend_ids = set(self.builtin_frontend_enabled_ids)
-        backend_paths: list[str] = []
+        runtime_backend_paths: list[str] = []
         frontend_roots: list[str] = []
         for entry in active_lock.modules:
             version_root = self._version_root(entry.id, entry.version)
-            if entry.backend.present:
-                backend_paths.append(str(version_root / "backend/site-packages"))
-                if entry.enabled:
-                    backend_ids.add(entry.id)
+            if entry.backend.present and entry.enabled:
+                runtime_backend_paths.append(
+                    str(version_root / "backend/site-packages")
+                )
+                backend_ids.add(entry.id)
             if entry.frontend.present:
                 frontend_roots.append(str(version_root / "frontend-modules"))
                 if entry.enabled:
@@ -503,35 +506,34 @@ class ModuleInstaller:
         return EnablementEnvironment(
             enabled_modules=",".join(sorted(backend_ids)),
             frontend_modules=",".join(sorted(frontend_ids)),
-            installed_backend_paths=os.pathsep.join(sorted(backend_paths)),
+            runtime_backend_paths=os.pathsep.join(sorted(runtime_backend_paths)),
             installed_frontend_module_roots=os.pathsep.join(sorted(frontend_roots)),
         )
 
     def _preflight(self, lock: ModulesLock) -> None:
         environment = self.enablement_environment(lock)
-        installed_paths = tuple(
+        runtime_paths = tuple(
             Path(path)
-            for path in environment.installed_backend_paths.split(os.pathsep)
+            for path in environment.runtime_backend_paths.split(os.pathsep)
             if path
         )
-        with _python_paths(installed_paths):
-            resolved = resolve_module_definitions(
-                enabled_module_ids=tuple(filter(None, environment.enabled_modules.split(","))),
-                discovery_providers=(
-                    FirstPartyModuleDiscovery(),
-                    EntryPointModuleDiscovery(distribution_paths=installed_paths),
-                ),
-                host_version=self.host_version,
-                sdk_version=MODULE_SDK_VERSION,
+        resolved = resolve_module_definitions(
+            enabled_module_ids=tuple(filter(None, environment.enabled_modules.split(","))),
+            discovery_providers=(
+                FirstPartyModuleDiscovery(),
+                EntryPointModuleDiscovery(distribution_paths=runtime_paths),
+            ),
+            host_version=self.host_version,
+            sdk_version=MODULE_SDK_VERSION,
+        )
+        build_module_settings_registry(
+            resolved,
+            registry=ModuleSettingsRegistry(self.module_environment),
+        )
+        if self.migration_preflight is not None:
+            self.migration_preflight(
+                tuple(filter(None, environment.enabled_modules.split(",")))
             )
-            build_module_settings_registry(
-                resolved,
-                registry=ModuleSettingsRegistry(self.module_environment),
-            )
-            if self.migration_preflight is not None:
-                self.migration_preflight(
-                    tuple(filter(None, environment.enabled_modules.split(",")))
-                )
         if self.frontend_preflight is not None:
             self.frontend_preflight(environment)
 
@@ -577,7 +579,12 @@ class ModuleInstaller:
             wheel = artifacts / package.backend.artifact
             shutil.copyfile(source, wheel)
             site_packages = staging / "backend" / "site-packages"
-            self._install_wheel(wheel, site_packages)
+            self._install_wheel(
+                wheel,
+                site_packages,
+                module_id=package.module_id,
+                version=package.version,
+            )
             self._verify_backend_definition(site_packages, package)
         if package.frontend is not None:
             source = _safe_input_file(package_root, package.frontend.path)
@@ -589,7 +596,19 @@ class ModuleInstaller:
             if self.frontend_package_preflight is not None:
                 self.frontend_package_preflight(staging / "frontend-modules")
 
-    def _install_wheel(self, wheel: Path, site_packages: Path) -> None:
+    def _install_wheel(
+        self,
+        wheel: Path,
+        site_packages: Path,
+        *,
+        module_id: str,
+        version: str,
+    ) -> None:
+        self._validate_wheel_namespace(
+            wheel,
+            module_id=module_id,
+            version=version,
+        )
         site_packages.mkdir(parents=True)
         command = [
             self.uv_executable,
@@ -607,16 +626,69 @@ class ModuleInstaller:
             detail = exc.stderr.strip() if isinstance(exc, subprocess.CalledProcessError) else str(exc)
             raise ModulePackageError(f"The verified backend wheel could not be installed: {detail}") from exc
 
+    def _validate_wheel_namespace(
+        self,
+        wheel: Path,
+        *,
+        module_id: str,
+        version: str,
+    ) -> None:
+        expected_package = f"ocp_module_{module_id.replace('-', '_')}"
+        expected_dist_info = f"{expected_package}-{version}.dist-info"
+        top_level: set[str] = set()
+        dist_info: set[str] = set()
+        seen: set[str] = set()
+        try:
+            with zipfile.ZipFile(wheel) as archive:
+                for member in archive.infolist():
+                    raw_name = member.filename.rstrip("/")
+                    if not raw_name:
+                        continue
+                    try:
+                        normalized = _validate_relative_path(raw_name).as_posix()
+                    except ValueError as exc:
+                        raise ModulePackageError(
+                            f'Unsafe backend wheel path "{member.filename}".'
+                        ) from exc
+                    if normalized in seen:
+                        raise ModulePackageError(
+                            f'Duplicate backend wheel path "{normalized}".'
+                        )
+                    seen.add(normalized)
+                    mode = member.external_attr >> 16
+                    if stat.S_ISLNK(mode):
+                        raise ModulePackageError("Backend wheels may not contain symbolic links.")
+                    root = normalized.partition("/")[0]
+                    top_level.add(root)
+                    if root.endswith(".dist-info"):
+                        dist_info.add(root)
+        except (OSError, zipfile.BadZipFile) as exc:
+            raise ModulePackageError(f"The backend artifact is not a valid wheel: {exc}") from exc
+
+        allowed = {expected_package, expected_dist_info}
+        unexpected = sorted(top_level.difference(allowed))
+        if unexpected:
+            raise ModulePackageError(
+                "Backend wheel contains a forbidden top-level namespace: "
+                f'"{unexpected[0]}"; expected only "{expected_package}" and dist-info.'
+            )
+        if (
+            expected_package not in top_level
+            or dist_info != {expected_dist_info}
+        ):
+            raise ModulePackageError(
+                "Backend wheel must contain exactly its canonical module package and dist-info directory."
+            )
+
     def _verify_backend_definition(
         self,
         site_packages: Path,
         package: VerifiedModulePackage,
     ) -> None:
         try:
-            with _python_paths((site_packages,)):
-                definitions = EntryPointModuleDiscovery(
-                    distribution_paths=(site_packages,)
-                ).discover(frozenset({package.module_id}))
+            definitions = EntryPointModuleDiscovery(
+                distribution_paths=(site_packages,)
+            ).discover(frozenset({package.module_id}))
         finally:
             _purge_modules_from_path(site_packages)
         if len(definitions) != 1:
@@ -791,17 +863,18 @@ def _purge_modules_from_path(path: Path) -> None:
             continue
 
 
-@contextmanager
-def _python_paths(paths: Sequence[Path]):
-    inserted: list[str] = []
-    for path in reversed(tuple(paths)):
-        value = str(path)
-        if value not in sys.path:
-            sys.path.insert(0, value)
-            inserted.append(value)
-    try:
-        yield
-    finally:
-        for value in inserted:
-            if value in sys.path:
-                sys.path.remove(value)
+def installed_backend_distribution_paths(
+    root: Path,
+    *,
+    lock: ModulesLock | None = None,
+    enabled_only: bool = False,
+) -> tuple[Path, ...]:
+    """Resolve backend roots from authoritative install state without activation."""
+
+    install_root = root.resolve()
+    active_lock = lock or read_modules_lock(install_root / "modules.lock")
+    return tuple(
+        install_root / "installed" / entry.id / entry.version / "backend/site-packages"
+        for entry in active_lock.modules
+        if entry.backend.present and (entry.enabled or not enabled_only)
+    )

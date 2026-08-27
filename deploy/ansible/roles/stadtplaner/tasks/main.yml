@@ -553,8 +553,8 @@
   loop:
     - key: ENABLED_MODULES
       value: "{{ stadtplaner_installed_module_env.ENABLED_MODULES }}"
-    - key: OCP_INSTALLED_BACKEND_PATHS
-      value: "{{ stadtplaner_installed_module_env.OCP_INSTALLED_BACKEND_PATHS }}"
+    - key: OCP_ENABLED_INSTALLED_BACKEND_PATHS
+      value: "{{ stadtplaner_installed_module_env.OCP_ENABLED_INSTALLED_BACKEND_PATHS }}"
   no_log: true
 
 - name: Bind installed frontend module state to target environment
