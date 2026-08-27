@@ -150,32 +150,7 @@ def test_generated_ids_are_consistent_and_python_module_imports(tmp_path: Path) 
     assert linted.returncode == 0, linted.stdout + linted.stderr
 
 
-def test_generated_frontend_satisfies_real_contract(tmp_path: Path) -> None:
-    prepare_repository(tmp_path)
-    assert run_scaffold(tmp_path, "hello-world").returncode == 0
-    discovery = (ROOT / "frontend/module-host/discovery.ts").as_uri()
-    script = f"""
-      import {{ resolveFrontendModules }} from {json.dumps(discovery)};
-      const modules = resolveFrontendModules({{
-        modulesDirectory: {json.dumps(str(tmp_path / 'frontend/frontend-modules'))},
-        appPagesDirectory: {json.dumps(str(tmp_path / 'frontend/app/pages'))},
-        enabledModules: 'hello-world',
-        backendModules: 'hello-world@1.0.0'
-      }});
-      if (modules.length !== 1 || modules[0].id !== 'hello-world') process.exit(1);
-    """
-
-    checked = subprocess.run(
-        ["node", "--input-type=module", "--eval", script],
-        check=False,
-        capture_output=True,
-        text=True,
-        cwd=ROOT / "frontend",
-    )
-    assert checked.returncode == 0, checked.stderr
-
-
-def test_generated_module_passes_existing_architecture_checks_without_host_patches(
+def test_generated_module_passes_backend_architecture_checks_without_host_patches(
     tmp_path: Path,
 ) -> None:
     prepare_repository(tmp_path)
@@ -214,23 +189,5 @@ def test_generated_module_passes_existing_architecture_checks_without_host_patch
         text=True,
     )
     assert backend_check.returncode == 0, backend_check.stderr
-
-    frontend_scanner = (ROOT / "frontend/module-host/import-boundaries.ts").as_uri()
-    frontend_script = f"""
-      import {{ scanFrontendArchitecture }} from {json.dumps(frontend_scanner)};
-      const violations = scanFrontendArchitecture({{
-        repositoryRoot: {json.dumps(str(tmp_path))},
-        frontendRoot: {json.dumps(str(tmp_path / 'frontend'))}
-      }});
-      if (violations.length) {{ console.error(JSON.stringify(violations)); process.exit(1); }}
-    """
-    frontend_check = subprocess.run(
-        ["node", "--input-type=module", "--eval", frontend_script],
-        check=False,
-        capture_output=True,
-        text=True,
-        cwd=ROOT / "frontend",
-    )
-    assert frontend_check.returncode == 0, frontend_check.stderr
     for relative, contents in protected.items():
         assert (tmp_path / relative).read_text(encoding="utf-8") == contents

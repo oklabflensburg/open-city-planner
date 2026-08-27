@@ -20,6 +20,7 @@ run_frontend() {
     tests/frontend-ui-contributions.test.ts \
     tests/map-runtime.test.ts \
     tests/map-sdk.test.ts \
+    tests/module-scaffold/module-scaffold.test.ts \
     tests/reference-module/reference-module.test.ts
   pnpm test:modules:ssr
 }
