@@ -28,7 +28,7 @@ stadtplaner_backend_env_content: |
   APP_ENVIRONMENT=production
   APP_BASE_URL=https://stadtplaner.oklabflensburg.de
   API_BASE_URL=https://api.stadtplaner.oklabflensburg.de
-  ENABLED_MODULES=
+  ENABLED_MODULES=analysis-areas
   # Aktive Module ergänzen OCP_MODULE_<MODULE_ID>_<SETTING> aus sicherer Secret-Konfiguration.
   # OCP_MODULE_BIOTOPES_API_URL=https://example.org
   # OCP_MODULE_BIOTOPES_API_TOKEN=

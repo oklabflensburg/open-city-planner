@@ -138,6 +138,11 @@ class MapPreviewDeploymentTest(unittest.TestCase):
         tasks = (APP_ROLE / "tasks/main.yml").read_text(encoding="utf-8")
         self.assertIn("Validate target backend settings before release activation", tasks)
         self.assertIn("Validate target frontend environment syntax", tasks)
+        self.assertIn("Validate backend and frontend module inventories", tasks)
+        self.assertLess(
+            tasks.index("Validate backend and frontend module inventories"),
+            tasks.index("Validate target backend settings before release activation"),
+        )
         self.assertLess(
             tasks.index("Validate target backend settings before release activation"),
             tasks.index("Activate the target backend environment snapshot"),

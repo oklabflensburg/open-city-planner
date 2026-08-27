@@ -47,6 +47,12 @@ describe('Ansible deployment contract', () => {
     expect(frontendEnvironment).not.toContain('OCP_MODULE_')
   })
 
+  it('documents a consistent production module inventory', () => {
+    expect(vault).toContain('  ENABLED_MODULES=analysis-areas')
+    expect(vault).toContain('  OCP_FRONTEND_MODULES=analysis-areas')
+    expect(vault).toContain('  OCP_BACKEND_MODULES=analysis-areas@1.0.0')
+  })
+
   it('runs managed runtime preparation before the application role', () => {
     const deploy = repositoryFile('deploy/ansible/playbooks/deploy.yml')
     expect(deploy.indexOf('role: stadtplaner_dns_preflight')).toBeLessThan(deploy.indexOf('role: stadtplaner_runtime'))
@@ -76,6 +82,7 @@ describe('Ansible deployment contract', () => {
     const bindPrevious = tasks.indexOf('name: Bind previous environment snapshots to their release SHA')
     const bindTarget = tasks.indexOf('name: Bind target environment snapshots to the target release SHA')
     const validateTargetFrontend = tasks.indexOf('name: Validate target frontend environment syntax without exposing values')
+    const validateModuleInventory = tasks.indexOf('name: Validate backend and frontend module inventories')
     const validateTargetBackend = tasks.indexOf('name: Validate target backend settings before release activation')
     const stopManaged = tasks.indexOf('name: Stop managed primary services before the code and environment switch')
     const freePorts = tasks.indexOf('name: Require application ports to be free before the release switch')
@@ -94,6 +101,7 @@ describe('Ansible deployment contract', () => {
       bindPrevious,
       bindTarget,
       validateTargetFrontend,
+      validateModuleInventory,
       validateTargetBackend,
       stopManaged,
       freePorts,
@@ -112,6 +120,8 @@ describe('Ansible deployment contract', () => {
     expect(snapshotPrevious).toBeLessThan(bindPrevious)
     expect(bindPrevious).toBeLessThan(stopManaged)
     expect(bindTarget).toBeLessThan(validateTargetFrontend)
+    expect(validateTargetFrontend).toBeLessThan(validateModuleInventory)
+    expect(validateModuleInventory).toBeLessThan(validateTargetBackend)
     expect(validateTargetFrontend).toBeLessThan(validateTargetBackend)
     expect(validateTargetBackend).toBeLessThan(stopManaged)
     expect(stopManaged).toBeLessThan(freePorts)
