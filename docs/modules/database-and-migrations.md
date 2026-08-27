@@ -130,8 +130,10 @@ Manifeststruktur, Persistence-Ownership und die lesbare Dependency-Reihenfolge
 bleiben für den Graph erforderlich. Host-/SDK-Compatibility und Modulsettings eines
 deaktivierten Moduls sind dagegen kein Runtime-Gate. Fehlende Secrets eines
 deaktivierten Moduls blockieren den Preflight daher nicht. Diese lokale passive
-Discovery ist noch kein `modules.lock` oder persistentes Installationsinventar; diese
-Package-Lifecycle-Grenze bleibt #173 vorbehalten.
+Discovery ist weiterhin weder `modules.lock` noch persistentes
+Installationsinventar. Der [Installer aus #173](installer.md) hält deaktivierte
+Backend-Pfade deshalb getrennt im Installationszustand verfügbar, damit diese
+passive Discovery ihre Migrationsressourcen weiterhin auflösen kann.
 
 Ein Downgrade akzeptiert absichtlich nur ein explizites Ziel, zum Beispiel
 `python -m app.cli.module_migrations downgrade <revision>`.

@@ -50,9 +50,9 @@ werden mindestens Herkunft, Maintainer, exakte Versionen, Commit, Integrität,
 Lizenz, Dependencies, SBOM, bekannte Schwachstellen, Settings, Netzwerkzugriffe,
 Permissions, Persistence und Migrationen geprüft.
 
-Der geplante Installer aus #173 hält die freigegebene Auflösung in `modules.lock`
-fest. Das geplante OCP Bundle aus #174 definiert das überprüfbare Artefaktformat.
-Beides ist Folgearbeit und wird hier nicht implementiert. Die Pipeline lautet:
+Der [Installer aus #173](../modules/installer.md) hält die freigegebene Auflösung in
+`modules.lock` fest. Das geplante OCP Bundle aus #174 definiert das überprüfbare
+Artefaktformat. Die Pipeline lautet:
 
 ```text
 Package

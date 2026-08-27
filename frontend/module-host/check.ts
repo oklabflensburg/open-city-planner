@@ -1,9 +1,13 @@
+import { delimiter } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { resolveFrontendModules } from './discovery.ts'
 
 const frontendRoot = fileURLToPath(new URL('..', import.meta.url))
 const modules = resolveFrontendModules({
   modulesDirectory: fileURLToPath(new URL('../frontend-modules', import.meta.url)),
+  installedModulesDirectories: (process.env.OCP_INSTALLED_FRONTEND_MODULE_ROOTS || '')
+    .split(delimiter)
+    .filter(Boolean),
   appPagesDirectory: fileURLToPath(new URL('../app/pages', import.meta.url)),
   enabledModules: process.env.OCP_FRONTEND_MODULES,
   backendModules: process.env.OCP_BACKEND_MODULES

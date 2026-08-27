@@ -44,9 +44,10 @@ Der Vertrag und die Legacy-Migrationsstrategie stehen unter
 
 In-Process-Module sind nicht sandboxed. Built-ins sind inhärent First-Party.
 Third-Party-Code darf Discovery und Runtime erst nach Prüfung und Installation am
-Deploymentrand erreichen. Der Installer mit `modules.lock` (#173) und das OCP-
-Bundle (#174) sind Folgearbeiten; beliebige URL-/Runtime-Installationen sind kein
-unterstützter Deploymentpfad. Details stehen in der
+Deploymentrand erreichen. Der [Installer mit `modules.lock`](modules/installer.md)
+nimmt ausschließlich bereits verifizierte lokale Package-Inputs an; das OCP-Bundle
+folgt in #174. Beliebige URL-/Runtime-Installationen sind kein unterstützter
+Deploymentpfad. Details stehen in der
 [Modul-Trust-ADR](architecture/adr-module-trust-model.md).
 
 Persistente Verzeichnisse wie Uploads, OSM-Daten und Social-Screenshots dürfen nicht bei jedem Deployment ersetzt werden. Der Service-Benutzer benötigt nur für die tatsächlich verwendeten Pfade Schreibrechte.
@@ -71,6 +72,8 @@ cd /opt/git/open-city-planner/backend
 python3 -m pip install 'uv==0.12.5'
 uv python install 3.12.14
 uv sync --frozen --no-dev --no-editable --python 3.12.14 --managed-python
+export OCP_MODULE_INSTALL_ROOT=/var/lib/stadtplaner/modules
+eval "$(uv run python -m app.cli.modules env --format shell)"
 uv run alembic heads
 uv run alembic upgrade head
 uv run python -m app.cli.module_migrations preflight
@@ -99,6 +102,12 @@ Vorabprüfungen ergänzen dagegen `--extra dev` für Pytest und Ruff. Beide Pfad
 verwenden dasselbe `backend/uv.lock`; eine Auflösung auf dem Produktionsserver
 findet nicht statt. Der unterstützte manuelle Produktionsweg bleibt das
 Ansible-Playbook, das auch uv und Python exakt bereitstellt.
+
+Der Installer-Output wird ausschließlich aus dem strict validierten
+[`modules.lock`](modules/installer.md) gerendert. Er ergänzt installierte
+Entry-Point-Pfade und deren Enablement für genau diesen Deploymentprozess; Built-ins
+stammen weiterhin aus der vorhandenen Environment-Konfiguration. Der Output enthält
+keine Package-Hooks oder beliebigen Befehle.
 
 Vor einer Migration mit Schema- oder Datenänderungen ist ein Datenbankbackup erforderlich. Prüfen Sie die konkrete Migration und ihren erwarteten Laufzeitbedarf. Ein pauschales `alembic downgrade` ist kein sicherer Produktionsrollback. Legen Sie für riskante Änderungen einen gezielten Rollback- oder Vorwärtskorrekturplan fest.
 

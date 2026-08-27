@@ -31,6 +31,7 @@ class _HostDotEnvSettingsSource(DotEnvSettingsSource):
 class Settings(BaseSettings):
     api_version: str = "0.2.0"
     enabled_modules: str = "analysis-areas"
+    ocp_installed_backend_paths: str = ""
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/open_city_map"
     )

@@ -148,7 +148,8 @@ werden nicht als Metriklabels eingeführt.
 
 Dieser Status führt weder `installed`, Upgrade-/Rollback-Zustände, Enable-/Disable-
 Befehle noch eine persistente Lifecycle-Datenbank ein. Installer und `modules.lock`
-bleiben #173 vorbehalten, `.ocp`-Bundles #174 und eine Package Registry #175. Die
+stehen getrennt im [Installer und `modules.lock`](installer.md), `.ocp`-Bundles
+folgen in #174 und eine Package Registry in #175. Die
 verbindliche Enable-/Disable-Semantik sowie Upgrade- und Recovery-Abläufe stehen in
 der [Modul-Lifecycle-Policy](lifecycle.md). Dieser Status bleibt dabei unverändert
 eine Projektion von `loaded`, `registered` und `running`.

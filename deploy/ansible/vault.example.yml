@@ -29,6 +29,7 @@ stadtplaner_backend_env_content: |
   APP_BASE_URL=https://stadtplaner.oklabflensburg.de
   API_BASE_URL=https://api.stadtplaner.oklabflensburg.de
   ENABLED_MODULES=analysis-areas
+  OCP_INSTALLED_BACKEND_PATHS=
   # Aktive Module ergänzen OCP_MODULE_<MODULE_ID>_<SETTING> aus sicherer Secret-Konfiguration.
   # OCP_MODULE_BIOTOPES_API_URL=https://example.org
   # OCP_MODULE_BIOTOPES_API_TOKEN=
@@ -201,6 +202,7 @@ stadtplaner_backend_env_content: |
 # Complete frontend/.env, snapshotted below /etc/stadtplaner/releases/<sha>/.
 stadtplaner_frontend_env_content: |
   OCP_FRONTEND_MODULES=analysis-areas
+  OCP_INSTALLED_FRONTEND_MODULE_ROOTS=
   NUXT_PUBLIC_API_BASE_URL=https://api.stadtplaner.oklabflensburg.de/api/v1
   NUXT_API_INTERNAL_BASE_URL=
   NUXT_PUBLIC_SITE_URL=https://stadtplaner.oklabflensburg.de
@@ -273,6 +275,7 @@ stadtplaner_service_user: oklab
 stadtplaner_service_group: oklab
 stadtplaner_config_dir: /etc/stadtplaner
 stadtplaner_data_dir: /data/stadtplaner
+stadtplaner_module_install_root: /var/lib/stadtplaner/modules
 stadtplaner_social_dir: /data/stadtplaner-social
 stadtplaner_avatar_upload_dir: /data/uploads
 stadtplaner_observability_dir: /data/stadtplaner/observability

@@ -1,5 +1,7 @@
 """Kontrollierte First-Party- und Python-Entry-Point-Discovery."""
 
+import os
+import sys
 from collections.abc import Callable, Mapping, Sequence
 from importlib import import_module, metadata
 from pathlib import Path
@@ -8,6 +10,7 @@ from app.platform.modules.errors import ModuleDiscoveryError
 from app.platform.modules.sdk import ModuleDefinition
 
 ENTRY_POINT_GROUP = "open_city_planner.modules"
+INSTALLED_BACKEND_PATHS_ENV = "OCP_INSTALLED_BACKEND_PATHS"
 type DefinitionSource = ModuleDefinition | Callable[[], ModuleDefinition]
 
 BUILTIN_MODULES_DIRECTORY = Path(__file__).resolve().parents[2] / "modules"
@@ -103,6 +106,20 @@ def _resolve_source(source: DefinitionSource) -> ModuleDefinition:
 
 class EntryPointModuleDiscovery:
     """Discovery vertrauenswürdiger installierter Python-Distributionen."""
+
+    def __init__(self, distribution_paths: Sequence[Path] | None = None) -> None:
+        configured = distribution_paths
+        if configured is None:
+            configured = tuple(
+                Path(value)
+                for value in os.environ.get(INSTALLED_BACKEND_PATHS_ENV, "").split(os.pathsep)
+                if value
+            )
+        self._distribution_paths = tuple(path.resolve() for path in configured)
+        for path in reversed(self._distribution_paths):
+            value = str(path)
+            if value not in sys.path:
+                sys.path.insert(0, value)
 
     def discover(self, enabled_module_ids: frozenset[str]) -> Sequence[ModuleDefinition]:
         return self._discover(enabled_module_ids)

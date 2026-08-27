@@ -517,6 +517,63 @@
   become_user: "{{ stadtplaner_service_user }}"
   notify: Restart Stadtplaner API
 
+- name: Render installed module enablement for the target release
+  ansible.builtin.command:
+    argv:
+      - .venv/bin/python
+      - -m
+      - app.cli.modules
+      - --root
+      - "{{ stadtplaner_module_install_root }}"
+      - env
+      - --format
+      - json
+    chdir: "{{ stadtplaner_release_path }}/backend"
+  become_user: "{{ stadtplaner_service_user }}"
+  register: stadtplaner_installed_module_environment
+  changed_when: false
+  no_log: true
+
+- name: Parse installed module enablement for the target release
+  ansible.builtin.set_fact:
+    stadtplaner_installed_module_env: >-
+      {{ stadtplaner_installed_module_environment.stdout | from_json }}
+  no_log: true
+
+- name: Bind installed backend module state to target environment
+  ansible.builtin.lineinfile:
+    path: "{{ stadtplaner_target_backend_env }}"
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    insertafter: EOF
+    create: false
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0640'
+  loop:
+    - key: ENABLED_MODULES
+      value: "{{ stadtplaner_installed_module_env.ENABLED_MODULES }}"
+    - key: OCP_INSTALLED_BACKEND_PATHS
+      value: "{{ stadtplaner_installed_module_env.OCP_INSTALLED_BACKEND_PATHS }}"
+  no_log: true
+
+- name: Bind installed frontend module state to target environment
+  ansible.builtin.lineinfile:
+    path: "{{ stadtplaner_target_frontend_env }}"
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    insertafter: EOF
+    create: false
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0640'
+  loop:
+    - key: OCP_FRONTEND_MODULES
+      value: "{{ stadtplaner_installed_module_env.OCP_FRONTEND_MODULES }}"
+    - key: OCP_INSTALLED_FRONTEND_MODULE_ROOTS
+      value: "{{ stadtplaner_installed_module_env.OCP_INSTALLED_FRONTEND_MODULE_ROOTS }}"
+  no_log: true
+
 - name: Validate target backend settings before release activation
   ansible.builtin.command:
     argv:

@@ -14,6 +14,7 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 
 - [Module Getting Started und Scaffold](modules/getting-started.md)
 - [Distribution Policy für installierbare Module](modules/distribution.md)
+- [Installer und modules.lock](modules/installer.md)
 - [ADR: Modularer Host und Grenzen von Fachmodulen](architecture/adr-modular-host-and-module-boundaries.md)
 - [ADR: Frontend-Module als Build-Time Nuxt Layers](architecture/adr-frontend-build-time-modules.md)
 - [ADR: Frontend UI Extension Points](architecture/adr-frontend-ui-extension-points.md)

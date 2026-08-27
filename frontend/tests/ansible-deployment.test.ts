@@ -83,6 +83,9 @@ describe('Ansible deployment contract', () => {
     const bindTarget = tasks.indexOf('name: Bind target environment snapshots to the target release SHA')
     const validateTargetFrontend = tasks.indexOf('name: Validate target frontend environment syntax without exposing values')
     const validateTargetBackend = tasks.indexOf('name: Validate target backend settings before release activation')
+    const renderInstalledModules = tasks.indexOf('name: Render installed module enablement for the target release')
+    const bindInstalledBackend = tasks.indexOf('name: Bind installed backend module state to target environment')
+    const bindInstalledFrontend = tasks.indexOf('name: Bind installed frontend module state to target environment')
     const resolveModuleInventory = tasks.indexOf('name: Resolve target release backend module inventory')
     const bindModuleInventory = tasks.indexOf('name: Bind generated backend module inventory to target frontend environment')
     const verifyFrontendModules = tasks.indexOf('name: Verify target frontend module compatibility')
@@ -104,6 +107,9 @@ describe('Ansible deployment contract', () => {
       bindPrevious,
       bindTarget,
       validateTargetFrontend,
+      renderInstalledModules,
+      bindInstalledBackend,
+      bindInstalledFrontend,
       validateTargetBackend,
       resolveModuleInventory,
       bindModuleInventory,
@@ -126,6 +132,9 @@ describe('Ansible deployment contract', () => {
     expect(snapshotPrevious).toBeLessThan(bindPrevious)
     expect(bindPrevious).toBeLessThan(stopManaged)
     expect(bindTarget).toBeLessThan(validateTargetFrontend)
+    expect(renderInstalledModules).toBeLessThan(bindInstalledBackend)
+    expect(bindInstalledBackend).toBeLessThan(validateTargetBackend)
+    expect(bindInstalledFrontend).toBeLessThan(resolveModuleInventory)
     expect(validateTargetFrontend).toBeLessThan(validateTargetBackend)
     expect(validateTargetBackend).toBeLessThan(resolveModuleInventory)
     expect(resolveModuleInventory).toBeLessThan(bindModuleInventory)

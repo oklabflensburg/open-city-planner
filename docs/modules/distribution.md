@@ -9,8 +9,9 @@ dem bestehenden [Manifest V1](module-manifest-v1.md), der
 Verträge bleiben maßgeblich.
 
 Die Policy ist der fachliche Input für den Installer und `modules.lock` aus #173,
-das `.ocp`-Bundle aus #174 und die Registry aus #175. Sie implementiert keinen
-dieser Folgebausteine und legt noch kein maschinenlesbares Bundle-Schema fest.
+das `.ocp`-Bundle aus #174 und die Registry aus #175. Der darauf aufbauende
+[Installer](installer.md) bleibt ein separater technischer Layer; diese Policy legt
+weiterhin kein maschinenlesbares Bundle-Schema fest.
 
 ## Kanonische Identität und Namen
 
@@ -143,9 +144,9 @@ vorhandenen Frontend-Contract funktionieren und insbesondere enthalten:
 Das Artefakt darf keine Änderungen an `app.vue`, Host-Navigation, `MapCanvas`,
 Host-Pages, globalen Plugins oder anderen Hostdateien voraussetzen. Es darf keine
 Runtime-Remotes oder nachgeladenen Code-Bundles verwenden. Der spätere Installer
-entpackt es vor dem Nuxt-Build in eine kontrollierte Modulablage. Ablage,
-Archivlayout, Dependency-Installation und Integration in den Build-Workspace werden
-erst in #173 und #174 festgelegt.
+entpackt es vor dem Nuxt-Build in die kontrollierte, versionierte Ablage aus
+[#173](installer.md). Das öffentliche Archivlayout und die weitergehende
+Dependency-Integration werden erst in #174 festgelegt.
 
 ## Beziehung zum zukünftigen OCP-Bundle
 
@@ -297,7 +298,7 @@ npm-Paket gebaut.
 
 ## Übergaben an Installer, Bundle und Registry
 
-- **#173 Installer und `modules.lock`:** übernimmt ID, Version, Digest,
+- **[#173 Installer und `modules.lock`](installer.md):** übernimmt ID, Version, Digest,
   Publisher/Source, Backend-/Frontend-Artefakte und bestehende
   Compatibility-Metadaten; definiert Installation, Ablage und persistente
   Auflösung.
