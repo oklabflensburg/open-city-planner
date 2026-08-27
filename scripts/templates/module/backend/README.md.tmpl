@@ -1,0 +1,16 @@
+# {{DISPLAY_NAME}} Module
+
+Dieses minimale Built-in-Modul wurde mit `scripts/create-module {{MODULE_ID}}`
+erzeugt. Es registriert eine kleine GET-API und besitzt ein passendes Frontend-Layer.
+
+Stabile Namespaces:
+
+- Modul und Config: `{{MODULE_ID}}`
+- Python-Paket und späteres Datenbankschema: `{{PYTHON_NAME}}`
+- Environment-Präfix: `OCP_MODULE_{{ENV_PREFIX}}_`
+- Permissions: `{{MODULE_ID}}.*`
+- Contributions und Capabilities: `{{MODULE_ID}}.*`
+
+Das Modul startet absichtlich ohne Persistence, Events, Jobs oder Kartenbeiträge.
+Erweiterungen folgen den öffentlichen Verträgen aus
+[`docs/modules/getting-started.md`](../../../../docs/modules/getting-started.md).

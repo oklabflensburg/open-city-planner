@@ -1,0 +1,23 @@
+"""Public HTTP API for the {{MODULE_ID}} module."""
+
+from fastapi import APIRouter
+from pydantic import BaseModel, ConfigDict
+
+from ..settings import {{CLASS_NAME}}Settings
+
+
+class {{CLASS_NAME}}Greeting(BaseModel):
+    module: str
+    message: str
+
+    model_config = ConfigDict(frozen=True)
+
+
+def create_router(settings: {{CLASS_NAME}}Settings) -> APIRouter:
+    router = APIRouter()
+
+    @router.get("/hello", response_model={{CLASS_NAME}}Greeting)
+    async def hello() -> {{CLASS_NAME}}Greeting:
+        return {{CLASS_NAME}}Greeting(module="{{MODULE_ID}}", message=settings.greeting)
+
+    return router

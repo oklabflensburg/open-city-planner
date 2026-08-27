@@ -1,0 +1,22 @@
+<template>
+  <ContentPageShell
+    title="{{DISPLAY_NAME}}"
+    description="Minimaler Einstieg für das {{DISPLAY_NAME}}-Modul."
+    eyebrow="Built-in-Modul"
+    :breadcrumbs="[{ label: 'Startseite', to: '/' }, { label: '{{DISPLAY_NAME}}' }]"
+  >
+    <p class="text-sm text-slate-700 dark:text-slate-200">
+      Die Backend-API ist unter <code>/api/v1/modules/{{MODULE_ID}}/hello</code> erreichbar.
+    </p>
+  </ContentPageShell>
+</template>
+
+<script setup lang="ts">
+usePageSeo({
+  title: '{{DISPLAY_NAME}}',
+  description: 'Minimaler Einstieg für das {{DISPLAY_NAME}}-Modul.',
+  path: '/modules/{{MODULE_ID}}',
+  robots: 'noindex,nofollow',
+  structuredData: false
+})
+</script>

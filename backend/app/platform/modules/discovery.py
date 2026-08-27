@@ -1,8 +1,8 @@
 """Kontrollierte First-Party- und Python-Entry-Point-Discovery."""
 
 from collections.abc import Callable, Mapping, Sequence
-from importlib import metadata
-from types import MappingProxyType
+from importlib import import_module, metadata
+from pathlib import Path
 
 from app.platform.modules.errors import ModuleDiscoveryError
 from app.platform.modules.sdk import ModuleDefinition
@@ -10,32 +10,40 @@ from app.platform.modules.sdk import ModuleDefinition
 ENTRY_POINT_GROUP = "open_city_planner.modules"
 type DefinitionSource = ModuleDefinition | Callable[[], ModuleDefinition]
 
-# First-Party-Module werden hier später deklarativ ergänzt. Leer bedeutet, dass die
-# produktive Legacy-Anwendung ohne neue Module unverändert startet.
-FIRST_PARTY_MODULES: Mapping[str, DefinitionSource] = MappingProxyType({})
+BUILTIN_MODULES_DIRECTORY = Path(__file__).resolve().parents[2] / "modules"
 
 
 class FirstPartyModuleDiscovery:
-    """Discovery aus einem fachneutralen, deploy-time kontrollierten Katalog."""
+    """Discovery aus Built-in-Konvention oder explizitem Test-/Composition-Katalog."""
 
-    def __init__(self, catalog: Mapping[str, DefinitionSource] = FIRST_PARTY_MODULES) -> None:
+    def __init__(self, catalog: Mapping[str, DefinitionSource] | None = None) -> None:
         self._catalog = catalog
 
     def discover(self, enabled_module_ids: frozenset[str]) -> Sequence[ModuleDefinition]:
         definitions: list[ModuleDefinition] = []
-        for module_id in sorted(enabled_module_ids.intersection(self._catalog)):
-            source = self._catalog[module_id]
+        module_ids = (
+            enabled_module_ids
+            if self._catalog is None
+            else enabled_module_ids.intersection(self._catalog)
+        )
+        for module_id in sorted(module_ids):
             try:
-                definition = source() if callable(source) else source
+                definition = (
+                    _load_builtin_definition(module_id)
+                    if self._catalog is None
+                    else _resolve_source(self._catalog[module_id])
+                )
             except Exception as exc:
                 raise ModuleDiscoveryError(
                     "The first-party module definition could not be loaded.",
                     module_id=module_id,
                     origin="first-party",
                 ) from exc
+            if definition is None:
+                continue
             if not isinstance(definition, ModuleDefinition):
                 raise ModuleDiscoveryError(
-                    "The first-party catalog entry is not a ModuleDefinition.",
+                    "The first-party module does not expose a ModuleDefinition.",
                     module_id=module_id,
                     origin="first-party",
                 )
@@ -50,6 +58,20 @@ class FirstPartyModuleDiscovery:
                 )
             )
         return tuple(definitions)
+
+
+def _load_builtin_definition(module_id: str) -> ModuleDefinition | None:
+    """Load an enabled repository module by the built-in directory convention."""
+
+    python_name = module_id.replace("-", "_")
+    if not (BUILTIN_MODULES_DIRECTORY / python_name / "module.py").is_file():
+        return None
+    module = import_module(f"app.modules.{python_name}.module")
+    return module.DEFINITION
+
+
+def _resolve_source(source: DefinitionSource) -> ModuleDefinition:
+    return source() if callable(source) else source
 
 
 class EntryPointModuleDiscovery:

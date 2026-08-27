@@ -1,0 +1,21 @@
+import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import { resolveFrontendModules } from '../../module-host/discovery'
+
+const frontendRoot = fileURLToPath(new URL('../..', import.meta.url))
+
+describe('{{MODULE_ID}} frontend module', () => {
+  it('satisfies the real frontend module contract', () => {
+    const modules = resolveFrontendModules({
+      modulesDirectory: resolve(frontendRoot, 'frontend-modules'),
+      appPagesDirectory: resolve(frontendRoot, 'app/pages'),
+      enabledModules: '{{MODULE_ID}}',
+      backendModules: '{{MODULE_ID}}@1.0.0'
+    })
+
+    expect(modules.map(module => module.id)).toEqual(['{{MODULE_ID}}'])
+    expect(modules[0]?.publicContributions.ui[0]?.id)
+      .toBe('{{MODULE_ID}}.primary-navigation')
+  })
+})

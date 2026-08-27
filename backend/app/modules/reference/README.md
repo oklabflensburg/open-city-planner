@@ -4,6 +4,12 @@ Dieses bewusst kleine Modul ist ausführbare SDK-Dokumentation. Es zeigt eine ne
 `ReferenceItem`-Domäne vom eigenen PostgreSQL-Schema bis zur Nuxt-Seite und zum
 MapLibre-Layer. Es ist kein produktives Fachfeature.
 
+> The reference module is the canonical executable SDK example.
+
+Für ein neues, bewusst minimales Modul beginnt der Weg im
+[Getting-Started-Guide](../../../../docs/modules/getting-started.md), nicht mit einer
+vollständigen Kopie dieses End-to-End-Beispiels.
+
 ## 1. Was demonstriert dieses Modul?
 
 Das Modul nutzt Manifest und Entry-Point-Discovery, Backend- und Frontend-SDK,
@@ -186,20 +192,14 @@ Tabelle und historische Migration bleiben absichtlich erhalten; Deaktivieren lö
 keine Daten. Ein physisches Entfernen braucht eine separat geprüfte Cleanup-Migration
 mit Backup- und Rollback-Plan.
 
-## 20. How to create your own module
+## 20. Ein eigenes Modul beginnen
 
-1. Beide Verzeichnisse kopieren, zum Beispiel
-   `cp -R backend/app/modules/reference backend/app/modules/my_module` und
-   `cp -R frontend/frontend-modules/reference frontend/frontend-modules/my-module`.
-2. Modul-ID und Python-/Frontend-Verzeichnis, Version und Entry-Point umbenennen.
-3. Manifest-, Config-, Schema- und Revision-Namespace konsistent ändern.
-4. Permission-, Route-, Event-, Job-, Source-, Layer- und Contribution-IDs umbenennen.
-5. Tabelle, Migration, Entity, API-Schemas und sichtbare Texte auf die neue kleine
-   Domäne zuschneiden; die alte Revision-ID nicht wiederverwenden.
-6. Tests kopieren und zuerst enabled, disabled und inkompatible Versionen prüfen.
-7. Architektur-Gate, vollständige Tests, Typecheck und beide Builds ausführen.
+Erzeuge ein minimales Modul mit `./scripts/create-module my-module` und folge dem
+[Getting-Started-Guide](../../../../docs/modules/getting-started.md). Kopiere dieses
+Reference-Modul nicht vollständig: Persistence, Permissions, Events, Jobs und Map
+werden nur ergänzt, wenn das neue Modul sie tatsächlich benötigt.
 
-Kopiere keine Host-Interna. Modulcode importiert Plattformverträge nur aus
-`app.platform.modules.sdk` beziehungsweise `#frontend-module-sdk`. Wenn ein nötiger
-Contract fehlt, wird das SDK bewusst erweitert; private DB-, Runtime-, Auth-, Router-,
-Navigations- oder MapCanvas-Implementierungen sind keine Abkürzung.
+Modulcode importiert Plattformverträge ausschließlich aus
+`app.platform.modules.sdk` beziehungsweise `#frontend-module-sdk`. Private DB-,
+Runtime-, Auth-, Router-, Navigations- oder MapCanvas-Implementierungen sind keine
+Abkürzung.

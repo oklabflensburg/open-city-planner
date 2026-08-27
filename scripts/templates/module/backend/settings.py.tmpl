@@ -1,0 +1,14 @@
+"""Typed settings owned by the {{MODULE_ID}} module."""
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class {{CLASS_NAME}}Settings(BaseModel):
+    greeting: str = Field(
+        default="Hallo aus dem {{DISPLAY_NAME}}-Modul.",
+        min_length=1,
+        max_length=160,
+        json_schema_extra={"public": True},
+    )
+
+    model_config = ConfigDict(frozen=True)
