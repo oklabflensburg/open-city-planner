@@ -8,7 +8,7 @@ import { createFrontendContributionRegistry } from '../module-host/ui-registry'
 const options = {
   modulesDirectory: fileURLToPath(new URL('../frontend-modules', import.meta.url)),
   appPagesDirectory: fileURLToPath(new URL('../app/pages', import.meta.url)),
-  backendModules: 'analysis-areas@1.0.0'
+  backendModules: 'analysis-areas'
 }
 
 describe('Analysis Areas frontend module', () => {

@@ -26,6 +26,26 @@ zur Verfügung. Dadurch schlägt eine Required Dependency auf ein deaktiviertes 
 mit der bestehenden Manifest-Fehlersemantik fehl. Eine optionale Dependency darf
 weiterhin fehlen.
 
+## Generiertes Backend-Inventar
+
+`resolve_module_definitions()` ist zugleich die einzige Quelle für das technische
+Frontend-Inventar. Die CLI projiziert ausschließlich ID und Version der bereits
+aktivierten, validierten Manifeste; sie führt keine zweite Discovery und lädt keinen
+Modul-Runtimecode:
+
+```bash
+cd backend
+uv run python -m app.cli.module_inventory --format json
+uv run python -m app.cli.module_inventory --format env
+```
+
+JSON ist der stabile Maschinenvertrag, zum Beispiel
+`{"modules":[{"id":"analysis-areas","version":"1.0.0"}]}`. Das env-Format
+`analysis-areas@1.0.0` bleibt ein interner Transport zum vorhandenen Nuxt-Preflight.
+Bei leerem `ENABLED_MODULES` enthält JSON eine leere `modules`-Liste und das
+env-Format ist leer. Die Reihenfolge entspricht der deterministischen, aufgelösten
+Dependency-/Load-Reihenfolge.
+
 ## Discovery-Quellen
 
 `FirstPartyModuleDiscovery` verwendet einen fachneutralen Katalog aus passiven

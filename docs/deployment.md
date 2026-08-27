@@ -91,7 +91,9 @@ Vor einer Migration mit Schema- oder Datenänderungen ist ein Datenbankbackup er
 ## Frontend installieren und bauen
 
 ```bash
-cd /opt/git/open-city-planner/frontend
+cd /opt/git/open-city-planner
+export OCP_BACKEND_MODULES="$(scripts/backend-module-inventory --format env)"
+cd frontend
 pnpm install --frozen-lockfile
 pnpm modules:check
 pnpm build
@@ -101,18 +103,21 @@ Der Produktionsprozess startet den von Nuxt erzeugten Server-Output nach dem fü
 
 Optionale Frontend-Module werden vor diesem Build über `OCP_FRONTEND_MODULES`
 aktiviert. Fullstack-Module verwenden dieselbe stabile ID wie ihr Backend-Modul.
-Setzen Sie zusätzlich `OCP_BACKEND_MODULES` als Build-Inventar (`id` oder
-`id@version`), damit ein aktiviertes Frontend ohne zugehöriges Backend bereits im
-Preflight fehlschlägt. Beide Variablen sind komma-separierte technische IDs und
-enthalten keine Secrets. Leer bedeutet: keine optionalen Frontend-Module. Details
-stehen unter [Frontend-Host und Build-Time-Module](modules/frontend-host.md).
+`OCP_BACKEND_MODULES` ist nur noch ein intern generierter Build-Transport. Der
+Repository-Helper löst dafür die tatsächlich in `ENABLED_MODULES` aktivierten
+Backend-Definitionen auf und übernimmt ID sowie Version aus deren validierten
+Manifesten. Ein aktiviertes Frontend ohne zugehöriges oder kompatibles Backend
+schlägt dadurch bereits im Preflight fehl. Die technischen Metadaten enthalten
+keine Secrets. Details stehen unter
+[Frontend-Host und Build-Time-Module](modules/frontend-host.md).
 
-Das Ansible-Deployment vergleicht vor Installation, Migration und Build die in
-`ENABLED_MODULES` aktivierten Backend-IDs exakt mit den IDs aus
-`OCP_BACKEND_MODULES`; Versionsangaben im Frontend-Inventar werden dabei entfernt.
-Ein abweichendes oder nur einseitig deaktiviertes Inventar stoppt das Deployment
-vor der Aktivierung. Der Nuxt-Modul-Preflight prüft anschließend weiterhin, ob die
-aktivierten Frontend-Module ihre deklarierten Backend-Abhängigkeiten erfüllen.
+Das Ansible-Deployment synchronisiert zuerst die Backend-Abhängigkeiten im
+konkreten Target Release, lädt dessen Backend-Environment-Snapshot und erzeugt
+dort das Inventar. Erst danach bindet es den Wert an den versionierten
+Frontend-Snapshot, führt `pnpm modules:check` aus und baut Nuxt. Es verwendet weder
+`/opt/stadtplaner/current` noch das Inventar des aktiven Releases. Damit bleibt ein
+Release reproduzierbar, auch wenn sich eine Modulversion zwischen aktivem und neuem
+Release unterscheidet.
 
 ## Environment
 
@@ -131,10 +136,11 @@ Wichtige Backend-Gruppen:
 - Dateien: `AVATAR_UPLOAD_DIR`, `MEDIA_BASE_URL`, `MASTODON_SCREENSHOT_DIRECTORY`.
 
 Wichtige öffentliche Frontend-Variablen beginnen mit `NUXT_PUBLIC_` und sind per
-Definition öffentlich. `OCP_FRONTEND_MODULES` und `OCP_BACKEND_MODULES` steuern nur
-den Build-Preflight, sind aber ebenfalls keine Secret-Speicher. Ein Fullstack-Modul
-muss im Backend-Enablement und im Frontend-Buildinventar konsistent aktiviert sein.
-Secrets dürfen in keiner dieser Variablen gespeichert werden.
+Definition öffentlich. Menschen konfigurieren Module mit `ENABLED_MODULES` für das
+Backend und `OCP_FRONTEND_MODULES` für den Frontend-Build. Der daraus generierte
+`OCP_BACKEND_MODULES`-Transport enthält ausschließlich Modul-IDs und -Versionen und
+ist ebenfalls kein Secret-Speicher. Secrets dürfen in keiner dieser Variablen
+gespeichert werden.
 
 Vor der Aktivierung lädt der target Backend-Release seine strikten Pydantic-Settings mit dem target Snapshot. Unbekannte Variablen bleiben ein Fehler; `extra=ignore` wird nicht verwendet. Das Frontend-Environment wird mit Node validiert und anschließend beim Build des target Releases verwendet. Erst wenn diese Prüfungen erfolgreich waren, stoppt Ansible die primären Dienste und schaltet Code-, Backend-Env- und Frontend-Env-Symlink in kontrollierter Reihenfolge um. Während dieses kurzen Fensters läuft kein primärer Dienst mit einem gemischten Zustand.
 

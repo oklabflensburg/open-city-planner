@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+backend_python="${OCP_BACKEND_PYTHON:-${repository_root}/backend/.venv/bin/python}"
+
+if [[ ! -x "${backend_python}" ]]; then
+  echo "Backend Python not found at ${backend_python}. Run 'uv sync --frozen' in backend first." >&2
+  exit 1
+fi
+
+cd "${repository_root}/backend"
+exec "${backend_python}" -m app.cli.module_inventory "$@"

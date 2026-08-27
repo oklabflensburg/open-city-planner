@@ -77,16 +77,24 @@ OCP_FRONTEND_MODULES=example-module pnpm build
 getrimmt, dedupliziert und sortiert. Ein unbekanntes aktiviertes Modul ist immer ein
 Fehler; es gibt kein Silent Skip.
 
-Für Fullstack-Deployments kann der Build das Backend-Inventar prüfen:
+Für Fullstack-Deployments prüft der Build das aus der Backend-Discovery erzeugte
+Inventar. Nach installiertem Backend kann derselbe Helper lokal, in CI und im
+Target Release verwendet werden:
 
 ```bash
-OCP_FRONTEND_MODULES=statistics \
-OCP_BACKEND_MODULES=statistics@2.1.0 \
+cd backend
+export ENABLED_MODULES=analysis-areas
+export OCP_BACKEND_MODULES="$(../scripts/backend-module-inventory --format env)"
+cd ../frontend
+export OCP_FRONTEND_MODULES=analysis-areas
 pnpm modules:check
+pnpm dev
 ```
 
-Ist `OCP_BACKEND_MODULES` gesetzt, fehlen aktivierte Backend-Gegenstücke nicht
-stillschweigend. Ohne Versionssuffix wird nur Enablement, mit `@<version>` zusätzlich
+`OCP_BACKEND_MODULES` ist dabei nur der automatisch erzeugte interne Transport und
+keine dritte Aktivierungsentscheidung. Ist die Variable gesetzt, fehlen aktivierte
+Backend-Gegenstücke nicht stillschweigend. Ohne Versionssuffix wird nur Enablement,
+mit `@<version>` zusätzlich
 der deklarierte Backend-Range geprüft. Die Werte enthalten keine Secrets.
 
 ## Was der Preflight validiert

@@ -55,6 +55,11 @@ from app.platform.modules.errors import (
     UnknownJobError,
     UnsupportedManifestVersionError,
 )
+from app.platform.modules.inventory import (
+    BackendModuleInventory,
+    BackendModuleInventoryEntry,
+    build_backend_module_inventory,
+)
 from app.platform.modules.manifest import (
     ModuleBackendPackage,
     ModuleConfig,
@@ -97,6 +102,8 @@ __all__ = [
     "ENTRY_POINT_GROUP",
     "MODULE_SDK_VERSION",
     "BackendModule",
+    "BackendModuleInventory",
+    "BackendModuleInventoryEntry",
     "DuplicateConfigNamespaceError",
     "DuplicateJobRegistrationError",
     "DuplicateModuleIdError",
@@ -165,6 +172,7 @@ __all__ = [
     "UndeclaredServiceDependencyError",
     "UnknownJobError",
     "UnsupportedManifestVersionError",
+    "build_backend_module_inventory",
     "create_module_runtime",
     "module_manifest_json_schema",
     "parse_manifest",
