@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pytest
@@ -21,7 +21,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.core.config import get_settings
+from app.cli import module_migrations as migration_cli
+from app.core.config import Settings, get_settings
 from app.db.base import Base
 from app.modules.reference.module import DEFINITION as REFERENCE_DEFINITION
 from app.platform.modules import (
@@ -41,6 +42,7 @@ from app.platform.modules.persistence import (
     PersistenceRegistry,
     build_persistence_registry,
     include_autogenerate_object,
+    resolve_available_persistence_definitions,
     resolve_migration_source,
     revision_namespace_for,
 )
@@ -49,6 +51,12 @@ from tests.fixtures.example_persistence_module import DEFINITION as DEPENDENT_DE
 from tests.test_module_runtime import FakeDiscovery, definition, runtime_for
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
+
+
+@dataclass
+class FakeAvailableDiscovery(FakeDiscovery):
+    def discover_available(self):
+        return self.definitions
 
 
 def module_manifest(
@@ -184,6 +192,24 @@ def test_independent_module_persistence_is_ordered_lexicographically() -> None:
     registry = build_persistence_registry(resolved, include_legacy=False)
 
     assert [item.module_id for item in registry.contributions] == ["example-a", "example-b"]
+
+
+def test_available_migration_resolution_ignores_disabled_runtime_compatibility() -> None:
+    manifest_data = REFERENCE_DEFINITION.manifest.model_dump(by_alias=True)
+    manifest_data["requires"] = {
+        **manifest_data["requires"],
+        "host": ">=99.0.0,<100.0.0",
+        "sdk": ">=99.0.0,<100.0.0",
+    }
+    incompatible = replace(REFERENCE_DEFINITION, manifest=manifest_data)
+
+    resolved = resolve_available_persistence_definitions(
+        (FakeAvailableDiscovery((incompatible,)),)
+    )
+
+    assert [(definition.declared_id, manifest.id) for definition, manifest in resolved] == [
+        ("reference", "reference")
+    ]
 
 
 def test_duplicate_module_registration_is_rejected() -> None:
@@ -524,8 +550,9 @@ async def test_reference_module_migration_up_down_and_seed_data(
 
 
 @pytest.mark.asyncio
-async def test_reference_module_reenable_reuses_existing_revision_and_data(
+async def test_reference_module_disable_and_reenable_keep_graph_revision_and_data(
     fresh_database_url: str,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     enabled = resolve_module_definitions(
         enabled_module_ids=("reference",),
@@ -540,31 +567,41 @@ async def test_reference_module_reenable_reuses_existing_revision_and_data(
     engine = create_async_engine(fresh_database_url)
     async with engine.connect() as connection:
         before_disable = await connection.scalar(text("SELECT count(*) FROM reference.items"))
+        enabled_revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
 
-    disabled = resolve_module_definitions(
-        enabled_module_ids=(),
-        discovery_providers=(FakeDiscovery((REFERENCE_DEFINITION,)),),
-        host_version="0.2.0",
+    monkeypatch.setattr(
+        migration_cli,
+        "get_settings",
+        lambda: Settings(enabled_modules="", database_url=fresh_database_url),
     )
-    assert build_persistence_registry(disabled, include_legacy=False).contributions == ()
+    monkeypatch.setattr(
+        "app.platform.modules.migrations.command.downgrade",
+        lambda *_args, **_kwargs: pytest.fail("Disable must never invoke downgrade"),
+    )
+    disabled_coordinator = migration_cli.coordinator()
+    disabled_plan = await asyncio.to_thread(disabled_coordinator.preflight)
+    await asyncio.to_thread(disabled_coordinator.upgrade)
     async with engine.connect() as connection:
         while_disabled = await connection.scalar(text("SELECT count(*) FROM reference.items"))
+        disabled_revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
 
-    reenabled = resolve_module_definitions(
-        enabled_module_ids=("reference",),
-        discovery_providers=(FakeDiscovery((REFERENCE_DEFINITION,)),),
-        host_version="0.2.0",
+    monkeypatch.setattr(
+        migration_cli,
+        "get_settings",
+        lambda: Settings(
+            enabled_modules="reference", database_url=fresh_database_url
+        ),
     )
-    reenable_config = Config(str(BACKEND_ROOT / "alembic.ini"))
-    reenable_config.attributes["database_url"] = fresh_database_url
-    await asyncio.to_thread(
-        MigrationCoordinator(
-            reenable_config, build_persistence_registry(reenabled)
-        ).upgrade
-    )
+    await asyncio.to_thread(migration_cli.coordinator().upgrade)
     async with engine.connect() as connection:
         after_reenable = await connection.scalar(text("SELECT count(*) FROM reference.items"))
+        reenabled_revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
 
+    assert (disabled_plan[-1].module_id, disabled_plan[-1].revision) == (
+        "reference",
+        "mod_reference_20260826_0001",
+    )
+    assert enabled_revision == disabled_revision == reenabled_revision
     assert (before_disable, while_disabled, after_reenable) == (2, 2, 2)
     await engine.dispose()
 

@@ -12,8 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.db.base import Base
 from app.db.session import AsyncSessionLocal
+from app.platform.modules.contracts import AvailableModuleDiscoveryProvider
+from app.platform.modules.dependency_graph import resolve_module_order
 from app.platform.modules.errors import ModulePersistenceError
-from app.platform.modules.manifest import ModuleManifestV1
+from app.platform.modules.manifest import ModuleManifestV1, parse_manifest
 from app.platform.modules.sdk import (
     ModuleDefinition,
     ModuleMigrationSource,
@@ -246,6 +248,35 @@ def build_persistence_registry(
     return registry
 
 
+def resolve_available_persistence_definitions(
+    discovery_providers: Sequence[AvailableModuleDiscoveryProvider],
+) -> tuple[tuple[ModuleDefinition, ModuleManifestV1], ...]:
+    """Löse passive installierte Persistence-Beiträge ohne Runtime-Compatibility auf."""
+
+    definitions = tuple(
+        definition
+        for provider in discovery_providers
+        for definition in provider.discover_available()
+    )
+    parsed: list[tuple[ModuleDefinition, ModuleManifestV1]] = []
+    for definition in definitions:
+        manifest = (
+            definition.manifest
+            if isinstance(definition.manifest, ModuleManifestV1)
+            else parse_manifest(definition.manifest, origin=definition.origin)
+        )
+        if definition.declared_id != manifest.id:
+            raise ModulePersistenceError(
+                "The available migration definition ID does not match its manifest.",
+                module_id=definition.declared_id,
+            )
+        parsed.append((definition, manifest))
+
+    ordered = resolve_module_order(tuple(manifest for _, manifest in parsed))
+    definitions_by_id = {manifest.id: definition for definition, manifest in parsed}
+    return tuple((definitions_by_id[manifest.id], manifest) for manifest in ordered)
+
+
 def resolve_migration_source(source: ModuleMigrationSource, *, module_id: str) -> Path:
     """Löse ausschließlich Ressourcen bereits installierter Python-Pakete auf."""
 
@@ -304,6 +335,7 @@ __all__ = [
     "build_persistence_registry",
     "include_autogenerate_object",
     "migration_log_fields",
+    "resolve_available_persistence_definitions",
     "resolve_migration_source",
     "revision_namespace_for",
 ]

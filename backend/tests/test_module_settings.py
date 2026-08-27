@@ -1,5 +1,6 @@
 import json
 import logging
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 from app.cli import module_migrations as migration_cli
 from app.core.config import Settings
+from app.modules.reference.module import DEFINITION as REFERENCE_DEFINITION
+from app.modules.reference.module import MANIFEST as REFERENCE_MANIFEST
 from app.platform.modules.context import ModuleContextFactory
 from app.platform.modules.discovery import FirstPartyModuleDiscovery
 from app.platform.modules.errors import (
@@ -203,6 +206,51 @@ def test_migration_cli_stops_incompatible_manifest_before_coordinator(
         migration_cli.coordinator()
 
     assert error.value.module_id == "future-module"
+
+
+def test_disabled_available_migration_does_not_validate_required_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DisabledReferenceSettings(BaseModel):
+        api_token: SecretStr
+
+        model_config = ConfigDict(frozen=True)
+
+    available_definition = replace(
+        REFERENCE_DEFINITION,
+        settings=ModuleSettingsContribution(
+            module_id="reference",
+            namespace="reference",
+            model=DisabledReferenceSettings,
+        ),
+    )
+    monkeypatch.setattr(
+        migration_cli,
+        "get_settings",
+        lambda: Settings(enabled_modules=""),
+    )
+    monkeypatch.setattr(
+        migration_cli,
+        "resolve_module_definitions",
+        lambda **_kwargs: (),
+    )
+    monkeypatch.setattr(
+        migration_cli,
+        "resolve_available_persistence_definitions",
+        lambda _providers: ((available_definition, REFERENCE_MANIFEST),),
+    )
+    monkeypatch.setattr(
+        migration_cli,
+        "read_module_environment",
+        lambda **_kwargs: {},
+    )
+
+    plan = migration_cli.coordinator().preflight()
+
+    assert (plan[-1].module_id, plan[-1].revision) == (
+        "reference",
+        "mod_reference_20260826_0001",
+    )
 
 
 def test_runtime_binds_validated_settings_before_module_registration() -> None:

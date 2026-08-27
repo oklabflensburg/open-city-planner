@@ -179,6 +179,23 @@ def test_first_party_discovery_loads_only_enabled_definitions() -> None:
     assert loaded == ["module-b"]
 
 
+def test_first_party_available_discovery_is_generic_and_does_not_enable_runtime() -> None:
+    provider = FirstPartyModuleDiscovery()
+
+    available = provider.discover_available()
+    runtime = create_module_runtime(
+        enabled_module_ids=(),
+        discovery_providers=(provider,),
+        host_version="0.2.0",
+    )
+
+    assert {definition.declared_id for definition in available} >= {
+        "analysis-areas",
+        "reference",
+    }
+    assert runtime.module_ids == ()
+
+
 def test_runtime_ignores_disabled_definition_returned_by_provider() -> None:
     disabled = ModuleDefinition(
         manifest={"manifest_version": 1, "id": "INVALID"},
@@ -559,6 +576,27 @@ def test_entry_point_discovery_loads_only_enabled_group_member(
     assert runtime.module_ids == ("test-example-module",)
     assert enabled.load_count == 1
     assert disabled.load_count == 0
+
+
+def test_entry_point_available_discovery_loads_passive_installed_definitions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    installed = FakeEntryPoint(
+        "test-example-module", "package:definition", EXAMPLE_DEFINITION
+    )
+    monkeypatch.setattr(
+        discovery_module.metadata, "entry_points", lambda: FakeEntryPoints([installed])
+    )
+
+    available = EntryPointModuleDiscovery().discover_available()
+
+    assert [definition.declared_id for definition in available] == [
+        "test-example-module"
+    ]
+    assert available[0].origin == (
+        "entry-point:test-example-module=package:definition"
+    )
+    assert installed.load_count == 1
 
 
 def test_broken_enabled_entry_point_has_discovery_context(

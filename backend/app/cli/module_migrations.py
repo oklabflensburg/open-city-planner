@@ -8,7 +8,10 @@ from alembic.config import Config
 from app.core.config import BACKEND_ENV_FILE, get_settings
 from app.platform.modules import EntryPointModuleDiscovery, FirstPartyModuleDiscovery
 from app.platform.modules.migrations import MigrationCoordinator
-from app.platform.modules.persistence import build_persistence_registry
+from app.platform.modules.persistence import (
+    build_persistence_registry,
+    resolve_available_persistence_definitions,
+)
 from app.platform.modules.runtime import resolve_module_definitions
 from app.platform.modules.settings import (
     ModuleSettingsRegistry,
@@ -21,25 +24,27 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 def coordinator() -> MigrationCoordinator:
     settings = get_settings()
-    resolved = resolve_module_definitions(
+    discovery_providers = (FirstPartyModuleDiscovery(), EntryPointModuleDiscovery())
+    enabled = resolve_module_definitions(
         enabled_module_ids=settings.enabled_module_list,
-        discovery_providers=(FirstPartyModuleDiscovery(), EntryPointModuleDiscovery()),
+        discovery_providers=discovery_providers,
         host_version=settings.api_version,
     )
     build_module_settings_registry(
-        resolved,
+        enabled,
         registry=ModuleSettingsRegistry(
             read_module_environment(env_file=BACKEND_ENV_FILE)
         ),
     )
     config = Config(str(BACKEND_ROOT / "alembic.ini"))
     config.attributes["database_url"] = settings.database_url
-    return MigrationCoordinator(config, build_persistence_registry(resolved))
+    available = resolve_available_persistence_definitions(discovery_providers)
+    return MigrationCoordinator(config, build_persistence_registry(available))
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Validate or migrate the enabled host/module revision graph."
+        description="Validate or migrate the locally available host/module revision graph."
     )
     parser.add_argument("action", choices=("preflight", "upgrade", "downgrade"))
     parser.add_argument("revision", nargs="?", help="Explicit target for downgrade.")

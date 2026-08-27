@@ -38,6 +38,14 @@ dabei nicht geladen. `MigrationCoordinator.upgrade()` wiederholt den statischen
 Graph-Preflight, prüft anschließend den aktuellen DB-Head gegen den installierten
 Graphen und führt erst dann Revisionen aus.
 
+Runtime-Enablement und Verfügbarkeit der Migrationshistorie sind dabei zwei getrennte
+Mengen. Compatibility, Required/Optional Dependencies und Settings werden nur für
+die IDs aus `ENABLED_MODULES` als Runtime-Vertrag validiert. Der Alembic-Graph erhält
+dagegen die passiven Persistence Contributions aller lokal verfügbaren Built-ins und
+installierten Modul-Entry-Points. Dadurch bleibt eine Revision lesbar, wenn ihr Modul
+deaktiviert ist oder nicht mehr zur aktuellen Host-/SDK-Version passt. Das lädt
+weder den `ModuleDefinition.loader` noch Router, Jobs oder andere Runtime-Beiträge.
+
 Die Runtime registriert Contributions in Dependency-/Load-Reihenfolge, startet
 Lifecycle-Hooks in derselben Reihenfolge und beendet sie umgekehrt. Einen
 Registration-Fehler behandelt der Host fail-fast; der betreffende Prozess wird
@@ -80,9 +88,12 @@ Router, Jobs, Event-Subscriber, Permissions und Lifecycle-Hooks. Im Frontend feh
 Nuxt-Layer, Pages, Navigation, UI-Slots sowie Map Sources und Layers.
 
 Disable löscht weder Tabellen noch Daten und startet keinen Downgrade. Bereits
-angewandte Revisionen und ihre Migrationsquellen bleiben Teil des installierten
-Release-Graphen. Package-Entfernung und explizites Daten-Cleanup gehören zum
-späteren Installer-Lifecycle.
+angewandte Revisionen und ihre lokal verfügbaren Migrationsquellen bleiben Teil des
+installierten Release-Graphen. Built-ins werden dafür generisch aus
+`backend/app/modules/*/module.py` abgeleitet; installierte Third-Party-Module aus der
+bestehenden Entry-Point-Gruppe `open_city_planner.modules`. Diese passive Discovery
+ist kein persistentes Package Inventory. Package-Entfernung und explizites
+Daten-Cleanup gehören zum späteren Installer-Lifecycle.
 
 Beim Re-Enable wird die ID wieder konfiguriert und der vollständige Preflight
 wiederholt. Bereits angewandte Revisionen werden erkannt; vorhandene Daten werden
@@ -98,10 +109,16 @@ fail-fast.
 
 ## Migration, Downgrade und Recovery
 
-Eine statisch inkompatible Modulversion darf keine Migration auslösen. Der Preflight
-prüft einen globalen Alembic-Head, auflösbare Migrationsquellen, Schema-Ownership,
-Revision-Namespaces und die Dependency-Reihenfolge. Ein ungültiger aktueller
-DB-Head stoppt `upgrade()` vor der ersten neuen Revision.
+Eine zur Aktivierung ausgewählte, statisch inkompatible Modulversion darf keine
+Migration auslösen. Der Preflight prüft einen globalen Alembic-Head, auflösbare
+Migrationsquellen, Schema-Ownership, Revision-Namespaces und die
+Dependency-Reihenfolge. Ein ungültiger aktueller DB-Head stoppt `upgrade()` vor der
+ersten neuen Revision.
+
+Diese Compatibility-Regel gilt für die neu aktivierte Version. Eine deaktivierte,
+lokal noch verfügbare Version wird nur strukturell als passive Migrationsquelle
+gelesen und erzwingt keine Runtime-Kompatibilität oder Settings. So kann der Graph
+einen bereits angewandten alten Head weiterhin erkennen.
 
 Downgrade ist kein Disable- oder Rollback-Nebeneffekt. Er benötigt immer eine
 explizite Zielrevision, ein aktuelles Backup sowie eine geprüfte Datenverlust- und
@@ -154,8 +171,10 @@ Disable:
 
 1. ID aus beiden Enable-Variablen entfernen.
 2. Frontend neu bauen und Backend neu starten.
-3. Status, Routen und Contributions auf Abwesenheit prüfen.
-4. DB-Revision und erwartete Moduldaten unverändert bestätigen.
+3. Migrations-Preflight und idempotentes Upgrade gegen den weiterhin vollständigen
+   lokalen Graphen ausführen.
+4. Status, Routen und Contributions auf Abwesenheit prüfen.
+5. DB-Revision und erwartete Moduldaten unverändert bestätigen.
 
 Re-Enable:
 
