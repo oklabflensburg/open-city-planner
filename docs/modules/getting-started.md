@@ -188,3 +188,7 @@ Dieses Layout ist noch kein implementiertes Paketformat. Installation und
 `modules.lock` folgen in #173, das gemeinsame `.ocp` Package Bundle in #174 und die
 Distribution über eine Package Registry in #175. #110 führt weder Installer,
 Bundler noch Registry ein.
+
+Die verbindlichen Namen, Releaseversionen, Artefaktklassen und
+Supply-Chain-Metadaten für ein späteres Standalone-Modul stehen in der
+[Distribution Policy](distribution.md).
