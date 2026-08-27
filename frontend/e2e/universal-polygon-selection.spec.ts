@@ -80,7 +80,7 @@ async function clickCoordinate(page: Page, coordinate: [number, number], zoom: n
     return {
       x: bounds.left + projected.x,
       y: bounds.top + projected.y,
-      layers: map.queryRenderedFeatures(projected, { layers: ['overview-polygons-fill', 'osm-polygons-fill', 'analysis-areas-quarter-fill', 'analysis-areas-district-fill', 'analysis-areas-municipality-fill'].filter(id => map.getLayer(id)) }).map(feature => feature.layer.id)
+      layers: map.queryRenderedFeatures(projected, { layers: ['overview-polygons-fill', 'osm-polygons-fill', 'analysis-areas.quarter-fill', 'analysis-areas.district-fill', 'analysis-areas.municipality-fill'].filter(id => map.getLayer(id)) }).map(feature => feature.layer.id)
     }
   }, { coordinate, zoom })
   await page.mouse.click(point.x, point.y)

@@ -6,11 +6,11 @@ import pytest
 
 from app.cache.keys import build_cache_key, viewport_tile_bucket
 from app.cache.service import CacheService
+from app.modules.analysis_areas.application.legacy_queries import areas_geojson
 from app.schemas.analytics import AnalyticsFastFacts, AnalyticsOverview, PrimeRentData
 from app.schemas.osm import OsmViewportQuery
 from app.services import analytics as analytics_service
 from app.services import cache_versions
-from app.services.analysis_area_api import areas_geojson
 from app.services.osm_features import (
     OSM_VIEWPORT_CACHE_RESOURCE,
     osm_viewport_cache_params,

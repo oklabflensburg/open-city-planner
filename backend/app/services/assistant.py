@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal, close_session
+from app.modules.analysis_areas.application.legacy_queries import list_areas
 from app.schemas.assistant import (
     AnswerPresentation,
     AnswerPresentationSection,
@@ -32,7 +33,6 @@ from app.schemas.assistant import (
     AssistantToolName,
 )
 from app.schemas.search import SearchArea, SearchAreaType, SearchFilters, SearchGeometryFilter
-from app.services.analysis_area_api import list_areas
 from app.services.assistant_knowledge import KNOWLEDGE_VERSION, retrieve_knowledge
 from app.services.assistant_provider import (
     ASSISTANT_PROMPT_VERSION,

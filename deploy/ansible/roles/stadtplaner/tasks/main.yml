@@ -487,6 +487,16 @@
   become_user: "{{ stadtplaner_service_user }}"
   changed_when: false
 
+- name: Validate backend and frontend module inventories
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ stadtplaner_release_path }}/deploy/ansible/scripts/validate_module_inventory.py"
+      - "{{ stadtplaner_release_path }}/backend/.env"
+      - "{{ stadtplaner_release_path }}/frontend/.env"
+  become_user: "{{ stadtplaner_service_user }}"
+  changed_when: false
+
 - name: Ensure backend writable data directory exists
   ansible.builtin.file:
     path: "{{ stadtplaner_release_path }}/backend/data"

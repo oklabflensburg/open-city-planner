@@ -8,8 +8,8 @@ from sqlalchemy.orm import aliased
 from app.cache.keys import build_cache_key
 from app.cache.service import cache_service
 from app.core.config import get_settings
-from app.models.analysis_area import AnalysisArea, PolygonAnalysisArea
 from app.models.user_polygon import UserPolygon
+from app.modules.analysis_areas.persistence.models import AnalysisArea, PolygonAnalysisArea
 from app.schemas.analytics import (
     AnalyticsFastFacts,
     AnalyticsOverview,

@@ -26,7 +26,7 @@ describe('MapCanvas legacy behavior characterization', () => {
   })
 
   it('restores current sources, layers and deterministic overlay ordering', () => {
-    for (const sourceId of ['osm-pois', 'osm-polygons', 'analysis-areas', 'overview-polygons', 'selected-polygon-source']) {
+    for (const sourceId of ['osm-pois', 'osm-polygons', 'overview-polygons', 'selected-polygon-source']) {
       expect(source).toContain(`addSource('${sourceId}'`)
     }
     expect(source).toContain("id: 'host.search-results'")
@@ -41,9 +41,16 @@ describe('MapCanvas legacy behavior characterization', () => {
     expect(source).toContain('updatePolygonHover')
     expect(source).toContain('mapSelection.selectOsm')
     expect(source).toContain('mapSelection.selectPolygon')
-    expect(source).toContain('mapSelection.selectAnalysisArea')
     expect(source).toContain("window.matchMedia('(max-width: 1279px)')")
     expect(source).toContain("mapStore.openGisPanel('selection')")
+  })
+
+  it('keeps Analysis Areas out of MapCanvas and contributes it through the Map SDK', () => {
+    const canvas = readFileSync(resolve(process.cwd(), 'app/components/map/MapCanvas.vue'), 'utf8')
+    const manifest = readFileSync(resolve(process.cwd(), 'frontend-modules/analysis-areas/module.json'), 'utf8')
+    expect(canvas).not.toContain('analysis-areas')
+    expect(manifest).toContain('analysis-areas.data')
+    expect(manifest).toContain('analysis-areas.quarter-fill')
   })
 
   it('retains viewport debounce, stale-result guard, resize and preview readiness', () => {

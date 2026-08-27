@@ -2,7 +2,7 @@ import argparse
 import asyncio
 
 from app.db.session import AsyncSessionLocal
-from app.services.analysis_areas import sync_osm_analysis_areas
+from app.modules.analysis_areas.application.legacy_sync import sync_osm_analysis_areas
 from app.services.wikidata_enrichment import WikidataEnrichmentService
 
 

@@ -44,6 +44,7 @@ class RegisteredPersistence:
     metadata: MetaData
     schema: str | None
     migration_source: ModuleMigrationSource | None
+    adopted_tables: frozenset[str] = frozenset()
     legacy: bool = False
 
 
@@ -73,6 +74,7 @@ class PersistenceRegistry:
         self._legacy: RegisteredPersistence | None = None
         self._modules: dict[str, RegisteredPersistence] = {}
         self._schema_owners: dict[str, str] = {}
+        self._adopted_table_owners: dict[str, str] = {}
         self._module_order: tuple[str, ...] = ()
 
     def register_legacy(self, provider: LegacyPersistenceProvider) -> None:
@@ -129,6 +131,10 @@ class PersistenceRegistry:
             table.fullname
             for table in contribution.metadata.tables.values()
             if table.schema != contribution.schema
+            and not (
+                table.schema is None
+                and table.name in contribution.adopted_tables
+            )
         )
         if foreign_tables:
             raise ModulePersistenceError(
@@ -137,12 +143,43 @@ class PersistenceRegistry:
                 module_id=module_id,
                 schema=contribution.schema,
             )
+        unqualified_tables = {
+            table.name
+            for table in contribution.metadata.tables.values()
+            if table.schema is None
+        }
+        if contribution.adopted_tables != unqualified_tables:
+            raise ModulePersistenceError(
+                "Adopted tables must exactly match the contribution's unqualified metadata tables.",
+                module_id=module_id,
+                schema=contribution.schema,
+            )
+        if contribution.adopted_tables and any(
+            table.schema == contribution.schema
+            for table in contribution.metadata.tables.values()
+        ):
+            raise ModulePersistenceError(
+                "Adopted-table metadata cannot be combined with new schema-owned tables.",
+                module_id=module_id,
+                schema=contribution.schema,
+            )
+        for table_name in sorted(contribution.adopted_tables):
+            table_owner = self._adopted_table_owners.get(table_name)
+            if table_owner is not None:
+                raise ModulePersistenceError(
+                    f'The adopted table is already owned by module "{table_owner}".',
+                    module_id=module_id,
+                )
         self._schema_owners[contribution.schema] = module_id
+        self._adopted_table_owners.update(
+            {table_name: module_id for table_name in contribution.adopted_tables}
+        )
         self._modules[module_id] = RegisteredPersistence(
             module_id=module_id,
             metadata=contribution.metadata,
             schema=contribution.schema,
             migration_source=contribution.migration_source,
+            adopted_tables=contribution.adopted_tables,
         )
 
     def seal(self, ordered_manifests: Sequence[ModuleManifestV1]) -> None:
@@ -169,7 +206,11 @@ class PersistenceRegistry:
 
     @property
     def target_metadata(self) -> tuple[MetaData, ...]:
-        return tuple(contribution.metadata for contribution in self.contributions)
+        return tuple(
+            contribution.metadata
+            for contribution in self.contributions
+            if not contribution.adopted_tables
+        )
 
     @property
     def owned_schemas(self) -> frozenset[str]:

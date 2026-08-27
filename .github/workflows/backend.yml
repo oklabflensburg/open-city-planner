@@ -14,6 +14,7 @@ concurrency:
 env:
   APP_ENVIRONMENT: test
   DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/open_city_map_test
+  ENABLED_MODULES: analysis-areas
   REDIS_ENABLED: "false"
   MASTODON_ENABLED: "false"
   MASTODON_SSO_ENABLED: "false"

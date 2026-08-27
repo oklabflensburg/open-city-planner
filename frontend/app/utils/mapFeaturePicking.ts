@@ -32,9 +32,6 @@ type InteractivePolygonRegistration = {
 export const INTERACTIVE_POLYGON_LAYERS: readonly InteractivePolygonRegistration[] = [
   { layerId: 'overview-polygons-fill', source: 'overview-polygons', featureType: 'STADTPLANNER', idProperty: 'id', priority: 500, targetType: 'polygon' },
   { layerId: 'osm-polygons-fill', source: 'osm-polygons', featureType: 'OSM_POLYGON', idProperty: 'feature_id', priority: 400, targetType: 'osm' },
-  { layerId: 'analysis-areas-quarter-fill', source: 'analysis-areas', featureType: 'QUARTER', idProperty: 'id', priority: 300, targetType: 'analysis-area' },
-  { layerId: 'analysis-areas-district-fill', source: 'analysis-areas', featureType: 'DISTRICT', idProperty: 'id', priority: 200, targetType: 'analysis-area' },
-  { layerId: 'analysis-areas-municipality-fill', source: 'analysis-areas', featureType: 'MUNICIPALITY', idProperty: 'id', priority: 100, targetType: 'analysis-area' }
 ] as const
 
 export const MAP_INTERACTIVE_LAYERS = {
@@ -83,9 +80,7 @@ function normalizeInteractivePolygon(
   if (feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon') return null
   const id = String(feature.properties?.[registration.idProperty] ?? feature.id ?? '')
   if (!id) return null
-  const featureType = registration.source === 'analysis-areas'
-    ? String(feature.properties?.area_type || registration.featureType)
-    : registration.source === 'osm-polygons' && isContextPolygon(feature)
+  const featureType = registration.source === 'osm-polygons' && isContextPolygon(feature)
       ? 'OSM_CONTEXT_POLYGON'
       : registration.featureType
   return {

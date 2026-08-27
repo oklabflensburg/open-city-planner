@@ -2,15 +2,15 @@ import type { Map } from 'maplibre-gl'
 
 export const MAP_LAYER_GROUPS = {
   analysisAreas: [
-    'analysis-areas-municipality-fill',
-    'analysis-areas-district-fill',
-    'analysis-areas-quarter-fill',
-    'analysis-areas-municipality',
-    'analysis-areas-district',
-    'analysis-areas-quarter',
-    'analysis-areas-municipality-label',
-    'analysis-areas-district-label',
-    'analysis-areas-quarter-label'
+    'analysis-areas.municipality-fill',
+    'analysis-areas.district-fill',
+    'analysis-areas.quarter-fill',
+    'analysis-areas.municipality',
+    'analysis-areas.district',
+    'analysis-areas.quarter',
+    'analysis-areas.municipality-label',
+    'analysis-areas.district-label',
+    'analysis-areas.quarter-label'
   ],
   osmPolygons: [
     'osm-polygons-fill',

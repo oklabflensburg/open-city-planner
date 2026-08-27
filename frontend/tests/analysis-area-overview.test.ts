@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import type { AnalysisArea, AnalysisAreaType } from '~/types/analysisArea'
-import { countAnalysisAreasByType, sortAnalysisAreasByName } from '~/utils/analysisAreaOverview'
+import { countAnalysisAreasByType, sortAnalysisAreasByName } from '../frontend-modules/analysis-areas/layer/app/utils/analysisAreaOverview'
 
 const overviewPage = () => readFileSync(
-  fileURLToPath(new URL('../app/pages/gebiete/index.vue', import.meta.url)),
+  fileURLToPath(new URL('../frontend-modules/analysis-areas/layer/app/pages/gebiete/index.vue', import.meta.url)),
   'utf8'
 )
 

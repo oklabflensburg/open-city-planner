@@ -10,9 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.integrations.mastodon import MastodonClient, MastodonError
 from app.models.admin_audit_log import AdminAuditLog
-from app.models.analysis_area import AnalysisArea
 from app.models.social_publication import SocialPublication, SocialPublicationOutbox
 from app.models.user_polygon import UserPolygon
+from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.observability.metrics import OUTBOX_FAILED, OUTBOX_PROCESSED, OUTBOX_RETRY
 from app.observability.outbox import update_outbox_gauges
 from app.schemas.social import PublicAdoptedPolygonSnapshot

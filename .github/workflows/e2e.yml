@@ -14,10 +14,13 @@ concurrency:
 env:
   APP_ENVIRONMENT: test
   DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/open_city_map_e2e
+  ENABLED_MODULES: analysis-areas
   REDIS_ENABLED: "false"
   MASTODON_ENABLED: "false"
   MASTODON_SSO_ENABLED: "false"
   OSM_EXTERNAL_FALLBACK_ENABLED: "false"
+  OCP_FRONTEND_MODULES: analysis-areas
+  OCP_BACKEND_MODULES: analysis-areas@1.0.0
   NUXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8010/api/v1
   NUXT_PUBLIC_SITE_URL: http://127.0.0.1:3010
 
@@ -61,11 +64,17 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
+      - name: Verify E2E frontend module configuration
+        working-directory: frontend
+        run: pnpm modules:check
       - name: Prepare fresh database
         working-directory: backend
         run: |
           uv run alembic upgrade head
           uv run python tests/e2e_seed.py
+      - name: Verify E2E backend module configuration
+        working-directory: backend
+        run: uv run python -m app.cli.module_migrations preflight
       - name: Install Chromium
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium

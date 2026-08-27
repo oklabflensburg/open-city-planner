@@ -7,6 +7,55 @@
       "target": "app.models",
       "tracking_issue": "#108",
       "reason": "Kontrollierter Legacy-Persistence-Adapter bis zur Migration der Fachmodelle."
+    },
+    {
+      "rule": "ARCH-BE-PRIVATE-001",
+      "source": "backend/app/modules/analysis_areas/integrations/legacy.py",
+      "target": "app.cache",
+      "tracking_issue": "#108",
+      "reason": "Exakter Cache-Adapter fuer die verhaltensneutrale Pilotmigration."
+    },
+    {
+      "rule": "ARCH-BE-PRIVATE-001",
+      "source": "backend/app/modules/analysis_areas/integrations/legacy.py",
+      "target": "app.core.config",
+      "tracking_issue": "#108",
+      "reason": "Bestehende globale Response- und Preview-Konfiguration bleibt waehrend der Pilotmigration Host-owned."
+    },
+    {
+      "rule": "ARCH-BE-PRIVATE-001",
+      "source": "backend/app/modules/analysis_areas/integrations/legacy.py",
+      "target": "app.db.session",
+      "tracking_issue": "#108",
+      "reason": "FastAPI-Kompatibilitaetsrouten verwenden bis zur generischen Request-Session-Dependency den bestehenden Host-Adapter."
+    },
+    {
+      "rule": "ARCH-BE-PRIVATE-001",
+      "source": "backend/app/modules/analysis_areas/integrations/legacy.py",
+      "target": "app.models.user_polygon",
+      "tracking_issue": "#129",
+      "reason": "Polygon-Kompatibilitaetsendpunkte bleiben bis zur Polygon-Modulmigration hinter einem exakten Adapter."
+    },
+    {
+      "rule": "ARCH-BE-PRIVATE-001",
+      "source": "backend/app/modules/analysis_areas/integrations/legacy.py",
+      "target": "app.schemas",
+      "tracking_issue": "#128",
+      "reason": "Statistics- und Analytics-Responsevertraege behalten in #107 ihre bestehende Ownership."
+    },
+    {
+      "rule": "ARCH-BE-PRIVATE-001",
+      "source": "backend/app/modules/analysis_areas/integrations/legacy.py",
+      "target": "app.services",
+      "tracking_issue": "#128",
+      "reason": "Statistics, Analytics, Preview und Security bleiben ueber den isolierten Compatibility-Adapter angebunden."
+    },
+    {
+      "rule": "ARCH-BE-PRIVATE-001",
+      "source": "backend/app/modules/analysis_areas/persistence/models.py",
+      "target": "app.db.base",
+      "tracking_issue": "#127",
+      "reason": "Die unveraenderte Production-Tabelle bleibt bis zur vollstaendigen Legacy-Metadata-Aufteilung im gemeinsamen Declarative Base registriert."
     }
   ]
 }

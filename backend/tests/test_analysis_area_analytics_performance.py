@@ -1,6 +1,7 @@
 import re
 import uuid
 from collections import Counter
+from importlib import import_module
 from unittest.mock import AsyncMock
 
 import httpx
@@ -8,12 +9,15 @@ import pytest
 from shapely.geometry import LineString, Point, Polygon
 from sqlalchemy.exc import DBAPIError
 
-from app.api import analysis_areas as analysis_area_api_routes
+analysis_area_api_routes = import_module("app.modules.analysis_areas.api.router")
 from app.db.session import get_session
 from app.main import app
 from app.models.osm_feature import OsmFeature
-from app.services import analysis_area_api
-from app.services.analysis_area_api import AREA_POI_ANALYTICS_SQL, _area_poi_categories
+from app.modules.analysis_areas.application import legacy_queries as analysis_area_api
+from app.modules.analysis_areas.application.legacy_queries import (
+    AREA_POI_ANALYTICS_SQL,
+    _area_poi_categories,
+)
 
 
 class Rows:

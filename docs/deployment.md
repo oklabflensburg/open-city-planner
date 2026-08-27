@@ -107,6 +107,13 @@ Preflight fehlschlägt. Beide Variablen sind komma-separierte technische IDs und
 enthalten keine Secrets. Leer bedeutet: keine optionalen Frontend-Module. Details
 stehen unter [Frontend-Host und Build-Time-Module](modules/frontend-host.md).
 
+Das Ansible-Deployment vergleicht vor Installation, Migration und Build die in
+`ENABLED_MODULES` aktivierten Backend-IDs exakt mit den IDs aus
+`OCP_BACKEND_MODULES`; Versionsangaben im Frontend-Inventar werden dabei entfernt.
+Ein abweichendes oder nur einseitig deaktiviertes Inventar stoppt das Deployment
+vor der Aktivierung. Der Nuxt-Modul-Preflight prüft anschließend weiterhin, ob die
+aktivierten Frontend-Module ihre deklarierten Backend-Abhängigkeiten erfüllen.
+
 ## Environment
 
 Kopieren Sie `.env.example` nicht ungeprüft als Produktionskonfiguration. Die Beispiele enthalten Entwicklungswerte und leere optionale Integrationen. Maßgeblich sind `backend/.env.example`, `frontend/.env.example` und `backend/app/core/config.py`.

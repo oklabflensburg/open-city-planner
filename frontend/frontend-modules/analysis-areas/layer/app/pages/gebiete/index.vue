@@ -142,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { countAnalysisAreasByType, sortAnalysisAreasByName } from '~/utils/analysisAreaOverview'
+import { countAnalysisAreasByType, sortAnalysisAreasByName } from '../../utils/analysisAreaOverview'
 import {
   buildAbsoluteUrl,
   buildBreadcrumbStructuredData,
@@ -152,7 +152,7 @@ import {
   buildSeoImageUrl,
   serializeStructuredData,
   toMetaDescription
-} from '~/utils/seo'
+} from '#frontend-module-sdk'
 
 type AreaFaqItem = {
   id: string

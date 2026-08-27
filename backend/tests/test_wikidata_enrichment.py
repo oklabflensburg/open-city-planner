@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from app.core.config import Settings
-from app.services.analysis_area_api import _read
+from app.modules.analysis_areas.application.legacy_queries import _read
 from app.services.wikidata_enrichment import (
     Match,
     WikidataClient,

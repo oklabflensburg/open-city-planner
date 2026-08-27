@@ -6,7 +6,7 @@ from typing import Protocol
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.analysis_area import AnalysisArea
+from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.schemas.search import (
     SearchArea,
     SearchAreaType,

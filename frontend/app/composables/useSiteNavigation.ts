@@ -11,7 +11,6 @@ export type NavigationItem = {
 
 export const hostPrimaryNavigation = [
   { label: 'Karte', to: '/karte' },
-  { label: 'Gebiete', to: '/gebiete' },
   { label: 'Über das Projekt', to: '/ueber-das-projekt' },
   { label: 'Dokumentation', to: '/dokumentation' }
 ] as const

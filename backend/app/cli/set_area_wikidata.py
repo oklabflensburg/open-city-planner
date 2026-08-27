@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionLocal
-from app.models.analysis_area import AnalysisArea
+from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.services.wikidata_enrichment import QID_RE, WikidataClient, WikidataEnrichmentService
 
 

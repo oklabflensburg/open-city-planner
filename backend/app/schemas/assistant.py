@@ -3,7 +3,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.schemas.analysis_area import AnalysisAreaAnalytics, AnalysisAreaDetail, AnalysisAreaPolygon
+from app.modules.analysis_areas.api.schemas import (
+    AnalysisAreaAnalytics,
+    AnalysisAreaDetail,
+    AnalysisAreaPolygon,
+)
 from app.schemas.analytics import AreaCompareResult, LocationAnalysis
 from app.schemas.geojson import PublicPolygonDetail
 from app.schemas.search import (

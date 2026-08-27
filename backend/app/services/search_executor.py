@@ -3,17 +3,17 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.analysis_areas.application.legacy_queries import (
+    area_analytics,
+    area_comparison,
+    area_detail_by_slug,
+    areas_geojson,
+)
 from app.schemas.search import (
     SearchIntent,
     SearchMapAction,
     SearchPlan,
     SearchResponse,
-)
-from app.services.analysis_area_api import (
-    area_analytics,
-    area_comparison,
-    area_detail_by_slug,
-    areas_geojson,
 )
 from app.services.osm_canonical import (
     osm_business_category_sql,

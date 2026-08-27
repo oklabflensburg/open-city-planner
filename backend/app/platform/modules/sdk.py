@@ -103,6 +103,12 @@ class ModulePersistenceContribution:
     metadata: MetaData
     schema: str
     migration_source: ModuleMigrationSource | None = None
+    adopted_tables: frozenset[str] = frozenset()
+
+    def __post_init__(self) -> None:
+        for table_name in self.adopted_tables:
+            if not re.fullmatch(r"[a-z_][a-z0-9_]*", table_name):
+                raise ValueError("Adopted table names must be unqualified PostgreSQL identifiers.")
 
 
 @dataclass(frozen=True, slots=True)

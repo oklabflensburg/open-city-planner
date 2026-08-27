@@ -5,6 +5,13 @@ from typing import Any
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.analysis_areas.application.legacy_queries import (
+    area_analytics,
+    area_detail_by_slug,
+    area_polygons_by_slug,
+    area_uuid_by_slug,
+    list_areas,
+)
 from app.schemas.analytics import AreaCompareFilters, AreaCompareRequest
 from app.schemas.assistant import (
     AreaAnalyticsInput,
@@ -46,13 +53,6 @@ from app.schemas.search import (
     SearchMapActionType,
     SearchPlan,
     SearchPresentation,
-)
-from app.services.analysis_area_api import (
-    area_analytics,
-    area_detail_by_slug,
-    area_polygons_by_slug,
-    area_uuid_by_slug,
-    list_areas,
 )
 from app.services.analytics import compare_areas
 from app.services.area_statistics import (

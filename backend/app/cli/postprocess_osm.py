@@ -7,9 +7,9 @@ from time import monotonic
 from sqlalchemy import text
 
 from app.db.session import AsyncSessionLocal
+from app.modules.analysis_areas.application.legacy_sync import sync_osm_analysis_areas
 from app.observability.jobs import observed_job
 from app.observability.metrics import OSM_REPLICATION_LAG
-from app.services.analysis_areas import sync_osm_analysis_areas
 from app.services.cache_versions import bump_cache_versions
 from app.services.wikidata_enrichment import WikidataEnrichmentService
 

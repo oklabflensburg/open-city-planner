@@ -1,5 +1,9 @@
-from app.models.analysis_area import AnalysisArea, PolygonAnalysisArea
-from app.services.analysis_areas import CANDIDATES_SQL, PARENT_SQL, UPSERT_SQL
+from app.modules.analysis_areas.application.legacy_sync import (
+    CANDIDATES_SQL,
+    PARENT_SQL,
+    UPSERT_SQL,
+)
+from app.modules.analysis_areas.persistence.models import AnalysisArea, PolygonAnalysisArea
 
 
 def test_analysis_area_model_enforces_hierarchy_and_spatial_index() -> None:

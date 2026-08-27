@@ -1,5 +1,4 @@
 from app.models.admin_audit_log import AdminAuditLog
-from app.models.analysis_area import AnalysisArea, PolygonAnalysisArea
 from app.models.cache_version import CacheVersion
 from app.models.city_metrics import CityMetrics
 from app.models.domain_event_outbox import DomainEventOutbox, EventDelivery
@@ -36,6 +35,7 @@ from app.models.user import User
 from app.models.user_polygon import UserPolygon
 from app.models.user_session import UserSession
 from app.models.verification_token import EmailVerificationToken
+from app.modules.analysis_areas.persistence.models import AnalysisArea, PolygonAnalysisArea
 
 __all__ = [
     "AdminAuditLog",

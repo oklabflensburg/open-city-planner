@@ -54,3 +54,15 @@ export {
   type SelectionManagerApi
 } from './map-contract.ts'
 export { MAP_CONTEXT_KEY, useMapContext } from './map-vue.ts'
+export {
+  buildAbsoluteUrl,
+  buildBreadcrumbStructuredData,
+  buildCollectionPageStructuredData,
+  buildFaqStructuredData,
+  buildItemListStructuredData,
+  buildSeoImageUrl,
+  serializeStructuredData,
+  toMetaDescription
+} from '../app/utils/seo'
+export { getIndustryColor, getIndustryLabel } from '../app/utils/industries'
+export { areaPoiMapLink, getPoiCategoryLabel } from '../app/utils/poiCategories'

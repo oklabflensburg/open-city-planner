@@ -8,7 +8,7 @@ from app.cli.postprocess_osm import (
     UPSERT_SQL,
     parse_timestamp,
 )
-from app.services.analysis_areas import sync_osm_analysis_areas
+from app.modules.analysis_areas.application.legacy_sync import sync_osm_analysis_areas
 
 
 def test_osm_sync_uses_exact_schleswig_holstein_boundary_and_deletes() -> None:

@@ -4,10 +4,11 @@ import { describe, expect, it } from 'vitest'
 import { mapHostSource } from './map-host-source'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
+const moduleFile = (path: string) => readFileSync(fileURLToPath(new URL(`../frontend-modules/analysis-areas/layer/app/${path}`, import.meta.url)), 'utf8')
 
 describe('public analysis area pages', () => {
   it('loads one shared municipality, district and quarter template during SSR', () => {
-    const page = appFile('pages/gebiete/[slug].vue')
+    const page = moduleFile('pages/gebiete/[slug].vue')
     expect(page).toContain('await useAsyncData')
     expect(page).toContain('api.bySlug')
     expect(page).toContain("MUNICIPALITY: 'Gemeinde'")
@@ -17,7 +18,7 @@ describe('public analysis area pages', () => {
   })
 
   it('renders real metrics, comparison, hierarchy and missing values as a dash', () => {
-    const page = appFile('pages/gebiete/[slug].vue')
+    const page = moduleFile('pages/gebiete/[slug].vue')
     for (const content of ['Kennzahlen', 'Leerstandsquote', 'Filialisierungsgrad', 'Branchenverteilung', 'Orte und Einrichtungen im Gebiet', 'Untergeordnete Gebiete', 'Flächen im Gebiet']) {
       expect(page).toContain(content)
     }
@@ -39,7 +40,7 @@ describe('public analysis area pages', () => {
   })
 
   it('renders only persisted external sources with safe new-tab semantics', () => {
-    const page = appFile('pages/gebiete/[slug].vue')
+    const page = moduleFile('pages/gebiete/[slug].vue')
     const links = appFile('components/analysis/AreaExternalLinks.vue')
     const sourceLink = appFile('components/analysis/ExternalSourceLink.vue')
     expect(page).toContain('Externe Quellen')
@@ -53,7 +54,7 @@ describe('public analysis area pages', () => {
   })
 
   it('links area pages and the GIS selection in both directions', () => {
-    expect(appFile('pages/gebiete/[slug].vue')).toContain("path: '/karte', query: { gebiet: area.slug }")
+    expect(moduleFile('pages/gebiete/[slug].vue')).toContain("path: '/karte', query: { gebiet: area.slug }")
     expect(appFile('components/analysis/AnalysisAreaCard.vue')).toContain('`/gebiete/${area.slug}`')
     const map = mapHostSource()
     expect(map).toContain('route.query.area')
@@ -62,7 +63,7 @@ describe('public analysis area pages', () => {
   })
 
   it('uses central industry colors and accessible links for localized places', () => {
-    const page = appFile('pages/gebiete/[slug].vue')
+    const page = moduleFile('pages/gebiete/[slug].vue')
     expect(page).toContain('getIndustryColor(item.category)')
     expect(page).toContain('getPoiCategoryLabel(item.category)')
     expect(page).toContain('areaPoiMapLink(area.slug, item.category)')

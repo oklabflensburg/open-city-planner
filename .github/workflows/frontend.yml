@@ -89,20 +89,35 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
-      - name: Run frontend module preflight
+      - name: Validate production module configuration
         working-directory: frontend
+        env:
+          OCP_FRONTEND_MODULES: analysis-areas
+          OCP_BACKEND_MODULES: analysis-areas@1.0.0
         run: pnpm modules:check
       - name: Build Nuxt application with example module
         working-directory: frontend
         env:
           OCP_FRONTEND_MODULES: example-module
         run: pnpm build
-      - name: Build Nuxt application without optional modules
+      - name: Build production Nuxt application with analysis areas
         working-directory: frontend
+        env:
+          OCP_FRONTEND_MODULES: analysis-areas
+          OCP_BACKEND_MODULES: analysis-areas@1.0.0
         run: pnpm build
       - name: Audit production SSR metadata
         working-directory: frontend
+        env:
+          OCP_FRONTEND_MODULES: analysis-areas
+          OCP_BACKEND_MODULES: analysis-areas@1.0.0
         run: pnpm audit:seo
+      - name: Build Nuxt application without optional modules
+        working-directory: frontend
+        env:
+          OCP_FRONTEND_MODULES: ''
+          OCP_BACKEND_MODULES: ''
+        run: pnpm build
 
   frontend-language-audit:
     name: Frontend language audit

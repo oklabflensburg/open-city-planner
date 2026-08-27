@@ -1,22 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { mapHostSource } from './map-host-source'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const appFile = (path: string) => readFileSync(resolve(process.cwd(), 'app', path), 'utf8')
 
 describe('hierarchical analysis areas', () => {
-  it('renders three zoom-dependent administrative layers with central click priority', () => {
-    const map = mapHostSource()
+  it('contributes three zoom-dependent administrative layers with module-owned click priority', () => {
+    const manifest = JSON.parse(readFileSync(
+      resolve(process.cwd(), 'frontend-modules/analysis-areas/module.json'),
+      'utf8'
+    ))
+    const runtime = readFileSync(
+      resolve(process.cwd(), 'frontend-modules/analysis-areas/layer/app/components/AnalysisAreasMapRuntime.vue'),
+      'utf8'
+    )
     const picking = appFile('utils/mapFeaturePicking.ts')
-    expect(map).toContain("type: 'MUNICIPALITY', minzoom: 7")
-    expect(map).toContain("type: 'DISTRICT', minzoom: 9.5")
-    expect(map).toContain("type: 'QUARTER', minzoom: 11.5")
-    expect(picking).toContain('INTERACTIVE_POLYGON_LAYERS')
+    const layers = manifest.publicContributions.map.layers
+    expect(layers.find((layer: { id: string }) => layer.id === 'analysis-areas.municipality-fill').layer.minzoom).toBe(7)
+    expect(layers.find((layer: { id: string }) => layer.id === 'analysis-areas.district-fill').layer.minzoom).toBe(9.5)
+    expect(layers.find((layer: { id: string }) => layer.id === 'analysis-areas.quarter-fill').layer.minzoom).toBe(11.5)
+    expect(runtime).toContain("id: 'analysis-areas.select'")
+    expect(runtime).toContain('priority: 20')
+    expect(runtime.indexOf("'analysis-areas.quarter-fill'")).toBeLessThan(runtime.indexOf("'analysis-areas.district-fill'"))
+    expect(runtime.indexOf("'analysis-areas.district-fill'")).toBeLessThan(runtime.indexOf("'analysis-areas.municipality-fill'"))
+    expect(picking).not.toContain("featureType: 'QUARTER'")
     expect(picking).toContain("featureType: 'STADTPLANNER'")
     expect(picking).toContain("featureType: 'OSM_POLYGON'")
-    expect(picking.indexOf("featureType: 'QUARTER'")).toBeLessThan(picking.indexOf("featureType: 'DISTRICT'"))
-    expect(picking.indexOf("featureType: 'DISTRICT'")).toBeLessThan(picking.indexOf("featureType: 'MUNICIPALITY'"))
   })
 
   it('uses one shared selection abstraction and responsive sidebars', () => {

@@ -220,6 +220,49 @@ def test_module_metadata_cannot_own_tables_outside_declared_schema() -> None:
         PersistenceRegistry().register(manifest, contribution)
 
 
+def test_existing_unqualified_table_can_be_adopted_explicitly() -> None:
+    manifest = module_manifest("example-a", "example_a")
+    metadata = MetaData()
+    Table("existing_items", metadata, Column("id", Integer, primary_key=True))
+    contribution = ModulePersistenceContribution(
+        module_id="example-a",
+        metadata=metadata,
+        schema="example_a",
+        adopted_tables=frozenset({"existing_items"}),
+    )
+    registry = PersistenceRegistry()
+
+    registry.register(manifest, contribution)
+    registry.seal((manifest,))
+
+    assert registry.contributions[0].adopted_tables == frozenset({"existing_items"})
+    assert registry.target_metadata == ()
+
+
+def test_adopted_table_declaration_must_match_metadata() -> None:
+    manifest = module_manifest("example-a", "example_a")
+    contribution = ModulePersistenceContribution(
+        module_id="example-a",
+        metadata=MetaData(),
+        schema="example_a",
+        adopted_tables=frozenset({"existing_items"}),
+    )
+
+    with pytest.raises(ModulePersistenceError, match="exactly match"):
+        PersistenceRegistry().register(manifest, contribution)
+
+
+@pytest.mark.parametrize("table_name", ("public.items", "Items", "items-name"))
+def test_adopted_table_names_must_be_unqualified_identifiers(table_name: str) -> None:
+    with pytest.raises(ValueError, match="unqualified PostgreSQL identifiers"):
+        ModulePersistenceContribution(
+            module_id="example-a",
+            metadata=MetaData(),
+            schema="example_a",
+            adopted_tables=frozenset({table_name}),
+        )
+
+
 @pytest.mark.parametrize(
     "resource",
     ("../migrations", "/tmp/migrations", "https://example.invalid/migrations"),

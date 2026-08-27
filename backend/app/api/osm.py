@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cache.service import last_cache_status
 from app.core.config import get_settings
 from app.db.session import get_session
-from app.models.analysis_area import AnalysisArea
+from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.schemas.osm import OsmObjectInfo, OsmViewportFeatureCollection, OsmViewportQuery
 from app.schemas.polygon_filters import PolygonFilterParams, polygon_filter_query
 from app.services.osm_features import (

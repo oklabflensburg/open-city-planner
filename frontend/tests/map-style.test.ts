@@ -10,6 +10,10 @@ import {
 import { mapHostSource } from './map-host-source'
 
 const style = JSON.parse(readFileSync(resolve(process.cwd(), 'public/map-styles/stadtplaner-light.json'), 'utf8'))
+const analysisAreasModule = readFileSync(
+  resolve(process.cwd(), 'frontend-modules/analysis-areas/module.json'),
+  'utf8'
+)
 const mapCanvas = mapHostSource()
 const availableSourceLayers = new Set([
   'ocean', 'water_polygons', 'land', 'water_lines', 'dam_polygons', 'dam_lines',
@@ -48,8 +52,8 @@ describe('Stadtplaner Light map style', () => {
       expect(layer.layout['text-font']).toMatchObject([expect.stringMatching(/^noto_sans_/)])
     }
     expect(mapCanvas).toContain("['get', 'point_count_abbreviated'], 'text-font': ['noto_sans_regular']")
-    expect(mapCanvas.match(/'text-font': \['noto_sans_regular'\]/g)).toHaveLength(3)
-    expect(`${JSON.stringify(style)}${mapCanvas}`).not.toContain('Arial Unicode MS')
+    expect(analysisAreasModule.match(/"text-font": \["noto_sans_regular"\]/g)).toHaveLength(3)
+    expect(`${JSON.stringify(style)}${mapCanvas}${analysisAreasModule}`).not.toContain('Arial Unicode MS')
   })
 
   it('loads Neutrino only after the configured/local style fails', async () => {
