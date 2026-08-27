@@ -113,6 +113,12 @@ ENABLED_MODULES=reference uv run python -m app.cli.module_migrations preflight
 ENABLED_MODULES=reference uv run python -m app.cli.module_migrations upgrade
 ```
 
+Vor Erzeugung des Coordinators validiert der CLI-Einstieg die Settings Contributions
+aller aktiven Module über dieselbe `ModuleSettingsRegistry` wie die Runtime. Eine
+fehlende oder ungültige Modulkonfiguration stoppt damit vor Preflight und Upgrade.
+Die vollständige Reihenfolge und Recovery-Policy steht unter
+[Modul-Lifecycle](lifecycle.md).
+
 Ein Downgrade akzeptiert absichtlich nur ein explizites Ziel, zum Beispiel
 `python -m app.cli.module_migrations downgrade <revision>`.
 

@@ -8,6 +8,8 @@ import {
   resolveFrontendModules
 } from '../module-host/discovery'
 import { FRONTEND_MODULE_SDK_VERSION } from '../module-host/contract'
+import { createMapExtensionDefinitionRegistry } from '../module-host/map-definition-registry'
+import { createFrontendContributionRegistry } from '../module-host/ui-registry'
 
 const temporaryDirectories: string[] = []
 
@@ -57,6 +59,47 @@ describe('frontend build-time module host', () => {
     expect(discoverFrontendModules(paths.modulesDirectory).map(module => module.id)).toEqual(['alpha', 'zeta'])
     expect(resolveFrontendModules({ ...paths, enabledModules: 'zeta,alpha' }).map(module => module.id)).toEqual(['alpha', 'zeta'])
     expect(resolveFrontendModules({ ...paths, enabledModules: '' })).toEqual([])
+  })
+
+  it('omits every route, UI and map contribution when a module is disabled', () => {
+    const paths = fixture()
+    addModule(paths.modulesDirectory, 'full-stack', {
+      backendModuleId: 'full-stack',
+      publicContributions: {
+        routes: [{ path: '/full-stack', source: 'layer/app/pages/full-stack.vue' }],
+        ui: [{
+          id: 'full-stack.navigation',
+          slot: 'navigation.primary',
+          label: 'Full Stack',
+          to: '/full-stack'
+        }],
+        map: {
+          sources: [{
+            id: 'full-stack.items',
+            source: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } }
+          }],
+          layers: [{
+            id: 'full-stack.items',
+            sourceId: 'full-stack.items',
+            layer: { type: 'circle', paint: { 'circle-radius': 4, 'circle-color': '#154d73' } },
+            group: 'overlay'
+          }]
+        }
+      }
+    })
+
+    const resolved = resolveFrontendModules({
+      ...paths,
+      enabledModules: '',
+      backendModules: 'full-stack@1.0.0'
+    })
+    const ui = createFrontendContributionRegistry(resolved, [])
+    const map = createMapExtensionDefinitionRegistry(resolved).snapshot()
+
+    expect(resolved).toEqual([])
+    expect(ui.all()).toEqual([])
+    expect(map.sources).toEqual([])
+    expect(map.layers).toEqual([])
   })
 
   it('fails for missing enabled modules', () => {

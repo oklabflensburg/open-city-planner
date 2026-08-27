@@ -79,13 +79,17 @@ uv run python -m app.cli.module_migrations upgrade
 
 Die Alembic-Befehle bleiben für die veröffentlichte Host-/Legacy-Historie maßgeblich.
 Der anschließende generische Modul-CLI löst die in `ENABLED_MODULES` konfigurierten,
-installierten Migrationsquellen auf, prüft den gemeinsamen linearen Graph und führt
-ausstehende Modulrevisionen vor der Aktivierung aus. Installierte Module mit eigenen
-Migrationen folgen damit dem in
+installierten Migrationsquellen auf und führt zuerst die vorhandene Settings Registry
+für alle aktiven Module aus. Fehlende oder ungültige Modulsettings stoppen damit vor
+dem Migrations-Preflight. Anschließend prüft er den gemeinsamen linearen Graphen und
+führt ausstehende Modulrevisionen vor der Aktivierung aus. Installierte Module mit
+eigenen Migrationen werden damit durch den in
 [ADR #97](architecture/adr-module-database-and-migration-ownership.md)
 beschriebenen Persistence-Preflight geprüft. Bereits angewandte Migrationsquellen
 müssen auch bei deaktiviertem Modul installiert und im Migrationsinventar auflösbar
 bleiben; Deaktivierung führt nie automatisch einen Downgrade aus.
+Die vollständige Enable-, Disable- und Fehler-Recovery-Policy steht im
+[Modul-Lifecycle-Runbook](modules/lifecycle.md).
 
 Die produktive Installation verwendet keine Development-Extras. CI und lokale
 Vorabprüfungen ergänzen dagegen `--extra dev` für Pytest und Ruff. Beide Pfade

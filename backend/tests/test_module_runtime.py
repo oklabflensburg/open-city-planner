@@ -7,12 +7,14 @@ import pytest
 from fastapi import FastAPI
 
 from app.api.router import api_router
+from app.platform.events import InProcessEventBus
 from app.platform.modules import (
     DuplicateModuleIdError,
     EntryPointModuleDiscovery,
     FirstPartyModuleDiscovery,
     MissingModuleDependencyError,
     ModuleCompatibilityError,
+    ModuleContext,
     ModuleDefinition,
     ModuleDependencyCycleError,
     ModuleDiscoveryError,
@@ -27,6 +29,7 @@ from app.platform.modules import (
     parse_manifest,
 )
 from app.platform.modules import discovery as discovery_module
+from app.platform.modules.context import ModuleContextFactory
 from app.platform.modules.contracts import ModuleDiscoveryProvider
 from app.platform.modules.discovery import ENTRY_POINT_GROUP
 from tests.fixtures.example_backend_module import DEFINITION as EXAMPLE_DEFINITION
@@ -261,6 +264,18 @@ def test_required_dependency_on_disabled_module_fails() -> None:
     assert isinstance(error.value.__cause__, MissingModuleDependencyError)
 
 
+def test_optional_dependency_on_disabled_module_still_allows_registration() -> None:
+    consumer = definition(
+        "consumer", optional={"disabled-base": ">=1.0.0,<2.0.0"}
+    )
+    runtime = runtime_for([consumer], enabled=("consumer",))
+
+    runtime.register(FastAPI())
+
+    assert runtime.module_ids == ("consumer",)
+    assert runtime.operational_status.modules[0].registered is True
+
+
 def test_dependency_cycle_is_reported_by_manifest_graph() -> None:
     module_a = definition("module-a", required={"module-b": ">=1.0.0,<2.0.0"})
     module_b = definition("module-b", required={"module-a": ">=1.0.0,<2.0.0"})
@@ -325,6 +340,35 @@ def test_registration_failure_is_fail_fast_and_registration_is_single_use() -> N
 
 
 @pytest.mark.asyncio
+async def test_partial_registration_failure_does_not_attach_collected_routers() -> None:
+    runtime = runtime_for(
+        [
+            EXAMPLE_DEFINITION,
+            definition(
+                "z-broken-module",
+                registration_error=RuntimeError("register failed"),
+            ),
+        ]
+    )
+    app = FastAPI()
+
+    with pytest.raises(ModuleRegistrationError) as error:
+        runtime.register(app)
+
+    assert error.value.module_id == "z-broken-module"
+    assert error.value.origin == "test:z-broken-module"
+    assert [module.registered for module in runtime.operational_status.modules] == [
+        True,
+        False,
+    ]
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/api/v1/module-test/ping")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_router_registration_coexists_with_legacy_router() -> None:
     runtime = runtime_for([EXAMPLE_DEFINITION])
     app = FastAPI()
@@ -353,6 +397,53 @@ async def test_disabled_fixture_module_has_no_route() -> None:
     ) as client:
         response = await client.get("/api/v1/module-test/ping")
     assert response.status_code == 404
+
+
+def test_disabled_module_registers_no_event_subscriber_or_lifecycle_hook() -> None:
+    manifest = parse_manifest(manifest_data("subscriber-module"))
+    event_bus = InProcessEventBus()
+    loaded: list[str] = []
+
+    class SubscriberModule:
+        def __init__(self) -> None:
+            self.manifest = manifest
+            loaded.append("loaded")
+
+        def register(self, context: ModuleContext) -> None:
+            assert context.events is not None
+
+            async def handle(_event) -> None:
+                return None
+
+            context.events.subscribe(
+                "publisher.changed",
+                handler_id="subscriber-module.handle-change",
+                versions=frozenset({1}),
+                handler=handle,
+            )
+
+            async def startup() -> None:
+                return None
+
+            context.lifecycle.add_lifecycle(startup=startup)
+
+    disabled = ModuleDefinition(
+        manifest,
+        SubscriberModule,
+        "test:subscriber-module",
+        "subscriber-module",
+    )
+    runtime = create_module_runtime(
+        enabled_module_ids=(),
+        discovery_providers=(FakeDiscovery((disabled,)),),
+        host_version="0.2.0",
+        context_factory=ModuleContextFactory(event_bus=event_bus),
+    )
+    runtime.register(FastAPI())
+
+    assert runtime.module_ids == ()
+    assert loaded == []
+    assert event_bus.subscriptions == ()
 
 
 @pytest.mark.asyncio

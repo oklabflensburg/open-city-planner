@@ -9,6 +9,7 @@ import pytest_asyncio
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
+from fastapi import FastAPI
 from geoalchemy2 import Geometry
 from sqlalchemy import Column, Integer, MetaData, String, Table, func, insert, select, text, true
 from sqlalchemy.engine import URL, make_url
@@ -29,6 +30,7 @@ from app.platform.modules import (
     ModuleMigrationSource,
     ModulePersistenceContribution,
     ModulePersistenceError,
+    ModuleStartupError,
     parse_manifest,
     resolve_module_definitions,
     validate_manifests,
@@ -44,7 +46,7 @@ from app.platform.modules.persistence import (
 )
 from tests.fixtures.example_backend_module import DEFINITION as EXAMPLE_DEFINITION
 from tests.fixtures.example_persistence_module import DEFINITION as DEPENDENT_DEFINITION
-from tests.test_module_runtime import FakeDiscovery
+from tests.test_module_runtime import FakeDiscovery, definition, runtime_for
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
@@ -519,6 +521,96 @@ async def test_reference_module_migration_up_down_and_seed_data(
         revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
     assert revision == "mod_reference_20260826_0001"
     await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_reference_module_reenable_reuses_existing_revision_and_data(
+    fresh_database_url: str,
+) -> None:
+    enabled = resolve_module_definitions(
+        enabled_module_ids=("reference",),
+        discovery_providers=(FakeDiscovery((REFERENCE_DEFINITION,)),),
+        host_version="0.2.0",
+    )
+    config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    config.attributes["database_url"] = fresh_database_url
+    coordinator = MigrationCoordinator(config, build_persistence_registry(enabled))
+    await asyncio.to_thread(coordinator.upgrade)
+
+    engine = create_async_engine(fresh_database_url)
+    async with engine.connect() as connection:
+        before_disable = await connection.scalar(text("SELECT count(*) FROM reference.items"))
+
+    disabled = resolve_module_definitions(
+        enabled_module_ids=(),
+        discovery_providers=(FakeDiscovery((REFERENCE_DEFINITION,)),),
+        host_version="0.2.0",
+    )
+    assert build_persistence_registry(disabled, include_legacy=False).contributions == ()
+    async with engine.connect() as connection:
+        while_disabled = await connection.scalar(text("SELECT count(*) FROM reference.items"))
+
+    reenabled = resolve_module_definitions(
+        enabled_module_ids=("reference",),
+        discovery_providers=(FakeDiscovery((REFERENCE_DEFINITION,)),),
+        host_version="0.2.0",
+    )
+    reenable_config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    reenable_config.attributes["database_url"] = fresh_database_url
+    await asyncio.to_thread(
+        MigrationCoordinator(
+            reenable_config, build_persistence_registry(reenabled)
+        ).upgrade
+    )
+    async with engine.connect() as connection:
+        after_reenable = await connection.scalar(text("SELECT count(*) FROM reference.items"))
+
+    assert (before_disable, while_disabled, after_reenable) == (2, 2, 2)
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_successful_migration_then_startup_failure_does_not_downgrade(
+    fresh_database_url: str,
+) -> None:
+    resolved = resolve_module_definitions(
+        enabled_module_ids=("reference",),
+        discovery_providers=(FakeDiscovery((REFERENCE_DEFINITION,)),),
+        host_version="0.2.0",
+    )
+    config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    config.attributes["database_url"] = fresh_database_url
+    await asyncio.to_thread(
+        MigrationCoordinator(config, build_persistence_registry(resolved)).upgrade
+    )
+
+    runtime = runtime_for(
+        [
+            definition(
+                "failing-module",
+                events=[],
+                startup_error=RuntimeError("startup failed"),
+            )
+        ]
+    )
+    runtime.register(FastAPI())
+    with pytest.raises(ModuleStartupError, match="startup"):
+        await runtime.startup()
+
+    engine = create_async_engine(fresh_database_url)
+    async with engine.connect() as connection:
+        revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
+        count = await connection.scalar(text("SELECT count(*) FROM reference.items"))
+    assert revision == "mod_reference_20260826_0001"
+    assert count == 2
+    await engine.dispose()
+
+
+def test_downgrade_requires_an_explicit_target_before_preflight() -> None:
+    coordinator = migration_coordinator("postgresql+asyncpg://unused:unused@localhost/unused")
+
+    with pytest.raises(ValueError, match="explicit downgrade target"):
+        coordinator.downgrade("")
 
 
 @pytest.mark.asyncio
