@@ -19,6 +19,19 @@ async def test_health_live_is_liveness_only() -> None:
 
 
 @pytest.mark.asyncio
+async def test_public_health_info_does_not_expose_module_operations() -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=main_module.app),
+        base_url="https://api.stadtplaner.oklabflensburg.de",
+    ) as client:
+        response = await client.get("/health/info")
+
+    assert response.status_code == 200
+    assert set(response.json()) == {"version", "release_sha", "environment"}
+    assert "modules" not in response.text
+
+
+@pytest.mark.asyncio
 async def test_health_ready_reports_database_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_database_health() -> str:
         return "down"

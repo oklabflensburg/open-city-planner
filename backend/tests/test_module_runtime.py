@@ -234,6 +234,8 @@ def test_incompatible_runtime_version_is_fail_fast(
 
     assert isinstance(error.value.__cause__, ModuleCompatibilityError)
     assert error.value.__cause__.target == target
+    assert error.value.module_id == definition_value.declared_id
+    assert error.value.origin == f"test:{definition_value.declared_id}"
 
 
 def test_required_dependency_and_optional_dependency_define_load_order() -> None:
@@ -312,6 +314,8 @@ def test_registration_failure_is_fail_fast_and_registration_is_single_use() -> N
     )
     with pytest.raises(ModuleRegistrationError, match="module_id=broken-module"):
         broken.register(FastAPI())
+    assert broken.operational_status.modules[0].status == "loaded"
+    assert broken.operational_status.modules[0].registered is False
 
     runtime = runtime_for([])
     app = FastAPI()
@@ -388,6 +392,7 @@ async def test_startup_failure_cleans_up_already_started_modules() -> None:
 
     assert error.value.module_id == "module-b"
     assert events == ["start:module-a", "start:module-b", "stop:module-a"]
+    assert {module.status for module in runtime.operational_status.modules} == {"registered"}
     await runtime.shutdown()
 
 
