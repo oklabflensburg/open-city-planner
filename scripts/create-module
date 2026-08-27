@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Create a minimal built-in Open City Planner module from maintained templates."""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+TEMPLATE_ROOT = Path(__file__).resolve().parent / "templates/module"
+MODULE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
+MAX_MODULE_ID_LENGTH = 63
+
+TEMPLATES = {
+    "backend/__init__.py.tmpl": "backend/app/modules/{python_name}/__init__.py",
+    "backend/README.md.tmpl": "backend/app/modules/{python_name}/README.md",
+    "backend/settings.py.tmpl": "backend/app/modules/{python_name}/settings.py",
+    "backend/module.py.tmpl": "backend/app/modules/{python_name}/module.py",
+    "backend/api/__init__.py.tmpl": "backend/app/modules/{python_name}/api/__init__.py",
+    "backend/api/router.py.tmpl": "backend/app/modules/{python_name}/api/router.py",
+    "backend-test/__init__.py.tmpl": "backend/tests/modules/{python_name}/__init__.py",
+    "backend-test/test_module.py.tmpl": "backend/tests/modules/{python_name}/test_module.py",
+    "frontend/module.json.tmpl": "frontend/frontend-modules/{module_id}/module.json",
+    "frontend/layer/nuxt.config.ts.tmpl": (
+        "frontend/frontend-modules/{module_id}/layer/nuxt.config.ts"
+    ),
+    "frontend/layer/app/pages/module.vue.tmpl": (
+        "frontend/frontend-modules/{module_id}/layer/app/pages/modules/{module_id}.vue"
+    ),
+    "frontend-test/module.test.ts.tmpl": "frontend/tests/{module_id}/module.test.ts",
+}
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("module_id", help="Stable lowercase kebab-case module ID")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=REPOSITORY_ROOT,
+        help=argparse.SUPPRESS,
+    )
+    return parser.parse_args(argv)
+
+
+def validate_module_id(module_id: str) -> None:
+    if len(module_id) > MAX_MODULE_ID_LENGTH or not MODULE_ID_PATTERN.fullmatch(module_id):
+        raise ValueError(
+            "Module IDs must be lowercase kebab-case, start with a letter, "
+            "and contain at most 63 characters."
+        )
+
+
+def template_values(module_id: str) -> dict[str, str]:
+    words = module_id.split("-")
+    python_name = module_id.replace("-", "_")
+    class_name = "".join(word[:1].upper() + word[1:] for word in words)
+    return {
+        "MODULE_ID": module_id,
+        "PYTHON_NAME": python_name,
+        "CLASS_NAME": class_name,
+        "DISPLAY_NAME": " ".join(word[:1].upper() + word[1:] for word in words),
+        "ENV_PREFIX": python_name.upper(),
+        "SCHEMA_NAME": python_name,
+    }
+
+
+def render(template: str, values: dict[str, str]) -> str:
+    rendered = template
+    for name, value in values.items():
+        rendered = rendered.replace(f"{{{{{name}}}}}", value)
+    if re.search(r"\{\{[A-Z_]+\}\}", rendered):
+        raise ValueError("The module template contains an unknown placeholder.")
+    return rendered
+
+
+def create_module(module_id: str, root: Path) -> tuple[Path, ...]:
+    validate_module_id(module_id)
+    root = root.resolve()
+    required_parents = (
+        root / "backend/app/modules",
+        root / "backend/tests/modules",
+        root / "frontend/frontend-modules",
+        root / "frontend/tests",
+    )
+    missing = [path for path in required_parents if not path.is_dir()]
+    if missing:
+        raise ValueError(f"Repository module directory does not exist: {missing[0]}")
+
+    values = template_values(module_id)
+    format_values = {
+        "module_id": module_id,
+        "python_name": values["PYTHON_NAME"],
+    }
+    targets = tuple(
+        root / destination.format(**format_values) for destination in TEMPLATES.values()
+    )
+    module_roots = (
+        root / f"backend/app/modules/{values['PYTHON_NAME']}",
+        root / f"backend/tests/modules/{values['PYTHON_NAME']}",
+        root / f"frontend/frontend-modules/{module_id}",
+        root / f"frontend/tests/{module_id}",
+    )
+    existing = [path for path in module_roots if path.exists()]
+    if existing:
+        raise FileExistsError(f"Refusing to overwrite existing module target: {existing[0]}")
+
+    rendered = tuple(
+        (
+            target,
+            render((TEMPLATE_ROOT / template).read_text(encoding="utf-8"), values),
+        )
+        for (template, _), target in zip(TEMPLATES.items(), targets, strict=True)
+    )
+    for target, contents in rendered:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(contents, encoding="utf-8")
+    return targets
+
+
+def main(argv: list[str] | None = None) -> int:
+    raw_args = list(sys.argv[1:] if argv is None else argv)
+    if raw_args and raw_args[0].startswith("-") and raw_args[0] not in {"-h", "--help"}:
+        print(
+            "create-module: Module IDs must be lowercase kebab-case, start with a letter, "
+            "and contain at most 63 characters.",
+            file=sys.stderr,
+        )
+        return 1
+    args = parse_args(raw_args)
+    try:
+        targets = create_module(args.module_id, args.root)
+    except (FileExistsError, OSError, ValueError) as error:
+        print(f"create-module: {error}", file=sys.stderr)
+        return 1
+    print(f'Created built-in module "{args.module_id}" ({len(targets)} files).')
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,59 @@
+"""Composition root for the {{MODULE_ID}} module."""
+
+from app.platform.modules.sdk import (
+    ModuleContext,
+    ModuleDefinition,
+    ModuleSettingsContribution,
+    parse_manifest,
+)
+
+from .api import create_router
+from .settings import {{CLASS_NAME}}Settings
+
+CONFIG_NAMESPACE = "{{MODULE_ID}}"
+PERMISSION_NAMESPACE = "{{MODULE_ID}}."
+PERSISTENCE_SCHEMA = "{{SCHEMA_NAME}}"
+
+MANIFEST = parse_manifest(
+    {
+        "manifest_version": 1,
+        "id": "{{MODULE_ID}}",
+        "name": "{{DISPLAY_NAME}}",
+        "version": "1.0.0",
+        "requires": {"host": ">=0.2.0,<1.0.0", "sdk": ">=1.7.0,<2.0.0"},
+        "backend": {"package": "open-city-map-backend"},
+        "frontend": {"package": "{{MODULE_ID}}"},
+        "capabilities": ["{{MODULE_ID}}.api", "{{MODULE_ID}}.page"],
+        "permissions": [],
+        "config": {"namespace": CONFIG_NAMESPACE},
+    },
+    origin=__name__,
+)
+
+
+class {{CLASS_NAME}}Module:
+    manifest = MANIFEST
+
+    def register(self, context: ModuleContext) -> None:
+        configured = context.settings.get({{CLASS_NAME}}Settings) if context.settings else None
+        settings = (
+            configured if isinstance(configured, {{CLASS_NAME}}Settings) else {{CLASS_NAME}}Settings()
+        )
+        context.api.include_router(
+            create_router(settings),
+            prefix="/api/v1/modules/{{MODULE_ID}}",
+            tags=("{{DISPLAY_NAME}} module",),
+        )
+
+
+DEFINITION = ModuleDefinition(
+    manifest=MANIFEST,
+    loader={{CLASS_NAME}}Module,
+    origin=__name__,
+    declared_id=MANIFEST.id,
+    settings=ModuleSettingsContribution(
+        module_id=MANIFEST.id,
+        namespace=CONFIG_NAMESPACE,
+        model={{CLASS_NAME}}Settings,
+    ),
+)

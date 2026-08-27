@@ -66,9 +66,9 @@ IDs beginnen immer mit der Modul-ID. Die Layerdefinition enthält weder `id` noc
 `source`; die Registry bindet beide kontrolliert. Kleinere Prioritäten liegen in
 derselben Gruppe weiter unten. Die Gruppenreihenfolge ist im ADR festgelegt.
 
-Das `example-module` enthält ein lauffähiges Beispiel. Mit
-`OCP_FRONTEND_MODULES=example-module` erscheint seine Definition im gemeinsamen
-Build-Snapshot; ohne Aktivierung ist sie vollständig abwesend.
+Das kanonische `reference`-Modul enthält ein ausführbares End-to-End-Beispiel mit
+Source, Layer, Feature Info und sauberem Cleanup. Das kleinere `example-module`
+bleibt eine interne Frontend-Contract-Fixture.
 
 ## Interaction und Cleanup
 

@@ -59,7 +59,7 @@ def test_manifest_and_passive_contributions_have_one_owner() -> None:
 
 
 def test_enabled_and_disabled_discovery_and_compatibility() -> None:
-    provider = FirstPartyModuleDiscovery({"reference": DEFINITION})
+    provider = FirstPartyModuleDiscovery()
     disabled = resolve_module_definitions(
         enabled_module_ids=(), discovery_providers=(provider,), host_version="0.2.0"
     )

@@ -51,10 +51,12 @@ Kompatibilitätsinventar bleibt auf ID und Version begrenzt.
 
 ## Discovery-Quellen
 
-`FirstPartyModuleDiscovery` verwendet einen fachneutralen Katalog aus passiven
-`ModuleDefinition`-Objekten oder verzögerten Definition-Loadern. Ein neues
-First-Party-Modul benötigt dadurch keine Änderung an `main.py` oder
-`app/api/router.py`.
+`FirstPartyModuleDiscovery` lädt ausschließlich explizit aktivierte Built-ins nach
+der Repository-Konvention `backend/app/modules/<python_name>/module.py` mit dem
+passiven Export `DEFINITION`. Die öffentliche Kebab-Case-ID wird dabei
+deterministisch in einen Python-Namen mit Unterstrichen übersetzt. Ein neues
+First-Party-Modul benötigt dadurch weder einen zentralen Entry-Point-Eintrag noch
+eine Änderung an `main.py` oder `app/api/router.py`.
 
 `EntryPointModuleDiscovery` berücksichtigt ausschließlich die Python-Entry-Point-
 Gruppe `open_city_planner.modules`. Der Entry-Point-Name ist die aktivierbare

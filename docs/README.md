@@ -12,6 +12,7 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 
 ## Architektur und Frontend
 
+- [Module Getting Started und Scaffold](modules/getting-started.md)
 - [ADR: Modularer Host und Grenzen von Fachmodulen](architecture/adr-modular-host-and-module-boundaries.md)
 - [ADR: Frontend-Module als Build-Time Nuxt Layers](architecture/adr-frontend-build-time-modules.md)
 - [ADR: Frontend UI Extension Points](architecture/adr-frontend-ui-extension-points.md)

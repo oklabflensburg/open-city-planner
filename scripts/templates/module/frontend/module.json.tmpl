@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "{{MODULE_ID}}",
+  "version": "1.0.0",
+  "backendModuleId": "{{MODULE_ID}}",
+  "compatibility": {
+    "host": ">=1.0.0 <2.0.0",
+    "sdk": ">=1.2.0 <2.0.0",
+    "backend": ">=1.0.0 <2.0.0"
+  },
+  "layer": "layer",
+  "requires": { "modules": {} },
+  "publicContributions": {
+    "routes": [
+      {
+        "path": "/modules/{{MODULE_ID}}",
+        "source": "layer/app/pages/modules/{{MODULE_ID}}.vue"
+      }
+    ],
+    "ui": [
+      {
+        "id": "{{MODULE_ID}}.primary-navigation",
+        "slot": "navigation.primary",
+        "priority": 300,
+        "visibility": { "auth": "public", "module": "{{MODULE_ID}}" },
+        "label": "{{DISPLAY_NAME}}",
+        "to": "/modules/{{MODULE_ID}}",
+        "exact": true
+      }
+    ],
+    "map": { "sources": [], "layers": [] }
+  }
+}

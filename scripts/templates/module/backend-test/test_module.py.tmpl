@@ -1,0 +1,29 @@
+from app.modules.{{PYTHON_NAME}}.api import create_router
+from app.modules.{{PYTHON_NAME}}.module import (
+    CONFIG_NAMESPACE,
+    DEFINITION,
+    MANIFEST,
+    PERMISSION_NAMESPACE,
+    PERSISTENCE_SCHEMA,
+)
+from app.modules.{{PYTHON_NAME}}.settings import {{CLASS_NAME}}Settings
+
+from app.platform.modules.testing import ModuleTestHost
+
+
+def test_generated_namespaces_are_consistent() -> None:
+    assert MANIFEST.id == "{{MODULE_ID}}"
+    assert MANIFEST.config is not None
+    assert MANIFEST.config.namespace == CONFIG_NAMESPACE == "{{MODULE_ID}}"
+    assert PERMISSION_NAMESPACE == "{{MODULE_ID}}."
+    assert PERSISTENCE_SCHEMA == "{{SCHEMA_NAME}}"
+    assert all(item.startswith("{{MODULE_ID}}.") for item in MANIFEST.capabilities)
+    assert MANIFEST.permissions == []
+    assert DEFINITION.settings is not None
+    assert DEFINITION.settings.namespace == CONFIG_NAMESPACE
+
+
+def test_generated_module_registers_with_the_public_test_host() -> None:
+    ModuleTestHost(DEFINITION).register()
+    router = create_router({{CLASS_NAME}}Settings())
+    assert {route.path for route in router.routes} == {"/hello"}
