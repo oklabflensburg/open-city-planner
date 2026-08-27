@@ -52,6 +52,8 @@ Kompatibilitätsinventar bleibt auf ID und Version begrenzt.
 Runtime-, Dependency- und Jobdiagnose bleibt davon getrennt und wird ausschließlich
 als geschützter, read-only [operationaler Modulstatus](operations.md) aus der
 laufenden Runtime projiziert.
+Enable, Disable, Re-Enable und Fehler-Recovery sind in der zentralen
+[Lifecycle-Policy](lifecycle.md) verbindlich beschrieben.
 
 ## Discovery-Quellen
 

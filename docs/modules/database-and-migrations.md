@@ -113,6 +113,26 @@ ENABLED_MODULES=reference uv run python -m app.cli.module_migrations preflight
 ENABLED_MODULES=reference uv run python -m app.cli.module_migrations upgrade
 ```
 
+Vor Erzeugung des Coordinators validiert der CLI-Einstieg die Settings Contributions
+aller aktiven Module über dieselbe `ModuleSettingsRegistry` wie die Runtime. Eine
+fehlende oder ungültige Modulkonfiguration stoppt damit vor Preflight und Upgrade.
+Die vollständige Reihenfolge und Recovery-Policy steht unter
+[Modul-Lifecycle](lifecycle.md).
+
+Die Persistence Registry des Coordinators wird bewusst aus einer zweiten,
+enablement-unabhängigen Menge aufgebaut. Sie entdeckt passive Definitionen aller
+lokalen Built-ins unter `app/modules/*/module.py` und aller installierten Entry
+Points aus `open_city_planner.modules`. Damit bleiben Migrationsquellen deaktivierter
+Module im Alembic-Graph, obwohl diese Module nicht geladen, registriert oder gestartet
+werden. Der Modul-Loader wird bei dieser Discovery nicht aufgerufen.
+
+Manifeststruktur, Persistence-Ownership und die lesbare Dependency-Reihenfolge
+bleiben für den Graph erforderlich. Host-/SDK-Compatibility und Modulsettings eines
+deaktivierten Moduls sind dagegen kein Runtime-Gate. Fehlende Secrets eines
+deaktivierten Moduls blockieren den Preflight daher nicht. Diese lokale passive
+Discovery ist noch kein `modules.lock` oder persistentes Installationsinventar; diese
+Package-Lifecycle-Grenze bleibt #173 vorbehalten.
+
 Ein Downgrade akzeptiert absichtlich nur ein explizites Ziel, zum Beispiel
 `python -m app.cli.module_migrations downgrade <revision>`.
 

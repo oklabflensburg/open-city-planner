@@ -81,7 +81,14 @@ class ModuleDiscoveryProvider(Protocol):
     def discover(self, enabled_module_ids: frozenset[str]) -> Sequence[ModuleDefinition]: ...
 
 
+class AvailableModuleDiscoveryProvider(ModuleDiscoveryProvider, Protocol):
+    """Liefert passive Definitionen aller lokal verfügbaren Module für Migrationen."""
+
+    def discover_available(self) -> Sequence[ModuleDefinition]: ...
+
+
 __all__ = [
+    "AvailableModuleDiscoveryProvider",
     "BackendModule",
     "LifecycleContribution",
     "ModuleDefinition",

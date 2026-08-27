@@ -148,6 +148,8 @@ weil sie nur ein technischer Architekturbeweis ist.
 6. bei einem Fullstack-Modul das Backend-Inventar im Deployment konsistent setzen.
 
 Der Host wird dafür nicht um fachliche Imports oder eine ID-Liste erweitert.
+Enable, Disable und Fullstack-Recovery sind ergänzend in der
+[Modul-Lifecycle-Policy](lifecycle.md) beschrieben.
 
 ## Bewusste Grenzen von V1
 

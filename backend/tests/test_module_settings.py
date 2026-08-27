@@ -1,12 +1,16 @@
 import json
 import logging
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
+from app.cli import module_migrations as migration_cli
 from app.core.config import Settings
+from app.modules.reference.module import DEFINITION as REFERENCE_DEFINITION
+from app.modules.reference.module import MANIFEST as REFERENCE_MANIFEST
 from app.platform.modules.context import ModuleContextFactory
 from app.platform.modules.discovery import FirstPartyModuleDiscovery
 from app.platform.modules.errors import (
@@ -15,6 +19,7 @@ from app.platform.modules.errors import (
     ModuleSettingsError,
     ModuleSettingsNamespaceError,
     ModuleSettingsValidationError,
+    ModuleValidationError,
 )
 from app.platform.modules.import_boundaries import find_host_settings_import_violations
 from app.platform.modules.runtime import create_module_runtime
@@ -140,6 +145,112 @@ def test_disabled_module_does_not_validate_required_secret() -> None:
     )
     runtime.register(FastAPI())
     assert runtime.module_ids == ()
+
+
+def test_migration_cli_validates_active_module_settings_before_coordinator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(enabled_modules="settings-fixture")
+    monkeypatch.setattr(migration_cli, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        migration_cli,
+        "resolve_module_definitions",
+        lambda **_kwargs: ((DEFINITION, MANIFEST),),
+    )
+    monkeypatch.setattr(
+        migration_cli,
+        "read_module_environment",
+        lambda **_kwargs: {
+            "OCP_MODULE_SETTINGS_FIXTURE_ENDPOINT_URL": "https://example.org/api"
+        },
+    )
+    monkeypatch.setattr(
+        migration_cli,
+        "MigrationCoordinator",
+        lambda *_args, **_kwargs: pytest.fail(
+            "MigrationCoordinator must not be created for invalid module settings"
+        ),
+    )
+
+    with pytest.raises(ModuleSettingsValidationError) as error:
+        migration_cli.coordinator()
+
+    assert error.value.module_id == "settings-fixture"
+    assert error.value.environment_key == "OCP_MODULE_SETTINGS_FIXTURE_API_TOKEN"
+
+
+def test_migration_cli_stops_incompatible_manifest_before_coordinator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(enabled_modules="future-module")
+    monkeypatch.setattr(migration_cli, "get_settings", lambda: settings)
+
+    def reject_incompatible(**_kwargs):
+        raise ModuleValidationError(
+            "Module requires an incompatible host version.",
+            module_id="future-module",
+        )
+
+    monkeypatch.setattr(
+        migration_cli, "resolve_module_definitions", reject_incompatible
+    )
+    monkeypatch.setattr(
+        migration_cli,
+        "MigrationCoordinator",
+        lambda *_args, **_kwargs: pytest.fail(
+            "MigrationCoordinator must not be created for incompatible modules"
+        ),
+    )
+
+    with pytest.raises(ModuleValidationError) as error:
+        migration_cli.coordinator()
+
+    assert error.value.module_id == "future-module"
+
+
+def test_disabled_available_migration_does_not_validate_required_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DisabledReferenceSettings(BaseModel):
+        api_token: SecretStr
+
+        model_config = ConfigDict(frozen=True)
+
+    available_definition = replace(
+        REFERENCE_DEFINITION,
+        settings=ModuleSettingsContribution(
+            module_id="reference",
+            namespace="reference",
+            model=DisabledReferenceSettings,
+        ),
+    )
+    monkeypatch.setattr(
+        migration_cli,
+        "get_settings",
+        lambda: Settings(enabled_modules=""),
+    )
+    monkeypatch.setattr(
+        migration_cli,
+        "resolve_module_definitions",
+        lambda **_kwargs: (),
+    )
+    monkeypatch.setattr(
+        migration_cli,
+        "resolve_available_persistence_definitions",
+        lambda _providers: ((available_definition, REFERENCE_MANIFEST),),
+    )
+    monkeypatch.setattr(
+        migration_cli,
+        "read_module_environment",
+        lambda **_kwargs: {},
+    )
+
+    plan = migration_cli.coordinator().preflight()
+
+    assert (plan[-1].module_id, plan[-1].revision) == (
+        "reference",
+        "mod_reference_20260826_0001",
+    )
 
 
 def test_runtime_binds_validated_settings_before_module_registration() -> None:

@@ -20,13 +20,24 @@ class FirstPartyModuleDiscovery:
         self._catalog = catalog
 
     def discover(self, enabled_module_ids: frozenset[str]) -> Sequence[ModuleDefinition]:
-        definitions: list[ModuleDefinition] = []
+        return self._discover(enabled_module_ids)
+
+    def discover_available(self) -> Sequence[ModuleDefinition]:
+        """Entdecke alle lokal vorhandenen Built-ins ohne sie runtime-seitig zu aktivieren."""
+
         module_ids = (
-            enabled_module_ids
+            frozenset(_available_builtin_module_ids())
             if self._catalog is None
-            else enabled_module_ids.intersection(self._catalog)
+            else frozenset(self._catalog)
         )
-        for module_id in sorted(module_ids):
+        return self._discover(module_ids)
+
+    def _discover(self, module_ids: frozenset[str]) -> Sequence[ModuleDefinition]:
+        definitions: list[ModuleDefinition] = []
+        selected_ids = (
+            module_ids if self._catalog is None else module_ids.intersection(self._catalog)
+        )
+        for module_id in sorted(selected_ids):
             try:
                 definition = (
                     _load_builtin_definition(module_id)
@@ -70,6 +81,22 @@ def _load_builtin_definition(module_id: str) -> ModuleDefinition | None:
     return module.DEFINITION
 
 
+def _available_builtin_module_ids() -> tuple[str, ...]:
+    """Leite Built-in-IDs generisch aus lokalen Python-Modulpaketen ab."""
+
+    if not BUILTIN_MODULES_DIRECTORY.is_dir():
+        return ()
+    return tuple(
+        sorted(
+            path.name.replace("_", "-")
+            for path in BUILTIN_MODULES_DIRECTORY.iterdir()
+            if path.is_dir()
+            and path.name.isidentifier()
+            and (path / "module.py").is_file()
+        )
+    )
+
+
 def _resolve_source(source: DefinitionSource) -> ModuleDefinition:
     return source() if callable(source) else source
 
@@ -78,23 +105,36 @@ class EntryPointModuleDiscovery:
     """Discovery vertrauenswürdiger installierter Python-Distributionen."""
 
     def discover(self, enabled_module_ids: frozenset[str]) -> Sequence[ModuleDefinition]:
+        return self._discover(enabled_module_ids)
+
+    def discover_available(self) -> Sequence[ModuleDefinition]:
+        """Passive Definitionen aller lokal installierten Modul-Entry-Points ermitteln."""
+
+        return self._discover(None)
+
+    def _discover(
+        self, enabled_module_ids: frozenset[str] | None
+    ) -> Sequence[ModuleDefinition]:
         definitions: list[ModuleDefinition] = []
         entry_points = metadata.entry_points().select(group=ENTRY_POINT_GROUP)
         for entry_point in sorted(entry_points, key=lambda candidate: candidate.name):
-            if entry_point.name not in enabled_module_ids:
+            if (
+                enabled_module_ids is not None
+                and entry_point.name not in enabled_module_ids
+            ):
                 continue
             origin = f"entry-point:{entry_point.name}={entry_point.value}"
             try:
                 definition = entry_point.load()
             except Exception as exc:
                 raise ModuleDiscoveryError(
-                    "The enabled Python entry point could not be loaded.",
+                    "The installed Python entry point definition could not be loaded.",
                     module_id=entry_point.name,
                     origin=origin,
                 ) from exc
             if not isinstance(definition, ModuleDefinition):
                 raise ModuleDiscoveryError(
-                    "The Python entry point does not expose a ModuleDefinition.",
+                    "The installed Python entry point does not expose a ModuleDefinition.",
                     module_id=entry_point.name,
                     origin=origin,
                 )

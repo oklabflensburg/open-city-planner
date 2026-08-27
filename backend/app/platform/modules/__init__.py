@@ -1,6 +1,7 @@
 """Öffentliche Contracts der Backend-Module-Plattform."""
 
 from app.platform.modules.contracts import (
+    AvailableModuleDiscoveryProvider,
     ModuleDefinition,
     ModuleDiscoveryProvider,
     ModuleLifecycleHook,
@@ -106,6 +107,7 @@ from app.platform.modules.services import ServiceRegistry
 __all__ = [
     "ENTRY_POINT_GROUP",
     "MODULE_SDK_VERSION",
+    "AvailableModuleDiscoveryProvider",
     "BackendModule",
     "BackendModuleInventory",
     "BackendModuleInventoryEntry",
