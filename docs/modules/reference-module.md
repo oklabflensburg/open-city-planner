@@ -29,6 +29,10 @@ Die vollständige, mit dem Code synchron gehaltene Anleitung einschließlich
 Aktivierung und Entfernung steht im
 [README des Moduls](../../backend/app/modules/reference/README.md).
 
+Das Reference-Modul bleibt bewusst im Host-Repository und erhält in #113 keinen
+eigenen Paketbuild. Die [Distribution Policy](distribution.md) beschreibt, wie
+dieselben Contracts später in einem Standalone-Modul paketiert werden können.
+
 Für die lokale Contract-Prüfung:
 
 ```bash

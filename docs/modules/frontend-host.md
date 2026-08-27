@@ -158,4 +158,5 @@ Map-Source-/Layer-Extension-Points aus #103. Module dürfen keine unbekannten Bu
 nachladen, keine eigene Pinia-Root oder Tailwind-Pipeline starten und nicht direkt
 in Interna anderer Module importieren. Externe npm-Pakete können später als bereits
 installierte, lokale Quellen an denselben Contract angebunden werden; Download und
-Packaging sind nicht Teil von #101.
+Packaging sind nicht Teil von #101. Benennung und Release-Metadaten solcher
+Artefakte stehen in der [Distribution Policy](distribution.md).
