@@ -71,7 +71,9 @@ Gruppen und deaktivierte Einträge werden nicht ausgeführt. Ein Entry Point exp
 eine passive `ModuleDefinition`, deren Manifest vor dem eigentlichen Modul-Loader
 geprüft wird. Distribution und Installation werden von dieser Runtime nicht
 verändert. Third-Party-Review und Integrität gehören vor diesen Schritt an die
-Installer-/Deploymentgrenze (#173 und #174).
+Installer-/Deploymentgrenze (#173 und #174). Namen und Release-Metadaten
+installierbarer Artefakte definiert die [Distribution Policy](distribution.md);
+die Runtime leitet daraus keine Modul-ID ab.
 
 ## Registrierungs- und Lifecycle-Reihenfolge
 
