@@ -108,7 +108,7 @@ class EntryPointModuleDiscovery:
         return self._discover(enabled_module_ids)
 
     def discover_available(self) -> Sequence[ModuleDefinition]:
-        """Lade passive Definitionen aller lokal installierten Modul-Entry-Points."""
+        """Passive Definitionen aller lokal installierten Modul-Entry-Points ermitteln."""
 
         return self._discover(None)
 
