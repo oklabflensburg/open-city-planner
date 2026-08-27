@@ -1,4 +1,5 @@
 import tailwindcss from '@tailwindcss/vite'
+import { delimiter } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { discoverPageRoutes, resolveFrontendModules } from './module-host/discovery'
 import { createFrontendContributionRegistry } from './module-host/ui-registry'
@@ -7,6 +8,9 @@ import { createMapExtensionDefinitionRegistry } from './module-host/map-definiti
 const appPagesDirectory = fileURLToPath(new URL('./app/pages', import.meta.url))
 const frontendModules = resolveFrontendModules({
   modulesDirectory: fileURLToPath(new URL('./frontend-modules', import.meta.url)),
+  installedModulesDirectories: (process.env.OCP_INSTALLED_FRONTEND_MODULE_ROOTS || '')
+    .split(delimiter)
+    .filter(Boolean),
   appPagesDirectory,
   enabledModules: process.env.OCP_FRONTEND_MODULES,
   backendModules: process.env.OCP_BACKEND_MODULES

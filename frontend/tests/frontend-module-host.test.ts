@@ -61,6 +61,32 @@ describe('frontend build-time module host', () => {
     expect(resolveFrontendModules({ ...paths, enabledModules: '' })).toEqual([])
   })
 
+  it('discovers installed module roots without giving them override priority', () => {
+    const paths = fixture()
+    const installedModulesDirectory = resolve(paths.root, 'installed-modules')
+    mkdirSync(installedModulesDirectory)
+    addModule(paths.modulesDirectory, 'built-in')
+    addModule(installedModulesDirectory, 'installed')
+
+    expect(resolveFrontendModules({
+      ...paths,
+      installedModulesDirectories: [installedModulesDirectory],
+      enabledModules: 'installed'
+    }).map(module => module.id)).toEqual(['installed'])
+    expect(resolveFrontendModules({
+      ...paths,
+      installedModulesDirectories: [installedModulesDirectory],
+      enabledModules: ''
+    })).toEqual([])
+
+    addModule(installedModulesDirectory, 'collision', { id: 'built-in' })
+    expect(() => resolveFrontendModules({
+      ...paths,
+      installedModulesDirectories: [installedModulesDirectory],
+      enabledModules: ''
+    })).toThrowError(/Duplicate frontend module ID "built-in"/)
+  })
+
   it('omits every route, UI and map contribution when a module is disabled', () => {
     const paths = fixture()
     addModule(paths.modulesDirectory, 'full-stack', {

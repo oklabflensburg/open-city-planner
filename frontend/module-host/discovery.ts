@@ -100,6 +100,7 @@ const definitionSchema = z.strictObject({
 
 export interface ResolveFrontendModulesOptions {
   modulesDirectory: string
+  installedModulesDirectories?: readonly string[]
   appPagesDirectory: string
   enabledModules?: string | readonly string[]
   backendModules?: string
@@ -115,13 +116,14 @@ export class FrontendModuleError extends Error {
 }
 
 export function resolveFrontendModules(options: ResolveFrontendModulesOptions): ResolvedFrontendModule[] {
-  const available = discoverFrontendModules(options.modulesDirectory)
+  const moduleDirectories = [options.modulesDirectory, ...(options.installedModulesDirectories ?? [])]
+  const available = discoverFrontendModules(moduleDirectories)
   const byId = new Map(available.map(module => [module.id, module]))
   const enabledIds = parseEnabledModules(options.enabledModules ?? '')
   const enabled = enabledIds.map((id) => {
     const module = byId.get(id)
     if (!module) {
-      throw new FrontendModuleError(`Enabled frontend module "${id}" was not found in ${options.modulesDirectory}.`)
+      throw new FrontendModuleError(`Enabled frontend module "${id}" was not found in ${moduleDirectories.join(', ')}.`)
     }
     return module
   })
@@ -139,71 +141,74 @@ export function resolveFrontendModules(options: ResolveFrontendModulesOptions): 
   return ordered
 }
 
-export function discoverFrontendModules(modulesDirectory: string): ResolvedFrontendModule[] {
-  if (!existsSync(modulesDirectory)) return []
+export function discoverFrontendModules(modulesDirectories: string | readonly string[]): ResolvedFrontendModule[] {
+  const directories = typeof modulesDirectories === 'string' ? [modulesDirectories] : [...modulesDirectories]
   const discovered: ResolvedFrontendModule[] = []
   const sources = new Map<string, string>()
-  const entries = readdirSync(modulesDirectory, { withFileTypes: true })
-    .filter(entry => entry.isDirectory())
-    .sort((left, right) => left.name.localeCompare(right.name, 'en'))
+  for (const modulesDirectory of directories) {
+    if (!existsSync(modulesDirectory)) continue
+    const entries = readdirSync(modulesDirectory, { withFileTypes: true })
+      .filter(entry => entry.isDirectory())
+      .sort((left, right) => left.name.localeCompare(right.name, 'en'))
 
-  for (const entry of entries) {
-    const source = resolve(modulesDirectory, entry.name, 'module.json')
-    if (!existsSync(source)) continue
-    let raw: unknown
-    try {
-      raw = JSON.parse(readFileSync(source, 'utf8'))
-    } catch (error) {
-      throw new FrontendModuleError(`Frontend module definition ${source} is not valid JSON: ${errorName(error)}.`)
-    }
-    const parsed = definitionSchema.safeParse(raw)
-    if (!parsed.success) {
-      throw new FrontendModuleError(`Frontend module definition ${source} is invalid: ${parsed.error.issues[0]?.message ?? 'unknown validation error'}.`)
-    }
-    const definition = parsed.data as unknown as FrontendModuleDefinition
-    validateDefinitionVersions(definition, source)
-    if (definition.backendModuleId && definition.backendModuleId !== definition.id) {
-      throw new FrontendModuleError(`Frontend module "${definition.id}" declares backend module "${definition.backendModuleId}"; full-stack modules must share one stable module ID.`)
-    }
-    if (definition.compatibility.backend && !definition.backendModuleId) {
-      throw new FrontendModuleError(`Frontend module "${definition.id}" declares backend compatibility without a backendModuleId.`)
-    }
-    const previousSource = sources.get(definition.id)
-    if (previousSource) {
-      throw new FrontendModuleError(`Duplicate frontend module ID "${definition.id}" in ${previousSource} and ${source}.`)
-    }
-    sources.set(definition.id, source)
-    const moduleRoot = dirname(source)
-    const layerPath = safeChildPath(moduleRoot, definition.layer, `layer of frontend module "${definition.id}"`)
-    if (!existsSync(layerPath) || !statSync(layerPath).isDirectory()) {
-      throw new FrontendModuleError(`Layer for frontend module "${definition.id}" does not exist at ${layerPath}.`)
-    }
-    validateLayerBoundaries(definition, moduleRoot, layerPath)
-    for (const contribution of definition.publicContributions.routes) {
-      const routeSource = safeChildPath(moduleRoot, contribution.source, `route source of frontend module "${definition.id}"`)
-      if (!existsSync(routeSource) || !statSync(routeSource).isFile()) {
-        throw new FrontendModuleError(`Route "${contribution.path}" of frontend module "${definition.id}" has no file at ${routeSource}.`)
+    for (const entry of entries) {
+      const source = resolve(modulesDirectory, entry.name, 'module.json')
+      if (!existsSync(source)) continue
+      let raw: unknown
+      try {
+        raw = JSON.parse(readFileSync(source, 'utf8'))
+      } catch (error) {
+        throw new FrontendModuleError(`Frontend module definition ${source} is not valid JSON: ${errorName(error)}.`)
       }
+      const parsed = definitionSchema.safeParse(raw)
+      if (!parsed.success) {
+        throw new FrontendModuleError(`Frontend module definition ${source} is invalid: ${parsed.error.issues[0]?.message ?? 'unknown validation error'}.`)
+      }
+      const definition = parsed.data as unknown as FrontendModuleDefinition
+      validateDefinitionVersions(definition, source)
+      if (definition.backendModuleId && definition.backendModuleId !== definition.id) {
+        throw new FrontendModuleError(`Frontend module "${definition.id}" declares backend module "${definition.backendModuleId}"; full-stack modules must share one stable module ID.`)
+      }
+      if (definition.compatibility.backend && !definition.backendModuleId) {
+        throw new FrontendModuleError(`Frontend module "${definition.id}" declares backend compatibility without a backendModuleId.`)
+      }
+      const previousSource = sources.get(definition.id)
+      if (previousSource) {
+        throw new FrontendModuleError(`Duplicate frontend module ID "${definition.id}" in ${previousSource} and ${source}.`)
+      }
+      sources.set(definition.id, source)
+      const moduleRoot = dirname(source)
+      const layerPath = safeChildPath(moduleRoot, definition.layer, `layer of frontend module "${definition.id}"`)
+      if (!existsSync(layerPath) || !statSync(layerPath).isDirectory()) {
+        throw new FrontendModuleError(`Layer for frontend module "${definition.id}" does not exist at ${layerPath}.`)
+      }
+      validateLayerBoundaries(definition, moduleRoot, layerPath)
+      for (const contribution of definition.publicContributions.routes) {
+        const routeSource = safeChildPath(moduleRoot, contribution.source, `route source of frontend module "${definition.id}"`)
+        if (!existsSync(routeSource) || !statSync(routeSource).isFile()) {
+          throw new FrontendModuleError(`Route "${contribution.path}" of frontend module "${definition.id}" has no file at ${routeSource}.`)
+        }
+      }
+      for (const contribution of definition.publicContributions.ui) {
+        if (!('source' in contribution)) continue
+        const componentSource = safeChildPath(moduleRoot, contribution.source, `component source of UI contribution "${contribution.id}"`)
+        const componentsDirectory = resolve(layerPath, 'app/components')
+        const sourceFromComponents = relative(componentsDirectory, componentSource)
+        if (sourceFromComponents === '..' || sourceFromComponents.startsWith(`..${sep}`)) {
+          throw new FrontendModuleError(`UI contribution "${contribution.id}" must point into its own layer app/components directory.`)
+        }
+        if (!existsSync(componentSource) || !statSync(componentSource).isFile()) {
+          throw new FrontendModuleError(`UI contribution "${contribution.id}" has no component file at ${componentSource}.`)
+        }
+        if (!componentSource.endsWith('.vue') || basename(componentSource, '.vue') !== contribution.component) {
+          throw new FrontendModuleError(`UI contribution "${contribution.id}" component name "${contribution.component}" must match its local Vue filename.`)
+        }
+      }
+      validateModuleImports(definition.id, moduleRoot, layerPath)
+      discovered.push({ ...definition, source, layerPath })
     }
-    for (const contribution of definition.publicContributions.ui) {
-      if (!('source' in contribution)) continue
-      const componentSource = safeChildPath(moduleRoot, contribution.source, `component source of UI contribution "${contribution.id}"`)
-      const componentsDirectory = resolve(layerPath, 'app/components')
-      const sourceFromComponents = relative(componentsDirectory, componentSource)
-      if (sourceFromComponents === '..' || sourceFromComponents.startsWith(`..${sep}`)) {
-        throw new FrontendModuleError(`UI contribution "${contribution.id}" must point into its own layer app/components directory.`)
-      }
-      if (!existsSync(componentSource) || !statSync(componentSource).isFile()) {
-        throw new FrontendModuleError(`UI contribution "${contribution.id}" has no component file at ${componentSource}.`)
-      }
-      if (!componentSource.endsWith('.vue') || basename(componentSource, '.vue') !== contribution.component) {
-        throw new FrontendModuleError(`UI contribution "${contribution.id}" component name "${contribution.component}" must match its local Vue filename.`)
-      }
-    }
-    validateModuleImports(definition.id, moduleRoot, layerPath)
-    discovered.push({ ...definition, source, layerPath })
   }
-  return discovered
+  return discovered.sort((left, right) => left.id.localeCompare(right.id, 'en'))
 }
 
 export function parseEnabledModules(value: string | readonly string[]): string[] {

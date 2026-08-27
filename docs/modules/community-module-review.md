@@ -20,10 +20,10 @@ Package
   -> Runtime
 ```
 
-Der Installer und `modules.lock` werden in #173 umgesetzt; das überprüfbare OCP-
-Bundle folgt in #174. Die heutige Entry-Point-Discovery findet lediglich bereits
-installierte Distributionen. Sie installiert nichts, lädt nichts aus dem Netz und
-ist kein zweites Review-Gate.
+Der [Installer und `modules.lock`](installer.md) aus #173 nehmen ausschließlich
+bereits verifizierte lokale Artefakte an; das überprüfbare OCP-Bundle folgt in #174.
+Die Entry-Point-Discovery findet lediglich bereits installierte Distributionen. Sie
+installiert nichts, lädt nichts aus dem Netz und ist kein zweites Review-Gate.
 
 ## Review-Paket
 

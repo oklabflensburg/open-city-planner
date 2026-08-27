@@ -1,0 +1,257 @@
+# Installer und `modules.lock`
+
+Der Installer verwaltet separat verteilte, bereits lokal bereitgestellte Module
+zwischen Package-Verifikation und dem bestehenden deploy-time Enablement. Built-ins
+im Host-Repository bleiben außerhalb dieses Zustands. Das
+[Manifest V1](module-manifest-v1.md) bleibt Source of Truth für fachliche Identität,
+Version, Compatibility und Dependencies; `modules.lock` beschreibt ausschließlich
+den reproduzierbaren Installationszustand. Der
+[operationale Modulstatus](operations.md) beschreibt weiterhin nur die laufende
+Runtime.
+
+```text
+verified local package input
+  -> installer
+  -> modules.lock
+  -> versionierte Backend-/Frontend-Artefakte
+  -> generierte deploy-time Environmentwerte
+  -> bestehende Discovery, Preflights und Runtime
+```
+
+Es gibt kein Hot Install oder Hot Reload. Enable und Disable werden erst durch den
+nächsten Build, Deploy beziehungsweise Prozessneustart wirksam.
+
+## Host-owned Ablage
+
+Der Produktionsstandard ist `/var/lib/stadtplaner/modules`. Für lokale oder
+isolierte Vorgänge kann `OCP_MODULE_INSTALL_ROOT` beziehungsweise die CLI-Option
+`--root` einen anderen host-owned Pfad setzen.
+
+```text
+/var/lib/stadtplaner/modules/
+├── modules.lock
+├── .modules.lock.lock
+└── installed/
+    └── energy-analysis/
+        └── 1.4.0/
+            ├── artifacts/
+            │   ├── ocp_module_energy_analysis-1.4.0-py3-none-any.whl
+            │   └── energy-analysis-1.4.0.tgz
+            ├── backend/site-packages/
+            └── frontend-modules/energy-analysis/
+                ├── module.json
+                └── layer/
+```
+
+Der Installer schreibt weder nach `backend/app/modules` noch nach
+`frontend/frontend-modules` und patcht keine Hostdatei. Die versionierte Ablage
+bleibt auch bei Disable erhalten, damit Python-Entry-Points und
+Migrationsressourcen weiterhin auflösbar sind.
+
+## Lockfile-Contract
+
+`modules.lock` ist strict validiertes JSON mit `format_version: 1`. Unbekannte
+Felder, eine unbekannte Formatversion, unsortierte oder doppelte IDs, ungültiges
+SemVer, nicht boolesches Enablement, fehlende Artefaktmetadaten und ungültige
+SHA-256-Werte werden fail-fast abgelehnt.
+
+```json
+{
+  "format_version": 1,
+  "modules": [
+    {
+      "id": "energy-analysis",
+      "version": "1.4.0",
+      "enabled": false,
+      "publisher": "oklabflensburg",
+      "source": {
+        "type": "local",
+        "reference": "reviewed/energy-analysis-1.4.0"
+      },
+      "provenance": {
+        "source_repository": "https://github.com/oklabflensburg/ocp-module-energy-analysis",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567",
+        "source_tag": "v1.4.0",
+        "build_workflow": "github-actions/module-release",
+        "license": "AGPL-3.0-only",
+        "sbom_reference": null,
+        "attestation_reference": null
+      },
+      "artifact": {
+        "identifier": "energy-analysis-1.4.0",
+        "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      },
+      "backend": {
+        "present": true,
+        "artifact": "ocp_module_energy_analysis-1.4.0-py3-none-any.whl",
+        "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      },
+      "frontend": {
+        "present": true,
+        "artifact": "energy-analysis-1.4.0.tgz",
+        "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      }
+    }
+  ]
+}
+```
+
+Einträge sind nach kanonischer Modul-ID sortiert. Keys besitzen stabile Reihenfolge,
+Digests sind lowercase SHA-256, volatile Zeitstempel fehlen und die Datei endet mit
+genau einem Newline. Änderungen werden unter einem lokalen File Lock in eine
+temporäre Datei geschrieben, mit `fsync` gesichert und über `os.replace()` atomar
+aktiviert. Der Installer ist ein serialisierter Deploymentvorgang; eine verteilte
+Lock-Infrastruktur existiert nicht.
+
+Das Lockfile enthält keine Secrets, Prozessgesundheit, laufende Hooks oder andere
+Runtime-Fakten. `backend/uv.lock` und `frontend/pnpm-lock.yaml` bleiben davon
+getrennte Host-Dependency-Locks.
+
+## Interner Package-Input
+
+`VerifiedModulePackage` ist der schmale interne Übergabevertrag des Installers. Er
+enthält Modul-ID und Version, Publisher und Source, Release- und
+Komponenten-Digests, Source Repository und vollständigen Commit, Build Workflow,
+Lizenz sowie optionale Tag-, SBOM- und Attestation-Referenzen. Hinzu kommen
+Backend-/Frontend-Artefaktbeschreibungen und der bestehende Manifestinhalt. Der
+Vertrag ist kein neues fachliches Manifest.
+
+Der heute unterstützte `LocalPackageSource` erwartet für CLI- und Testzwecke ein
+Verzeichnis mit `verified-package-input.json` und den referenzierten lokalen
+Artefakten. Dieses Handoff-Format ist ausdrücklich kein öffentliches `.ocp`-Format.
+#174 darf es durch einen Bundle-Reader ersetzen, der nach erfolgreicher Prüfung
+denselben `VerifiedModulePackage` erzeugt.
+
+Der Release-Digest bindet deterministisch Identifier und SHA-256 der vorhandenen
+Backend-/Frontend-Artefakte. Jeder Komponenten-Digest wird zusätzlich gegen die
+tatsächlichen Bytes geprüft. Package-ID und -Version müssen mit dem vorhandenen
+Backend-Manifest, dem Wheel-Entry-Point und `frontend/module.json` übereinstimmen.
+Vor dem Commit der Installation prüft `pnpm modules:check` das ausgepackte
+Frontend-Artefakt mit dem realen bestehenden Frontend-Contract, auch wenn das Modul
+zunächst disabled bleibt.
+
+## Sicherheitsgrenzen
+
+Vor einer Änderung des Installationszustands gelten folgende Regeln:
+
+- nur bereits lokale Artefakte; `uv pip install` läuft mit `--no-index --no-deps`;
+- keine Package-Shellhooks, Post-Install-Skripte oder Befehle aus Metadaten;
+- ausschließlich normalisierte relative POSIX-Pfade;
+- keine absoluten Pfade, `..`, NUL-Zeichen oder Backslash-Pfade;
+- keine Symlinks oder Hardlinks in Packagepfaden und Frontend-Archiven;
+- keine doppelten Archivpfade, Devices oder sonstigen Spezialdateien;
+- kein Überschreiben einer anderen Modul-ID oder eines vorhandenen Releases;
+- keine Priorität zwischen Built-in und Installed bei gleicher ID.
+
+Bei Digest-, ID-, Versions-, Pfad- oder Strukturfehlern bleiben Lockfile und
+Zielinstallation unverändert. Dieselbe ID, Version und derselbe Digest sind
+idempotent. Eine andere Version oder ein anderer Digest benötigt einen später
+explizit definierten Upgradepfad.
+
+## CLI
+
+Die CLI folgt den bestehenden Python-Modulbefehlen:
+
+```bash
+cd backend
+
+uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
+  verify /srv/reviewed/energy-analysis
+
+uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
+  install /srv/reviewed/energy-analysis
+
+uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
+  enable energy-analysis
+
+uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
+  disable energy-analysis
+
+uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
+  list --format json
+
+uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
+  env --format shell
+```
+
+`verify` verändert nichts. `install` verifiziert und installiert atomar und setzt
+`enabled: false`. `enable` prüft erneut die gespeicherten Artefakte und führt die
+bestehenden Manifest-, Host-/SDK-, Dependency-, Settings-, Migrations- und
+Frontend-Preflights aus. Erst danach wird `enabled: true` atomar gespeichert.
+`disable` ist idempotent, ändert nur das Enablement und führt weder Migration,
+Downgrade, Datenlöschung noch Artefaktentfernung aus.
+
+`list` liefert Built-ins und installierte Module in getrennten `kind`-Werten. Die
+Installationssicht enthält keine laufenden Runtime-Zustände. `env` rendert die
+authoritative installierte Enablement-Entscheidung in die bestehenden
+Deploymentverträge:
+
+```text
+ENABLED_MODULES
+OCP_FRONTEND_MODULES
+OCP_BACKEND_MODULES
+OCP_INSTALLED_BACKEND_PATHS
+OCP_INSTALLED_FRONTEND_MODULE_ROOTS
+```
+
+Die installierten Backend-Pfade enthalten auch deaktivierte Module, damit deren
+passive Migrationsquellen verfügbar bleiben. Nur IDs mit `enabled: true` erscheinen
+in Backend- und Frontend-Enablement. Built-ins werden weiterhin über die bestehende
+Hostkonfiguration ergänzt und niemals in `modules.lock` geschrieben.
+
+## Compatibility und Lifecycle
+
+Installieren bedeutet „lokal vorhanden“, nicht „aktuell lauffähig“. Deshalb darf
+beispielsweise ein Modul für eine zukünftige Hostversion als disabled installiert
+werden. Enable schlägt dagegen fehl, solange Host, SDK, Dependencies, Settings,
+Migrationen oder Frontend-Contract nicht kompatibel sind. Die bestehenden
+Validatoren und Preflights bleiben dafür maßgeblich; der Installer enthält keine
+zweite Compatibility- oder Dependency-Engine.
+
+Packaged First-Party und Reviewed Community verwenden exakt denselben technischen
+Pfad. Publisher-, Source- und Review-Metadaten unterscheiden die Herkunft, erzeugen
+aber keine Runtime-Trust-Grants. Private Module können über denselben lokalen Input
+aus privatem Artifact Storage oder einem kontrollierten privaten Release
+bereitgestellt werden. Eine öffentliche Registry ist nicht erforderlich.
+
+## Runbook
+
+### Install
+
+1. Das bereits geprüfte lokale Package wird bereitgestellt.
+2. `verify` bestätigt Digests, Identität und statische Struktur.
+3. `install` erzeugt die versionierte Ablage und ersetzt `modules.lock` atomar.
+4. `list` bestätigt `kind: installed` und `enabled: false`.
+
+### Enable
+
+1. Erneute Artefaktprüfung und alle Compatibility-/Settings-Preflights laufen.
+2. Der Migrations-Preflight prüft den weiterhin vollständigen installierten Graphen.
+3. Der Frontend-Preflight prüft Layer, Routes, UI und Map Contributions.
+4. `enabled: true` wird gespeichert.
+5. `env --format shell` speist den nächsten Build beziehungsweise Deploy.
+6. Nach Neustart wird der operationale Status geprüft.
+
+### Disable
+
+1. `disable` setzt ausschließlich `enabled: false`.
+2. Der gerenderte Build-/Deployzustand wird aktiviert.
+3. Runtime- und Frontend-Contributions fehlen anschließend.
+4. Package, Daten und Migrationsressourcen bleiben erhalten; es gibt keinen
+   automatischen Downgrade.
+
+### Rollback
+
+Der vorherige Lock-/Artefaktzustand benennt Version und Digest reproduzierbar. Vor
+einer Wiederherstellung muss die DB-Kompatibilität mit der vorherigen Modulversion
+geprüft werden. Package-Rollback ist kein DB-Downgrade; ein Datenbank-Downgrade
+bleibt eine separate, explizite und backupgestützte Operation.
+
+## Bewusster Scope
+
+Uninstall und Upgrade bleiben zunächst außerhalb von #173, weil angewandte
+Migrationshistorie und DB-Kompatibilität keine sichere automatische Entfernung oder
+Rücksetzung erlauben. Ebenfalls nicht enthalten sind finales `.ocp`-Schema oder
+Parser (#174), Registry/HTTP-Client (#175), Marketplace, Web-UI, Hot Update,
+Signatur-PKI, Trust State Machine, Dependency Resolver und automatischer
+DB-Downgrade.

@@ -160,3 +160,6 @@ in Interna anderer Module importieren. Externe npm-Pakete können später als be
 installierte, lokale Quellen an denselben Contract angebunden werden; Download und
 Packaging sind nicht Teil von #101. Benennung und Release-Metadaten solcher
 Artefakte stehen in der [Distribution Policy](distribution.md).
+Der [Installer](installer.md) ergänzt dafür null oder mehr kontrollierte
+`OCP_INSTALLED_FRONTEND_MODULE_ROOTS`. Discovery prüft Built-in- und installierte
+Roots gemeinsam; doppelte IDs schlagen ohne Override-Priorität fehl.

@@ -184,10 +184,11 @@ ocp-module-example/
 └── README.md
 ```
 
-Dieses Layout ist noch kein implementiertes Paketformat. Installation und
-`modules.lock` folgen in #173, das gemeinsame `.ocp` Package Bundle in #174 und die
-Distribution über eine Package Registry in #175. #110 führt weder Installer,
-Bundler noch Registry ein.
+Dieses Layout ist noch kein implementiertes Paketformat. Der
+[Installer und `modules.lock`](installer.md) aus #173 konsumieren einen schmalen
+verifizierten lokalen Package-Input; das gemeinsame `.ocp` Package Bundle folgt in
+#174 und die Distribution über eine Package Registry in #175. Das Built-in-
+Scaffold aus #110 benötigt keinen dieser Installationspfade.
 
 Die verbindlichen Namen, Releaseversionen, Artefaktklassen und
 Supply-Chain-Metadaten für ein späteres Standalone-Modul stehen in der

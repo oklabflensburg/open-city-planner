@@ -140,8 +140,9 @@ kompromittierte Quelle blockiert Installation und Update.
 Eine eigene Signatur-PKI wird erst bewertet, wenn separate Modul-Artefakte und ein
 realer Distributionskanal existieren. Bis dahin gilt: checksums/provenance now,
 signing deferred. Siehe
-[Modul-Trust-ADR](architecture/adr-module-trust-model.md). Installer, `modules.lock`
-und Bundle-Format folgen in #173 und #174; Discovery und Runtime implementieren
+[Modul-Trust-ADR](architecture/adr-module-trust-model.md). Der
+[Installer mit `modules.lock`](modules/installer.md) prüft lokale Artefakte vor der
+Installation; das Bundle-Format folgt in #174. Discovery und Runtime implementieren
 keine parallele Integritätsprüfung.
 
 ## Kontrolliertes Notfallupdate

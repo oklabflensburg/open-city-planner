@@ -1,17 +1,20 @@
 # Modul-Lifecycle-Policy und Runbook
 
-Diese Policy beschreibt den vorhandenen deploy-time Lifecycle. Sie führt weder eine
-persistente State Machine noch einen Installer ein. Maßgeblich bleiben die
-bestehende [Backend-Runtime](backend-module-runtime.md), der
+Diese Policy beschreibt den vorhandenen deploy-time Lifecycle. Sie bleibt ohne
+persistente Runtime-State-Machine und integriert den getrennten
+[Installerzustand](installer.md) aus #173. Maßgeblich bleiben die bestehende
+[Backend-Runtime](backend-module-runtime.md), der
 [Frontend-Host](frontend-host.md), der
 [MigrationCoordinator](database-and-migrations.md) und der read-only
 [operationale Status](operations.md).
 
 ## Zustände und Reihenfolge
 
-Ein Modul ist in V1 nur für den konkreten Release konfiguriert oder nicht
-konfiguriert. `installed but disabled` ist noch kein persistierter Plattformzustand.
-Die beobachtbaren Runtime-Fakten bleiben `loaded`, `registered` und `running`.
+Ein Built-in-Modul ist in V1 nur für den konkreten Release konfiguriert oder nicht
+konfiguriert. Separat verteilte Module besitzen seit #173 zusätzlich den
+persistierten Package-Zustand `installed` mit einem deploy-time `enabled`-Wert in
+`modules.lock`. Dieser Wert ist kein Runtime-Fakt; die beobachtbaren Runtime-Fakten
+bleiben `loaded`, `registered` und `running`.
 
 Der Backend-Ablauf ist verbindlich:
 
@@ -185,7 +188,9 @@ Re-Enable:
 
 ## Scope
 
-Installer, `modules.lock`, `.ocp`-Bundles, Registry, Marketplace, Uninstall und ein
-persistenter `installed but disabled`-Zustand folgen frühestens in #173 bis #175.
-Diese Policy ergänzt keine Lifecycle-Datenbank, automatische DB-Rollbacks,
+Der [Installer aus #173](installer.md) ergänzt für separat verteilte Module den
+persistenten Zustand `installed` mit einem deploy-time Enablement in `modules.lock`.
+Built-ins folgen weiterhin der hier beschriebenen Environment-Konfiguration. `.ocp`-
+Bundles, Registry, Marketplace und Uninstall folgen frühestens in #174/#175 oder
+eigenen Folgearbeiten. Es gibt weiterhin keine automatische DB-Rücksetzung,
 Package-Downloads, Admin-UI oder Runtime-Hot-Reload.

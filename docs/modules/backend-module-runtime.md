@@ -74,6 +74,10 @@ verändert. Third-Party-Review und Integrität gehören vor diesen Schritt an di
 Installer-/Deploymentgrenze (#173 und #174). Namen und Release-Metadaten
 installierbarer Artefakte definiert die [Distribution Policy](distribution.md);
 die Runtime leitet daraus keine Modul-ID ab.
+Der [Installer](installer.md) stellt zusätzliche Python-Distributionen in einer
+host-owned Ablage bereit. Sein generierter `OCP_INSTALLED_BACKEND_PATHS`-Wert macht
+ihre Standard-Entry-Points auffindbar; `ENABLED_MODULES` bleibt die konkrete
+Runtime-Auswahl für den nächsten Prozessstart.
 
 ## Registrierungs- und Lifecycle-Reihenfolge
 
