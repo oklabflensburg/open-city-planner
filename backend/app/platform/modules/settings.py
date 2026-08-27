@@ -17,13 +17,12 @@ from app.platform.modules.errors import (
     ModuleSettingsValidationError,
 )
 from app.platform.modules.manifest import ModuleManifestV1
-from app.platform.modules.sdk import ModuleSettingsContribution
+from app.platform.modules.sdk import ModuleDefinition, ModuleSettingsContribution
 from app.platform.modules.settings_namespace import (
     MODULE_ENV_PREFIX,
     is_module_environment_key,
     module_id_to_env_prefix,
 )
-from app.platform.modules.trust import TrustedModuleDefinition
 
 TSettings = TypeVar("TSettings", bound=BaseModel)
 
@@ -264,7 +263,7 @@ def read_module_environment(
 
 
 def build_module_settings_registry(
-    resolved_definitions: Sequence[tuple[TrustedModuleDefinition, ModuleManifestV1]],
+    resolved_definitions: Sequence[tuple[ModuleDefinition, ModuleManifestV1]],
     *,
     registry: ModuleSettingsRegistry,
 ) -> ModuleSettingsRegistry:

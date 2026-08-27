@@ -58,10 +58,7 @@ from app.platform.modules.errors import (
 from app.platform.modules.inventory import (
     BackendModuleInventory,
     BackendModuleInventoryEntry,
-    OperationalModuleInventory,
-    OperationalModuleInventoryEntry,
     build_backend_module_inventory,
-    build_operational_module_inventory,
 )
 from app.platform.modules.manifest import (
     ModuleBackendPackage,
@@ -100,12 +97,6 @@ from app.platform.modules.sdk import (
     RetryPolicy,
 )
 from app.platform.modules.services import ServiceRegistry
-from app.platform.modules.trust import (
-    ModuleTrustClass,
-    ModuleTrustGrant,
-    TrustedModuleDefinition,
-    first_party_definition,
-)
 
 __all__ = [
     "ENTRY_POINT_GROUP",
@@ -168,11 +159,7 @@ __all__ = [
     "ModuleSettingsValidationError",
     "ModuleShutdownError",
     "ModuleStartupError",
-    "ModuleTrustClass",
-    "ModuleTrustGrant",
     "ModuleValidationError",
-    "OperationalModuleInventory",
-    "OperationalModuleInventoryEntry",
     "PermissionEngine",
     "PermissionRegistry",
     "PermissionRegistryError",
@@ -182,14 +169,11 @@ __all__ = [
     "ServiceRegistry",
     "ServiceRegistryError",
     "ServiceRegistrySealedError",
-    "TrustedModuleDefinition",
     "UndeclaredServiceDependencyError",
     "UnknownJobError",
     "UnsupportedManifestVersionError",
     "build_backend_module_inventory",
-    "build_operational_module_inventory",
     "create_module_runtime",
-    "first_party_definition",
     "module_manifest_json_schema",
     "parse_manifest",
     "resolve_module_definitions",

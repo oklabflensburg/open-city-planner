@@ -39,5 +39,4 @@ export interface FrontendModuleDefinition {
 export interface ResolvedFrontendModule extends FrontendModuleDefinition {
   source: string
   layerPath: string
-  trustClass: 'first-party'
 }

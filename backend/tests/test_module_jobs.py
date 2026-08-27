@@ -45,7 +45,6 @@ from app.platform.modules.testing import (
     FakeServiceRegistry,
     create_test_module_context,
 )
-from app.platform.modules.trust import first_party_definition
 
 FIXED_RUN_ID = UUID("00000000-0000-4000-8000-000000000100")
 
@@ -156,8 +155,8 @@ def test_invalid_job_contract_is_rejected(factory) -> None:
 class FakeDiscovery(ModuleDiscoveryProvider):
     definitions: Sequence[ModuleDefinition]
 
-    def discover(self, enabled_module_ids: frozenset[str]):
-        return tuple(first_party_definition(definition) for definition in self.definitions)
+    def discover(self, enabled_module_ids: frozenset[str]) -> Sequence[ModuleDefinition]:
+        return self.definitions
 
 
 class JobModule:

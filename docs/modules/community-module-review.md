@@ -1,53 +1,60 @@
-# Reviewed Community Modules entwickeln und prüfen
+# Third-Party-Module entwickeln und prüfen
 
-Ein Reviewed Community Module läuft mit den Rechten des Open-City-Planner-
-Hostprozesses. Installation setzt Code-Review und Vertrauen voraus. Die
-Modularchitektur sandboxed weder Python- noch Frontend-Code.
+Ein installiertes Third-Party-Modul läuft mit den Rechten des Open-City-Planner-
+Hostprozesses beziehungsweise im gemeinsamen Browser-Kontext. In-Process-Code muss
+daher vor Installation geprüft und anschließend wie Trusted Code behandelt werden.
+Die Modularchitektur ist keine Sandbox.
 
-## Was das praktisch bedeutet
+## Installationsgrenze
 
-`ModuleContext`, Capabilities, Permissions, Settings- und Persistence-Ownership
-sind die offiziell unterstützten Verträge. Sie machen Anforderungen sichtbar und
-prüfbar, verhindern aber nicht, dass kompromittierter Python-Code technisch Dateien,
-Prozessumgebung, Netzwerk oder Datenbankzugänge des Hosts verwendet. Frontend-Code
-läuft im gemeinsamen Nuxt-/Browser-Kontext.
+Ein Paket erreicht Discovery und Runtime ausschließlich über den kontrollierten
+Installer-/Deploymentpfad:
 
-Wenn der Code nicht in diesem Umfang vertraut werden kann, darf er nicht als
-In-Process-Modul geliefert werden. Verwende stattdessen eine Remote Integration mit
-einer stabilen API und den in der
-[Trust-ADR](../architecture/adr-module-trust-model.md) beschriebenen Grenzen.
+```text
+Package
+  -> Installer
+  -> Verify/Review
+  -> modules.lock
+  -> Backend/Frontend artifacts installed
+  -> Discovery
+  -> Runtime
+```
+
+Der Installer und `modules.lock` werden in #173 umgesetzt; das überprüfbare OCP-
+Bundle folgt in #174. Die heutige Entry-Point-Discovery findet lediglich bereits
+installierte Distributionen. Sie installiert nichts, lädt nichts aus dem Netz und
+ist kein zweites Review-Gate.
 
 ## Review-Paket
 
-Stelle für einen Installationsreview mindestens bereit:
+Für den Installationsreview sind mindestens bereitzustellen:
 
 - öffentlich nachvollziehbare Quelle, Repository und Maintainer;
 - exakte Modul-, Distribution- und Dependency-Versionen;
-- vollständigen Commit-SHA sowie SHA-256-Checksumme/Package-Integrity;
-- Lizenz und gelockten Dependency-Satz;
+- vollständiger Commit-SHA und SHA-256-Integrität;
+- Lizenz und gelockter Dependency-Satz;
 - Manifest mit Capabilities, Permissions und Dependencies;
 - Settings-Schema mit markierten Secrets und dokumentierten Endpoints;
-- Liste aller Datei-, Netzwerk-, Telemetrie- und Browserzugriffe;
+- Datei-, Netzwerk-, Telemetrie- und Browserzugriffe;
 - Persistence-Schema, Tabellen und sämtliche Migrationen;
 - Jobs, Lifecycle-Hooks, API-Router und Frontend-Contributions;
-- SBOM sowie Ergebnisse der Dependency-, Secret- und SAST-Scans;
+- SBOM und Ergebnisse der Dependency-, Secret- und SAST-Scans;
 - Disable-, Datenhaltungs- und Incident-Verhalten.
 
-Der freigegebene Datensatz wird vom Host verwaltet, nicht im fremden Manifest. Eine
-abweichende Paketversion, unbekannte Integrität oder ein fehlender Review-Grant
-blockiert den Entry Point vor dem Import.
+Die geprüfte Auflösung gehört in den Installer-/Deploymentzustand, nicht in ein vom
+Paket selbst kontrolliertes Manifest und nicht in einen Runtime-Trust-Wrapper.
 
-## Offizielle Implementierungswege
+## Unterstützte Implementierungswege
 
-- Konfiguration und Secrets: typisiertes `ModuleContext.settings`, niemals globale
-  Settings oder selbst gelesene `.env`-Dateien;
-- Datenbank: `ModuleContext.database`, eigene Tabellen und eigene Repositories;
+- Konfiguration und Secrets: typisiertes `ModuleContext.settings`, keine selbst
+  gelesene Prozessumgebung oder `.env`-Datei;
+- Datenbank: `ModuleContext.database`, eigene Tabellen und Repositories;
 - andere Module: öffentliche Service-/Event-Contracts, keine internen Imports;
-- Netzwerk: hostseitiger HTTP-Port, deklarierte Hosts, Timeouts, Limits, sichere
-  Redirects und datensparsame Observability;
+- Netzwerk: Host-Port, deklarierte Hosts, Timeouts, Limits und sichere Redirects;
 - Jobs: `ModuleContext.scheduler`, keine versteckten In-Process-Timer;
 - Benutzerrechte: registrierte Permissions und serverseitige Prüfung;
-- UI: deklarierte Contributions innerhalb der vorgesehenen Slots.
+- UI: deklarierte Contributions in den vorgesehenen Slots.
 
-Diese Regeln begrenzen den unterstützten Vertrag und ermöglichen Reviews. Sie sind
-keine OS-, PostgreSQL-, Python- oder Browser-Sandbox.
+Diese Verträge ermöglichen Review und Wartbarkeit. Sie sind keine OS-, PostgreSQL-,
+Python- oder Browser-Sandbox. Nicht ausreichend vertrauenswürdiger Code muss als
+Remote Integration über eine stabile, eng begrenzte API angebunden werden.

@@ -15,10 +15,10 @@ from app.db.session import AsyncSessionLocal
 from app.platform.modules.errors import ModulePersistenceError
 from app.platform.modules.manifest import ModuleManifestV1
 from app.platform.modules.sdk import (
+    ModuleDefinition,
     ModuleMigrationSource,
     ModulePersistenceContribution,
 )
-from app.platform.modules.trust import TrustedModuleDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +224,7 @@ def revision_namespace_for(module_id: str) -> str:
 
 
 def build_persistence_registry(
-    resolved_definitions: Sequence[tuple[TrustedModuleDefinition, ModuleManifestV1]],
+    resolved_definitions: Sequence[tuple[ModuleDefinition, ModuleManifestV1]],
     *,
     include_legacy: bool = True,
 ) -> PersistenceRegistry:

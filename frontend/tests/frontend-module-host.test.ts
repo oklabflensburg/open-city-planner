@@ -59,17 +59,6 @@ describe('frontend build-time module host', () => {
     expect(resolveFrontendModules({ ...paths, enabledModules: '' })).toEqual([])
   })
 
-  it('assigns trust in the host and rejects self-declared trust metadata', () => {
-    const paths = fixture()
-    addModule(paths.modulesDirectory, 'first-party')
-
-    expect(discoverFrontendModules(paths.modulesDirectory)[0]?.trustClass).toBe('first-party')
-
-    addModule(paths.modulesDirectory, 'self-authorized', { trustClass: 'first-party' })
-    expect(() => discoverFrontendModules(paths.modulesDirectory))
-      .toThrowError(/Frontend module definition .* is invalid/)
-  })
-
   it('fails for missing enabled modules', () => {
     const paths = fixture()
     expect(() => resolveFrontendModules({ ...paths, enabledModules: 'missing' }))

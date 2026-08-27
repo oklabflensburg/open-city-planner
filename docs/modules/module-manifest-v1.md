@@ -112,10 +112,10 @@ keine Secrets, SQL-Anweisungen, Entry-Point-Ausführung oder Settingswerte.
 ## Trust gehört nicht ins Manifest
 
 Manifest V1 enthält absichtlich weder `trust` noch `trust_class`. Ein fremdes Modul
-darf sich nicht selbst als `first-party` autorisieren. Unbekannte Trust-Felder
-werden wie alle unbekannten Felder fail-closed abgelehnt. Der Host bindet die
-tatsächliche Trust-Klasse und Provenance außerhalb des Modulpakets vor dem Import;
-Details stehen in der
+darf seinen Reviewstatus nicht selbst festlegen. Unbekannte Trust-Felder werden wie
+alle unbekannten Felder fail-closed abgelehnt. Prüfung und Provenance liegen
+außerhalb des Modulpakets an der Installer-/Deploymentgrenze (#173 und #174), nicht
+in Discovery oder Runtime. Details stehen in der
 [Trust-ADR](../architecture/adr-module-trust-model.md). Remote/Untrusted
 Integrationen sind keine In-Process-Module und werden nicht künstlich in dieses
 Schema gezwungen.

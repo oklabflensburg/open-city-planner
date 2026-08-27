@@ -5,11 +5,10 @@ statische Importgrenzen mit den bestehenden Manifest-, Dependency-, Registry-,
 Permission-, Map- und SSR-Vertragstests. Es startet keine Browser und benötigt weder
 PostgreSQL noch Redis oder externe Netzwerke.
 
-Zusätzlich belegt das Gate die hostseitige Trust-Zuordnung: selbst deklarierter
-First-Party-Trust und ungeprüfte Community-Entry-Points werden abgelehnt,
-Reviewed-Community-Grants benötigen Provenance und Integrität, und Repository-
-Module dürfen Secrets nicht direkt aus der Prozessumgebung laden. Diese Kontrollen
-sind Review-/Architekturgrenzen und versprechen keine In-Process-Sandbox.
+Zusätzlich belegt das Gate, dass Repository-Module Secrets nicht direkt aus der
+Prozessumgebung laden. Diese Architekturgrenze verspricht keine In-Process-Sandbox.
+Provenance und Integrität späterer Third-Party-Artefakte werden am Installer-/
+Deploymentrand geprüft (#173 und #174), nicht in der Runtime.
 
 Nach der Installation der gelockten Backend- und Frontend-Abhängigkeiten reicht lokal:
 

@@ -11,7 +11,6 @@ from app.platform.modules.sdk import (
     ModuleDefinition,
     ModuleLifecycleHook,
 )
-from app.platform.modules.trust import TrustedModuleDefinition
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,7 +78,7 @@ class ModuleRegistrationContext:
 class ModuleDiscoveryProvider(Protocol):
     """Liefert nur Definitionen explizit aktivierter deploy-time Module."""
 
-    def discover(self, enabled_module_ids: frozenset[str]) -> Sequence[TrustedModuleDefinition]: ...
+    def discover(self, enabled_module_ids: frozenset[str]) -> Sequence[ModuleDefinition]: ...
 
 
 __all__ = [
@@ -90,5 +89,4 @@ __all__ = [
     "ModuleLifecycleHook",
     "ModuleRegistrationContext",
     "RouterContribution",
-    "TrustedModuleDefinition",
 ]

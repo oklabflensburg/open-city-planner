@@ -42,12 +42,12 @@ aus dem geschützten mehrzeiligen Environment Secret
 Der Vertrag und die Legacy-Migrationsstrategie stehen unter
 [Namespacete Modulkonfiguration](modules/configuration.md).
 
-In-Process-Module sind nicht sandboxed. Die Standard-Composition autorisiert nur
-die First-Party-Entry-Points der Host-Distribution. Ein Reviewed Community Module
-benötigt vor Installation den vollständigen hostseitigen Review-/Trust-Datensatz
-aus der [Modul-Trust-ADR](architecture/adr-module-trust-model.md); die produktive
-Composition Root akzeptiert derzeit keine frei konfigurierbaren Community-Grants.
-Beliebige URL-/Runtime-Installationen sind kein unterstützter Deploymentpfad.
+In-Process-Module sind nicht sandboxed. Built-ins sind inhärent First-Party.
+Third-Party-Code darf Discovery und Runtime erst nach Prüfung und Installation am
+Deploymentrand erreichen. Der Installer mit `modules.lock` (#173) und das OCP-
+Bundle (#174) sind Folgearbeiten; beliebige URL-/Runtime-Installationen sind kein
+unterstützter Deploymentpfad. Details stehen in der
+[Modul-Trust-ADR](architecture/adr-module-trust-model.md).
 
 Persistente Verzeichnisse wie Uploads, OSM-Daten und Social-Screenshots dürfen nicht bei jedem Deployment ersetzt werden. Der Service-Benutzer benötigt nur für die tatsächlich verwendeten Pfade Schreibrechte.
 
