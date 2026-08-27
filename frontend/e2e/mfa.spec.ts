@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { loginAs } from './support/auth'
 
 const user = {
   id: 'mfa-user', email: 'mfa@example.org', first_name: 'Mfa', last_name: 'User',
@@ -21,6 +22,7 @@ async function quietBackgroundApis(page: Page) {
   await page.route('**/api/v1/auth/oauth/providers', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/notifications**', route => route.fulfill({ json: { items: [], total: 0, unread_count: 0 } }))
   await page.route('**/api/v1/users/me/notification-subscriptions**', route => route.fulfill({ json: [] }))
+  await page.route('**/api/v1/users/me/passkeys', route => route.fulfill({ json: [] }))
 }
 
 async function logoutFromAccountMenu(page: Page) {
@@ -196,8 +198,8 @@ test('OAuth MFA ignores URL method hints and renders only backend methods', asyn
 })
 
 test('TOTP setup shows a local QR code and one-time recovery codes', async ({ page }) => {
+  await loginAs(page)
   await quietBackgroundApis(page)
-  await page.route('**/api/v1/auth/session', route => route.fulfill({ json: { status: 'authenticated', user, csrf_token: 'csrf' } }))
   await page.route('**/api/v1/auth/mfa/security', route => route.fulfill({ json: { enabled: false, method: null, enabled_at: null, last_used_at: null, recovery_codes_remaining: 0 } }))
   await page.route('**/api/v1/auth/mfa/totp/setup', route => route.fulfill({ json: { secret: 'JBSWY3DPEHPK3PXP', otpauth_uri: 'otpauth://totp/Stadtplaner:mfa@example.org?secret=JBSWY3DPEHPK3PXP&issuer=Stadtplaner', issuer: 'Stadtplaner', account_name: user.email, expires_in: 600 } }))
   await page.route('**/api/v1/auth/mfa/totp/confirm', route => route.fulfill({ json: { recovery_codes: ['AAAA-BBBB-CCCC', 'DDDD-EEEE-FFFF'] } }))
@@ -212,8 +214,8 @@ test('TOTP setup shows a local QR code and one-time recovery codes', async ({ pa
 })
 
 test('recovery codes can be regenerated after strong confirmation', async ({ page }) => {
+  await loginAs(page)
   await quietBackgroundApis(page)
-  await page.route('**/api/v1/auth/session', route => route.fulfill({ json: { status: 'authenticated', user, csrf_token: 'csrf' } }))
   await page.route('**/api/v1/auth/mfa/security', route => route.fulfill({ json: { enabled: true, method: 'totp', enabled_at: new Date().toISOString(), last_used_at: null, recovery_codes_remaining: 8 } }))
   await page.route('**/api/v1/auth/mfa/recovery-codes', route => route.fulfill({ json: { recovery_codes: ['NEW1-CODE-AAAA', 'NEW2-CODE-BBBB'] } }))
 
@@ -226,13 +228,13 @@ test('recovery codes can be regenerated after strong confirmation', async ({ pag
 })
 
 test('MFA disable requires password and factor, then returns to login', async ({ page }) => {
-  let authenticated = true
+  await loginAs(page)
   await quietBackgroundApis(page)
-  await page.route('**/api/v1/auth/session', route => authenticated
-    ? route.fulfill({ json: { status: 'authenticated', user, csrf_token: 'csrf' } })
-    : route.fulfill({ status: 401, json: { detail: { error: { code: 'AUTH_REQUIRED', message: 'Bitte anmelden.' } } } }))
   await page.route('**/api/v1/auth/mfa/security', route => route.fulfill({ json: { enabled: true, method: 'totp', enabled_at: new Date().toISOString(), last_used_at: null, recovery_codes_remaining: 8 } }))
-  await page.route('**/api/v1/auth/mfa/totp', async (route) => { authenticated = false; await route.fulfill({ json: { message: 'Deaktiviert.' } }) })
+  await page.route('**/api/v1/auth/mfa/totp', async (route) => {
+    await page.context().clearCookies()
+    await route.fulfill({ json: { message: 'Deaktiviert.' } })
+  })
 
   await page.goto('/profil/sicherheit')
   await page.getByRole('button', { name: 'Zwei-Faktor-Authentifizierung deaktivieren' }).click()

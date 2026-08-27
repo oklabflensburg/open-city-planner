@@ -36,11 +36,13 @@ describe('Frontend production workflow', () => {
       'Audit production SSR metadata'
     ]) {
       expect(step(name)).toContain('OCP_FRONTEND_MODULES: analysis-areas')
-      expect(step(name)).toContain('OCP_BACKEND_MODULES: analysis-areas@1.0.0')
+      expect(step(name)).not.toContain('OCP_BACKEND_MODULES:')
     }
 
+    expect(step('Resolve backend module inventory')).toContain('scripts/backend-module-inventory --format env')
+    expect(step('Resolve backend module inventory')).toContain('ENABLED_MODULES: analysis-areas')
     expect(step('Build Nuxt application with example module')).toContain('OCP_FRONTEND_MODULES: example-module')
     expect(step('Build Nuxt application without optional modules')).toContain("OCP_FRONTEND_MODULES: ''")
-    expect(step('Build Nuxt application without optional modules')).toContain("OCP_BACKEND_MODULES: ''")
+    expect(workflow).not.toContain('analysis-areas@1.0.0')
   })
 })

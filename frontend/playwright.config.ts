@@ -27,6 +27,11 @@ export default defineConfig({
     {
       command: `${backendPython} -m uvicorn app.main:app --app-dir ../backend --host 127.0.0.1 --port 8010`,
       url: 'http://127.0.0.1:8010/health',
+      env: {
+        AUTH_RATE_LIMIT_ATTEMPTS: '500',
+        JWT_ISSUER: 'http://127.0.0.1:8010',
+        JWT_SECRET_KEY: 'playwright-e2e-jwt-signing-key-32-bytes'
+      },
       reuseExistingServer: !process.env.CI,
       timeout: 120_000
     },

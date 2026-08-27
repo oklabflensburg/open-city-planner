@@ -105,11 +105,18 @@ uv run uvicorn app.main:app --reload
 Start the frontend in a second terminal:
 
 ```bash
-cd frontend
+cd backend
+export OCP_BACKEND_MODULES="$(../scripts/backend-module-inventory --format env)"
+cd ../frontend
 cp .env.example .env
 pnpm install --frozen-lockfile
 pnpm dev
 ```
+
+`ENABLED_MODULES` in `backend/.env` is the backend activation decision;
+`OCP_FRONTEND_MODULES` in `frontend/.env` is the frontend activation decision.
+The command above derives the versioned compatibility inventory from backend
+discovery, so module versions are not entered a second time.
 
 The frontend runs at `http://localhost:3000` by default, the API at `http://localhost:8000`, and Swagger UI at `http://localhost:8000/docs`.
 

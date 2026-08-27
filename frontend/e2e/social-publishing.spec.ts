@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { loginAs } from './support/auth'
 
 const publicationId = '11111111-1111-4111-8111-111111111111'
 const approvalPublicationId = '44444444-4444-4444-8444-444444444444'
@@ -48,28 +49,8 @@ test('GIS social deep link selects the polygon before declaring the map ready', 
 test('superuser can inspect social publishing and queue a failed event for retry', async ({ page }) => {
   let retryRequested = false
   let approvalRequested = false
+  const authSession = await loginAs(page, 'admin')
 
-  await page.route('**/api/v1/auth/session', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({
-      user: {
-        id: '22222222-2222-4222-8222-222222222222',
-        email: 'admin@example.org',
-        first_name: 'Ada',
-        last_name: 'Admin',
-        display_name: 'Ada Admin',
-        is_active: true,
-        is_verified: true,
-        is_superuser: true,
-        permissions: ['platform.superuser', 'platform.verwaltung', 'social.publish'],
-        roles: [],
-        created_at: '2026-08-16T10:00:00Z',
-        updated_at: '2026-08-16T10:00:00Z'
-      },
-      csrf_token: 'playwright-csrf'
-    })
-  }))
   await page.route('**/api/v1/admin/social/mastodon/status', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -166,14 +147,14 @@ test('superuser can inspect social publishing and queue a failed event for retry
   await page.route(`**/api/v1/admin/social/publications/${publicationId}/retry`, async (route) => {
     retryRequested = true
     expect(route.request().method()).toBe('POST')
-    expect(route.request().headers()['x-csrf-token']).toBe('playwright-csrf')
+    expect(route.request().headers()['x-csrf-token']).toBe(authSession.csrf_token)
     await route.fulfill({ status: 204 })
   })
   await page.route(`**/api/v1/admin/social/publications/${approvalPublicationId}/approve-and-publish`, async (route) => {
     approvalRequested = true
     expect(route.request().method()).toBe('POST')
     expect(route.request().postDataJSON()).toEqual({})
-    expect(route.request().headers()['x-csrf-token']).toBe('playwright-csrf')
+    expect(route.request().headers()['x-csrf-token']).toBe(authSession.csrf_token)
     await route.fulfill({ status: 204 })
   })
 

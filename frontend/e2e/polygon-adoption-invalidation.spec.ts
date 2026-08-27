@@ -1,11 +1,7 @@
 import { expect, test } from '@playwright/test'
+import { loginAs } from './support/auth'
 
 const polygonId = '55555555-5555-4555-8555-555555555555'
-const account = {
-  id: '33333333-3333-4333-8333-333333333333', email: 'owner@example.org', first_name: 'Test', last_name: 'Owner', display_name: 'Test Owner',
-  avatar_url: null, is_active: true, is_verified: true, email_pending: false, is_superuser: false, roles: [],
-  created_at: '2026-08-17T08:00:00Z', updated_at: '2026-08-17T08:00:00Z', last_login_at: null
-}
 const geometry = { type: 'Polygon' as const, coordinates: [[[9.4348, 54.7828], [9.4352, 54.7828], [9.4352, 54.7832], [9.4348, 54.7828]]] }
 const polygon = {
   id: polygonId, slug: 'osm-mode-adoptiert', name: 'OSM Mode', description: null, floor: 'EG', area_size: 'S', address_display_name: 'Holm 1, Flensburg',
@@ -47,7 +43,7 @@ test('OSM adoption invalidates the same viewport and shows the persisted polygon
   let polygonRequestsAfterAdoption = 0
   let osmRequestsAfterAdoption = 0
 
-  await page.route('**/api/v1/auth/session', route => route.fulfill({ json: { user: account, csrf_token: 'adopt-csrf' } }))
+  await loginAs(page)
   await page.route('**/api/v1/auth/oauth/providers', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/notifications/unread-count', route => route.fulfill({ json: { unread_count: 0 } }))
   await page.route('**/api/v1/notifications/subscriptions', route => route.fulfill({ json: [] }))
@@ -72,6 +68,9 @@ test('OSM adoption invalidates the same viewport and shows the persisted polygon
     polygon_id: polygonId, polygon_slug: polygon.slug, source: 'local', matches: [], primary_match: null
   } }))
   await page.route('**/api/v1/polygons/by-slug/osm-mode-adoptiert', route => route.fulfill({ json: polygon }))
+  await page.route(`**/api/v1/polygons/${polygonId}/editor`, route => route.fulfill({ json: {
+    ...polygon, can_edit_public_fields: true, can_delete: true
+  } }))
   await page.route('**/api/v1/polygons/overview**', route => {
     if (countReturnRequests) polygonRequestsAfterAdoption += 1
     return route.fulfill({ json: adopted ? [polygon] : [] })

@@ -156,27 +156,31 @@ Backend und Migration:
 
 ```bash
 cd backend
-ENABLED_MODULES=reference uv run python -m app.cli.module_migrations preflight
-ENABLED_MODULES=reference uv run python -m app.cli.module_migrations upgrade
-ENABLED_MODULES=reference uv run uvicorn app.main:app --reload
+export ENABLED_MODULES=reference
+uv run python -m app.cli.module_migrations preflight
+uv run python -m app.cli.module_migrations upgrade
+uv run uvicorn app.main:app --reload
 ```
 
 Frontend:
 
 ```bash
-cd frontend
+cd backend
+export ENABLED_MODULES=reference
+export OCP_BACKEND_MODULES="$(../scripts/backend-module-inventory --format env)"
+cd ../frontend
 OCP_FRONTEND_MODULES=reference \
-OCP_BACKEND_MODULES=reference@1.0.0 \
 pnpm dev
 ```
 
-Für einen Produktionsbuild gelten dieselben beiden Frontend-Variablen mit
+Für einen Produktionsbuild gilt derselbe generierte Inventory-Transport mit
 `pnpm build`.
 
 ## 19. Deaktivieren
 
-`reference` aus `ENABLED_MODULES`, `OCP_FRONTEND_MODULES` und dem Backend-Inventar
-entfernen und Backend/Frontend neu starten beziehungsweise neu bauen. Dann fehlen
+`reference` aus `ENABLED_MODULES` und `OCP_FRONTEND_MODULES` entfernen und das
+Backend-Inventar neu erzeugen. Danach Backend/Frontend neu starten beziehungsweise
+neu bauen. Dann fehlen
 Route, Permission, Subscriber, Job, Seite, Navigation, Slot und Map-Layer. Die
 Tabelle und historische Migration bleiben absichtlich erhalten; Deaktivieren löscht
 keine Daten. Ein physisches Entfernen braucht eine separat geprüfte Cleanup-Migration

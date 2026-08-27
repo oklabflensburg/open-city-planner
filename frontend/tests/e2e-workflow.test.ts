@@ -13,7 +13,9 @@ describe('E2E workflow module configuration', () => {
   it('starts both webservers with the production module inventory', () => {
     expect(workflow).toMatch(/^  ENABLED_MODULES: analysis-areas$/m)
     expect(workflow).toMatch(/^  OCP_FRONTEND_MODULES: analysis-areas$/m)
-    expect(workflow).toMatch(/^  OCP_BACKEND_MODULES: analysis-areas@1\.0\.0$/m)
+    expect(workflow).toMatch(/^  CORS_ORIGINS: http:\/\/127\.0\.0\.1:3010$/m)
+    expect(workflow).not.toContain('analysis-areas@1.0.0')
+    expect(workflow).toContain('scripts/backend-module-inventory --format env')
 
     const playwright = repositoryFile('frontend/playwright.config.ts')
     expect(playwright).toContain('-m uvicorn app.main:app')

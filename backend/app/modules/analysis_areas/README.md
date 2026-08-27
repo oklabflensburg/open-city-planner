@@ -42,10 +42,15 @@ Ein gezielter Disabled-Test setzt `ENABLED_MODULES=`. Dann fehlen Router,
 Capabilities und der Lookup-Service; die Tabelle bleibt erhalten. Das Frontend
 verwendet entsprechend:
 
-```env
-OCP_FRONTEND_MODULES=analysis-areas
-OCP_BACKEND_MODULES=analysis-areas@1.0.0
+```bash
+export ENABLED_MODULES=analysis-areas
+export OCP_BACKEND_MODULES="$(scripts/backend-module-inventory --format env)"
+cd frontend
+export OCP_FRONTEND_MODULES=analysis-areas
 ```
+
+Die Backend-Version stammt dabei ausschließlich aus `MANIFEST` und wird nicht in
+Frontend-, CI- oder Deployment-Konfiguration dupliziert.
 
 ## Verifikation
 

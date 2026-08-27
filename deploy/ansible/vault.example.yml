@@ -201,7 +201,6 @@ stadtplaner_backend_env_content: |
 # Complete frontend/.env, snapshotted below /etc/stadtplaner/releases/<sha>/.
 stadtplaner_frontend_env_content: |
   OCP_FRONTEND_MODULES=analysis-areas
-  OCP_BACKEND_MODULES=analysis-areas@1.0.0
   NUXT_PUBLIC_API_BASE_URL=https://api.stadtplaner.oklabflensburg.de/api/v1
   NUXT_API_INTERNAL_BASE_URL=
   NUXT_PUBLIC_SITE_URL=https://stadtplaner.oklabflensburg.de

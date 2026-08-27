@@ -43,10 +43,12 @@ Reloads dessen Hydration und gemockte Browseranfragen gegenseitig beeinflussen.
 Die Testdaten erzeugt
 `backend/tests/e2e_seed.py` nach dem vollständigen Alembic-Upgrade ausschließlich
 für die frische CI-Datenbank. Das E2E-Gate setzt `ENABLED_MODULES=analysis-areas`,
-`OCP_FRONTEND_MODULES=analysis-areas` und
-`OCP_BACKEND_MODULES=analysis-areas@1.0.0` explizit. Playwright vererbt diese
-Workflow-Umgebung an den Uvicorn- und Nuxt-Webserver. Frontend-Modul- und
-Backend-Migrations-Preflight validieren die Konfiguration vor dem Browserlauf.
+erzeugt daraus nach der eingefrorenen Backend-Installation das versionierte
+Inventar und setzt `OCP_FRONTEND_MODULES=analysis-areas`. Playwright vererbt diese
+Workflow-Umgebung einschließlich des generierten internen
+`OCP_BACKEND_MODULES`-Transports an den Uvicorn- und Nuxt-Webserver.
+Frontend-Modul- und Backend-Migrations-Preflight validieren die Konfiguration vor
+dem Browserlauf.
 
 ## Lokale Prüfung
 
@@ -74,6 +76,8 @@ uv run alembic upgrade head
 Frontend:
 
 ```bash
+export ENABLED_MODULES=analysis-areas
+export OCP_BACKEND_MODULES="$(scripts/backend-module-inventory --format env)"
 cd frontend
 pnpm install --frozen-lockfile
 pnpm modules:check
@@ -83,10 +87,10 @@ pnpm test:modules:ssr
 pnpm typecheck
 OCP_FRONTEND_MODULES=example-module pnpm typecheck
 OCP_FRONTEND_MODULES=example-module pnpm build
-OCP_FRONTEND_MODULES=analysis-areas OCP_BACKEND_MODULES=analysis-areas@1.0.0 pnpm modules:check
-OCP_FRONTEND_MODULES=analysis-areas OCP_BACKEND_MODULES=analysis-areas@1.0.0 pnpm build
+OCP_FRONTEND_MODULES=analysis-areas pnpm modules:check
+OCP_FRONTEND_MODULES=analysis-areas pnpm build
 pnpm audit:seo
-OCP_FRONTEND_MODULES= OCP_BACKEND_MODULES= pnpm build
+OCP_FRONTEND_MODULES= pnpm build
 pnpm audit:language
 ```
 
@@ -116,13 +120,16 @@ Testdatenbank zeigen:
 ```bash
 cd backend
 uv sync --frozen --extra dev --no-editable
-ENABLED_MODULES=analysis-areas uv run alembic upgrade head
-ENABLED_MODULES=analysis-areas uv run python tests/e2e_seed.py
-ENABLED_MODULES=analysis-areas uv run python -m app.cli.module_migrations preflight
+export ENABLED_MODULES=analysis-areas
+uv run alembic upgrade head
+uv run python tests/e2e_seed.py
+uv run python -m app.cli.module_migrations preflight
+export OCP_BACKEND_MODULES="$(../scripts/backend-module-inventory --format env)"
 cd ../frontend
 pnpm exec playwright install chromium
-OCP_FRONTEND_MODULES=analysis-areas OCP_BACKEND_MODULES=analysis-areas@1.0.0 pnpm modules:check
-ENABLED_MODULES=analysis-areas OCP_FRONTEND_MODULES=analysis-areas OCP_BACKEND_MODULES=analysis-areas@1.0.0 pnpm test:e2e
+export OCP_FRONTEND_MODULES=analysis-areas
+pnpm modules:check
+pnpm test:e2e
 ```
 
 Produktivdatenbanken dürfen niemals als E2E-Ziel verwendet werden. Der Seed ist

@@ -8,10 +8,14 @@ from decimal import Decimal
 
 from geoalchemy2.elements import WKTElement
 
+from app.auth.passwords import hash_password
 from app.db.session import AsyncSessionLocal
 from app.models.statistics import StatisticalDataset, StatisticalMetric, StatisticalObservation
+from app.models.user import User
 from app.models.user_polygon import UserPolygon
 from app.modules.analysis_areas.persistence.models import AnalysisArea, PolygonAnalysisArea
+
+E2E_PASSWORD = "playwright-test-password"
 
 
 def area(
@@ -76,6 +80,34 @@ def observation(
 
 async def seed() -> None:
     async with AsyncSessionLocal() as session:
+        session.add_all(
+            [
+                User(
+                    id=uuid.UUID("33333333-3333-4333-8333-333333333333"),
+                    email="account@example.org",
+                    password_hash=hash_password(E2E_PASSWORD),
+                    first_name="Account",
+                    last_name="Owner",
+                    display_name="Account Owner",
+                    is_active=True,
+                    is_verified=True,
+                    roles=[],
+                ),
+                User(
+                    id=uuid.UUID("22222222-2222-4222-8222-222222222222"),
+                    email="admin@example.org",
+                    password_hash=hash_password(E2E_PASSWORD),
+                    first_name="Ada",
+                    last_name="Admin",
+                    display_name="Ada Admin",
+                    is_active=True,
+                    is_verified=True,
+                    is_superuser=True,
+                    roles=[],
+                ),
+            ]
+        )
+
         flensburg = area(
             slug="flensburg-27020",
             name="Flensburg",

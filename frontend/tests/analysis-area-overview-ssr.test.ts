@@ -37,7 +37,7 @@ const questions = [
 ]
 
 process.env.OCP_FRONTEND_MODULES = 'analysis-areas'
-process.env.OCP_BACKEND_MODULES = 'analysis-areas@1.0.0'
+process.env.OCP_BACKEND_MODULES = 'analysis-areas'
 
 await setup({
   rootDir: fileURLToPath(new URL('..', import.meta.url)),

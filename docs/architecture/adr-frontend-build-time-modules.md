@@ -106,7 +106,10 @@ duplizieren.
 `OCP_BACKEND_MODULES` ist ein optionaler Build-/Deployment-Preflight-Snapshot im
 Format `id` oder `id@version`. Ist er gesetzt, muss jedes aktivierte Fullstack-
 Frontend-Modul darin vorkommen; vorhandene Versionen werden gegen den Backend-
-Range geprüft. Serverseitige Autorisierung bleibt unabhängig davon verbindlich.
+Range geprüft. Der Snapshot wird aus `ENABLED_MODULES`, der bestehenden Backend-
+Discovery und den validierten Backend-Manifests generiert; er ist keine manuell
+gepflegte Aktivierungskonfiguration. Serverseitige Autorisierung bleibt unabhängig
+davon verbindlich.
 
 ## Routing, SSR und SEO
 

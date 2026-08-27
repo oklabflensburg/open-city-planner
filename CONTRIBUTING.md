@@ -20,15 +20,6 @@ Benötigt werden:
 - PostgreSQL mit PostGIS
 - optional Redis für den gemeinsam genutzten Read-Cache
 
-Frontend einrichten:
-
-```bash
-cd frontend
-cp .env.example .env
-pnpm install --frozen-lockfile
-pnpm dev
-```
-
 Backend einrichten:
 
 ```bash
@@ -39,6 +30,22 @@ uv sync --frozen --extra dev
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
+
+Frontend anschließend in einem zweiten Terminal einrichten:
+
+```bash
+cd backend
+export OCP_BACKEND_MODULES="$(../scripts/backend-module-inventory --format env)"
+cd ../frontend
+cp .env.example .env
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Der Inventory-Helper setzt das bereits mit `uv sync` installierte Backend voraus.
+Er übernimmt die Versionen der in `backend/.env` über `ENABLED_MODULES` aktivierten
+Module direkt aus deren Manifesten. Im Frontend bleibt nur
+`OCP_FRONTEND_MODULES` als eigene Aktivierungsentscheidung.
 
 Die lokalen Standardadressen stehen im [README](README.md); alle Variablen sind in den jeweiligen `.env.example`-Dateien beschrieben. Echte Secrets gehören ausschließlich in die nicht versionierte `.env`-Datei. Maintainer finden den produktiven Ablauf in [docs/deployment.md](docs/deployment.md).
 

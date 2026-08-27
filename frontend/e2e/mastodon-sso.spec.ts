@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { loginAs } from './support/auth'
 
 const providers = [
   { id: 'github', label: 'GitHub', requires_instance: false, default_instance: null },
@@ -36,23 +37,7 @@ for (const viewport of [
 }
 
 test('authenticated profile starts Mastodon linking without visiting login', async ({ page }) => {
-  const user = {
-    id: '11111111-1111-4111-8111-111111111111',
-    email: 'user@example.org',
-    first_name: 'Stadt',
-    last_name: 'Freund',
-    display_name: 'Stadtfreund',
-    avatar_url: null,
-    is_active: true,
-    is_verified: true,
-    email_pending: false,
-    is_superuser: false,
-    roles: [],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    last_login_at: null
-  }
-  await page.route('**/api/v1/auth/session', route => route.fulfill({ json: { user, csrf_token: 'csrf-test' } }))
+  await loginAs(page)
   await page.route('**/api/v1/auth/oauth/providers', route => route.fulfill({ json: providers }))
   await page.route('**/api/v1/users/me/oauth-accounts', route => route.fulfill({ json: [] }))
   let linkRequested = false

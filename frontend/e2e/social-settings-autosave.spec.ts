@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { loginAs } from './support/auth'
 
 test.describe.configure({ mode: 'serial' })
 
@@ -48,6 +49,7 @@ function initialSettings() {
 }
 
 async function mockSocialSettings(page: Page) {
+  await loginAs(page, 'admin')
   const controller = {
     state: initialSettings(),
     patches: [] as Array<Record<string, unknown>>,
@@ -61,7 +63,6 @@ async function mockSocialSettings(page: Page) {
     releasePatch: undefined as (() => void) | undefined
   }
 
-  await page.route('**/api/v1/auth/session', route => route.fulfill({ json: { user: adminUser, csrf_token: 'playwright-csrf' } }))
   await page.route('**/api/v1/auth/refresh', route => {
     controller.refreshRequests += 1
     return route.fulfill({ json: { user: adminUser, csrf_token: 'refreshed-csrf' } })

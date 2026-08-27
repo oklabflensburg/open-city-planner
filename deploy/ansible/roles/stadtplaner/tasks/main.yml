@@ -487,16 +487,6 @@
   become_user: "{{ stadtplaner_service_user }}"
   changed_when: false
 
-- name: Validate backend and frontend module inventories
-  ansible.builtin.command:
-    argv:
-      - python3
-      - "{{ stadtplaner_release_path }}/deploy/ansible/scripts/validate_module_inventory.py"
-      - "{{ stadtplaner_release_path }}/backend/.env"
-      - "{{ stadtplaner_release_path }}/frontend/.env"
-  become_user: "{{ stadtplaner_service_user }}"
-  changed_when: false
-
 - name: Ensure backend writable data directory exists
   ansible.builtin.file:
     path: "{{ stadtplaner_release_path }}/backend/data"
@@ -538,6 +528,28 @@
   changed_when: false
   no_log: true
 
+- name: Resolve target release backend module inventory
+  ansible.builtin.command:
+    argv:
+      - "{{ stadtplaner_release_path }}/scripts/backend-module-inventory"
+      - --format
+      - env
+    chdir: "{{ stadtplaner_release_path }}"
+  become_user: "{{ stadtplaner_service_user }}"
+  register: stadtplaner_backend_module_inventory
+  changed_when: false
+
+- name: Bind generated backend module inventory to target frontend environment
+  ansible.builtin.lineinfile:
+    path: "{{ stadtplaner_target_frontend_env }}"
+    regexp: '^OCP_BACKEND_MODULES='
+    line: "OCP_BACKEND_MODULES={{ stadtplaner_backend_module_inventory.stdout }}"
+    insertafter: EOF
+    create: false
+    owner: root
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0640'
+
 - name: Run optional backend test suite before migration
   ansible.builtin.command:
     cmd: .venv/bin/python -m pytest
@@ -551,6 +563,13 @@
     cmd: corepack pnpm install --frozen-lockfile
     chdir: "{{ stadtplaner_release_path }}/frontend"
   become_user: "{{ stadtplaner_service_user }}"
+
+- name: Verify target frontend module compatibility
+  ansible.builtin.command:
+    cmd: corepack pnpm modules:check
+    chdir: "{{ stadtplaner_release_path }}/frontend"
+  become_user: "{{ stadtplaner_service_user }}"
+  changed_when: false
 
 - name: Run optional frontend typecheck
   ansible.builtin.command:
