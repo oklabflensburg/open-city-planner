@@ -181,6 +181,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.state.permission_engine = permission_engine
+app.state.module_runtime = module_runtime
 
 app.add_middleware(GZipMiddleware, minimum_size=1_000, compresslevel=5)
 app.add_middleware(RequestBodyLimitMiddleware)

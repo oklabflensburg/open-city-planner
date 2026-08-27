@@ -19,6 +19,7 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 - [ADR: Datenbank- und Migrations-Ownership von Modulen](architecture/adr-module-database-and-migration-ownership.md)
 - [Module Manifest Schema V1](modules/module-manifest-v1.md)
 - [Backend-Module-Runtime](modules/backend-module-runtime.md)
+- [Operationaler Modulstatus und Diagnose](modules/operations.md)
 - [Öffentliches Backend-Module-SDK](modules/backend-module-sdk.md)
 - [Domain Events und transaktionale Outbox](modules/domain-events.md)
 - [Modulare Background Jobs](modules/background-jobs.md)

@@ -73,6 +73,11 @@ from app.platform.modules.manifest import (
     validate_manifest,
     validate_manifests,
 )
+from app.platform.modules.operations import (
+    ModuleOperationalDependencyStatus,
+    ModuleOperationalStatus,
+    ModuleOperationalStatusResponse,
+)
 from app.platform.modules.permissions import (
     LegacyRolePermissionResolver,
     PermissionEngine,
@@ -140,6 +145,9 @@ __all__ = [
     "ModuleManifestError",
     "ModuleManifestV1",
     "ModuleMigrationSource",
+    "ModuleOperationalDependencyStatus",
+    "ModuleOperationalStatus",
+    "ModuleOperationalStatusResponse",
     "ModuleOptionalRequirements",
     "ModulePersistence",
     "ModulePersistenceContribution",

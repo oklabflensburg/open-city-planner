@@ -14,6 +14,7 @@ from app.cache.service import cache_service
 from app.core.config import get_settings
 from app.models.social_publication import SocialPublicationOutbox
 from app.models.user import User
+from app.platform.modules import ModuleOperationalStatusResponse, ModuleRuntime
 from app.schemas.admin import (
     AdminRoleRead,
     AdminUserListRead,
@@ -600,6 +601,25 @@ async def get_cache_stats(
 ) -> dict:
     private_no_store(response)
     return await cache_service.stats()
+
+
+@router.get(
+    "/modules/status",
+    response_model=ModuleOperationalStatusResponse,
+    summary="Operationalen Modulstatus anzeigen",
+)
+async def get_module_operational_status(
+    request: Request,
+    response: Response,
+    _actor: Annotated[User, Depends(require_superuser)],
+) -> ModuleOperationalStatusResponse:
+    """Return safe runtime facts without exposing settings or internal origins."""
+
+    private_no_store(response)
+    runtime = getattr(request.app.state, "module_runtime", None)
+    if not isinstance(runtime, ModuleRuntime):
+        raise HTTPException(status_code=503, detail="Module runtime is unavailable.")
+    return runtime.operational_status
 
 
 @router.post("/cache/invalidate")

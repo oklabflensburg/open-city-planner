@@ -49,6 +49,10 @@ Dependency-/Load-Reihenfolge.
 Trust und Capabilities werden bewusst nicht in diesen Build-Contract gemischt. Das
 Kompatibilitätsinventar bleibt auf ID und Version begrenzt.
 
+Runtime-, Dependency- und Jobdiagnose bleibt davon getrennt und wird ausschließlich
+als geschützter, read-only [operationaler Modulstatus](operations.md) aus der
+laufenden Runtime projiziert.
+
 ## Discovery-Quellen
 
 `FirstPartyModuleDiscovery` lädt ausschließlich explizit aktivierte Built-ins nach

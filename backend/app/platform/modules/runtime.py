@@ -24,6 +24,12 @@ from app.platform.modules.errors import (
 )
 from app.platform.modules.jobs import JobRegistry
 from app.platform.modules.manifest import ModuleManifestV1, parse_manifest, validate_manifests
+from app.platform.modules.operations import (
+    ModuleOperationalDependencyStatus,
+    ModuleOperationalStatus,
+    ModuleOperationalStatusResponse,
+    safe_module_origin,
+)
 from app.platform.modules.permissions import PermissionRegistry
 from app.platform.modules.sdk import BackendModule, ModuleContext, ModuleDefinition
 from app.platform.modules.services import ServiceRegistry
@@ -108,6 +114,54 @@ class ModuleRuntime:
     def job_registry(self) -> JobRegistry | None:
         return self._job_registry
 
+    @property
+    def operational_status(self) -> ModuleOperationalStatusResponse:
+        """Project current runtime facts without storing a second lifecycle state."""
+
+        versions = {
+            record.manifest.id: record.manifest.version for record in self.registry.records
+        }
+        job_counts: dict[str, int] = {}
+        if self._job_registry is not None:
+            for descriptor in self._job_registry.jobs:
+                job_counts[descriptor.module_id] = job_counts.get(descriptor.module_id, 0) + 1
+
+        modules = []
+        for record in self.registry.records:
+            status = "running" if self._running else "registered" if record.registered else "loaded"
+            dependencies = [
+                ModuleOperationalDependencyStatus(
+                    id=module_id,
+                    requirement=requirement,
+                    resolved=versions[module_id],
+                    optional=False,
+                )
+                for module_id, requirement in sorted(record.manifest.requires.modules.items())
+            ]
+            dependencies.extend(
+                ModuleOperationalDependencyStatus(
+                    id=module_id,
+                    requirement=requirement,
+                    resolved=versions[module_id],
+                    optional=True,
+                )
+                for module_id, requirement in sorted(record.manifest.optional.modules.items())
+                if module_id in versions
+            )
+            modules.append(
+                ModuleOperationalStatus(
+                    id=record.manifest.id,
+                    version=record.manifest.version,
+                    status=status,
+                    registered=record.registered,
+                    capabilities=tuple(record.manifest.capabilities),
+                    dependencies=tuple(dependencies),
+                    origin=safe_module_origin(record.origin),
+                    job_count=job_counts.get(record.manifest.id, 0),
+                )
+            )
+        return ModuleOperationalStatusResponse(modules=tuple(modules))
+
     def register(self, app: FastAPI) -> None:
         """Deklariere Beiträge einmalig und binde Router kontrolliert an den Host."""
 
@@ -122,6 +176,7 @@ class ModuleRuntime:
                 record.registration.close()
             except Exception as exc:
                 record.registration.close()
+                logger.exception("Module registration failed", extra=fields)
                 raise ModuleRegistrationError(
                     "The module register() hook failed.",
                     module_id=record.manifest.id,
@@ -161,16 +216,20 @@ class ModuleRuntime:
             raise ModuleStartupError("The module runtime has already been started.")
 
         for record in self.registry.records:
+            fields = _log_fields(record, "startup")
+            logger.info("Module startup started", extra=fields)
             for contribution in record.registration.lifecycle:
                 try:
                     if contribution.startup is not None:
                         await contribution.startup()
                     self._started.append((record, contribution))
                 except Exception as exc:
+                    logger.exception("Module startup failed", extra=fields)
                     await self._cleanup_after_startup_failure()
                     raise ModuleStartupError(
                         "A module startup hook failed.", module_id=record.manifest.id
                     ) from exc
+            logger.info("Module startup completed", extra=fields)
         self._running = True
 
     async def shutdown(self) -> None:
