@@ -318,6 +318,10 @@ def resolve_module_definitions(
             raise ModuleValidationError(
                 str(exc), module_id=exc.module_id, origin=definition.origin
             ) from exc
+        except ValueError as exc:
+            raise ModuleValidationError(
+                str(exc), module_id=definition.declared_id, origin=definition.origin
+            ) from exc
         parsed.append((definition, manifest))
 
     discovered_ids = {manifest.id for _, manifest in parsed}

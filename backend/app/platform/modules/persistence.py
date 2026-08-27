@@ -131,10 +131,7 @@ class PersistenceRegistry:
             table.fullname
             for table in contribution.metadata.tables.values()
             if table.schema != contribution.schema
-            and not (
-                table.schema is None
-                and table.name in contribution.adopted_tables
-            )
+            and not (table.schema is None and table.name in contribution.adopted_tables)
         )
         if foreign_tables:
             raise ModulePersistenceError(
@@ -144,9 +141,7 @@ class PersistenceRegistry:
                 schema=contribution.schema,
             )
         unqualified_tables = {
-            table.name
-            for table in contribution.metadata.tables.values()
-            if table.schema is None
+            table.name for table in contribution.metadata.tables.values() if table.schema is None
         }
         if contribution.adopted_tables != unqualified_tables:
             raise ModulePersistenceError(
@@ -155,8 +150,7 @@ class PersistenceRegistry:
                 schema=contribution.schema,
             )
         if contribution.adopted_tables and any(
-            table.schema == contribution.schema
-            for table in contribution.metadata.tables.values()
+            table.schema == contribution.schema for table in contribution.metadata.tables.values()
         ):
             raise ModulePersistenceError(
                 "Adopted-table metadata cannot be combined with new schema-owned tables.",

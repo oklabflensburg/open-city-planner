@@ -104,9 +104,7 @@ def test_registry_records_owner_descriptor_schedule_and_on_demand_job() -> None:
         ("example.rebuild", "example"),
         ("example.refresh", "example"),
     ]
-    assert registry.get("example.refresh").definition.schedule == JobSchedule(
-        interval_seconds=60
-    )
+    assert registry.get("example.refresh").definition.schedule == JobSchedule(interval_seconds=60)
     assert registry.get("example.rebuild").definition.schedule is None
 
 
@@ -138,9 +136,13 @@ def test_duplicate_job_owner_and_sealed_registry_fail_fast() -> None:
         lambda: RetryPolicy(max_attempts=0),
         lambda: RetryPolicy(initial_delay_seconds=-1),
         lambda: JobDefinition(job_id="INVALID", handler=successful_handler),
-        lambda: JobDefinition(job_id="example.timeout", handler=successful_handler, timeout_seconds=0),
         lambda: JobDefinition(
-            job_id="example.policy", handler=successful_handler, retry=None  # type: ignore[arg-type]
+            job_id="example.timeout", handler=successful_handler, timeout_seconds=0
+        ),
+        lambda: JobDefinition(
+            job_id="example.policy",
+            handler=successful_handler,
+            retry=None,  # type: ignore[arg-type]
         ),
     ),
 )
@@ -264,9 +266,9 @@ async def test_runner_retries_failed_handler_and_stops_at_max_attempts() -> None
     metrics = RecordingJobMetrics()
 
     with pytest.raises(JobExecutionError) as error:
-        await JobRunner(
-            registry, metrics=metrics, run_id_factory=lambda: FIXED_RUN_ID
-        ).run(definition.job_id)
+        await JobRunner(registry, metrics=metrics, run_id_factory=lambda: FIXED_RUN_ID).run(
+            definition.job_id
+        )
 
     assert attempts == 3
     assert error.value.attempt == 3
@@ -309,9 +311,9 @@ async def test_handler_timeout_error_without_deadline_is_a_regular_failure() -> 
     definition = JobDefinition(job_id="example.provider-timeout", handler=provider_timeout)
 
     with pytest.raises(JobExecutionError) as error:
-        await JobRunner(
-            sealed_registry(definition), metrics=RecordingJobMetrics()
-        ).run(definition.job_id)
+        await JobRunner(sealed_registry(definition), metrics=RecordingJobMetrics()).run(
+            definition.job_id
+        )
 
     assert not isinstance(error.value, JobTimeoutError)
 
@@ -368,26 +370,20 @@ async def test_success_updates_metrics_and_structured_logs(caplog) -> None:
 async def test_prometheus_metrics_use_only_bounded_job_labels() -> None:
     definition = job("metrics-module.observe")
     registry = sealed_registry(definition, module_id="metrics-module")
-    before = MODULE_JOB_RUNS.labels(
-        "metrics-module", definition.job_id, "succeeded"
-    )._value.get()
+    before = MODULE_JOB_RUNS.labels("metrics-module", definition.job_id, "succeeded")._value.get()
 
     await JobRunner(registry, run_id_factory=lambda: FIXED_RUN_ID).run(definition.job_id)
 
     assert (
-        MODULE_JOB_RUNS.labels(
-            "metrics-module", definition.job_id, "succeeded"
-        )._value.get()
+        MODULE_JOB_RUNS.labels("metrics-module", definition.job_id, "succeeded")._value.get()
         == before + 1
     )
     assert MODULE_JOB_FAILURES.labels("metrics-module", definition.job_id)._value.get() == 0
     assert MODULE_JOB_RETRIES.labels("metrics-module", definition.job_id)._value.get() == 0
-    assert MODULE_JOB_DURATION.labels(
-        "metrics-module", definition.job_id, "succeeded"
-    )._sum.get() >= 0
-    assert MODULE_JOB_LAST_SUCCESS.labels(
-        "metrics-module", definition.job_id
-    )._value.get() > 0
+    assert (
+        MODULE_JOB_DURATION.labels("metrics-module", definition.job_id, "succeeded")._sum.get() >= 0
+    )
+    assert MODULE_JOB_LAST_SUCCESS.labels("metrics-module", definition.job_id)._value.get() > 0
     assert str(FIXED_RUN_ID) not in generate_latest(REGISTRY).decode()
 
 
@@ -448,9 +444,9 @@ async def test_domain_event_outbox_pilot_uses_injected_worker_dependencies(
     )
     registry.seal()
 
-    assert await JobRunner(
-        registry, metrics=RecordingJobMetrics()
-    ).run("host-events.outbox-dispatch") == {"processed": 2}
+    assert await JobRunner(registry, metrics=RecordingJobMetrics()).run(
+        "host-events.outbox-dispatch"
+    ) == {"processed": 2}
     assert calls == [(session, 25)]
 
 
@@ -471,9 +467,7 @@ def test_pilot_handler_has_no_forbidden_host_imports_and_deployment_command_is_s
     assert imports.isdisjoint({"app.core.config", "app.db.session", "app.cache.redis"})
 
     root = Path(__file__).resolve().parents[2]
-    ansible = (root / "deploy/ansible/roles/stadtplaner/tasks/main.yml").read_text(
-        encoding="utf-8"
-    )
+    ansible = (root / "deploy/ansible/roles/stadtplaner/tasks/main.yml").read_text(encoding="utf-8")
     command = "python -m app.cli.process_domain_event_outbox --limit 50"
     assert command in ansible
 

@@ -46,6 +46,9 @@ Bei leerem `ENABLED_MODULES` enthält JSON eine leere `modules`-Liste und das
 env-Format ist leer. Die Reihenfolge entspricht der deterministischen, aufgelösten
 Dependency-/Load-Reihenfolge.
 
+Trust und Capabilities werden bewusst nicht in diesen Build-Contract gemischt. Das
+Kompatibilitätsinventar bleibt auf ID und Version begrenzt.
+
 ## Discovery-Quellen
 
 `FirstPartyModuleDiscovery` verwendet einen fachneutralen Katalog aus passiven
@@ -55,10 +58,12 @@ First-Party-Modul benötigt dadurch keine Änderung an `main.py` oder
 
 `EntryPointModuleDiscovery` berücksichtigt ausschließlich die Python-Entry-Point-
 Gruppe `open_city_planner.modules`. Der Entry-Point-Name ist die aktivierbare
-Modul-ID. Nur Entry Points mit explizit aktivierter ID werden geladen; andere Gruppen
-und deaktivierte Einträge werden nicht ausgeführt. Ein Entry Point exportiert eine
-passive `ModuleDefinition`, deren Manifest vor dem eigentlichen Modul-Loader geprüft
-wird. Distribution und Installation werden von dieser Runtime nicht verändert.
+Modul-ID. Nur Entry Points mit explizit aktivierter ID werden geladen; andere
+Gruppen und deaktivierte Einträge werden nicht ausgeführt. Ein Entry Point exportiert
+eine passive `ModuleDefinition`, deren Manifest vor dem eigentlichen Modul-Loader
+geprüft wird. Distribution und Installation werden von dieser Runtime nicht
+verändert. Third-Party-Review und Integrität gehören vor diesen Schritt an die
+Installer-/Deploymentgrenze (#173 und #174).
 
 ## Registrierungs- und Lifecycle-Reihenfolge
 
@@ -104,8 +109,11 @@ weiter beendet. Runtime-Logs tragen die strukturierten Felder `module_id`,
 
 ## Vertrauen und Sicherheit
 
-First-Party- und Entry-Point-Module sind installierter, vertrauenswürdiger
-In-Process-Code und nicht sandboxed. Die Runtime installiert keine Pakete, lädt keine
-URLs und akzeptiert keine Python-Modulnamen aus HTTP- oder sonstigen Nutzereingaben.
-Aktivierte IDs und installierte Entry Points werden ausschließlich durch Deployment
-und Packaging kontrolliert.
+Built-in- und geprüft installierte Third-Party-Module sind vertrauenswürdiger
+In-Process-Code und nicht sandboxed. Capabilities und `ModuleContext` sind
+Architekturverträge, keine Prozessisolation. Die Runtime installiert keine Pakete,
+lädt keine URLs und akzeptiert keine Python-Modulnamen aus HTTP- oder sonstigen
+Nutzereingaben. Aktivierte IDs und installierte Entry Points werden ausschließlich
+durch Packaging und Deployment kontrolliert. Das
+vollständige Modell steht in der
+[Trust-ADR](../architecture/adr-module-trust-model.md).

@@ -5,6 +5,11 @@ statische Importgrenzen mit den bestehenden Manifest-, Dependency-, Registry-,
 Permission-, Map- und SSR-Vertragstests. Es startet keine Browser und benötigt weder
 PostgreSQL noch Redis oder externe Netzwerke.
 
+Zusätzlich belegt das Gate, dass Repository-Module Secrets nicht direkt aus der
+Prozessumgebung laden. Diese Architekturgrenze verspricht keine In-Process-Sandbox.
+Provenance und Integrität späterer Third-Party-Artefakte werden am Installer-/
+Deploymentrand geprüft (#173 und #174), nicht in der Runtime.
+
 Nach der Installation der gelockten Backend- und Frontend-Abhängigkeiten reicht lokal:
 
 ```bash
@@ -44,6 +49,8 @@ Modularisierung.
   statt fremder Interna verwenden.
 - `ARCH-BE-PRIVATE-001`: passenden `ModuleContext`-/SDK-Port statt Host-Session,
   Settings oder Runtime-Helper verwenden.
+- `ARCH-BE-SECRET-001`: namespacetes `ModuleContext.settings` statt `os.environ`,
+  dotenv oder eines eigenen Environment-Loaders verwenden.
 - `ARCH-FE-HOST-001`: UI-, Navigation- oder Map-Contribution registrieren, statt
   eine konkrete Modul-ID im Host zu verzweigen.
 - `ARCH-FE-MODULE-001`: `#frontend-module-sdk`, `#imports` oder eigene lokale

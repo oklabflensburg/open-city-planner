@@ -128,6 +128,22 @@ Frontend-Archiv. Deshalb gibt es noch kein separates binäres Release-Artefakt a
 Attestations-Subjekt. Sobald ein solches Artefakt eingeführt wird, sollte dessen
 Digest mit der zugehörigen SBOM über `actions/attest-sbom` attestiert werden.
 
+### Reviewed Community Modules
+
+Ein Community-Modul darf nur mit exakter Modul-, Distribution- und Dependency-
+Version, gelocktem Abhängigkeitssatz, sichtbarer Lizenz, SBOM, vollständigem
+Commit-SHA und SHA-256-Integrität in-process aktiviert werden. Dependency Audit,
+Dependency Review, CodeQL/SAST und Secret Scan sind verpflichtend und folgen
+derselben High-/Critical-Policy wie der Host. Unbekannte Integrität oder eine
+kompromittierte Quelle blockiert Installation und Update.
+
+Eine eigene Signatur-PKI wird erst bewertet, wenn separate Modul-Artefakte und ein
+realer Distributionskanal existieren. Bis dahin gilt: checksums/provenance now,
+signing deferred. Siehe
+[Modul-Trust-ADR](architecture/adr-module-trust-model.md). Installer, `modules.lock`
+und Bundle-Format folgen in #173 und #174; Discovery und Runtime implementieren
+keine parallele Integritätsprüfung.
+
 ## Kontrolliertes Notfallupdate
 
 Auch ein Emergency-Patch erfolgt auf einem Branch: betroffenen Pin ändern,

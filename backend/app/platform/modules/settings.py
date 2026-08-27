@@ -60,9 +60,7 @@ class ModuleSettingsRegistry:
         contribution: ModuleSettingsContribution,
     ) -> None:
         if self._sealed:
-            raise ModuleSettingsError(
-                "Settings registration is closed.", module_id=manifest.id
-            )
+            raise ModuleSettingsError("Settings registration is closed.", module_id=manifest.id)
         self._validate_ownership(manifest, contribution)
         namespace = contribution.namespace
         existing_owner = self._namespaces.get(namespace)
@@ -142,9 +140,7 @@ class ModuleSettingsRegistry:
             for field_name in contribution.model.model_fields
         }
         unknown = sorted(
-            key
-            for key in self._environment
-            if key.startswith(prefix) and key not in fields_by_key
+            key for key in self._environment if key.startswith(prefix) and key not in fields_by_key
         )
         if unknown:
             raise ModuleSettingsNamespaceError(
@@ -164,9 +160,7 @@ class ModuleSettingsRegistry:
             error = exc.errors(include_url=False, include_input=False)[0]
             location = error.get("loc", ())
             field_name = str(location[0]) if location else None
-            environment_key = (
-                f"{prefix}{field_name.upper()}" if field_name is not None else None
-            )
+            environment_key = f"{prefix}{field_name.upper()}" if field_name is not None else None
             raise ModuleSettingsValidationError(
                 "The active module configuration is missing or invalid.",
                 module_id=manifest.id,
@@ -287,7 +281,9 @@ def build_module_settings_registry(
     return registry
 
 
-def _contains_secret_type(annotation: object, seen: frozenset[type[BaseModel]] = frozenset()) -> bool:
+def _contains_secret_type(
+    annotation: object, seen: frozenset[type[BaseModel]] = frozenset()
+) -> bool:
     if annotation in {SecretStr, SecretBytes}:
         return True
     if isinstance(annotation, type) and issubclass(annotation, BaseModel):

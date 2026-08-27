@@ -67,19 +67,40 @@ def test_module_private_host_and_foreign_internal_imports_are_reported(
     assert any(item.rule == "ARCH-BE-MODULE-001" for item in violations)
 
 
+def test_direct_module_environment_access_is_reported(tmp_path: Path) -> None:
+    write_contract_files(tmp_path)
+    source = tmp_path / "backend/app/modules/alpha/settings.py"
+    source.parent.mkdir(parents=True)
+    source.write_text(
+        "import os\nTOKEN = os.getenv('TOKEN')\n",
+        encoding="utf-8",
+    )
+
+    assert architecture.active_violations(tmp_path) == (
+        architecture.Violation(
+            "ARCH-BE-SECRET-001",
+            "backend/app/modules/alpha/settings.py",
+            "os.getenv",
+            2,
+        ),
+    )
+
+
 def test_exact_documented_baseline_exception_is_accepted(tmp_path: Path) -> None:
     source = tmp_path / "backend/app/platform/modules/legacy.py"
     source.parent.mkdir(parents=True)
     source.write_text("from app.services.legacy import LegacyService\n", encoding="utf-8")
     write_contract_files(
         tmp_path,
-        [{
-            "rule": "ARCH-BE-HOST-001",
-            "source": "backend/app/platform/modules/legacy.py",
-            "target": "app.services.legacy",
-            "tracking_issue": "#999",
-            "reason": "Temporary migration fixture.",
-        }],
+        [
+            {
+                "rule": "ARCH-BE-HOST-001",
+                "source": "backend/app/platform/modules/legacy.py",
+                "target": "app.services.legacy",
+                "tracking_issue": "#999",
+                "reason": "Temporary migration fixture.",
+            }
+        ],
     )
 
     assert architecture.active_violations(tmp_path) == ()
@@ -91,13 +112,15 @@ def test_baseline_rejects_wildcards_and_missing_issue(tmp_path: Path) -> None:
     source.write_text("# fixture\n", encoding="utf-8")
     write_contract_files(
         tmp_path,
-        [{
-            "rule": "ARCH-BE-HOST-001",
-            "source": "backend/app/platform/modules/*.py",
-            "target": "app.services.*",
-            "tracking_issue": "later",
-            "reason": "Too broad.",
-        }],
+        [
+            {
+                "rule": "ARCH-BE-HOST-001",
+                "source": "backend/app/platform/modules/*.py",
+                "target": "app.services.*",
+                "tracking_issue": "later",
+                "reason": "Too broad.",
+            }
+        ],
     )
 
     with pytest.raises(ValueError, match="non-wildcard|tracking_issue"):

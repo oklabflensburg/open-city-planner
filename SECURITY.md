@@ -70,6 +70,11 @@ uv run --frozen --extra security python ../scripts/security/validate_security_ex
 
 ## Sicherheitsarchitektur
 
+- In-Process-Module sind Trusted Code und nicht sandboxed. Built-ins sind inhärent
+  First-Party; Third-Party-Code muss vor Installation am Installer-/Deploymentrand
+  geprüft werden. Details, Reviewpflichten und Incident-Ablauf stehen in der
+  [Modul-Trust-ADR](docs/architecture/adr-module-trust-model.md).
+
 - Zugriffs- und Aktualisierungstokens werden in `HttpOnly`-Cookies gespeichert. Kurzlebige Zugriffs-JWTs sind an einen Aussteller, eine Zielgruppe und einen festgelegten Algorithmus gebunden. Aktualisierungstokens werden regelmäßig ersetzt; serverseitige Sitzungsfamilien erkennen eine Wiederverwendung.
 - Änderungen mit Cookie-Authentifizierung verwenden einen doppelten CSRF-Schutz. Das Aktualisieren einer Sitzung erfordert in der Produktion zusätzlich einen exakt erlaubten `Origin`- oder `Referer`-Header.
 - Wenn ein starker zweiter Faktor eingerichtet ist, werden Passwort- und OAuth-Anmeldungen zunächst durch eine kurzlebige, einmalig verwendbare serverseitige MFA-Anforderung unterbrochen. OAuth-MFA-Anforderungen verwenden ein eng begrenztes `HttpOnly`-Cookie und erscheinen niemals in Weiterleitungs-URLs.

@@ -118,6 +118,10 @@ Ein Downgrade akzeptiert absichtlich nur ein explizites Ziel, zum Beispiel
 
 Migrationen sind vertrauenswürdiger Code mit weitreichenden DB-Rechten. Jede
 Revision benötigt manuelles Review; der Preflight ist keine Sandbox.
+Reviewed-Community-Migrationen müssen vor Installation vollständig geprüft sein,
+dürfen keine stillen Runtime-DDL-Operationen ausführen und ausschließlich die eigene
+Persistence-Ownership verändern. Eine Ausnahme benötigt ein explizites Host-
+Migrationsreview.
 
 ## Session und Transaktionen
 
@@ -134,6 +138,8 @@ async with context.database.session() as session:
 
 Module importieren weder globale Engine noch `AsyncSessionLocal`. Fachliche
 Repositories und ORM-Modelle bleiben im eigenen Modul.
+Diese Ownership ist eine Architecture-Grenze, keine PostgreSQL-Sandbox: alle
+In-Process-Module teilen faktisch den Hostprozess und Connection Pool.
 
 ## Lifecycle und Datenhaltbarkeit
 

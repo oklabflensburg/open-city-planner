@@ -287,7 +287,6 @@ def test_loader_failure_contains_import_phase_and_module_id() -> None:
     assert error.value.module_id == "broken-module"
     assert isinstance(error.value.__cause__, ImportError)
 
-
 def test_registry_exposes_manifest_capabilities() -> None:
     runtime = runtime_for([definition("capable-module", capabilities=["map.layer"])])
     assert runtime.registry.capabilities("capable-module") == ("map.layer",)

@@ -5,10 +5,7 @@ from collections.abc import Sequence
 
 from app.core.config import Settings, get_settings
 from app.platform.modules import EntryPointModuleDiscovery, FirstPartyModuleDiscovery
-from app.platform.modules.inventory import (
-    BackendModuleInventory,
-    build_backend_module_inventory,
-)
+from app.platform.modules.inventory import BackendModuleInventory, build_backend_module_inventory
 from app.platform.modules.runtime import resolve_module_definitions
 
 
@@ -23,7 +20,10 @@ def resolve_backend_module_inventory(settings: Settings) -> BackendModuleInvento
     return build_backend_module_inventory(resolved)
 
 
-def render_inventory(inventory: BackendModuleInventory, output_format: str) -> str:
+def render_inventory(
+    inventory: BackendModuleInventory,
+    output_format: str,
+) -> str:
     if output_format == "json":
         return inventory.model_dump_json()
     if output_format == "env":
@@ -40,7 +40,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         help="Output JSON (stable contract) or the frontend environment transport.",
     )
     args = parser.parse_args(argv)
-    inventory = resolve_backend_module_inventory(get_settings())
+    settings = get_settings()
+    inventory = resolve_backend_module_inventory(settings)
     print(render_inventory(inventory, args.format))
 
 

@@ -59,6 +59,12 @@ Capabilities beantworten dagegen, ob ein Modul eine technische Fähigkeit anbiet
 nicht ob ein Benutzer handeln darf. Die vorhandenen Manifest-Capabilities bleiben
 deshalb Discovery-Metadaten; #104 führt bewusst kein zweites Security-System ein.
 
+Capabilities und Permissions sind auditierbare Architektur-/Policy-Verträge. Ein
+Trusted In-Process-Modul könnte sie technisch umgehen; ihr Enforcement ist keine
+OS-, Python- oder Prozess-Sandbox. Deshalb entscheidet die
+[Trust-Policy](../architecture/adr-module-trust-model.md) vor dem Import, welcher
+Code überhaupt in-process ausgeführt werden darf.
+
 ## Migrationsmatrix
 
 | Bisheriger Check | Owner | Ziel-ID | Stand |

@@ -26,6 +26,11 @@ bei reinen Dokumentationsänderungen nicht.
 | Supply Chain | `sbom` | transitive CycloneDX-SBOMs für Backend und Frontend |
 | Module Contract Gate | `Module contract gate` | Backend-/Frontend-Importgrenzen, Manifest-, Dependency-, Registry-, Map- und SSR-Verträge ohne Playwright |
 
+Das Module Contract Gate prüft zusätzlich, dass Repository-Module Settings und
+Secrets über den namespaceten Host-Port beziehen. Diese Architekturregel ist keine
+Sandbox. Die bestehenden Security- und Supply-Chain-Jobs bleiben für First-Party-
+Code und spätere Third-Party-Installationsreviews verbindlich.
+
 Die Workflows verwenden exakt Python 3.12.14 aus `.python-version`, Node.js 22.23.2
 aus `.node-version`, uv 0.12.5 und die in `frontend/package.json` festgelegte
 pnpm-Version 11.22.0. Backend-Abhängigkeiten stammen ausschließlich aus

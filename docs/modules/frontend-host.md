@@ -1,5 +1,12 @@
 # Frontend-Host und Build-Time-Module
 
+Alle derzeit aus `frontend/frontend-modules/` entdeckten Contributions sind Teil der
+gemeinsam gebauten First-Party-Artefakte. Modulcode läuft im gemeinsamen Nuxt-Build
+und Browser-Kontext und ist nicht sandboxed. Später geprüft installierter Third-
+Party-Code wäre daher ebenfalls Trusted Code. Untrusted UI benötigt eine separate,
+ausdrücklich isolierte Origin-/iframe-Lösung und wird nicht durch diesen Host
+geladen.
+
 Der Nuxt-Host integriert optionale Frontend-Module vor `dev`, `typecheck` und
 `build`. Die Architekturentscheidung und ihre Grenzen stehen im
 [Frontend-Modul-ADR](../architecture/adr-frontend-build-time-modules.md).
