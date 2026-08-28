@@ -203,7 +203,9 @@ def build_ocp_bundle(
     _validate_declared_bundle(metadata, checksums, members)
     output.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{output.name}.", suffix=".tmp", dir=output.parent
+        ".tmp",
+        f".{output.name}.",
+        output.parent,
     )
     os.close(descriptor)
     temporary = Path(temporary_name)
