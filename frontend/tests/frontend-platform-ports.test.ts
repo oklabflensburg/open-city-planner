@@ -34,21 +34,39 @@ describe('public frontend platform ports', () => {
     expect(first.get('sources')).toBe('NONE')
   })
 
-  it('reads, validates, reveals and clears generic map selections', () => {
+  it('projects and clears host map selections without exposing private entities', () => {
     const clearSelection = vi.fn()
     const mapStore = reactive({
-      selectedMapEntity: null as null | { type: string, id: string },
-      openGisPanel: vi.fn()
+      selectedMapEntity: null as null
+        | { type: 'analysis-area', id: string }
+        | { type: 'polygon', id: string }
+        | {
+          type: 'osm'
+          feature: {
+            properties: { osm_type: 'node' | 'way' | 'relation', osm_id: number }
+            privatePayload: string
+          }
+        }
     })
     vi.stubGlobal('useMapStore', () => mapStore)
     vi.stubGlobal('useMapSelection', () => ({ clearSelection }))
     const port = useMapSelectionPort()
 
     expect(port.selected.value).toBeNull()
-    port.select({ type: 'example-item', id: '42' }, { reveal: true })
-    expect(port.selected.value).toEqual({ type: 'example-item', id: '42' })
-    expect(mapStore.openGisPanel).toHaveBeenCalledWith('selection')
-    expect(() => port.select({ type: '', id: '42' })).toThrow(/non-empty type and ID/)
+    mapStore.selectedMapEntity = { type: 'analysis-area', id: 'area-42' }
+    expect(port.selected.value).toEqual({ type: 'analysis-area', id: 'area-42' })
+    mapStore.selectedMapEntity = { type: 'polygon', id: 'polygon-7' }
+    expect(port.selected.value).toEqual({ type: 'polygon', id: 'polygon-7' })
+    mapStore.selectedMapEntity = {
+      type: 'osm',
+      feature: {
+        properties: { osm_type: 'node', osm_id: 123 },
+        privatePayload: 'must not cross the public boundary'
+      }
+    }
+    expect(port.selected.value).toEqual({ type: 'osm', id: 'node/123' })
+    expect(port.selected.value).not.toHaveProperty('feature')
+    expect(port.selected.value).not.toHaveProperty('privatePayload')
     port.clear()
     expect(clearSelection).toHaveBeenCalledOnce()
   })

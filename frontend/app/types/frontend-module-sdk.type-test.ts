@@ -52,4 +52,6 @@ export const validMapFilterPort: MapFilterPort = {
 }
 
 export const validMapSelectionPort = {} as MapSelectionPort
+type MapSelectionPortIsReadOnly = 'select' extends keyof MapSelectionPort ? never : true
+export const mapSelectionPortIsReadOnly: MapSelectionPortIsReadOnly = true
 export const validMapStylePort = {} as MapStylePort

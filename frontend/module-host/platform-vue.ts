@@ -35,15 +35,6 @@ export function useMapSelectionPort(): MapSelectionPort {
 
   return {
     selected,
-    select(reference, options = {}) {
-      if (!reference.type.trim() || !reference.id.trim()) {
-        throw new Error('Map selections require a non-empty type and ID.')
-      }
-      // The legacy map store still owns presentation until its generic selection
-      // renderer is migrated. The public contract itself stays domain-neutral.
-      mapStore.selectedMapEntity = reference as typeof mapStore.selectedMapEntity
-      if (options.reveal) mapStore.openGisPanel('selection')
-    },
     clear: selection.clearSelection
   }
 }

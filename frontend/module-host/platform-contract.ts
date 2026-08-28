@@ -16,14 +16,8 @@ export interface MapSelectionReference {
   readonly id: string
 }
 
-export interface MapSelectionOptions {
-  /** Reveal the host's selection surface after changing the selection. */
-  readonly reveal?: boolean
-}
-
 export interface MapSelectionPort {
   readonly selected: ComputedRef<MapSelectionReference | null>
-  select(selection: MapSelectionReference, options?: MapSelectionOptions): void
   clear(): void
 }
 

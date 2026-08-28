@@ -56,7 +56,6 @@ export {
 export { MAP_CONTEXT_KEY, useMapContext } from './map-vue.ts'
 export {
   type MapFilterPort,
-  type MapSelectionOptions,
   type MapSelectionPort,
   type MapSelectionReference,
   type MapStylePort,
