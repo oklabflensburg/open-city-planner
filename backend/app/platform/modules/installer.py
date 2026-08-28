@@ -211,6 +211,7 @@ class VerifiedModulePackage(_StrictModel):
     source: ModuleSource
     provenance: ModuleProvenance
     artifact: LockedArtifact
+    bundle_sha256: Digest | None = None
     manifest: dict[str, object]
     backend: PackageComponentInput | None = None
     frontend: PackageComponentInput | None = None
@@ -787,7 +788,9 @@ def _lock_entry(package: VerifiedModulePackage, *, enabled: bool) -> ModuleLockE
         publisher=package.publisher,
         source=package.source,
         provenance=package.provenance,
-        artifact=package.artifact,
+        artifact=package.artifact.model_copy(
+            update={"sha256": package.bundle_sha256 or package.artifact.sha256}
+        ),
         backend=LockedComponent(
             present=package.backend is not None,
             artifact=None if package.backend is None else package.backend.artifact,

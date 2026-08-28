@@ -11,13 +11,22 @@ from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from app.cli import module_migrations
 from app.core.config import BACKEND_ENV_FILE, get_settings
+from app.platform.modules.bundle import (
+    build_ocp_bundle,
+    load_bundle_manifest,
+    staged_ocp_bundle,
+)
 from app.platform.modules.installer import (
     DEFAULT_INSTALL_ROOT,
     EnablementEnvironment,
     ModuleInstaller,
     ModuleInstallerError,
+    ModuleProvenance,
+    ModuleSource,
 )
 from app.platform.modules.settings import read_module_environment
 
@@ -146,6 +155,15 @@ def _render_table(installer: ModuleInstaller) -> str:
     return "\n".join(rows)
 
 
+@contextmanager
+def _installer_package_input(path: Path):
+    if path.suffix == ".ocp":
+        with staged_ocp_bundle(path) as (package_root, _package):
+            yield package_root
+        return
+    yield path
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -168,15 +186,57 @@ def main(argv: Sequence[str] | None = None) -> int:
         "env", help="Render deterministic deploy-time enablement from modules.lock."
     )
     environment.add_argument("--format", choices=("json", "shell"), default="shell")
+    bundle = commands.add_parser("bundle", help="Build deterministic passive OCP bundles.")
+    bundle_commands = bundle.add_subparsers(dest="bundle_command", required=True)
+    bundle_build = bundle_commands.add_parser("build", help="Build one OCP v1 bundle.")
+    bundle_build.add_argument("--manifest", type=Path, required=True)
+    bundle_build.add_argument("--backend", type=Path)
+    bundle_build.add_argument("--frontend", type=Path)
+    bundle_build.add_argument("--publisher", required=True)
+    bundle_build.add_argument("--source-reference", required=True)
+    bundle_build.add_argument("--source-repository", required=True)
+    bundle_build.add_argument("--source-commit", required=True)
+    bundle_build.add_argument("--source-tag")
+    bundle_build.add_argument("--build-workflow", required=True)
+    bundle_build.add_argument("--license", required=True)
+    bundle_build.add_argument("--sbom-reference")
+    bundle_build.add_argument("--attestation-reference")
+    bundle_build.add_argument("--output", type=Path, required=True)
 
     args = parser.parse_args(argv)
-    installer = _installer(_install_root(args.root))
     try:
+        if args.command == "bundle":
+            digest = build_ocp_bundle(
+                args.output,
+                manifest=load_bundle_manifest(args.manifest),
+                publisher=args.publisher,
+                source=ModuleSource(
+                    type="local",
+                    reference=args.source_reference,
+                ),
+                provenance=ModuleProvenance(
+                    source_repository=args.source_repository,
+                    source_commit=args.source_commit,
+                    source_tag=args.source_tag,
+                    build_workflow=args.build_workflow,
+                    license=args.license,
+                    sbom_reference=args.sbom_reference,
+                    attestation_reference=args.attestation_reference,
+                ),
+                backend_artifact=args.backend,
+                frontend_artifact=args.frontend,
+            )
+            print(json.dumps({"bundle": str(args.output), "sha256": digest}, sort_keys=True))
+            return 0
+
+        installer = _installer(_install_root(args.root))
         if args.command == "verify":
-            package = installer.verify_installable(args.package)
+            with _installer_package_input(args.package) as package_root:
+                package = installer.verify_installable(package_root)
             print(package.model_dump_json(exclude={"manifest"}))
         elif args.command == "install":
-            entry = installer.install(args.package)
+            with _installer_package_input(args.package) as package_root:
+                entry = installer.install(package_root)
             print(entry.model_dump_json())
             print("Module installed as disabled; enable and deploy it explicitly.")
         elif args.command == "enable":
@@ -193,14 +253,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if args.format == "json"
                 else _render_table(installer)
             )
-        else:
+        elif args.command == "env":
             values = _environment_values(installer.enablement_environment())
             if args.format == "json":
                 print(json.dumps(values, sort_keys=True, separators=(",", ":")))
             else:
                 for key in sorted(values):
                     print(f"export {key}={shlex.quote(values[key])}")
-    except (ModuleInstallerError, subprocess.CalledProcessError) as exc:
+    except (ModuleInstallerError, ValidationError, subprocess.CalledProcessError) as exc:
         parser.exit(1, f"modules: {exc}\n")
     return 0
 

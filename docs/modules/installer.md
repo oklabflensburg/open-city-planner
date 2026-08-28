@@ -10,7 +10,8 @@ den reproduzierbaren Installationszustand. Der
 Runtime.
 
 ```text
-verified local package input
+lokale .ocp-Datei
+  -> Bundle-Reader / VerifiedModulePackage
   -> installer
   -> modules.lock
   -> versionierte Backend-/Frontend-Artefakte
@@ -125,11 +126,11 @@ Lizenz sowie optionale Tag-, SBOM- und Attestation-Referenzen. Hinzu kommen
 Backend-/Frontend-Artefaktbeschreibungen und der bestehende Manifestinhalt. Der
 Vertrag ist kein neues fachliches Manifest.
 
-Der heute unterstützte `LocalPackageSource` erwartet für CLI- und Testzwecke ein
-Verzeichnis mit `verified-package-input.json` und den referenzierten lokalen
-Artefakten. Dieses Handoff-Format ist ausdrücklich kein öffentliches `.ocp`-Format.
-#174 darf es durch einen Bundle-Reader ersetzen, der nach erfolgreicher Prüfung
-denselben `VerifiedModulePackage` erzeugt.
+Der öffentliche Nutzerpfad ist das [`.ocp` Package Bundle v1](package-bundle.md).
+Der sichere Bundle-Reader erzeugt nach Struktur-, Manifest- und Digestprüfung genau
+denselben `VerifiedModulePackage`, den der bestehende Installer konsumiert. Das
+Verzeichnis mit `verified-package-input.json` und referenzierten lokalen Artefakten
+bleibt ein privater Handoff und eine interne Test-Fixture.
 
 Der Release-Digest bindet deterministisch Identifier und SHA-256 der vorhandenen
 Backend-/Frontend-Artefakte. Jeder Komponenten-Digest wird zusätzlich gegen die
@@ -167,10 +168,10 @@ Die CLI folgt den bestehenden Python-Modulbefehlen:
 cd backend
 
 uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
-  verify /srv/reviewed/energy-analysis
+  verify /srv/reviewed/energy-analysis-1.4.0.ocp
 
 uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
-  install /srv/reviewed/energy-analysis
+  install /srv/reviewed/energy-analysis-1.4.0.ocp
 
 uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
   enable energy-analysis
@@ -267,7 +268,7 @@ bleibt eine separate, explizite und backupgestützte Operation.
 
 Uninstall und Upgrade bleiben zunächst außerhalb von #173, weil angewandte
 Migrationshistorie und DB-Kompatibilität keine sichere automatische Entfernung oder
-Rücksetzung erlauben. Ebenfalls nicht enthalten sind finales `.ocp`-Schema oder
-Parser (#174), Registry/HTTP-Client (#175), Marketplace, Web-UI, Hot Update,
+Rücksetzung erlauben. Ebenfalls nicht enthalten sind Registry/HTTP-Client (#175),
+Marketplace, Web-UI, Hot Update,
 Signatur-PKI, Trust State Machine, Dependency Resolver und automatischer
 DB-Downgrade.
