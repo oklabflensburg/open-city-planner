@@ -1,10 +1,18 @@
 import type { MapSelectionPresentation, SelectedMapFeature, SelectionManagerApi } from '#frontend-module-sdk'
 import { MapRuntimeError } from './errors'
 
+export interface SelectionManagerOptions {
+  readonly onSelect?: (selection: SelectedMapFeature) => void
+  readonly onClear?: () => void
+  readonly onReveal?: (selection: SelectedMapFeature) => void
+}
+
 export class SelectionManager implements SelectionManagerApi {
   #selection: SelectedMapFeature | null = null
   readonly #presentations = new Map<string, MapSelectionPresentation>()
   readonly #listeners = new Set<(selection: SelectedMapFeature | null) => void>()
+
+  constructor(private readonly options: SelectionManagerOptions = {}) {}
 
   current() {
     return this.#selection
@@ -24,6 +32,7 @@ export class SelectionManager implements SelectionManagerApi {
 
   async select(selection: SelectedMapFeature) {
     this.#selection = Object.freeze({ ...selection })
+    this.options.onSelect?.(this.#selection)
     this.#emit()
     const presentation = [...this.#presentations.values()]
       .filter(candidate => candidate.canPresent(selection))
@@ -31,8 +40,13 @@ export class SelectionManager implements SelectionManagerApi {
     await presentation?.present(selection)
   }
 
+  reveal() {
+    if (this.#selection) this.options.onReveal?.(this.#selection)
+  }
+
   clear() {
     this.#selection = null
+    this.options.onClear?.()
     for (const presentation of this.#presentations.values()) presentation.clear?.()
     this.#emit()
   }

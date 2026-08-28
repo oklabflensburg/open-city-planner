@@ -60,17 +60,7 @@
             label="Verkaufsflächen anzeigen"
             aria-label="Verkaufsflächen anzeigen"
           />
-          <div class="mt-4 grid gap-1" aria-label="Administrative Gebietsgrenzen">
-            <p class="pb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Gebietsgrenzen</p>
-            <GisFilterToggleRow
-              v-for="item in areaLayers"
-              :key="item.type"
-              v-model="analysisAreasStore.visibility[item.type]"
-              :label="item.label"
-              :aria-label="`${item.label} anzeigen`"
-              :active-color="item.activeColor"
-            />
-          </div>
+          <UiContributionSlot class="mt-4" slot="map.layers" />
           <OsmFeatureFilter class="mt-5" />
         </section>
         <MapLegend class="py-5" :theme="mapStore.thematicStyle" />
@@ -95,7 +85,6 @@ withDefaults(defineProps<{ embedded?: boolean, compact?: boolean }>(), { embedde
 
 const mapStore = useMapStore()
 const filter = useFilterStore()
-const analysisAreasStore = useAnalysisAreasStore()
 const polygonStore = usePolygonStore()
 const osmStore = useOsmViewportStore()
 const router = useRouter()
@@ -123,12 +112,6 @@ const compactResultSummary = computed(() => {
   const osmCount = osmStore.areaPoiFilter ? osmStore.data?.meta.count || 0 : osmStore.data?.meta.business_count || 0
   return `${polygonCount} Flächen · ${osmCount} OSM`
 })
-const areaLayers = [
-  { type: 'MUNICIPALITY' as const, label: 'Gemeinde', activeColor: '#1d4ed8' },
-  { type: 'DISTRICT' as const, label: 'Stadtteile', activeColor: '#15803d' },
-  { type: 'QUARTER' as const, label: 'Quartiere', activeColor: '#b45309' }
-]
-
 function resetAll() {
   filter.reset()
   osmStore.reset()

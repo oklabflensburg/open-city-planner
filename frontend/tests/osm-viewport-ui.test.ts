@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { mapHostSource } from './map-host-source'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
+const moduleFile = (path: string) => readFileSync(fileURLToPath(new URL(`../frontend-modules/analysis-areas/layer/app/${path}`, import.meta.url)), 'utf8')
 
 describe('dynamic OSM viewport layer', () => {
   it('loads initial and moved viewports from MapLibre bounds', () => {
@@ -119,15 +120,17 @@ describe('dynamic OSM viewport layer', () => {
     const osmFilter = appFile('components/filters/OsmFeatureFilter.vue')
     const compactLayers = appFile('components/map/MapLayerControl.vue')
     const toggle = appFile('components/filters/GisFilterToggleRow.vue')
+    const analysisLayers = moduleFile('components/AnalysisAreasLayerControls.vue')
 
     expect(sidebar).not.toContain('type="checkbox"')
-    expect(sidebar.match(/<GisFilterToggleRow/g)).toHaveLength(2)
+    expect(sidebar.match(/<GisFilterToggleRow/g)).toHaveLength(1)
     expect(sidebar).toContain('v-model="mapStore.polygonsVisible"')
-    expect(sidebar).toContain('v-model="analysisAreasStore.visibility[item.type]"')
-    expect(sidebar).toContain(':active-color="item.activeColor"')
+    expect(sidebar).toContain('slot="map.layers"')
+    expect(analysisLayers).toContain('v-model="areas.visibility[item.type]"')
+    expect(analysisLayers).toContain(':active-color="item.activeColor"')
     expect(sidebar).not.toContain(':color="item.color"')
     expect(sidebar).not.toContain('square-indicator')
-    expect(sidebar).toContain('class="mt-4 grid gap-1" aria-label="Administrative Gebietsgrenzen"')
+    expect(analysisLayers).toContain('class="grid gap-1" aria-label="Administrative Gebietsgrenzen"')
     expect(sidebar).not.toContain('rounded-xl border border-slate-200 p-2" aria-label="Administrative Gebietsgrenzen"')
     expect(osmFilter.match(/<GisFilterToggleRow/g)).toHaveLength(3)
     expect(osmFilter.match(/type="checkbox"/g)).toHaveLength(1)

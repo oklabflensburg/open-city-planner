@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { mapHostSource } from './map-host-source'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
 const moduleFile = (path: string) => readFileSync(fileURLToPath(new URL(`../frontend-modules/analysis-areas/layer/app/${path}`, import.meta.url)), 'utf8')
@@ -28,7 +27,7 @@ describe('public analysis area pages', () => {
   })
 
   it('provides canonical, social and structured SEO data', () => {
-    const seo = appFile('composables/useAnalysisAreaSeo.ts')
+    const seo = moduleFile('composables/useAnalysisAreaSeo.ts')
     expect(seo).toContain("robots: 'index,follow'")
     expect(seo).toContain("rel: 'canonical'")
     expect(seo).toContain("'@type': 'AdministrativeArea'")
@@ -55,11 +54,11 @@ describe('public analysis area pages', () => {
 
   it('links area pages and the GIS selection in both directions', () => {
     expect(moduleFile('pages/gebiete/[slug].vue')).toContain("path: '/karte', query: { gebiet: area.slug }")
-    expect(appFile('components/analysis/AnalysisAreaCard.vue')).toContain('`/gebiete/${area.slug}`')
-    const map = mapHostSource()
-    expect(map).toContain('route.query.area')
-    expect(map).toContain('route.query.gebiet')
-    expect(map).toContain('selectRequestedArea')
+    expect(moduleFile('components/AnalysisAreaCard.vue')).toContain('`/gebiete/${area.slug}`')
+    const runtime = moduleFile('components/AnalysisAreasMapRuntime.vue')
+    expect(runtime).toContain('route.query.area')
+    expect(runtime).toContain('route.query.gebiet')
+    expect(runtime).toContain('selectRequestedArea')
   })
 
   it('uses central industry colors and accessible links for localized places', () => {

@@ -27,6 +27,7 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 - [Domain Events und transaktionale Outbox](modules/domain-events.md)
 - [Modulare Background Jobs](modules/background-jobs.md)
 - [Frontend-Host und Build-Time-Module](modules/frontend-host.md)
+- [Öffentliche Frontend-Platform-Ports](modules/frontend-platform-ports.md)
 - [Frontend UI Contributions](modules/frontend-ui-contributions.md)
 - [Modul-Datenbanken und Migrationen](modules/database-and-migrations.md)
 - [Ausführbares End-to-End-Referenzmodul](modules/reference-module.md)

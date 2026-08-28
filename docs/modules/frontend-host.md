@@ -10,6 +10,8 @@ geladen.
 Der Nuxt-Host integriert optionale Frontend-Module vor `dev`, `typecheck` und
 `build`. Die Architekturentscheidung und ihre Grenzen stehen im
 [Frontend-Modul-ADR](../architecture/adr-frontend-build-time-modules.md).
+Öffentliche Runtime-Fähigkeiten und UI-Primitives sind unter
+[Frontend-Platform-Ports](frontend-platform-ports.md) dokumentiert.
 
 ## Verzeichnis und Definition
 
@@ -116,6 +118,16 @@ der deklarierte Backend-Range geprüft. Die Werte enthalten keine Secrets.
 - Routenkollisionen zwischen Modulen und mit Host-Pages;
 - V1-Grenzen gegen module-owned AppShell, Layouts, globale Plugins, globale
   Middleware, Server-Handler und Nuxt-Buildmodule.
+- private Host-Imports und ungebundene Aufrufe privater Host-Auto-Imports auch in
+  Vue-Scriptblöcken und entpackten installierbaren Paketen. Öffentliche Nuxt-/Vue-
+  Auto-Imports und lokal gebundene, gleichnamige Funktionen bleiben erlaubt;
+- Private Host-Auto-Imports aus den Nuxt-Auto-Import-Verzeichnissen sind in
+  installierbaren Modulen verboten. Host-Auto-Imports werden aus
+  `app/composables`, `app/utils` und `app/stores`, moduleigene Auto-Imports
+  symmetrisch aus `layer/app/composables`, `layer/app/utils` und
+  `layer/app/stores` abgeleitet.
+  Namenskollisionen zwischen Host und Modul stoppen den Preflight; Modulnamen
+  werden nicht aus der Modul-ID erraten.
 
 Fehler nennen Modul-ID und relevante Quellen. Die Reihenfolge ist topologisch und
 innerhalb gleicher Dependency-Stufen lexikografisch stabil.
@@ -124,7 +136,7 @@ innerhalb gleicher Dependency-Stufen lexikografisch stabil.
 
 Ein aktivierter Layer wird durch denselben Nuxt-Build verarbeitet wie der Host:
 
-- Pages sind SSR-fähige Nuxt-Pages und können `usePageSeo` verwenden.
+- Pages sind SSR-fähige Nuxt-Pages und können den öffentlichen Contract `useModuleSeo` verwenden.
 - Komponenten verwenden die vorhandenen Host-Komponenten und Design-Tokens.
 - Tailwind wird einmal durch die vorhandene Vite-Konfiguration kompiliert.
 - Stores verwenden die gemeinsame Pinia-Instanz.
@@ -163,3 +175,9 @@ Artefakte stehen in der [Distribution Policy](distribution.md).
 Der [Installer](installer.md) ergänzt dafür null oder mehr kontrollierte
 `OCP_INSTALLED_FRONTEND_MODULE_ROOTS`. Discovery prüft Built-in- und installierte
 Roots gemeinsam; doppelte IDs schlagen ohne Override-Priorität fehl.
+
+Map-Module schreiben ihre fachliche Auswahl ausschließlich über
+`MapContext.selection.select()`. Eine module-owned `MapSelectionPresentation` wird
+über denselben Manager registriert und kann Details laden oder beim Löschen
+aufräumen. `selection.reveal()` fordert bei Bedarf nur die vorhandene generische
+Host-Auswahlfläche an; es erzeugt keinen zweiten Selection-State.

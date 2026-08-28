@@ -8,7 +8,7 @@ const moduleFile = (path: string) => readFileSync(fileURLToPath(new URL(`../fron
 describe('municipal area statistics', () => {
   it('loads statistics and a real time series during SSR', () => {
     const page = moduleFile('pages/gebiete/[slug].vue')
-    const api = appFile('composables/useAnalysisAreaApi.ts')
+    const api = moduleFile('composables/useAnalysisAreaApi.ts')
     expect(page).toContain('api.statisticsBySlug(slug)')
     expect(page).toContain("api.statisticSeriesBySlug(slug, 'population')")
     expect(page).toContain('<AreaStatistics')
@@ -33,8 +33,8 @@ describe('municipal area statistics', () => {
   })
 
   it('shows only compact statistics in the responsive GIS selection card', () => {
-    const card = appFile('components/analysis/AnalysisAreaCard.vue')
-    const store = appFile('stores/analysisAreas.ts')
+    const card = moduleFile('components/AnalysisAreaCard.vue')
+    const store = moduleFile('stores/analysisAreas.ts')
     expect(card).toContain("['population', 'households']")
     expect(card).toContain('Kommunale Statistik')
     expect(store).toContain('statistics: null as AreaStatistics | null')
@@ -43,7 +43,7 @@ describe('municipal area statistics', () => {
 
   it('documents the source mapping and does not call Superset from the browser', () => {
     const component = appFile('components/analysis/AreaStatistics.vue')
-    const api = appFile('composables/useAnalysisAreaApi.ts')
+    const api = moduleFile('composables/useAnalysisAreaApi.ts')
     expect(component).toContain('OpenStreetMap-Grenzen')
     expect(component).toContain('geometrisch exakte Übereinstimmung')
     expect(api).not.toContain('superset.flensburg.de')

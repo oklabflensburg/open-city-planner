@@ -11,6 +11,7 @@ import {
 import { createFrontendContributionRegistry } from './ui-registry.ts'
 import { createMapExtensionDefinitionRegistry } from './map-definition-registry.ts'
 import { MAP_LAYER_GROUPS } from './map-contract.ts'
+import { scanModuleImportBoundaries } from './import-boundaries.ts'
 
 const moduleId = z.string().regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/).max(63)
 const uiVisibility = z.strictObject({
@@ -53,6 +54,8 @@ const componentContribution = z.strictObject({
     'sidebar',
     'dashboard.widgets',
     'profile.sections',
+    'map.layers',
+    'map.selection',
     'map.bottomSheet',
     'map.contextMenu'
   ])
@@ -117,7 +120,7 @@ export class FrontendModuleError extends Error {
 
 export function resolveFrontendModules(options: ResolveFrontendModulesOptions): ResolvedFrontendModule[] {
   const moduleDirectories = [options.modulesDirectory, ...(options.installedModulesDirectories ?? [])]
-  const available = discoverFrontendModules(moduleDirectories)
+  const available = discoverFrontendModules(moduleDirectories, resolve(options.appPagesDirectory, '../..'))
   const byId = new Map(available.map(module => [module.id, module]))
   const enabledIds = parseEnabledModules(options.enabledModules ?? '')
   const enabled = enabledIds.map((id) => {
@@ -141,7 +144,7 @@ export function resolveFrontendModules(options: ResolveFrontendModulesOptions): 
   return ordered
 }
 
-export function discoverFrontendModules(modulesDirectories: string | readonly string[]): ResolvedFrontendModule[] {
+export function discoverFrontendModules(modulesDirectories: string | readonly string[], frontendRoot?: string): ResolvedFrontendModule[] {
   const directories = typeof modulesDirectories === 'string' ? [modulesDirectories] : [...modulesDirectories]
   const discovered: ResolvedFrontendModule[] = []
   const sources = new Map<string, string>()
@@ -204,7 +207,7 @@ export function discoverFrontendModules(modulesDirectories: string | readonly st
           throw new FrontendModuleError(`UI contribution "${contribution.id}" component name "${contribution.component}" must match its local Vue filename.`)
         }
       }
-      validateModuleImports(definition.id, moduleRoot, layerPath)
+      validateModuleImports(definition.id, moduleRoot, layerPath, frontendRoot ? resolve(frontendRoot) : resolve(modulesDirectory, '..'))
       discovered.push({ ...definition, source, layerPath })
     }
   }
@@ -347,23 +350,16 @@ function walkFiles(directory: string): string[] {
     })
 }
 
-function validateModuleImports(moduleId: string, moduleRoot: string, layerPath: string) {
-  const sourceFiles = walkFiles(layerPath).filter(file => /\.(?:vue|[cm]?[jt]sx?)$/.test(file))
-  const importPattern = /(?:from\s*|import\s*\()\s*['"]([^'"]+)['"]/g
-  for (const file of sourceFiles) {
-    const contents = readFileSync(file, 'utf8')
-    for (const match of contents.matchAll(importPattern)) {
-      const specifier = match[1]!
-      if (specifier.startsWith('~/') || specifier.startsWith('@/') || specifier.includes('frontend-modules/')) {
-        throw new FrontendModuleError(`Frontend module "${moduleId}" imports private host or module internals via "${specifier}" in ${file}.`)
-      }
-      if (!specifier.startsWith('.')) continue
-      const target = resolve(dirname(file), specifier)
-      const fromModule = relative(moduleRoot, target)
-      if (fromModule === '..' || fromModule.startsWith(`..${sep}`)) {
-        throw new FrontendModuleError(`Frontend module "${moduleId}" imports outside its own module through "${specifier}" in ${file}.`)
-      }
-    }
+function validateModuleImports(moduleId: string, moduleRoot: string, layerPath: string, frontendRoot: string) {
+  const violation = scanModuleImportBoundaries(moduleRoot, layerPath, { frontendRoot })[0]
+  if (violation?.reason === 'private-host-import') {
+    throw new FrontendModuleError(`Frontend module "${moduleId}" imports private host or module internals via "${violation.target}" in ${violation.source}.`)
+  }
+  if (violation?.reason === 'private-host-auto-import') {
+    throw new FrontendModuleError(`Frontend module "${moduleId}" calls private host auto-import "${violation.target}" in ${violation.source} (private-host-auto-import).`)
+  }
+  if (violation) {
+    throw new FrontendModuleError(`Frontend module "${moduleId}" imports outside its own module through "${violation.target}" in ${violation.source}.`)
   }
 }
 

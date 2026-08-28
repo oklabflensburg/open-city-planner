@@ -8,7 +8,7 @@
     rel="noopener noreferrer"
     :aria-label="accessibleName"
   >
-    <ProviderIcon :provider="provider" :class="variant === 'card' ? 'mt-0.5 size-6' : 'size-4'" />
+    <OcpProviderIcon :provider="provider" :class="variant === 'card' ? 'mt-0.5 size-6' : 'size-4'" />
     <span v-if="variant === 'card'" class="min-w-0 flex-1">
       <span class="block text-xs font-bold uppercase tracking-wide text-slate-500">{{ label }}</span>
       <span class="mt-1 block break-words font-semibold text-slate-900">{{ title }}</span>
@@ -21,7 +21,8 @@
 
 <script setup lang="ts">
 import { ExternalLink } from '@lucide/vue'
-import type { ExternalProvider } from '~/types/externalProvider'
+import type { ExternalProvider } from '#frontend-module-sdk'
+import { OcpProviderIcon } from '#frontend-module-sdk/ui'
 
 withDefaults(defineProps<{
   label: string

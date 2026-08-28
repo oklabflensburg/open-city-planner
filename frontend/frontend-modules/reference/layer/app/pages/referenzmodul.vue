@@ -16,10 +16,11 @@
 <script setup lang="ts">
 import ReferenceItemList from '../components/ReferenceItemList.vue'
 import { useReferenceItems } from '../composables/useReferenceItems'
+import { useModuleSeo } from '#frontend-module-sdk'
 
 const { data, pending, error } = useReferenceItems()
 
-usePageSeo({
+useModuleSeo({
   title: 'Referenzmodul',
   description: 'Ausführbares End-to-End-Beispiel für das Open City Planner Module SDK.',
   path: '/referenzmodul',

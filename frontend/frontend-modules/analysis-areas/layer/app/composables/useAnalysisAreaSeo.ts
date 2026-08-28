@@ -1,6 +1,14 @@
-import type { AnalysisAreaDetail } from '~/types/analysisArea'
-import { buildApiUrl } from '~/utils/apiUrl'
-import { buildAbsoluteUrl, buildBreadcrumbStructuredData, serializeStructuredData, toMetaDescription } from '~/utils/seo'
+import type { AnalysisAreaDetail } from '../types/analysisArea'
+import {
+  buildAbsoluteUrl,
+  buildBreadcrumbStructuredData,
+  serializeStructuredData,
+  toMetaDescription
+} from '#frontend-module-sdk'
+
+function buildApiUrl(baseUrl: string, path: string): string {
+  return `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
+}
 
 export function useAnalysisAreaSeo(area: MaybeRefOrGetter<AnalysisAreaDetail>) {
   const config = useRuntimeConfig()

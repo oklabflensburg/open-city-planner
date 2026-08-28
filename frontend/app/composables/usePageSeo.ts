@@ -1,24 +1,7 @@
 import { buildAbsoluteUrl, buildSeoImageUrl, serializeStructuredData } from '~/utils/seo'
+import type { ModuleSeoOptions } from '../../module-host/platform-contract'
 
-type StructuredData = Record<string, unknown> | Record<string, unknown>[]
-
-export interface PageSeoOptions {
-  title: string
-  description: string
-  path?: string
-  siteUrl?: string
-  image?: string | null
-  imageAlt?: string | null
-  imageWidth?: number
-  imageHeight?: number
-  type?: 'website' | 'article'
-  robots?: string
-  openGraph?: boolean
-  twitter?: boolean
-  structuredData?: StructuredData | false
-}
-
-export function usePageSeo(options: PageSeoOptions) {
+export function usePageSeo(options: ModuleSeoOptions) {
   const config = useRuntimeConfig()
   const siteName = config.public.siteName
   const siteUrl = options.siteUrl || config.public.siteUrl

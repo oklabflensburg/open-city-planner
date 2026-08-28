@@ -142,7 +142,7 @@ onMounted(() => { mounted.value = true })
 const { data, error } = await useAsyncData('public-home-directory', async () => {
   const [polygons, areas] = await Promise.all([
     usePolygonApi().directoryAll(),
-    useAnalysisAreaApi().list()
+    useApi().request<AnalysisArea[]>('/analysis-areas')
   ])
   return { polygons, areas }
 })

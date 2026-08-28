@@ -33,14 +33,15 @@ describe('map information architecture', () => {
     expect(selection).toContain('<PolygonStatistics')
   })
 
-  it('keeps one authoritative polygon, OSM, analysis-area or null selection', () => {
+  it('keeps legacy and module runtime selections in one authoritative map store', () => {
     const selection = appFile('composables/useMapSelection.ts')
     const store = appFile('stores/map.ts')
     expect(selection).toContain("{ type: 'polygon'")
     expect(selection).toContain("{ type: 'osm'")
-    expect(selection).toContain("{ type: 'analysis-area'")
+    expect(selection).toContain('mapStore.clearRuntimeSelection()')
     expect(selection).toContain('mapStore.selectedMapEntity = null')
     expect(store).toContain('selectedMapEntity: null as SelectedMapEntity')
+    expect(store).toContain('runtimeSelection: null as SelectedMapFeature | null')
     expect(selection.indexOf('mapStore.selectedMapEntity = {')).toBeLessThan(selection.indexOf('await polygonStore.loadSelection(id)'))
   })
 

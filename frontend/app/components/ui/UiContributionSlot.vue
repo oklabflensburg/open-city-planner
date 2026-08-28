@@ -4,7 +4,7 @@
       :is="resolveUiComponent(contribution.component)"
       v-for="contribution in contributions"
       :key="contribution.id"
-      v-bind="contribution.props"
+      v-bind="{ ...contribution.props, ...componentProps }"
       :data-ui-contribution="contribution.id"
       :aria-label="'accessibleLabel' in contribution ? contribution.accessibleLabel : undefined"
     />
@@ -15,8 +15,12 @@
 import type { ComponentUiSlotId } from '#frontend-module-sdk'
 import { resolveComponent } from 'vue'
 
-const props = defineProps<{ slot: ComponentUiSlotId }>()
+const props = defineProps<{
+  slot: ComponentUiSlotId
+  componentProps?: Readonly<Record<string, unknown>>
+}>()
 const contributions = useUiContributions(props.slot)
+const componentProps = computed(() => props.componentProps || {})
 
 function resolveUiComponent(name: string) {
   return resolveComponent(name)

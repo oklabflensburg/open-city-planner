@@ -8,7 +8,7 @@
   >
     <template #actions>
       <div class="flex flex-wrap gap-2">
-        <NotificationFollowButton v-if="authStore.authenticated" resource-type="AREA" :resource-id="area.id" follow-label="Diesem Gebiet folgen" followed-label="Sie folgen diesem Gebiet" />
+        <NotificationFollowButton v-if="session.authenticated.value" resource-type="AREA" :resource-id="area.id" follow-label="Diesem Gebiet folgen" followed-label="Sie folgen diesem Gebiet" />
         <NuxtLink class="inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-[#154d73] hover:bg-slate-50" :to="`/vergleich?gebiete=${encodeURIComponent(area.slug)}`">Mit anderem Gebiet vergleichen</NuxtLink>
         <NuxtLink class="inline-flex min-h-11 items-center rounded-xl bg-[#154d73] px-4 text-sm font-bold text-white hover:bg-[#103c59]" :to="{ path: '/karte', query: { gebiet: area.slug } }">In der Karte öffnen</NuxtLink>
       </div>
@@ -143,11 +143,12 @@ import {
   areaPoiMapLink,
   getIndustryColor,
   getIndustryLabel,
-  getPoiCategoryLabel
+  getPoiCategoryLabel,
+  useModuleSession
 } from '#frontend-module-sdk'
 
 const route = useRoute()
-const authStore = useAuthStore()
+const session = useModuleSession()
 const socialPreview = computed(() => route.query['social-preview'] === '1')
 const previewMap = computed(() => route.query.map !== '0')
 const previewFacts = computed(() => route.query.facts !== '0')

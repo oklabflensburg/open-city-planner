@@ -81,7 +81,6 @@ const socialPreview = computed(() => route.query['social-preview'] === '1')
 const filterStore = useFilterStore()
 const analyticsStore = useAnalyticsStore()
 const osmStore = useOsmViewportStore()
-const analysisAreasStore = useAnalysisAreasStore()
 const authStore = useAuthStore()
 const mapSelection = useMapSelection()
 useGisFilterHistory()
@@ -96,7 +95,7 @@ const activePanelTitle = computed(() => {
   if (mapStore.activeGisPanel === 'filter') return activeFilterCount.value ? `Filter · ${activeFilterCount.value} aktiv` : 'Filter'
   if (mapStore.activeGisPanel === 'selection' && mapStore.selectedMapEntity?.type === 'polygon') return 'Ausgewählte Fläche'
   if (osmStore.selectedFeature) return 'OpenStreetMap-Objekt'
-  if (analysisAreasStore.selectedArea) return analysisAreasStore.selectedArea.name
+  if (mapStore.runtimeSelection) return String(mapStore.runtimeSelection.properties?.name || 'Auswahl')
   return 'Analyse'
 })
 const activePanelCloseLabel = computed(() => {
@@ -107,7 +106,9 @@ const activePanelCloseLabel = computed(() => {
 })
 const activePanelContentKey = computed(() => {
   const entity = mapStore.selectedMapEntity
-  if (mapStore.activeGisPanel !== 'selection' || !entity) return mapStore.activeGisPanel || 'closed'
+  if (mapStore.activeGisPanel !== 'selection') return mapStore.activeGisPanel || 'closed'
+  if (!entity && mapStore.runtimeSelection) return `module:${mapStore.runtimeSelection.moduleId}:${mapStore.runtimeSelection.featureId}`
+  if (!entity) return 'selection'
   if (entity.type === 'polygon') return `polygon:${entity.id}`
   if (entity.type === 'osm') return `osm:${entity.feature.properties.osm_type}:${entity.feature.properties.osm_id}`
   return `analysis-area:${entity.id}`
@@ -153,10 +154,9 @@ watch(() => filterStore.filterKey, () => {
   if (!analyticsIsVisible()) return
   clearTimeout(analyticsTimer)
   analyticsTimer = setTimeout(() => analyticsStore.load(), 180)
-  if (analysisAreasStore.selectedAreaId) void analysisAreasStore.loadDetails()
 })
 
-watch(() => analysisAreasStore.selectedAreaId, () => {
+watch(() => mapStore.runtimeSelection, () => {
   if (!analyticsIsVisible()) return
   clearTimeout(analyticsTimer)
   analyticsTimer = setTimeout(() => analyticsStore.load(), 80)

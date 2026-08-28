@@ -38,6 +38,7 @@ export function resolveMapExtensionSnapshot(value: unknown): MapExtensionSnapsho
 export interface CreateMapRuntimeOptions extends MapLifecycleOptions {
   readonly extensions?: MapExtensionSnapshot
   readonly reportTelemetry?: ConstructorParameters<typeof MapTelemetry>[0]
+  readonly onSelection?: ConstructorParameters<typeof SelectionManager>[0]
 }
 
 export class MapRuntime {
@@ -45,7 +46,7 @@ export class MapRuntime {
   readonly layers = new LayerRegistry()
   readonly controls = new ControlRegistry()
   readonly interactions = new InteractionRegistry()
-  readonly selection = new SelectionManager()
+  readonly selection: SelectionManager
   readonly draw = new DrawManager()
   readonly featureInfo = new FeatureInfoRegistry()
   readonly analysis = new AnalysisRegistry()
@@ -55,6 +56,7 @@ export class MapRuntime {
 
   constructor(options: CreateMapRuntimeOptions) {
     this.lifecycle = new MapLifecycle(options)
+    this.selection = new SelectionManager(options.onSelection)
     this.telemetry = new MapTelemetry(options.reportTelemetry)
     for (const source of options.extensions?.sources ?? []) this.layers.registerSource(source)
     for (const layer of options.extensions?.layers ?? []) this.layers.registerLayer(layer)

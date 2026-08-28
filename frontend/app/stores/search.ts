@@ -103,10 +103,17 @@ export const useSearchStore = defineStore('search', {
     },
     apply(result: AssistantResponse) {
       const area = result.context.active_area
-      const selected = useMapStore().selectedMapEntity
-      if (area && (selected?.type !== 'analysis-area' || selected.id !== area.id)) {
-        useMapStore().selectedMapEntity = { type: 'analysis-area', id: area.id }
-        void useAnalysisAreasStore().loadDetails(area.id)
+      const map = useMapStore()
+      const selected = map.runtimeSelection
+      const sourceId = 'analysis-areas.data'
+      if (area && (selected?.sourceId !== sourceId || String(selected.featureId) !== area.id)) {
+        void map.selectRuntimeSelection({
+          moduleId: sourceId.split('.')[0]!,
+          sourceId,
+          layerId: `analysis-areas.${area.area_type.toLowerCase()}-fill`,
+          featureId: area.id,
+          properties: { name: area.name, slug: area.slug, area_type: area.area_type }
+        })
       }
       for (const action of result.map_actions) this.applyMapAction(action)
     },
@@ -119,14 +126,6 @@ export const useSearchStore = defineStore('search', {
       } else if (action.geometry_filter === 'POINTS_ONLY') {
         osm.showPois = true
         osm.showAreas = false
-      }
-      if (action.type === 'SHOW_ANALYSIS_AREAS' && action.area_type) {
-        const areas = useAnalysisAreasStore()
-        areas.visibility = {
-          MUNICIPALITY: action.area_type === 'MUNICIPALITY',
-          DISTRICT: action.area_type === 'DISTRICT',
-          QUARTER: action.area_type === 'QUARTER'
-        }
       }
       useMapStore().applySearchAction(action, action.feature_collection)
     },

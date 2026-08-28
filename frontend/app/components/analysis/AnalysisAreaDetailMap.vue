@@ -14,14 +14,13 @@
 
 <script setup lang="ts">
 import type { GeoJSONSource, Map } from 'maplibre-gl'
-import type { PolygonFeatureCollection } from '~/types/geo'
 import type { AnalysisAreaDetail } from '~/types/analysisArea'
-import { loadMapStyle } from '~/config/mapStyles'
-import { setMapCursor } from '~/utils/mapCursor'
+import { setMapCursor, useMapStylePort, useModuleHttp } from '#frontend-module-sdk'
 
 const props = defineProps<{ area: AnalysisAreaDetail }>()
 const emit = defineEmits<{ ready: [] }>()
-const config = useRuntimeConfig()
+const mapStyle = useMapStylePort()
+const http = useModuleHttp()
 const mapElement = ref<HTMLDivElement | null>(null)
 const map = shallowRef<Map | null>(null)
 const mapError = ref('')
@@ -35,8 +34,8 @@ onMounted(async () => {
   try {
     const [maplibregl, style, polygons, , worker] = await Promise.all([
       import('maplibre-gl'),
-      loadMapStyle(String(config.public.mapStyleUrl || '')),
-      useApi().request<PolygonFeatureCollection>('/polygons/geojson').catch(() => ({ type: 'FeatureCollection' as const, features: [] })),
+      mapStyle.load(),
+      http.request<GeoJSON.FeatureCollection>('/polygons/geojson').catch(() => ({ type: 'FeatureCollection' as const, features: [] })),
       import('maplibre-gl/dist/maplibre-gl.css'),
       import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url')
     ])

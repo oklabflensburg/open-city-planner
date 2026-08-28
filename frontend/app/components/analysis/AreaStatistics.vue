@@ -2,7 +2,7 @@
   <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="kommunale-statistik">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div><p class="text-xs font-black uppercase tracking-widest text-[#154d73]">Stadt Flensburg</p><h2 id="kommunale-statistik" class="mt-1 text-2xl font-black text-slate-950">Kommunale Statistik</h2></div>
-      <StatusBadge tone="info">{{ levelLabel }}</StatusBadge>
+      <OcpStatusBadge tone="info">{{ levelLabel }}</OcpStatusBadge>
     </div>
 
     <div v-if="statistics.inherited_from_parent" class="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-950">
@@ -55,6 +55,7 @@
 
 <script setup lang="ts">
 import type { AreaStatisticSeries, AreaStatistics, AreaStatisticValue } from '~/types/analysisArea'
+import { OcpStatusBadge } from '#frontend-module-sdk/ui'
 
 const props = defineProps<{ statistics: AreaStatistics, series: AreaStatisticSeries }>()
 const priority = ['population', 'population_non_german', 'population_age_0_17', 'population_age_65_plus', 'households', 'households_non_german']

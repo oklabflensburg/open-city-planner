@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
-import type { AnalysisArea, AnalysisAreaAnalytics, AnalysisAreaComparison, AnalysisAreaFeatureCollection, AnalysisAreaType, AreaStatistics } from '~/types/analysisArea'
-import { useMapStore } from '~/stores/map'
-import { gisFilterQuery } from '~/utils/gisFilters'
+import type { AnalysisArea, AnalysisAreaAnalytics, AnalysisAreaComparison, AnalysisAreaFeatureCollection, AnalysisAreaType, AreaStatistics } from '../types/analysisArea'
+import { useMapFilterPort, useModuleHttp } from '#frontend-module-sdk'
 
 const emptyCollection: AnalysisAreaFeatureCollection = { type: 'FeatureCollection', features: [] }
 
@@ -15,26 +14,30 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
     statistics: null as AreaStatistics | null,
     loading: false,
     detailsLoading: false,
+    presentedAreaId: null as string | null,
     error: null as string | null,
     visibility: { MUNICIPALITY: true, DISTRICT: true, QUARTER: true } as Record<AnalysisAreaType, boolean>,
     requestId: 0
   }),
   getters: {
     selectedAreaId(): string | null {
-      const entity = useMapStore().selectedMapEntity
-      return entity?.type === 'analysis-area' ? entity.id : null
+      return this.presentedAreaId
     },
     selectedArea(state): AnalysisArea | null {
       return state.areas.find(area => area.id === this.selectedAreaId) || null
     }
   },
   actions: {
+    async presentSelection(id: string) {
+      this.presentedAreaId = id
+      await this.loadDetails(id)
+    },
     async load() {
       if (this.areas.length && this.featureCollection.features.length) return
       this.loading = true
       this.error = null
       try {
-        const api = useApi()
+        const api = useModuleHttp()
         const [areas, featureCollection] = await Promise.all([
           api.request<AnalysisArea[]>('/analysis-areas'),
           api.request<AnalysisAreaFeatureCollection>('/analysis-areas/geojson?limit=1000')
@@ -54,10 +57,9 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
       this.detailsLoading = true
       this.error = null
       try {
-        const filter = useFilterStore()
-        const query = gisFilterQuery(filter.filterState)
+        const query = useMapFilterPort().toQuery()
         const suffix = query.size ? `?${query}` : ''
-        const api = useApi()
+        const api = useModuleHttp()
         const selectedArea = this.areas.find(area => area.id === id)
         const [analytics, comparison, statistics] = await Promise.all([
           api.request<AnalysisAreaAnalytics>(`/analysis-areas/${id}/analytics${suffix}`),
@@ -76,6 +78,7 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
       }
     },
     clearSelection() {
+      this.presentedAreaId = null
       this.analytics = null
       this.comparison = null
       this.statistics = null

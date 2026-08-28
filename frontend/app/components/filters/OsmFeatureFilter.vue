@@ -43,9 +43,15 @@ const osm = useOsmViewportStore()
 const filter = useFilterStore()
 const route = useRoute()
 const router = useRouter()
-const areas = useAnalysisAreasStore()
+const map = useMapStore()
 const osmEnabled = computed(() => filter.selectedSources.includes('OSM'))
-const selectedAreaName = computed(() => areas.areas.find(area => area.slug === osm.areaPoiFilter?.areaSlug)?.name || osm.areaPoiFilter?.areaSlug || 'Gewähltes Gebiet')
+const selectedAreaName = computed(() => {
+  const slug = osm.areaPoiFilter?.areaSlug
+  if (!slug) return 'Gewähltes Gebiet'
+  return map.runtimeSelection?.properties?.slug === slug
+    ? String(map.runtimeSelection.properties.name || slug)
+    : slug
+})
 
 function clearPoiFilter() {
   osm.clearAreaPoiFilter()

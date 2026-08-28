@@ -185,7 +185,9 @@ export interface DrawManagerApi {
 
 export interface SelectionManagerApi {
   current(): SelectedMapFeature | null
+  registerPresentation(presentation: MapSelectionPresentation): () => void
   select(selection: SelectedMapFeature): Promise<void>
+  reveal(): void
   clear(): void
 }
 

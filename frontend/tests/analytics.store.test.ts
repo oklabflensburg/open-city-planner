@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAnalyticsStore } from '~/stores/analytics'
+import { useMapStore } from '~/stores/map'
 
 const response = {
   fast_facts: {
@@ -28,6 +29,7 @@ const response = {
 describe('analytics store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    vi.stubGlobal('useMapStore', useMapStore)
     vi.stubGlobal('useFilterStore', () => ({
       activeCategories: ['fashion'],
       selectedFloors: ['EG'],
