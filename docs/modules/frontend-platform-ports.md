@@ -18,7 +18,7 @@ noch einen zweiten Router, Pinia-Root oder globalen Host-Kontext.
 | `OcpStatusBadge`, `OcpProviderIcon` aus `#frontend-module-sdk/ui` | bewusst öffentliche, kleine UI-Primitives des vorhandenen Designsystems | normale SSR-fähige Vue-Komponenten, kein eigener App- oder CSS-Root | ungültige Props fallen in der TypeScript-/Vue-Prüfung auf | stabil ab 1.3 |
 
 Nuxt-Navigation (`NuxtLink`, `navigateTo`) genügt den untersuchten Consumern. Für
-Für Notification-Aktionen, Benutzerprofile, Locale und Dialoge bestand kein
+Notification-Aktionen, Benutzerprofile, Locale und Dialoge bestand kein
 Consumer; dafür wurde keine spekulative API ergänzt. Der lesende Session-Port hat
 genau einen Consumer für die Sichtbarkeit der Gebiets-Folgen-Aktion.
 
