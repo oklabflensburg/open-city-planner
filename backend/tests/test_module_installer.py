@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import io
 import json
 import os
@@ -11,7 +12,11 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from app.platform.modules.discovery import EntryPointModuleDiscovery
+from app.cli import module_migrations
+from app.platform.modules.discovery import (
+    EntryPointModuleDiscovery,
+    activate_enabled_module_python_paths,
+)
 from app.platform.modules.installer import (
     EnablementEnvironment,
     ModuleInstallConflictError,
@@ -20,6 +25,7 @@ from app.platform.modules.installer import (
     ModulePackageError,
     ModulesLock,
     calculate_package_digest,
+    installed_backend_distribution_paths,
     read_modules_lock,
     serialize_modules_lock,
     write_modules_lock_atomic,
@@ -72,6 +78,10 @@ MANIFEST = parse_manifest({manifest!r})
 class FixtureModule:
     manifest = MANIFEST
 
+    def __init__(self):
+        from .lazy import VALUE
+        self.lazy_value = VALUE
+
     def register(self, context):
         return None
 
@@ -84,6 +94,7 @@ DEFINITION = ModuleDefinition(
 '''
     files = {
         f"{import_name}/__init__.py": "",
+        f"{import_name}/lazy.py": "VALUE = 'loaded lazily'\n",
         f"{import_name}/module.py": module_source,
         f"{dist_info}/METADATA": (
             "Metadata-Version: 2.1\n"
@@ -268,6 +279,25 @@ def _refresh_frontend_digests(package: Path) -> None:
     descriptor_path.write_text(json.dumps(descriptor))
 
 
+def _refresh_backend_digests(package: Path) -> None:
+    descriptor_path = package / "verified-package-input.json"
+    descriptor = json.loads(descriptor_path.read_text())
+    backend = descriptor["backend"]
+    backend_payload = (package / backend["path"]).read_bytes()
+    backend["sha256"] = hashlib.sha256(backend_payload).hexdigest()
+    frontend = descriptor.get("frontend")
+    frontend_payload = (
+        None
+        if frontend is None
+        else (frontend["artifact"], (package / frontend["path"]).read_bytes())
+    )
+    descriptor["artifact"]["sha256"] = calculate_package_digest(
+        (backend["artifact"], backend_payload),
+        frontend_payload,
+    )
+    descriptor_path.write_text(json.dumps(descriptor))
+
+
 def test_lockfile_roundtrip_is_deterministic_and_strict(tmp_path: Path) -> None:
     package_a = _package(tmp_path, "alpha")
     package_z = _package(tmp_path, "zeta")
@@ -335,7 +365,7 @@ def test_install_is_disabled_and_enable_disable_preserve_artifacts(tmp_path: Pat
     assert enabled.enabled is True
     assert migration_calls == [("energy-analysis",)]
     assert frontend_calls[0].frontend_modules == "energy-analysis"
-    assert "site-packages" in frontend_calls[0].installed_backend_paths
+    assert "site-packages" in frontend_calls[0].runtime_backend_paths
 
     disabled = installer.disable("energy-analysis")
     assert disabled.enabled is False
@@ -361,23 +391,22 @@ def test_real_wheel_entry_point_is_discoverable_after_install(tmp_path: Path) ->
     installer = _installer(tmp_path / "state")
     installer.install(package)
     site_packages = installer.root / "installed/wheel-contract/1.0.0/backend/site-packages"
-    previous = list(os.sys.path)
-    os.sys.path.insert(0, str(site_packages))
-    try:
-        definitions = EntryPointModuleDiscovery(
-            distribution_paths=(site_packages,)
-        ).discover(frozenset({"wheel-contract"}))
-        resolved = resolve_module_definitions(
-            enabled_module_ids=("wheel-contract",),
-            discovery_providers=(
-                EntryPointModuleDiscovery(distribution_paths=(site_packages,)),
-            ),
-            host_version="0.2.0",
-        )
-    finally:
-        os.sys.path[:] = previous
+    previous = os.sys.path.copy()
+    definitions = EntryPointModuleDiscovery(
+        distribution_paths=(site_packages,)
+    ).discover(frozenset({"wheel-contract"}))
+    resolved = resolve_module_definitions(
+        enabled_module_ids=("wheel-contract",),
+        discovery_providers=(
+            EntryPointModuleDiscovery(distribution_paths=(site_packages,)),
+        ),
+        host_version="0.2.0",
+    )
+    runtime = resolved[0][0].loader()
     assert [definition.declared_id for definition in definitions] == ["wheel-contract"]
     assert [manifest.id for _, manifest in resolved] == ["wheel-contract"]
+    assert runtime.lazy_value == "loaded lazily"
+    assert os.sys.path == previous
 
 
 def test_incompatible_package_installs_disabled_but_enable_fails(tmp_path: Path) -> None:
@@ -554,9 +583,115 @@ def test_disable_never_runs_preflight_or_removes_migration_resources(tmp_path: P
     assert calls == []
     environment = installer.enablement_environment()
     assert environment.enabled_modules == ""
+    assert environment.runtime_backend_paths == ""
     assert "migration-history/1.0.0/backend/site-packages" in (
-        environment.installed_backend_paths
+        str(installed_backend_distribution_paths(installer.root)[0])
     )
+
+
+def test_runtime_paths_include_only_enabled_modules_and_follow_disable(
+    tmp_path: Path,
+) -> None:
+    installer = _installer(tmp_path / "state")
+    installer.install(_package(tmp_path, "enabled-package", backend=True, frontend=False))
+    installer.install(_package(tmp_path, "disabled-package", backend=True, frontend=False))
+    installer.enable("enabled-package")
+
+    environment = installer.enablement_environment()
+    assert "enabled-package" in environment.runtime_backend_paths
+    assert "disabled-package" not in environment.runtime_backend_paths
+    assert {path.parents[2].name for path in installed_backend_distribution_paths(installer.root)} == {
+        "disabled-package",
+        "enabled-package",
+    }
+
+    previous = os.sys.path.copy()
+    runtime_paths = tuple(
+        Path(value)
+        for value in environment.runtime_backend_paths.split(os.pathsep)
+        if value
+    )
+    activate_enabled_module_python_paths(runtime_paths)
+    try:
+        assert str(runtime_paths[0]) == os.sys.path[-1]
+        assert "disabled-package" not in os.pathsep.join(os.sys.path)
+    finally:
+        os.sys.path[:] = previous
+
+    installer.disable("enabled-package")
+    assert installer.enablement_environment().runtime_backend_paths == ""
+    installer.enable("enabled-package")
+    assert "enabled-package" in installer.enablement_environment().runtime_backend_paths
+
+
+def test_backend_wheel_rejects_host_shadowing_namespace(tmp_path: Path) -> None:
+    package = _package(tmp_path, "shadow-test", backend=True, frontend=False)
+    descriptor = json.loads((package / "verified-package-input.json").read_text())
+    wheel = package / descriptor["backend"]["path"]
+    with zipfile.ZipFile(wheel, "a") as archive:
+        archive.writestr("host_shadow_fixture/__init__.py", "SOURCE = 'module'\n")
+    _refresh_backend_digests(package)
+
+    with pytest.raises(ModulePackageError, match="forbidden top-level namespace"):
+        _installer(tmp_path / "state").install(package)
+
+
+def test_disabled_installed_path_cannot_shadow_host_import(tmp_path: Path) -> None:
+    installer = _installer(tmp_path / "state")
+    installer.install(_package(tmp_path, "shadow-test", backend=True, frontend=False))
+    installed_path = installed_backend_distribution_paths(installer.root)[0]
+    shadow = installed_path / "host_shadow_fixture"
+    shadow.mkdir()
+    (shadow / "__init__.py").write_text("SOURCE = 'disabled-module'\n")
+    host_path = tmp_path / "host"
+    host_package = host_path / "host_shadow_fixture"
+    host_package.mkdir(parents=True)
+    (host_package / "__init__.py").write_text("SOURCE = 'host'\n")
+    previous = os.sys.path.copy()
+    os.sys.path.insert(0, str(host_path))
+    os.sys.modules.pop("host_shadow_fixture", None)
+    try:
+        activate_enabled_module_python_paths(())
+        imported = importlib.import_module("host_shadow_fixture")
+        assert imported.SOURCE == "host"
+        assert str(installed_path) not in os.sys.path
+    finally:
+        os.sys.modules.pop("host_shadow_fixture", None)
+        os.sys.path[:] = previous
+
+
+def test_migration_run_scopes_all_installed_paths_independent_of_enablement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    installer = _installer(tmp_path / "state")
+    installer.install(_package(tmp_path, "enabled-history", backend=True, frontend=False))
+    installer.install(_package(tmp_path, "disabled-history", backend=True, frontend=False))
+    installer.enable("enabled-history")
+    all_paths = installed_backend_distribution_paths(installer.root)
+    all_path_values = set(map(str, all_paths))
+    observed: list[tuple[str, ...]] = []
+
+    class RecordingCoordinator:
+        def preflight(self):
+            observed.append(tuple(value for value in os.sys.path if value in all_path_values))
+            return ()
+
+    monkeypatch.setattr(
+        module_migrations,
+        "coordinator",
+        lambda **kwargs: RecordingCoordinator(),
+    )
+    before = os.sys.path.copy()
+
+    module_migrations.run(
+        "preflight",
+        install_root=installer.root,
+        enabled_module_ids=("enabled-history",),
+    )
+
+    assert set(observed[0]) == all_path_values
+    assert os.sys.path == before
 
 
 def test_failed_atomic_lock_write_keeps_previous_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

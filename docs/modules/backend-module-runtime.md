@@ -75,9 +75,16 @@ Installer-/Deploymentgrenze (#173 und #174). Namen und Release-Metadaten
 installierbarer Artefakte definiert die [Distribution Policy](distribution.md);
 die Runtime leitet daraus keine Modul-ID ab.
 Der [Installer](installer.md) stellt zusätzliche Python-Distributionen in einer
-host-owned Ablage bereit. Sein generierter `OCP_INSTALLED_BACKEND_PATHS`-Wert macht
-ihre Standard-Entry-Points auffindbar; `ENABLED_MODULES` bleibt die konkrete
-Runtime-Auswahl für den nächsten Prozessstart.
+host-owned Ablage bereit. Sein generierter
+`OCP_ENABLED_INSTALLED_BACKEND_PATHS`-Wert enthält ausschließlich aktivierte
+installierte Module; `ENABLED_MODULES` bleibt die konkrete Runtime-Auswahl für den
+nächsten Prozessstart. Der Discovery-Konstruktor verändert `sys.path` nicht.
+Entry-Point-Metadaten aus zusätzlichen Roots werden explizit über
+`importlib.metadata.distributions(path=...)` gelesen und der tatsächliche Load läuft
+mit einem scoped, vollständig wiederhergestellten Python-Pfad. Erst die
+Runtime-Komposition hängt aktivierte Roots dauerhaft hinter Host-Code und
+Venv-Dependencies an. Deaktivierte installierte Module erhalten keinen
+Runtime-Importpfad.
 
 ## Registrierungs- und Lifecycle-Reihenfolge
 

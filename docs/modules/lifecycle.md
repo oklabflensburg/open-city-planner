@@ -49,6 +49,13 @@ installierten Modul-Entry-Points. Dadurch bleibt eine Revision lesbar, wenn ihr 
 deaktiviert ist oder nicht mehr zur aktuellen Host-/SDK-Version passt. Das lädt
 weder den `ModuleDefinition.loader` noch Router, Jobs oder andere Runtime-Beiträge.
 
+Für installierte Pakete ist zusätzlich die Importverfügbarkeit getrennt: Nur
+aktivierte Backend-Pfade werden in einen neuen Runtime-Prozess eingebunden. Der
+Migrations-CLI liest alle installierten Backend-Roots direkt aus `modules.lock` und
+stellt sie nur für die passive Migration-Discovery scoped bereit. Damit gilt:
+installiert ist weder gleich runtime-aktiv noch gleich entbehrlich für die
+Migrationshistorie.
+
 Die Runtime registriert Contributions in Dependency-/Load-Reihenfolge, startet
 Lifecycle-Hooks in derselben Reihenfolge und beendet sie umgekehrt. Einen
 Registration-Fehler behandelt der Host fail-fast; der betreffende Prozess wird
@@ -95,8 +102,12 @@ angewandte Revisionen und ihre lokal verfügbaren Migrationsquellen bleiben Teil
 installierten Release-Graphen. Built-ins werden dafür generisch aus
 `backend/app/modules/*/module.py` abgeleitet; installierte Third-Party-Module aus der
 bestehenden Entry-Point-Gruppe `open_city_planner.modules`. Diese passive Discovery
-ist kein persistentes Package Inventory. Package-Entfernung und explizites
-Daten-Cleanup gehören zum späteren Installer-Lifecycle.
+liest installierte Pfade direkt aus `modules.lock`, macht sie aber nicht zum
+Runtime-Importpfad. Der gerenderte Deployzustand entfernt bei Disable außerdem den
+Backend-Pfad aus `OCP_ENABLED_INSTALLED_BACKEND_PATHS`. Bereits importierter Code
+wird nicht aus einem laufenden Prozess entladen; Disable wird vollständig mit dem
+nächsten Build, Deploy beziehungsweise Neustart wirksam. Package-Entfernung und
+explizites Daten-Cleanup gehören zum späteren Installer-Lifecycle.
 
 Beim Re-Enable wird die ID wieder konfiguriert und der vollständige Preflight
 wiederholt. Bereits angewandte Revisionen werden erkannt; vorhandene Daten werden

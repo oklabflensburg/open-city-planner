@@ -13,6 +13,7 @@ from app.platform.events.jobs import domain_event_outbox_handler
 from app.platform.modules import (
     EntryPointModuleDiscovery,
     FirstPartyModuleDiscovery,
+    activate_enabled_module_python_paths,
     create_module_runtime,
 )
 from app.platform.modules.context import ModuleContextFactory, ModuleHostServices
@@ -37,6 +38,7 @@ async def run(limit: int) -> dict[str, int]:
             module_env_file=BACKEND_ENV_FILE,
         ),
     )
+    activate_enabled_module_python_paths()
     registry = runtime.job_registry
     assert registry is not None
     legacy_jobs = LegacyJobAdapter(registry, module_id="host-events")

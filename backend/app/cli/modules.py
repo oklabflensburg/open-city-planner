@@ -43,7 +43,7 @@ def _installer(root: Path) -> ModuleInstaller:
         builtin_enabled_ids=settings.enabled_module_list,
         builtin_frontend_enabled_ids=builtin_frontend,
         module_environment=read_module_environment(env_file=BACKEND_ENV_FILE),
-        migration_preflight=_migration_preflight,
+        migration_preflight=lambda enabled_ids: _migration_preflight(root, enabled_ids),
         frontend_preflight=_frontend_preflight,
         frontend_package_preflight=_frontend_package_preflight,
     )
@@ -62,11 +62,15 @@ def _frontend_enablement() -> str:
     return ""
 
 
-def _migration_preflight(enabled_ids: tuple[str, ...]) -> None:
+def _migration_preflight(root: Path, enabled_ids: tuple[str, ...]) -> None:
     with _temporary_environment({"ENABLED_MODULES": ",".join(enabled_ids)}):
         get_settings.cache_clear()
         try:
-            module_migrations.coordinator().preflight()
+            module_migrations.run(
+                "preflight",
+                install_root=root,
+                enabled_module_ids=enabled_ids,
+            )
         finally:
             get_settings.cache_clear()
 
@@ -100,7 +104,7 @@ def _environment_values(environment: EnablementEnvironment) -> dict[str, str]:
         "ENABLED_MODULES": environment.enabled_modules,
         "OCP_FRONTEND_MODULES": environment.frontend_modules,
         "OCP_BACKEND_MODULES": environment.enabled_modules,
-        "OCP_INSTALLED_BACKEND_PATHS": environment.installed_backend_paths,
+        "OCP_ENABLED_INSTALLED_BACKEND_PATHS": environment.runtime_backend_paths,
         "OCP_INSTALLED_FRONTEND_MODULE_ROOTS": (
             environment.installed_frontend_module_roots
         ),

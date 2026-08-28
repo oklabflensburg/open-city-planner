@@ -27,6 +27,7 @@ from app.platform.events import InProcessEventBus
 from app.platform.modules import (
     EntryPointModuleDiscovery,
     FirstPartyModuleDiscovery,
+    activate_enabled_module_python_paths,
     create_module_runtime,
 )
 from app.platform.modules.context import ModuleContextFactory, ModuleHostServices
@@ -96,6 +97,7 @@ module_runtime = create_module_runtime(
     ),
     permission_registry=permission_registry,
 )
+activate_enabled_module_python_paths()
 configure_logging(
     level=settings.log_level,
     service="stadtplaner-api",

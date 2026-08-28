@@ -45,8 +45,17 @@ isolierte Vorgänge kann `OCP_MODULE_INSTALL_ROOT` beziehungsweise die CLI-Optio
 
 Der Installer schreibt weder nach `backend/app/modules` noch nach
 `frontend/frontend-modules` und patcht keine Hostdatei. Die versionierte Ablage
-bleibt auch bei Disable erhalten, damit Python-Entry-Points und
-Migrationsressourcen weiterhin auflösbar sind.
+bleibt auch bei Disable erhalten, damit Migrationsressourcen weiterhin passiv
+auflösbar sind. Deaktivierte Backend-Pfade werden nicht in den Runtime-Importpfad
+aufgenommen.
+
+Dabei gelten drei getrennte Zustände:
+
+```text
+Installed package availability
+!= Runtime import activation
+!= Migration history availability
+```
 
 ## Lockfile-Contract
 
@@ -140,6 +149,8 @@ Vor einer Änderung des Installationszustands gelten folgende Regeln:
 - keine absoluten Pfade, `..`, NUL-Zeichen oder Backslash-Pfade;
 - keine Symlinks oder Hardlinks in Packagepfaden und Frontend-Archiven;
 - keine doppelten Archivpfade, Devices oder sonstigen Spezialdateien;
+- Backend-Wheels dürfen auf Top-Level ausschließlich ihr kanonisches
+  `ocp_module_<module_id>`-Package und das zugehörige `.dist-info` enthalten;
 - kein Überschreiben einer anderen Modul-ID oder eines vorhandenen Releases;
 - keine Priorität zwischen Built-in und Installed bei gleicher ID.
 
@@ -190,13 +201,17 @@ Deploymentverträge:
 ENABLED_MODULES
 OCP_FRONTEND_MODULES
 OCP_BACKEND_MODULES
-OCP_INSTALLED_BACKEND_PATHS
+OCP_ENABLED_INSTALLED_BACKEND_PATHS
 OCP_INSTALLED_FRONTEND_MODULE_ROOTS
 ```
 
-Die installierten Backend-Pfade enthalten auch deaktivierte Module, damit deren
-passive Migrationsquellen verfügbar bleiben. Nur IDs mit `enabled: true` erscheinen
-in Backend- und Frontend-Enablement. Built-ins werden weiterhin über die bestehende
+`OCP_ENABLED_INSTALLED_BACKEND_PATHS` enthält ausschließlich Backend-Pfade der
+installierten Module mit `enabled: true`. Die Runtime hängt sie nach Host-Code und
+Venv-Dependencies an ihren Prozesspfad an. Deaktivierte Pakete können dadurch keine
+Host- oder Dependency-Imports shadowen. Der Migrations-CLI liest dagegen alle
+installierten Backend-Pfade direkt aus `modules.lock` und aktiviert sie nur scoped
+für passive Discovery, Preflight und Upgrade. Es gibt keine zweite manuell gepflegte
+Migration-Path-Variable. Built-ins werden weiterhin über die bestehende
 Hostkonfiguration ergänzt und niemals in `modules.lock` geschrieben.
 
 ## Compatibility und Lifecycle
@@ -236,7 +251,8 @@ bereitgestellt werden. Eine öffentliche Registry ist nicht erforderlich.
 
 1. `disable` setzt ausschließlich `enabled: false`.
 2. Der gerenderte Build-/Deployzustand wird aktiviert.
-3. Runtime- und Frontend-Contributions fehlen anschließend.
+3. Nach Build, Deploy beziehungsweise Neustart fehlen Runtime- und
+   Frontend-Contributions sowie der installierte Backend-Pfad im neuen Prozess.
 4. Package, Daten und Migrationsressourcen bleiben erhalten; es gibt keinen
    automatischen Downgrade.
 

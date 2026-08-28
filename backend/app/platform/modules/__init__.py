@@ -9,9 +9,12 @@ from app.platform.modules.contracts import (
 )
 from app.platform.modules.dependency_graph import resolve_module_order
 from app.platform.modules.discovery import (
+    ENABLED_INSTALLED_BACKEND_PATHS_ENV,
     ENTRY_POINT_GROUP,
     EntryPointModuleDiscovery,
     FirstPartyModuleDiscovery,
+    activate_enabled_module_python_paths,
+    scoped_module_python_paths,
 )
 from app.platform.modules.errors import (
     DuplicateConfigNamespaceError,
@@ -105,6 +108,7 @@ from app.platform.modules.sdk import (
 from app.platform.modules.services import ServiceRegistry
 
 __all__ = [
+    "ENABLED_INSTALLED_BACKEND_PATHS_ENV",
     "ENTRY_POINT_GROUP",
     "MODULE_SDK_VERSION",
     "AvailableModuleDiscoveryProvider",
@@ -182,12 +186,14 @@ __all__ = [
     "UndeclaredServiceDependencyError",
     "UnknownJobError",
     "UnsupportedManifestVersionError",
+    "activate_enabled_module_python_paths",
     "build_backend_module_inventory",
     "create_module_runtime",
     "module_manifest_json_schema",
     "parse_manifest",
     "resolve_module_definitions",
     "resolve_module_order",
+    "scoped_module_python_paths",
     "validate_manifest",
     "validate_manifests",
 ]

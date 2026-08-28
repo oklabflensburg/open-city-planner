@@ -3,6 +3,8 @@
 import os
 import sys
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass
 from importlib import import_module, metadata
 from pathlib import Path
 
@@ -10,7 +12,7 @@ from app.platform.modules.errors import ModuleDiscoveryError
 from app.platform.modules.sdk import ModuleDefinition
 
 ENTRY_POINT_GROUP = "open_city_planner.modules"
-INSTALLED_BACKEND_PATHS_ENV = "OCP_INSTALLED_BACKEND_PATHS"
+ENABLED_INSTALLED_BACKEND_PATHS_ENV = "OCP_ENABLED_INSTALLED_BACKEND_PATHS"
 type DefinitionSource = ModuleDefinition | Callable[[], ModuleDefinition]
 
 BUILTIN_MODULES_DIRECTORY = Path(__file__).resolve().parents[2] / "modules"
@@ -112,14 +114,12 @@ class EntryPointModuleDiscovery:
         if configured is None:
             configured = tuple(
                 Path(value)
-                for value in os.environ.get(INSTALLED_BACKEND_PATHS_ENV, "").split(os.pathsep)
+                for value in os.environ.get(
+                    ENABLED_INSTALLED_BACKEND_PATHS_ENV, ""
+                ).split(os.pathsep)
                 if value
             )
         self._distribution_paths = tuple(path.resolve() for path in configured)
-        for path in reversed(self._distribution_paths):
-            value = str(path)
-            if value not in sys.path:
-                sys.path.insert(0, value)
 
     def discover(self, enabled_module_ids: frozenset[str]) -> Sequence[ModuleDefinition]:
         return self._discover(enabled_module_ids)
@@ -133,8 +133,16 @@ class EntryPointModuleDiscovery:
         self, enabled_module_ids: frozenset[str] | None
     ) -> Sequence[ModuleDefinition]:
         definitions: list[ModuleDefinition] = []
-        entry_points = metadata.entry_points().select(group=ENTRY_POINT_GROUP)
-        for entry_point in sorted(entry_points, key=lambda candidate: candidate.name):
+        entry_points = _module_entry_points(self._distribution_paths)
+        for located in sorted(
+            entry_points,
+            key=lambda candidate: (
+                candidate.entry_point.name,
+                candidate.entry_point.value,
+                "" if candidate.distribution_path is None else str(candidate.distribution_path),
+            ),
+        ):
+            entry_point = located.entry_point
             if (
                 enabled_module_ids is not None
                 and entry_point.name not in enabled_module_ids
@@ -142,7 +150,12 @@ class EntryPointModuleDiscovery:
                 continue
             origin = f"entry-point:{entry_point.name}={entry_point.value}"
             try:
-                definition = entry_point.load()
+                with scoped_module_python_paths(
+                    ()
+                    if located.distribution_path is None
+                    else (located.distribution_path,)
+                ):
+                    definition = entry_point.load()
             except Exception as exc:
                 raise ModuleDiscoveryError(
                     "The installed Python entry point definition could not be loaded.",
@@ -158,7 +171,10 @@ class EntryPointModuleDiscovery:
             definitions.append(
                 ModuleDefinition(
                     manifest=definition.manifest,
-                    loader=definition.loader,
+                    loader=_scoped_loader(
+                        definition.loader,
+                        located.distribution_path,
+                    ),
                     origin=origin,
                     declared_id=entry_point.name,
                     persistence=definition.persistence,
@@ -166,3 +182,100 @@ class EntryPointModuleDiscovery:
                 )
             )
         return tuple(definitions)
+
+
+@dataclass(frozen=True, slots=True)
+class _LocatedEntryPoint:
+    entry_point: metadata.EntryPoint
+    distribution_path: Path | None
+
+
+def _module_entry_points(
+    distribution_paths: Sequence[Path],
+) -> tuple[_LocatedEntryPoint, ...]:
+    """Find host and explicitly installed module entry points without path mutation."""
+
+    located: list[_LocatedEntryPoint] = [
+        _LocatedEntryPoint(entry_point, _distribution_root(entry_point))
+        for entry_point in metadata.entry_points().select(group=ENTRY_POINT_GROUP)
+    ]
+    for distribution_path in distribution_paths:
+        for distribution in metadata.distributions(path=[str(distribution_path)]):
+            located.extend(
+                _LocatedEntryPoint(entry_point, distribution_path)
+                for entry_point in distribution.entry_points
+                if entry_point.group == ENTRY_POINT_GROUP
+            )
+
+    unique: dict[tuple[str, str, str], _LocatedEntryPoint] = {}
+    for candidate in located:
+        key = (
+            candidate.entry_point.name,
+            candidate.entry_point.value,
+            ""
+            if candidate.distribution_path is None
+            else str(candidate.distribution_path.resolve()),
+        )
+        unique.setdefault(key, candidate)
+    return tuple(unique.values())
+
+
+def _distribution_root(entry_point: metadata.EntryPoint) -> Path | None:
+    distribution = getattr(entry_point, "dist", None)
+    if distribution is None:
+        return None
+    try:
+        return Path(distribution.locate_file("")).resolve()
+    except (AttributeError, OSError, TypeError):
+        return None
+
+
+def _scoped_loader(
+    loader: Callable[[], object],
+    distribution_path: Path | None,
+) -> Callable[[], object]:
+    if distribution_path is None:
+        return loader
+
+    def load() -> object:
+        with scoped_module_python_paths((distribution_path,)):
+            return loader()
+
+    return load
+
+
+@contextmanager
+def scoped_module_python_paths(paths: Sequence[Path]):
+    """Temporarily append module paths and restore the exact process path afterwards."""
+
+    previous = sys.path.copy()
+    try:
+        for path in paths:
+            value = str(path.resolve())
+            if value not in sys.path:
+                sys.path.append(value)
+        yield
+    finally:
+        sys.path[:] = previous
+
+
+def activate_enabled_module_python_paths(
+    paths: Sequence[Path] | None = None,
+) -> tuple[Path, ...]:
+    """Append only enabled installed package roots for one runtime process."""
+
+    configured = paths
+    if configured is None:
+        configured = tuple(
+            Path(value)
+            for value in os.environ.get(
+                ENABLED_INSTALLED_BACKEND_PATHS_ENV, ""
+            ).split(os.pathsep)
+            if value
+        )
+    resolved = tuple(path.resolve() for path in configured)
+    for path in resolved:
+        value = str(path)
+        if value not in sys.path:
+            sys.path.append(value)
+    return resolved
