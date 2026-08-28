@@ -8,10 +8,9 @@ dem bestehenden [Manifest V1](module-manifest-v1.md), der
 [Trust-Modell](../architecture/adr-module-trust-model.md) auf. Diese bestehenden
 Verträge bleiben maßgeblich.
 
-Die Policy ist der fachliche Input für den Installer und `modules.lock` aus #173,
-das `.ocp`-Bundle aus #174 und die Registry aus #175. Der darauf aufbauende
-[Installer](installer.md) bleibt ein separater technischer Layer; diese Policy legt
-weiterhin kein maschinenlesbares Bundle-Schema fest.
+Die Policy ist der fachliche Input für den [Installer und `modules.lock`](installer.md),
+das konkrete [`.ocp` Package Bundle v1](package-bundle.md) und die Registry aus
+#175. Der Installer bleibt ein separater technischer Layer.
 
 ## Kanonische Identität und Namen
 
@@ -91,11 +90,12 @@ Backend- beziehungsweise Frontend-Modulmanifest bleibt die maßgebliche Quelle f
 - Config-Namespace und Persistence-Metadaten;
 - Frontend-Routen sowie UI- und Map-Contributions.
 
-Ein zukünftiges `module.yaml` im `.ocp`-Bundle darf diesen Contract nur
-transportieren oder eindeutig spiegeln. Gespiegelte ID, Version und
+Das `module.yaml` im `.ocp`-Bundle transportiert diesen Contract und ergänzt ihn
+nur um Distribution-Metadaten. Gespiegelte ID, Version und
 Compatibility-Metadaten müssen mit dem eingebetteten bestehenden Manifest
 übereinstimmen; zwei unabhängig pflegbare Versions- oder Dependency-Modelle sind
-unzulässig. Das konkrete Transportformat und dessen Validierung gehören zu #174.
+unzulässig. Das konkrete Transportformat ist in [Package Bundle v1](package-bundle.md)
+festgelegt.
 Publisher-, Provenance-, Lizenz- und Digest-Angaben sind Metadaten der
 Distribution, keine vom Modul selbst festgelegte Runtime-Trustklasse.
 
@@ -148,9 +148,9 @@ entpackt es vor dem Nuxt-Build in die kontrollierte, versionierte Ablage aus
 [#173](installer.md). Das öffentliche Archivlayout und die weitergehende
 Dependency-Integration werden erst in #174 festgelegt.
 
-## Beziehung zum zukünftigen OCP-Bundle
+## Beziehung zum OCP-Bundle v1
 
-Ein mögliches Release `energy-analysis-1.4.0.ocp` fasst die überprüfbaren
+Ein Release `energy-analysis-1.4.0.ocp` fasst die überprüfbaren
 Artefaktklassen einer Modulversion zusammen. Konzeptionell kann es enthalten:
 
 ```text
@@ -164,8 +164,8 @@ Ein Fullstack-Bundle enthält Backend und Frontend mit derselben ID und Version.
 Backend-only- oder Frontend-only-Bundle lässt die nicht benötigte Artefaktklasse
 aus. `module.yaml` transportiert oder spiegelt den vorhandenen Manifest-Contract;
 `checksums.json` bindet die enthaltenen Bytes an ihre Digests. Dateinamen,
-Pflichtfelder, Kanonisierung, Parser und Writer werden in #174 entschieden. Diese
-Policy macht die Skizze nicht zu einem finalen Format.
+Pflichtfelder, Checksums, Sicherheitsgrenzen, Parser und Writer beschreibt
+[Package Bundle v1](package-bundle.md).
 
 ## Integrität, Provenance und Lizenz
 
@@ -302,7 +302,7 @@ npm-Paket gebaut.
   Publisher/Source, Backend-/Frontend-Artefakte und bestehende
   Compatibility-Metadaten; definiert Installation, Ablage und persistente
   Auflösung.
-- **#174 OCP-Bundle:** definiert das endgültige Archiv- und Metadatenschema,
+- **[OCP-Bundle v1](package-bundle.md):** definiert das Archiv- und Metadatenschema,
   transportiert den bestehenden Manifest-Contract und bindet alle Artefakte per
   Digest zu einer Releaseeinheit.
 - **#175 Registry:** indexiert mindestens ID, Version, Publisher, Lizenz,

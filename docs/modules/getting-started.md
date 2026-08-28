@@ -160,7 +160,7 @@ Erweitere nur die benötigten Verträge:
 - [Security und Community Review](community-module-review.md)
 - [Architecture Rules](architecture-rules.md)
 
-## Built-in und zukünftige Standalone-Module
+## Built-in und Standalone-Module
 
 Built-in First-Party-Module liegen heute direkt im Host-Repository:
 
@@ -172,7 +172,7 @@ frontend/frontend-modules/foo
 Sie werden gemeinsam mit dem Host gebaut und benötigen keinen Installer. Das
 Scaffold aus #110 erzeugt ausschließlich dieses Layout.
 
-Ein zukünftig separat gepflegtes Modul soll dieselben inneren SDK-Verträge in einem
+Ein separat gepflegtes Modul bündelt dieselben inneren SDK-Verträge in einem
 eigenen Repository bündeln:
 
 ```text
@@ -184,11 +184,13 @@ ocp-module-example/
 └── README.md
 ```
 
-Dieses Layout ist noch kein implementiertes Paketformat. Der
-[Installer und `modules.lock`](installer.md) aus #173 konsumieren einen schmalen
-verifizierten lokalen Package-Input; das gemeinsame `.ocp` Package Bundle folgt in
-#174 und die Distribution über eine Package Registry in #175. Das Built-in-
-Scaffold aus #110 benötigt keinen dieser Installationspfade.
+Aus validiertem Manifest, optionalem Backend-Wheel und optionalem Frontend-`.tgz`
+erzeugt `python -m app.cli.modules bundle build` das öffentliche `.ocp`-Release.
+Danach führen `verify`, `install` und `enable` über den bestehenden
+[Installer und `modules.lock`](installer.md). Der vollständige Ablauf steht in
+[Package Bundle v1](package-bundle.md). Eine Registry folgt separat in #175; lokale
+und private Bundles benötigen sie nicht. Das Built-in-Scaffold aus #110 benötigt
+keinen dieser Installationspfade.
 
 Die verbindlichen Namen, Releaseversionen, Artefaktklassen und
 Supply-Chain-Metadaten für ein späteres Standalone-Modul stehen in der

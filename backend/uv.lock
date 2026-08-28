@@ -656,6 +656,7 @@ dependencies = [
     { name = "pyjwt" },
     { name = "pyotp" },
     { name = "python-multipart" },
+    { name = "pyyaml" },
     { name = "redis" },
     { name = "semantic-version" },
     { name = "shapely" },
@@ -672,7 +673,6 @@ dev = [
 ]
 security = [
     { name = "pip-audit" },
-    { name = "pyyaml" },
 ]
 
 [package.metadata]
@@ -704,7 +704,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.4.1" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=1.1.0" },
     { name = "python-multipart", specifier = ">=0.0.20" },
-    { name = "pyyaml", marker = "extra == 'security'", specifier = "==6.0.3" },
+    { name = "pyyaml", specifier = "==6.0.3" },
     { name = "redis", specifier = ">=5.2,<9" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12.8" },
     { name = "semantic-version", specifier = ">=2.10.0,<3" },

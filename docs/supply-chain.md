@@ -123,10 +123,13 @@ der Erzeugung blockiert das Release Gate und damit das Deployment. Bei Pushes au
 beide SBOM-Dateien. Dafür benötigt der Workflow `id-token: write` und
 `attestations: write`.
 
-Die Anwendung veröffentlicht derzeit kein eigenständiges Container-, Wheel- oder
-Frontend-Archiv. Deshalb gibt es noch kein separates binäres Release-Artefakt als
-Attestations-Subjekt. Sobald ein solches Artefakt eingeführt wird, sollte dessen
-Digest mit der zugehörigen SBOM über `actions/attest-sbom` attestiert werden.
+Separat verteilte Module werden als [`.ocp` Package Bundle v1](modules/package-bundle.md)
+veröffentlicht. SHA-256 über die vollständigen Bundle-Bytes ist der immutable
+Release-Digest und wird in `modules.lock` übernommen. `module.yaml` kann Referenzen
+auf SBOM und Build-Attestation transportieren; eine spätere Registry (#175)
+indexiert Bundle-Digest und Provenance, ohne einen neuen Trust-Grant zu erzeugen.
+Wo eine Modul-Releasepipeline Attestations erzeugt, soll sie den Bundle-Digest mit
+der zugehörigen SBOM über `actions/attest-sbom` binden.
 
 ### Reviewed Community Modules
 
@@ -141,9 +144,9 @@ Eine eigene Signatur-PKI wird erst bewertet, wenn separate Modul-Artefakte und e
 realer Distributionskanal existieren. Bis dahin gilt: checksums/provenance now,
 signing deferred. Siehe
 [Modul-Trust-ADR](architecture/adr-module-trust-model.md). Der
-[Installer mit `modules.lock`](modules/installer.md) prüft lokale Artefakte vor der
-Installation; das Bundle-Format folgt in #174. Discovery und Runtime implementieren
-keine parallele Integritätsprüfung.
+[Installer mit `modules.lock`](modules/installer.md) prüft lokale `.ocp`-Artefakte
+vor der Installation. Discovery und Runtime implementieren keine parallele
+Integritätsprüfung.
 
 ## Kontrolliertes Notfallupdate
 

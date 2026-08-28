@@ -28,6 +28,7 @@ dependencies = [
   "pyjwt>=2.10.1",
   "pyotp>=2.9.0",
   "python-multipart>=0.0.20",
+  "pyyaml==6.0.3",
   "redis>=5.2,<9",
   "semantic-version>=2.10.0,<3",
   "shapely>=2.1.1",
@@ -50,8 +51,7 @@ dev = [
   "ruff>=0.12.8"
 ]
 security = [
-  "pip-audit==2.10.1",
-  "pyyaml==6.0.3"
+  "pip-audit==2.10.1"
 ]
 
 [tool.ruff]
