@@ -120,7 +120,11 @@ der deklarierte Backend-Range geprüft. Die Werte enthalten keine Secrets.
   Middleware, Server-Handler und Nuxt-Buildmodule.
 - private Host-Imports und ungebundene Aufrufe privater Host-Auto-Imports auch in
   Vue-Scriptblöcken und entpackten installierbaren Paketen. Öffentliche Nuxt-/Vue-
-  Auto-Imports und lokal gebundene, gleichnamige Funktionen bleiben erlaubt.
+  Auto-Imports und lokal gebundene, gleichnamige Funktionen bleiben erlaubt;
+- Host-Auto-Imports werden aus `app/composables` und `app/stores`, moduleigene
+  Auto-Imports aus `layer/app/composables` und `layer/app/stores` abgeleitet.
+  Namenskollisionen zwischen Host und Modul stoppen den Preflight; Modulnamen
+  werden nicht aus der Modul-ID erraten.
 
 Fehler nennen Modul-ID und relevante Quellen. Die Reihenfolge ist topologisch und
 innerhalb gleicher Dependency-Stufen lexikografisch stabil.
@@ -129,7 +133,7 @@ innerhalb gleicher Dependency-Stufen lexikografisch stabil.
 
 Ein aktivierter Layer wird durch denselben Nuxt-Build verarbeitet wie der Host:
 
-- Pages sind SSR-fähige Nuxt-Pages und können `usePageSeo` verwenden.
+- Pages sind SSR-fähige Nuxt-Pages und können den öffentlichen Contract `useModuleSeo` verwenden.
 - Komponenten verwenden die vorhandenen Host-Komponenten und Design-Tokens.
 - Tailwind wird einmal durch die vorhandene Vite-Konfiguration kompiliert.
 - Stores verwenden die gemeinsame Pinia-Instanz.

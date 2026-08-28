@@ -16,7 +16,7 @@ Stores und Composables liegen dagegen noch gemeinsam unter `frontend/app`.
 Die Navigation wird derzeit zentral durch `useSiteNavigation` aufgebaut. Globale
 Middleware behandelt plattformweite Weiterleitungen; fachliche Zugriffsmiddleware
 ist routengebunden. Öffentliche Seiten werden serverseitig gerendert und verwenden
-`usePageSeo` für Canonical-, OpenGraph-, Twitter- und strukturierte Metadaten. #101
+`useModuleSeo` für Canonical-, OpenGraph-, Twitter- und strukturierte Metadaten. #101
 migriert keine dieser bestehenden Domänen, sondern schafft nur einen additiven
 Integrationspfad.
 
@@ -119,7 +119,7 @@ Quelldateien, doppelte Modulrouten und Kollisionen mit Host-Pages stoppen den Bu
 Eigene `definePageMeta`-Pfade sind in V1 nicht Teil des Contracts.
 
 Modulpages laufen im normalen Nuxt-SSR und verwenden die vorhandenen Host-
-Primitives wie `usePageSeo`. Fachliche SEO-Metadaten gehören zur Seite; globale
+Primitives wie `useModuleSeo`. Fachliche SEO-Metadaten gehören zur Seite; globale
 Defaults und die SEO-Infrastruktur bleiben Host-owned. Browser-APIs benötigen wie
 im Host weiterhin Client-Guards.
 

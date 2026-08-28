@@ -4,8 +4,9 @@
 
 <script setup lang="ts">
 import type { MapContext, MapFeatureInfoProvider, MapSelectionPresentation } from '#frontend-module-sdk'
-import { useMapContext } from '#frontend-module-sdk'
+import { useMapContext, useMapFilterPort } from '#frontend-module-sdk'
 import { onBeforeUnmount, watch } from 'vue'
+import { useAnalysisAreasStore } from '../stores/analysisAreas'
 
 interface RenderedAreaFeature {
   readonly id?: string | number
@@ -16,6 +17,8 @@ interface RenderedAreaFeature {
 const mapContext = useMapContext()
 const areas = useAnalysisAreasStore()
 const route = useRoute()
+const filter = useMapFilterPort()
+const filterQuery = computed(() => filter.toQuery().toString())
 let unregisterInteraction: (() => void) | undefined
 let unregisterFeatureInfo: (() => void) | undefined
 let unregisterPresentation: (() => void) | undefined
@@ -158,6 +161,10 @@ watch(() => areas.featureCollection, () => {
 watch(() => areas.visibility, () => {
   if (mapContext.value) updateVisibility(mapContext.value)
 }, { deep: true })
+
+watch(filterQuery, () => {
+  if (areas.selectedAreaId) void areas.loadDetails()
+})
 
 watch(() => [route.query.gebiet, route.query.area], () => {
   if (mapContext.value) void selectRequestedArea(mapContext.value)

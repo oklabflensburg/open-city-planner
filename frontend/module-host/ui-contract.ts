@@ -7,6 +7,8 @@ export const UI_SLOT_IDS = [
   'dashboard.widgets',
   'profile.sections',
   'map.controls',
+  'map.layers',
+  'map.selection',
   'map.bottomSheet',
   'map.contextMenu'
 ] as const

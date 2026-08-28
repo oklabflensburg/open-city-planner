@@ -3,6 +3,7 @@ import { MapRuntimeError } from './errors'
 
 export interface SelectionManagerOptions {
   readonly onSelect?: (selection: SelectedMapFeature) => void
+  readonly onClear?: () => void
   readonly onReveal?: (selection: SelectedMapFeature) => void
 }
 
@@ -45,6 +46,7 @@ export class SelectionManager implements SelectionManagerApi {
 
   clear() {
     this.#selection = null
+    this.options.onClear?.()
     for (const presentation of this.#presentations.values()) presentation.clear?.()
     this.#emit()
   }

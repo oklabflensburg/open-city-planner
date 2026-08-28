@@ -61,13 +61,16 @@ export {
   type MapStylePort,
   type ModuleHttpClient,
   type ModuleHttpOptions,
-  type ModuleSessionPort
+  type ModuleSessionPort,
+  type ModuleSeoOptions,
+  type ModuleStructuredData
 } from './platform-contract.ts'
 export {
   useMapFilterPort,
   useMapSelectionPort,
   useMapStylePort,
   useModuleHttp,
+  useModuleSeo,
   useModuleSession
 } from './platform-vue.ts'
 export {

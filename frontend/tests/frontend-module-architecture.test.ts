@@ -1,4 +1,5 @@
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -93,8 +94,70 @@ describe('frontend module architecture gate', () => {
       'function useMapStore() { return {} }',
       'const localMap = useMapStore()'
     ].join('\n'))
+    writeFileSync(resolve(layer, 'imported.ts'), [
+      "import { useAuthStore } from './local-auth'",
+      'useAuthStore()',
+      'function invoke(useFilterStore: () => unknown) { return useFilterStore() }'
+    ].join('\n'))
+    writeFileSync(resolve(layer, 'public.vue'), [
+      '<script>const useMapSelection = () => ({})</script>',
+      '<script setup lang="ts">function invoke(useApi: () => unknown) { return useApi() }</script>',
+      '<template><span /></template>'
+    ].join('\n'))
 
     expect(scanModuleImportBoundaries(resolve(root, 'analysis-areas'), layer)).toEqual([])
   })
+
+  it('derives arbitrary private composables and stores from the selected host root', () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'ocp-auto-import-root-'))
+    const frontendRoot = resolve(root, 'frontend')
+    const moduleRoot = resolve(frontendRoot, 'frontend-modules/demo')
+    const layer = resolve(moduleRoot, 'layer/app')
+    mkdirSync(resolve(frontendRoot, 'app/composables'), { recursive: true })
+    mkdirSync(resolve(frontendRoot, 'app/stores'), { recursive: true })
+    mkdirSync(layer, { recursive: true })
+    writeFileSync(resolve(frontendRoot, 'app/composables/polygon.ts'), 'export function usePolygonApi() { return {} }\nexport const useGisInvalidation = () => undefined\n')
+    writeFileSync(resolve(frontendRoot, 'app/stores/auth.ts'), 'export const useAuthStore = () => ({})\n')
+    writeFileSync(resolve(layer, 'consumer.ts'), 'usePolygonApi()\nuseGisInvalidation()\nuseAuthStore()\n')
+
+    expect(scanModuleImportBoundaries(moduleRoot, layer, { frontendRoot }).map(item => item.target))
+      .toEqual(['usePolygonApi', 'useGisInvalidation', 'useAuthStore'])
+  })
+
+  it('allows module-owned auto-imports and rejects collisions at their declaration', () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'ocp-module-auto-imports-'))
+    const frontendRoot = resolve(root, 'frontend')
+    const moduleRoot = resolve(frontendRoot, 'frontend-modules/demo')
+    const layer = resolve(moduleRoot, 'layer/app')
+    mkdirSync(resolve(frontendRoot, 'app/stores'), { recursive: true })
+    mkdirSync(resolve(layer, 'composables'), { recursive: true })
+    mkdirSync(resolve(layer, 'stores'), { recursive: true })
+    writeFileSync(resolve(frontendRoot, 'app/stores/auth.ts'), 'export const useAuthStore = () => ({})\n')
+    writeFileSync(resolve(layer, 'composables/local.ts'), 'export function useLocalApi() { return {} }\n')
+    writeFileSync(resolve(layer, 'stores/local.ts'), 'export const useLocalStore = () => ({})\n')
+    writeFileSync(resolve(layer, 'stores/collision.ts'), 'export const useAuthStore = () => ({})\n')
+    writeFileSync(resolve(layer, 'consumer.ts'), 'useLocalApi()\nuseLocalStore()\n')
+
+    expect(scanModuleImportBoundaries(moduleRoot, layer, { frontendRoot })).toEqual([
+      expect.objectContaining({ target: 'useAuthStore', reason: 'private-host-auto-import' })
+    ])
+  })
+
+  it('keeps host auto-import indexes isolated between frontend roots', () => {
+    const createFixture = (name: string, exportedName: string) => {
+      const frontendRoot = resolve(mkdtempSync(resolve(tmpdir(), `ocp-${name}-`)), 'frontend')
+      const moduleRoot = resolve(frontendRoot, 'frontend-modules/demo')
+      const layer = resolve(moduleRoot, 'layer/app')
+      mkdirSync(resolve(frontendRoot, 'app/composables'), { recursive: true })
+      mkdirSync(layer, { recursive: true })
+      writeFileSync(resolve(frontendRoot, 'app/composables/private.ts'), `export const ${exportedName} = () => ({})\n`)
+      writeFileSync(resolve(layer, 'consumer.ts'), 'useFirstRoot()\nuseSecondRoot()\n')
+      return { frontendRoot, moduleRoot, layer }
+    }
+    const first = createFixture('first-root', 'useFirstRoot')
+    const second = createFixture('second-root', 'useSecondRoot')
+
+    expect(scanModuleImportBoundaries(first.moduleRoot, first.layer, { frontendRoot: first.frontendRoot }).map(item => item.target)).toEqual(['useFirstRoot'])
+    expect(scanModuleImportBoundaries(second.moduleRoot, second.layer, { frontendRoot: second.frontendRoot }).map(item => item.target)).toEqual(['useSecondRoot'])
+  })
 })
-import { spawnSync } from 'node:child_process'

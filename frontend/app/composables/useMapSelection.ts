@@ -4,7 +4,6 @@ export function useMapSelection() {
   const mapStore = useMapStore()
   const polygonStore = usePolygonStore()
   const osmStore = useOsmViewportStore()
-  const analysisAreasStore = useAnalysisAreasStore()
 
   const selectedMapEntity = computed(() => mapStore.selectedMapEntity)
 
@@ -22,13 +21,6 @@ export function useMapSelection() {
     await osmStore.loadDetail(feature)
   }
 
-  async function selectAnalysisArea(id: string) {
-    mapStore.clearRuntimeSelection()
-    clearSelectionData()
-    mapStore.selectedMapEntity = { type: 'analysis-area', id }
-    await analysisAreasStore.loadDetails(id)
-  }
-
   function clearSelection() {
     mapStore.clearRuntimeSelection()
     mapStore.selectedMapEntity = null
@@ -38,8 +30,7 @@ export function useMapSelection() {
   function clearSelectionData() {
     polygonStore.clearSelection()
     osmStore.clearSelection()
-    analysisAreasStore.clearSelection()
   }
 
-  return { selectedMapEntity, selectPolygon, selectOsm, selectAnalysisArea, clearSelection }
+  return { selectedMapEntity, selectPolygon, selectOsm, clearSelection }
 }

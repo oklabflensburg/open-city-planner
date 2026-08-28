@@ -1,7 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useAnalysisAreasStore } from '~/stores/analysisAreas'
 import { useFilterStore } from '~/stores/filter'
 import { useMapStore } from '~/stores/map'
 import { useOsmViewportStore } from '~/stores/osmViewport'
@@ -41,7 +40,6 @@ describe('Stadtplaner-Assistent', () => {
     setActivePinia(createPinia())
     vi.stubGlobal('useFilterStore', useFilterStore)
     vi.stubGlobal('useOsmViewportStore', useOsmViewportStore)
-    vi.stubGlobal('useAnalysisAreasStore', useAnalysisAreasStore)
     vi.stubGlobal('useMapStore', useMapStore)
   })
 

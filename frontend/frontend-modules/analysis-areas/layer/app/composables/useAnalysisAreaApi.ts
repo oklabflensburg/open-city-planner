@@ -1,7 +1,8 @@
-import type { AnalysisArea, AnalysisAreaAnalytics, AnalysisAreaComparison, AnalysisAreaDetail, AnalysisAreaPolygon, AreaStatisticSeries, AreaStatistics } from '~/types/analysisArea'
+import type { AnalysisArea, AnalysisAreaAnalytics, AnalysisAreaComparison, AnalysisAreaDetail, AnalysisAreaPolygon, AreaStatisticSeries, AreaStatistics } from '../types/analysisArea'
+import { useModuleHttp } from '#frontend-module-sdk'
 
 export function useAnalysisAreaApi() {
-  const { request } = useApi()
+  const { request } = useModuleHttp()
 
   return {
     list: () => request<AnalysisArea[]>('/analysis-areas'),

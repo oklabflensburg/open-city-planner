@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
-import type { AnalysisArea, AnalysisAreaAnalytics, AnalysisAreaComparison, AnalysisAreaFeatureCollection, AnalysisAreaType, AreaStatistics } from '~/types/analysisArea'
-import { useMapFilterPort, useMapSelectionPort, useModuleHttp } from '#frontend-module-sdk'
+import type { AnalysisArea, AnalysisAreaAnalytics, AnalysisAreaComparison, AnalysisAreaFeatureCollection, AnalysisAreaType, AreaStatistics } from '../types/analysisArea'
+import { useMapFilterPort, useModuleHttp } from '#frontend-module-sdk'
 
 const emptyCollection: AnalysisAreaFeatureCollection = { type: 'FeatureCollection', features: [] }
 
@@ -21,9 +21,7 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
   }),
   getters: {
     selectedAreaId(): string | null {
-      if (this.presentedAreaId) return this.presentedAreaId
-      const entity = useMapSelectionPort().selected.value
-      return entity?.type === 'analysis-area' ? entity.id : null
+      return this.presentedAreaId
     },
     selectedArea(state): AnalysisArea | null {
       return state.areas.find(area => area.id === this.selectedAreaId) || null

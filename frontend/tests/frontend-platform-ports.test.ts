@@ -5,12 +5,28 @@ import {
   useMapSelectionPort,
   useMapStylePort,
   useModuleHttp,
+  useModuleSeo,
   useModuleSession
 } from '../module-host/platform-vue'
 
 afterEach(() => vi.unstubAllGlobals())
 
 describe('public frontend platform ports', () => {
+  it('delegates module metadata to the existing host SEO runtime', () => {
+    const useSeoMeta = vi.fn()
+    const useHead = vi.fn()
+    vi.stubGlobal('useRuntimeConfig', () => ({ public: {
+      siteName: 'Stadtplaner', siteUrl: 'https://example.test', siteLocale: 'de_DE', defaultOgImage: '/og.png'
+    } }))
+    vi.stubGlobal('useSeoMeta', useSeoMeta)
+    vi.stubGlobal('useHead', useHead)
+    useModuleSeo({ title: 'Modulseite', description: 'Öffentliche Beschreibung', path: '/modul' })
+    expect(useSeoMeta).toHaveBeenCalledWith(expect.objectContaining({ title: 'Modulseite – Stadtplaner' }))
+    expect(useHead).toHaveBeenCalledWith(expect.objectContaining({
+      link: [{ rel: 'canonical', href: 'https://example.test/modul' }]
+    }))
+  })
+
   it('exposes the existing authenticated HTTP client without another runtime', () => {
     const client = { request: vi.fn() }
     vi.stubGlobal('useApi', () => client)
@@ -48,6 +64,10 @@ describe('public frontend platform ports', () => {
   it('projects and clears host map selections without exposing private entities', () => {
     const clearSelection = vi.fn()
     const mapStore = reactive({
+      runtimeSelection: null as null | {
+        moduleId: string
+        featureId: string
+      },
       selectedMapEntity: null as null
         | { type: 'analysis-area', id: string }
         | { type: 'polygon', id: string }
@@ -64,6 +84,9 @@ describe('public frontend platform ports', () => {
     const port = useMapSelectionPort()
 
     expect(port.selected.value).toBeNull()
+    mapStore.runtimeSelection = { moduleId: 'demo', featureId: 'module-1' }
+    expect(port.selected.value).toEqual({ type: 'demo', id: 'module-1' })
+    mapStore.runtimeSelection = null
     mapStore.selectedMapEntity = { type: 'analysis-area', id: 'area-42' }
     expect(port.selected.value).toEqual({ type: 'analysis-area', id: 'area-42' })
     mapStore.selectedMapEntity = { type: 'polygon', id: 'polygon-7' }

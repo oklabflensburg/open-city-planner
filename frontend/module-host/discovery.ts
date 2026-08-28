@@ -54,6 +54,8 @@ const componentContribution = z.strictObject({
     'sidebar',
     'dashboard.widgets',
     'profile.sections',
+    'map.layers',
+    'map.selection',
     'map.bottomSheet',
     'map.contextMenu'
   ])
@@ -118,7 +120,7 @@ export class FrontendModuleError extends Error {
 
 export function resolveFrontendModules(options: ResolveFrontendModulesOptions): ResolvedFrontendModule[] {
   const moduleDirectories = [options.modulesDirectory, ...(options.installedModulesDirectories ?? [])]
-  const available = discoverFrontendModules(moduleDirectories)
+  const available = discoverFrontendModules(moduleDirectories, resolve(options.appPagesDirectory, '../..'))
   const byId = new Map(available.map(module => [module.id, module]))
   const enabledIds = parseEnabledModules(options.enabledModules ?? '')
   const enabled = enabledIds.map((id) => {
@@ -142,7 +144,7 @@ export function resolveFrontendModules(options: ResolveFrontendModulesOptions): 
   return ordered
 }
 
-export function discoverFrontendModules(modulesDirectories: string | readonly string[]): ResolvedFrontendModule[] {
+export function discoverFrontendModules(modulesDirectories: string | readonly string[], frontendRoot?: string): ResolvedFrontendModule[] {
   const directories = typeof modulesDirectories === 'string' ? [modulesDirectories] : [...modulesDirectories]
   const discovered: ResolvedFrontendModule[] = []
   const sources = new Map<string, string>()
@@ -205,7 +207,7 @@ export function discoverFrontendModules(modulesDirectories: string | readonly st
           throw new FrontendModuleError(`UI contribution "${contribution.id}" component name "${contribution.component}" must match its local Vue filename.`)
         }
       }
-      validateModuleImports(definition.id, moduleRoot, layerPath)
+      validateModuleImports(definition.id, moduleRoot, layerPath, frontendRoot ? resolve(frontendRoot) : resolve(modulesDirectory, '..'))
       discovered.push({ ...definition, source, layerPath })
     }
   }
@@ -348,8 +350,8 @@ function walkFiles(directory: string): string[] {
     })
 }
 
-function validateModuleImports(moduleId: string, moduleRoot: string, layerPath: string) {
-  const violation = scanModuleImportBoundaries(moduleRoot, layerPath)[0]
+function validateModuleImports(moduleId: string, moduleRoot: string, layerPath: string, frontendRoot: string) {
+  const violation = scanModuleImportBoundaries(moduleRoot, layerPath, { frontendRoot })[0]
   if (violation?.reason === 'private-host-import') {
     throw new FrontendModuleError(`Frontend module "${moduleId}" imports private host or module internals via "${violation.target}" in ${violation.source}.`)
   }

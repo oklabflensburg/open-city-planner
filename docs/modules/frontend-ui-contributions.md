@@ -9,8 +9,8 @@ bereitstellen. Die Architekturentscheidung steht im
 Das öffentliche SDK wird über `#frontend-module-sdk` exportiert. Die wichtigsten
 Typen sind `UiSlotId`, `FrontendModuleUiContribution`, `NavigationContribution`,
 `HeaderActionContribution`, `UiVisibilityRule` und `UiVisibilityContext`.
-`FRONTEND_MODULE_SDK_VERSION` ist seit #186 additiv `1.3.0`; die UI-Verträge aus
-Versionen `1.1.0` und `1.2.0` bleiben unverändert kompatibel. Die zusätzlichen
+`FRONTEND_MODULE_SDK_VERSION` ist additiv `1.4.0`; die UI-Verträge aus
+Versionen `1.1.0` bis `1.3.0` bleiben unverändert kompatibel. Die zusätzlichen
 Platform-Ports sind separat unter
 [Frontend-Platform-Ports](frontend-platform-ports.md) beschrieben.
 
@@ -26,10 +26,13 @@ Unterstützte Slots:
 | `dashboard.widgets` | lokale Vue-Komponente | Contract für ein späteres Dashboard |
 | `profile.sections` | lokale Vue-Komponente | Contract für spätere Profilbereiche |
 | `map.controls` | lokale Vue-Komponente mit Accessible Label | Kartenhost aus #103 |
+| `map.layers` | lokale Vue-Komponente | Layer-Bedienelemente in der Karten-Seitenleiste |
+| `map.selection` | lokale Vue-Komponente | Details der aktuellen Modulauswahl |
 | `map.bottomSheet` | lokale Vue-Komponente | für #103 reserviert |
 | `map.contextMenu` | lokale Vue-Komponente | für #103 reserviert |
 
-Die letzten sechs Slots definieren bereits stabile Payloads, erzwingen aber keine
+Die letzten acht Slots definieren stabile Payloads; nicht gerenderte reservierte
+Slots erzwingen dabei keine
 neue Host-Layout- oder Map-Runtime.
 
 ## Manifest-Beispiel

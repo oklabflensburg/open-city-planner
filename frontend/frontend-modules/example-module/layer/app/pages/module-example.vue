@@ -11,8 +11,9 @@
 
 <script setup lang="ts">
 import ExampleModuleCard from '../components/ExampleModuleCard.vue'
+import { useModuleSeo } from '#frontend-module-sdk'
 
-usePageSeo({
+useModuleSeo({
   title: 'Frontend-Modulbeispiel',
   description: 'Build-Time-Modul mit gemeinsamem SSR, SEO, Tailwind und Pinia.',
   path: '/module-example',

@@ -37,7 +37,8 @@ export const useAnalyticsStore = defineStore('analytics', {
       this.error = null
       try {
         const query = gisFilterQuery(filter.filterState)
-        const areaId = typeof useAnalysisAreasStore === 'function' ? useAnalysisAreasStore().selectedAreaId : null
+        const selection = useMapStore().runtimeSelection
+        const areaId = selection?.sourceId === 'analysis-areas.data' ? String(selection.featureId) : null
         if (areaId) query.set('area_id', areaId)
         const suffix = query.size ? `?${query}` : ''
         const result = await useApi().request<AnalyticsOverview>(`/analytics/overview${suffix}`, { signal: overviewController.signal })
@@ -59,7 +60,8 @@ export const useAnalyticsStore = defineStore('analytics', {
       this.benchmarksError = null
       try {
         const query = gisFilterQuery(filter.filterState)
-        const areaId = typeof useAnalysisAreasStore === 'function' ? useAnalysisAreasStore().selectedAreaId : null
+        const selection = useMapStore().runtimeSelection
+        const areaId = selection?.sourceId === 'analysis-areas.data' ? String(selection.featureId) : null
         if (areaId) query.set('area_id', areaId)
         const suffix = query.size ? `?${query}` : ''
         const result = await useApi().request<MarketBenchmarkResult>(`/analytics/benchmarks${suffix}`, { signal: benchmarkController.signal })

@@ -1,6 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, relative, resolve, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 
 export type ArchitectureViolation = {
@@ -35,9 +34,12 @@ export type ModuleImportViolation = {
 }
 
 const sourceExtension = /\.(?:vue|[cm]?[jt]sx?)$/
-const moduleOwnedHostStoreFiles = new Set(['analysisAreas.ts'])
-const privateHostComposableFiles = ['useApi.ts', 'useMapSelection.ts']
-let cachedPrivateHostAutoImportNames: ReadonlySet<string> | undefined
+
+type ExportedValue = { name: string, source: string, line: number }
+type BoundaryScanOptions = {
+  frontendRoot?: string
+  hostAutoImports?: readonly ExportedValue[]
+}
 
 export function scanFrontendArchitecture(options: ScanOptions): ArchitectureViolation[] {
   const repositoryRoot = resolve(options.repositoryRoot)
@@ -53,8 +55,12 @@ export function scanFrontendArchitecture(options: ScanOptions): ArchitectureViol
   const moduleIds = [...new Set(moduleEntries.map(entry => entry.id))]
   const violations: ArchitectureViolation[] = []
 
+  const hostAutoImports = collectAutoImportExports([
+    resolve(frontendRoot, 'app/composables'),
+    resolve(frontendRoot, 'app/stores')
+  ])
   for (const module of moduleEntries) {
-    for (const item of scanModuleImportBoundaries(module.root)) {
+    for (const item of scanModuleImportBoundaries(module.root, module.root, { frontendRoot, hostAutoImports })) {
       violations.push({ ...makeViolation(repositoryRoot, 'ARCH-FE-MODULE-001', item.source, {
         specifier: item.target,
         line: item.line
@@ -90,10 +96,35 @@ export function scanFrontendArchitecture(options: ScanOptions): ArchitectureViol
   )
 }
 
-export function scanModuleImportBoundaries(moduleRoot: string, sourceRoot = moduleRoot): ModuleImportViolation[] {
+export function scanModuleImportBoundaries(
+  moduleRoot: string,
+  sourceRoot = moduleRoot,
+  options: BoundaryScanOptions = {}
+): ModuleImportViolation[] {
   const resolvedModuleRoot = resolve(moduleRoot)
   const violations: ModuleImportViolation[] = []
-  const privateHostAutoImports = privateHostAutoImportNames()
+  const frontendRoot = resolve(options.frontendRoot ?? resolve(import.meta.dirname, '..'))
+  const hostExports = options.hostAutoImports ?? collectAutoImportExports([
+    resolve(frontendRoot, 'app/composables'),
+    resolve(frontendRoot, 'app/stores')
+  ])
+  const moduleExports = collectAutoImportExports([
+    resolve(resolvedModuleRoot, 'layer/app/composables'),
+    resolve(resolvedModuleRoot, 'layer/app/stores')
+  ])
+  const hostNames = new Set(hostExports.map(item => item.name))
+  const moduleNames = new Set(moduleExports.map(item => item.name))
+  for (const exported of moduleExports) {
+    if (hostNames.has(exported.name)) {
+      violations.push({
+        source: exported.source,
+        target: exported.name,
+        line: exported.line,
+        reason: 'private-host-auto-import'
+      })
+    }
+  }
+  const privateHostAutoImports = new Set([...hostNames].filter(name => !moduleNames.has(name)))
   for (const source of walkSourceFiles(resolve(sourceRoot))) {
     for (const imported of extractImports(source)) {
       if (imported.specifier.startsWith('~/') || imported.specifier.startsWith('@/') || imported.specifier.includes('frontend-modules/')) {
@@ -110,41 +141,47 @@ export function scanModuleImportBoundaries(moduleRoot: string, sourceRoot = modu
       violations.push({ source, target: called.name, line: called.line, reason: 'private-host-auto-import' })
     }
   }
-  return violations
+  return violations.sort((left, right) =>
+    left.source.localeCompare(right.source, 'en') || left.line - right.line || left.target.localeCompare(right.target, 'en')
+  )
 }
 
-function privateHostAutoImportNames(): ReadonlySet<string> {
-  if (cachedPrivateHostAutoImportNames) return cachedPrivateHostAutoImportNames
-
-  const frontendRoot = fileURLToPath(new URL('..', import.meta.url))
-  const storesDirectory = resolve(frontendRoot, 'app/stores')
-  const sources = [
-    ...(existsSync(storesDirectory)
-      ? readdirSync(storesDirectory, { withFileTypes: true })
-          .filter(entry => entry.isFile() && sourceExtension.test(entry.name) && !moduleOwnedHostStoreFiles.has(entry.name))
-          .map(entry => resolve(storesDirectory, entry.name))
-      : []),
-    ...privateHostComposableFiles.map(file => resolve(frontendRoot, 'app/composables', file)).filter(existsSync)
-  ]
-  const names = new Set(sources.flatMap(extractExportedValueNames))
-  // Keep detecting the previously used singular spelling if it reappears.
-  names.add('useNotificationStore')
-  cachedPrivateHostAutoImportNames = names
-  return cachedPrivateHostAutoImportNames
+function collectAutoImportExports(directories: readonly string[]): ExportedValue[] {
+  return directories
+    .flatMap(walkSourceFiles)
+    .flatMap(extractExportedValues)
+    .sort((left, right) => left.name.localeCompare(right.name, 'en') || left.source.localeCompare(right.source, 'en') || left.line - right.line)
 }
 
-function extractExportedValueNames(source: string): string[] {
-  const file = ts.createSourceFile(source, readFileSync(source, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
-  const names = new Set<string>()
-  for (const statement of file.statements) {
-    const modifiers = ts.canHaveModifiers(statement) ? ts.getModifiers(statement) : undefined
-    if (!modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword)) continue
-    if (ts.isFunctionDeclaration(statement) && statement.name) names.add(statement.name.text)
-    if (ts.isVariableStatement(statement)) {
-      for (const declaration of statement.declarationList.declarations) collectBindingNames(declaration.name, names)
+function extractExportedValues(source: string): ExportedValue[] {
+  const values: ExportedValue[] = []
+  for (const fragment of scriptFragments(source)) {
+    const file = ts.createSourceFile(source, fragment.text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const add = (name: string, node: ts.Node) => values.push({
+      name,
+      source,
+      line: file.getLineAndCharacterOfPosition(node.getStart(file)).line + fragment.startLine
+    })
+    for (const statement of file.statements) {
+      const modifiers = ts.canHaveModifiers(statement) ? ts.getModifiers(statement) : undefined
+      const exported = modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword)
+      if (exported && ts.isFunctionDeclaration(statement) && statement.name) add(statement.name.text, statement.name)
+      if (exported && ts.isClassDeclaration(statement) && statement.name) add(statement.name.text, statement.name)
+      if (exported && ts.isVariableStatement(statement)) {
+        for (const declaration of statement.declarationList.declarations) {
+          const names = new Set<string>()
+          collectBindingNames(declaration.name, names)
+          for (const name of names) add(name, declaration.name)
+        }
+      }
+      if (ts.isExportDeclaration(statement) && !statement.isTypeOnly && statement.exportClause && ts.isNamedExports(statement.exportClause)) {
+        for (const element of statement.exportClause.elements) {
+          if (!element.isTypeOnly) add(element.name.text, element.name)
+        }
+      }
     }
   }
-  return [...names]
+  return values
 }
 
 function collectBindingNames(name: ts.BindingName, names: Set<string>) {

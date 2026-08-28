@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "compatibility": {
     "host": ">=1.0.0 <2.0.0",
-    "sdk": ">=1.0.0 <2.0.0"
+    "sdk": ">=1.4.0 <2.0.0"
   },
   "layer": "layer",
   "requires": {

@@ -26,7 +26,6 @@ export function useMapCanvasHost() {
   const polygonStore = usePolygonStore()
   const filterStore = useFilterStore()
   const osmStore = useOsmViewportStore()
-  const analysisAreasStore = useAnalysisAreasStore()
   const mapSelection = useMapSelection()
   const route = useRoute()
   const router = useRouter()
@@ -63,12 +62,13 @@ export function useMapCanvasHost() {
   const emptyFeatureCollection: FeatureCollection = { type: 'FeatureCollection', features: [] }
   const runtime = createMapRuntime({
     onSelection: {
-      onSelect: () => {
+      onSelect: selection => {
+        mapStore.setRuntimeSelection(selection)
         mapStore.selectedMapEntity = null
         polygonStore.clearSelection()
         osmStore.clearSelection()
-        analysisAreasStore.clearSelection()
       },
+      onClear: () => mapStore.setRuntimeSelection(null),
       onReveal: () => mapStore.openGisPanel('selection')
     },
     extensions: {
@@ -166,7 +166,6 @@ export function useMapCanvasHost() {
       updateSource(visibleFeatureCollection.value)
       const requested = await requestedPolygonId()
       if (requested) await selectPolygon(requested, true)
-      else await selectRequestedArea(instance)
       await refreshOsmViewportForCurrentMap({ force: true })
       mapStore.markGisDataFresh()
       initialMapLoadComplete = true
@@ -187,7 +186,10 @@ export function useMapCanvasHost() {
   })
 
   onMounted(async () => {
-    disconnectRuntimeSelection = mapStore.connectRuntimeSelection(() => runtime.selection.clear())
+    disconnectRuntimeSelection = mapStore.connectRuntimeSelection(
+      () => runtime.selection.clear(),
+      selection => runtime.selection.select(selection)
+    )
     if (!mapEl.value) return
     mapStore.mapLoaded = false
     try {
@@ -281,7 +283,7 @@ export function useMapCanvasHost() {
     updateSelectedPolygonOverlay()
     updateOsmSelection()
   })
-  watch(() => analysisAreasStore.presentedAreaId, updateSelectedPolygonOverlay)
+  watch(() => mapStore.runtimeSelection, updateSelectedPolygonOverlay)
   watch(() => mapStore.categoryHighlight, applyFeatureStyles)
   watch(() => mapStore.thematicStyle, () => {
     applyFeatureStyles()
@@ -298,7 +300,6 @@ export function useMapCanvasHost() {
     applyRequestedPoiFilter()
     const polygonId = await requestedPolygonId()
     if (polygonId) await selectPolygon(polygonId, true)
-    else await selectRequestedArea(map.value)
     await refreshOsmViewportForCurrentMap({ force: true })
   })
 
@@ -526,11 +527,16 @@ export function useMapCanvasHost() {
     if (action.type === 'HIGHLIGHT_AREAS' && instance.getLayer('analysis-areas.assistant-highlight')) {
       instance.setFilter('analysis-areas.assistant-highlight', ['in', ['get', 'slug'], ['literal', action.areaSlugs]])
     }
-    const areaFeatures = action.areaSlugs.length
-      ? analysisAreasStore.featureCollection.features.filter(feature => action.areaSlugs.includes(String(feature.properties?.slug)))
-      : []
-    const bounds = action.bounds || (action.fitBounds && (action.data || areaFeatures.length)
-      ? geometryBounds((action.data?.features || areaFeatures).map(feature => geometryCoordinateTree(feature.geometry)))
+    if (action.type === 'SHOW_ANALYSIS_AREAS' && action.areaType) {
+      for (const [type, suffix] of [['MUNICIPALITY', 'municipality'], ['DISTRICT', 'district'], ['QUARTER', 'quarter']] as const) {
+        for (const ending of ['-fill', '', '-label']) {
+          const layerId = `analysis-areas.${suffix}${ending}`
+          if (instance.getLayer(layerId)) instance.setLayoutProperty(layerId, 'visibility', action.areaType === type ? 'visible' : 'none')
+        }
+      }
+    }
+    const bounds = action.bounds || (action.fitBounds && action.data
+      ? geometryBounds(action.data.features.map(feature => geometryCoordinateTree(feature.geometry)))
       : null)
     if (action.fitBounds && bounds) {
       instance.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], {
@@ -600,10 +606,6 @@ export function useMapCanvasHost() {
       await selectPolygon(polygon.id)
       return
     }
-    if (polygon.target.type === 'analysis-area') {
-      await mapSelection.selectAnalysisArea(polygon.id)
-      return
-    }
     const feature = osmStore.data?.features.find(item => item.properties.feature_id === polygon.id)
     if (feature) await mapSelection.selectOsm(feature)
     else mapSelection.clearSelection()
@@ -611,8 +613,8 @@ export function useMapCanvasHost() {
 
   function updateSelectedPolygonOverlay() {
     const entity = mapStore.selectedMapEntity
-    const analysisAreaId = entity?.type === 'analysis-area' ? entity.id : analysisAreasStore.presentedAreaId
-    if (!entity && !analysisAreaId) {
+    const runtimeSelection = mapStore.runtimeSelection
+    if (!entity && !runtimeSelection) {
       setSelectedPolygonOverlay(null)
       return
     }
@@ -647,22 +649,22 @@ export function useMapCanvasHost() {
       } : null)
       return
     }
-    if (!analysisAreaId) {
+    if (!runtimeSelection || (runtimeSelection.geometry?.type !== 'Polygon' && runtimeSelection.geometry?.type !== 'MultiPolygon')) {
       setSelectedPolygonOverlay(null)
       return
     }
-    const feature = analysisAreasStore.featureCollection.features.find(item => item.properties.id === analysisAreaId)
-    setSelectedPolygonOverlay(feature ? {
-      id: analysisAreaId,
-      source: 'analysis-areas.data',
-      layerId: `analysis-areas.${feature.properties.area_type.toLowerCase()}-fill`,
-      featureType: feature.properties.area_type,
-      geometryType: feature.geometry.type,
-      selectionKey: `analysis-areas:${feature.properties.area_type}:${analysisAreaId}`,
-      geometry: feature.geometry,
-      properties: { area_type: feature.properties.area_type },
-      target: { type: 'analysis-area', id: analysisAreaId }
-    } : null)
+    const featureType = String(runtimeSelection.properties?.area_type || runtimeSelection.layerId)
+    setSelectedPolygonOverlay({
+      id: String(runtimeSelection.featureId),
+      source: runtimeSelection.sourceId,
+      layerId: runtimeSelection.layerId,
+      featureType,
+      geometryType: runtimeSelection.geometry.type,
+      selectionKey: `${runtimeSelection.moduleId}:${runtimeSelection.layerId}:${runtimeSelection.featureId}`,
+      geometry: runtimeSelection.geometry,
+      properties: runtimeSelection.properties || null,
+      target: { type: 'analysis-area', id: String(runtimeSelection.featureId) }
+    })
   }
 
   function setSelectedPolygonOverlay(polygon: InteractivePolygonFeature | null) {
@@ -709,23 +711,10 @@ export function useMapCanvasHost() {
     })
   }
 
-  async function selectRequestedArea(instance: Map) {
-    const slug = requestedAreaSlug()
-    const area = analysisAreasStore.areas.find(candidate => candidate.slug === slug)
-    if (!area) return
-    const request = mapSelection.selectAnalysisArea(area.id)
-    if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openGisPanel('selection')
-    const feature = analysisAreasStore.featureCollection.features.find(candidate => candidate.properties.id === area.id)
-    const bounds = feature ? geometryBounds(feature.geometry.coordinates) : null
-    if (bounds) instance.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: currentViewportPadding(), maxZoom: 16, duration: 0 })
-    await request
-  }
-
   function applyRequestedPoiFilter() {
     const areaSlug = requestedAreaSlug()
     const poiCategory = route.query.poi
-    const areaExists = analysisAreasStore.areas.some(area => area.slug === areaSlug)
-    if (areaExists && isPoiCategoryToken(poiCategory)) {
+    if (areaSlug && isPoiCategoryToken(poiCategory)) {
       osmStore.setAreaPoiFilter(areaSlug, poiCategory)
     } else if (osmStore.areaPoiFilter) {
       osmStore.clearAreaPoiFilter()

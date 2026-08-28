@@ -5,13 +5,19 @@ import type {
   MapSelectionReference,
   MapStylePort,
   ModuleHttpClient,
-  ModuleSessionPort
+  ModuleSessionPort,
+  ModuleSeoOptions
 } from './platform-contract.ts'
+import { usePageSeo } from '../app/composables/usePageSeo.ts'
 import { loadMapStyle } from '../app/config/mapStyles.ts'
 import { gisFilterQuery } from '../app/utils/gisFilters.ts'
 
 export function useModuleHttp(): ModuleHttpClient {
   return useApi()
+}
+
+export function useModuleSeo(options: ModuleSeoOptions): void {
+  usePageSeo(options)
 }
 
 export function useModuleSession(): ModuleSessionPort {
@@ -30,6 +36,8 @@ export function useMapSelectionPort(): MapSelectionPort {
   const mapStore = useMapStore()
   const selection = useMapSelection()
   const selected = computed<MapSelectionReference | null>(() => {
+    const runtimeSelection = mapStore.runtimeSelection
+    if (runtimeSelection) return { type: runtimeSelection.moduleId, id: String(runtimeSelection.featureId) }
     const current = mapStore.selectedMapEntity
     if (!current) return null
     if (current.type === 'osm') {

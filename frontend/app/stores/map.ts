@@ -4,6 +4,7 @@ import type { SelectedMapEntity } from '~/types/mapSelection'
 import type { FeatureCollection } from 'geojson'
 import type { AssistantMapActionType, SearchMapActionType } from '~/types/search'
 import { markRaw } from 'vue'
+import type { SelectedMapFeature } from '#frontend-module-sdk'
 
 export type DrawingMode = 'select' | 'polygon' | 'edit' | 'delete'
 export type GisPanel = 'assistant' | 'filter' | 'analytics' | 'selection' | null
@@ -25,12 +26,15 @@ export const useMapStore = defineStore('map', {
     gisDataDirty: false,
     searchActionGeneration: 0,
     runtimeSelectionClear: null as (() => void) | null,
+    runtimeSelectionSelect: null as ((selection: SelectedMapFeature) => Promise<void>) | null,
+    runtimeSelection: null as SelectedMapFeature | null,
     searchAction: null as {
       type: SearchMapActionType | AssistantMapActionType
       fitBounds: boolean
       bounds: [number, number, number, number] | null
       data: FeatureCollection | null
       areaSlugs: string[]
+      areaType: string | null
     } | null
   }),
   actions: {
@@ -61,15 +65,26 @@ export const useMapStore = defineStore('map', {
     closeGisPanels() {
       this.activeGisPanel = null
     },
-    connectRuntimeSelection(clear: () => void) {
+    connectRuntimeSelection(clear: () => void, select: (selection: SelectedMapFeature) => Promise<void>) {
       const handler = markRaw(clear)
+      const selectHandler = markRaw(select)
       this.runtimeSelectionClear = handler
+      this.runtimeSelectionSelect = selectHandler
       return () => {
         if (this.runtimeSelectionClear === handler) this.runtimeSelectionClear = null
+        if (this.runtimeSelectionSelect === selectHandler) this.runtimeSelectionSelect = null
       }
+    },
+    setRuntimeSelection(selection: SelectedMapFeature | null) {
+      this.runtimeSelection = selection ? markRaw(selection) : null
+    },
+    async selectRuntimeSelection(selection: SelectedMapFeature) {
+      this.setRuntimeSelection(selection)
+      await this.runtimeSelectionSelect?.(selection)
     },
     clearRuntimeSelection() {
       this.runtimeSelectionClear?.()
+      this.runtimeSelection = null
     },
     markGisDataDirty() {
       this.gisDataGeneration += 1
@@ -83,7 +98,8 @@ export const useMapStore = defineStore('map', {
       data: FeatureCollection | null
     ) {
       const areaSlugs = action.area_slugs?.length ? action.area_slugs : action.area_slug ? [action.area_slug] : []
-      this.searchAction = { type: action.type, fitBounds: action.fit_bounds, bounds: action.bounds, data, areaSlugs }
+      const areaType = 'area_type' in action && typeof action.area_type === 'string' ? action.area_type : null
+      this.searchAction = { type: action.type, fitBounds: action.fit_bounds, bounds: action.bounds, data, areaSlugs, areaType }
       this.searchActionGeneration += 1
     }
   }

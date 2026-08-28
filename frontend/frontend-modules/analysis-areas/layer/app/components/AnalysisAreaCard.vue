@@ -47,7 +47,8 @@
 
 <script setup lang="ts">
 import { LoaderCircle, X } from '@lucide/vue'
-import type { AnalysisAreaType, AreaStatisticValue } from '~/types/analysisArea'
+import type { AnalysisAreaType, AreaStatisticValue } from '../types/analysisArea'
+import { useAnalysisAreasStore } from '../stores/analysisAreas'
 import { useMapSelectionPort } from '#frontend-module-sdk'
 
 const store = useAnalysisAreasStore()
