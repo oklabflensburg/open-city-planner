@@ -28,6 +28,15 @@ class MigrationStep:
     revision: str
 
 
+@dataclass(frozen=True, slots=True)
+class _ModuleMigrationLocation:
+    module_id: str
+    path: Path
+    revision_namespace: str
+    adopted_revisions: frozenset[str]
+    schema: str | None
+
+
 class MigrationCoordinator:
     """Validiert einen global linearen Host-/Modul-Revisionsgraphen."""
 
@@ -38,7 +47,7 @@ class MigrationCoordinator:
 
     def preflight(self) -> tuple[MigrationStep, ...]:
         host_versions = self._host_versions_path()
-        source_paths: list[tuple[str, Path, str, str | None]] = []
+        source_paths: list[_ModuleMigrationLocation] = []
         for module_id, source in self._registry.migration_sources:
             schema = next(
                 contribution.schema
@@ -56,27 +65,45 @@ class MigrationCoordinator:
                 ),
             )
             source_paths.append(
-                (
-                    module_id,
-                    path,
-                    source.revision_namespace,
-                    schema,
+                _ModuleMigrationLocation(
+                    module_id=module_id,
+                    path=path,
+                    revision_namespace=source.revision_namespace,
+                    adopted_revisions=source.adopted_revisions,
+                    schema=schema,
                 )
             )
 
-        locations = (host_versions, *(path for _, path, _, _ in source_paths))
+        duplicate_paths: dict[Path, list[str]] = {}
+        for source in source_paths:
+            duplicate_paths.setdefault(source.path, []).append(source.module_id)
+        shared_paths = [
+            (path, module_ids)
+            for path, module_ids in duplicate_paths.items()
+            if len(module_ids) > 1
+        ]
+        if shared_paths:
+            path, module_ids = min(shared_paths, key=lambda item: str(item[0]))
+            raise ModulePersistenceError(
+                f'Migration source path "{path}" is declared by multiple modules: '
+                f"{', '.join(sorted(module_ids))}.",
+                module_id=min(module_ids),
+                phase="adoption_validation",
+            )
+
+        locations = (host_versions, *(source.path for source in source_paths))
         self._config.set_main_option("version_locations", "\n".join(map(str, locations)))
         self._config.set_main_option("path_separator", "newline")
         scripts = ScriptDirectory.from_config(self._config)
+        self._validate_source_ownership(scripts, host_versions, tuple(source_paths))
         heads = scripts.get_heads()
         if len(heads) != 1:
             raise ModulePersistenceError(
                 f"Exactly one global Alembic head is required, found: {', '.join(heads)}."
             )
 
-        roots = {module_id: path for module_id, path, _, _ in source_paths}
-        namespaces = {module_id: namespace for module_id, _, namespace, _ in source_paths}
-        schemas = {module_id: schema for module_id, _, _, schema in source_paths}
+        roots = {source.module_id: source.path for source in source_paths}
+        schemas = {source.module_id: source.schema for source in source_paths}
         expected_order = [module_id for module_id, _ in self._registry.migration_sources]
         steps: list[MigrationStep] = []
         seen_modules: set[str] = set()
@@ -93,17 +120,9 @@ class MigrationCoordinator:
                 ),
                 "host",
             )
-            if owner != "host":
-                namespace = namespaces[owner]
-                if not revision.revision.startswith(f"{namespace}_"):
-                    raise ModulePersistenceError(
-                        f'Revision "{revision.revision}" must start with "{namespace}_".',
-                        module_id=owner,
-                        schema=schemas[owner],
-                    )
-                if owner not in seen_modules:
-                    seen_modules.add(owner)
-                    first_module_order.append(owner)
+            if owner != "host" and owner not in seen_modules:
+                seen_modules.add(owner)
+                first_module_order.append(owner)
             if not steps or steps[-1].module_id != owner:
                 steps.append(MigrationStep(owner, schemas.get(owner), revision.revision))
             else:
@@ -126,6 +145,104 @@ class MigrationCoordinator:
                 schema=schemas.get(misplaced),
             )
         return tuple(steps)
+
+    def _validate_source_ownership(
+        self,
+        scripts: ScriptDirectory,
+        host_versions: Path,
+        module_sources: tuple[_ModuleMigrationLocation, ...],
+    ) -> None:
+        """Inventarisiere Quellen mit Alembics Loader, bevor der Graph aufgelöst wird."""
+
+        roots = (("host", host_versions),) + tuple(
+            (source.module_id, source.path) for source in module_sources
+        )
+        schemas = {source.module_id: source.schema for source in module_sources}
+        revisions_by_owner: dict[str, set[str]] = {
+            owner: set() for owner, _ in roots
+        }
+        owners_by_revision: dict[str, list[str]] = {}
+
+        # Alembic bleibt für das Laden der Revision-Metadaten und den Graphen
+        # authoritative. Die rohe Inventur ist nötig, weil RevisionMap doppelte
+        # IDs andernfalls nur warnt und abhängig von der Ladereihenfolge auflöst.
+        loaded = sorted(
+            scripts._load_revisions(),
+            key=lambda revision: (revision.revision, str(Path(revision.path).resolve())),
+        )
+        for revision in loaded:
+            revision_path = Path(revision.path).resolve()
+            owner = next(
+                (
+                    candidate
+                    for candidate, root in roots
+                    if revision_path.is_relative_to(root)
+                ),
+                None,
+            )
+            if owner is None:
+                raise ModulePersistenceError(
+                    f'Revision "{revision.revision}" is outside every configured migration source.',
+                    phase="adoption_validation",
+                )
+            revisions_by_owner[owner].add(revision.revision)
+            owners_by_revision.setdefault(revision.revision, []).append(owner)
+
+        duplicates = sorted(
+            revision
+            for revision, owners in owners_by_revision.items()
+            if len(owners) > 1
+        )
+        if duplicates:
+            revision = duplicates[0]
+            owners = owners_by_revision[revision]
+            module_id = next((owner for owner in owners if owner != "host"), "host")
+            owner_labels = [
+                "host" if owner == "host" else f'module "{owner}"'
+                for owner in owners
+            ]
+            raise ModulePersistenceError(
+                f'Revision "{revision}" is provided by multiple migration sources: '
+                f"{', '.join(owner_labels)}.",
+                module_id=module_id,
+                schema=schemas.get(module_id),
+                phase="adoption_validation",
+            )
+
+        for source in module_sources:
+            found = revisions_by_owner[source.module_id]
+            missing = sorted(source.adopted_revisions.difference(found))
+            if missing:
+                raise ModulePersistenceError(
+                    f'Adopted revision "{missing[0]}" is declared but missing from the '
+                    "module migration source.",
+                    module_id=source.module_id,
+                    schema=source.schema,
+                    phase="adoption_validation",
+                )
+            invalid = sorted(
+                revision
+                for revision in found.difference(source.adopted_revisions)
+                if not revision.startswith(f"{source.revision_namespace}_")
+            )
+            if invalid:
+                raise ModulePersistenceError(
+                    f'Revision "{invalid[0]}" must be explicitly adopted or start with '
+                    f'"{source.revision_namespace}_".',
+                    module_id=source.module_id,
+                    schema=source.schema,
+                    phase="adoption_validation",
+                )
+            for revision in sorted(source.adopted_revisions):
+                logger.info(
+                    "Historical module migration adoption validated",
+                    extra=migration_log_fields(
+                        module_id=source.module_id,
+                        revision=revision,
+                        schema=source.schema,
+                        phase="adoption_validation",
+                    ),
+                )
 
     def upgrade(self) -> tuple[MigrationStep, ...]:
         """Führe ausstehende Host-/Modulgruppen vor Aktivierung geordnet aus."""

@@ -77,6 +77,7 @@ class ModuleMigrationSource:
     package: str
     resource: str
     revision_namespace: str
+    adopted_revisions: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if not _PYTHON_IMPORT_PACKAGE.fullmatch(self.package):
@@ -93,6 +94,15 @@ class ModuleMigrationSource:
             raise ValueError("Migration resources must be relative installed-package paths.")
         if not _REVISION_NAMESPACE.fullmatch(self.revision_namespace):
             raise ValueError('Revision namespaces must use the form "mod_<module_id>".')
+        if not isinstance(self.adopted_revisions, frozenset):
+            raise TypeError("Adopted migration revisions must be an immutable frozenset.")
+        if any(
+            not isinstance(revision, str)
+            or not revision
+            or revision != revision.strip()
+            for revision in self.adopted_revisions
+        ):
+            raise ValueError("Adopted migration revisions must be non-empty exact IDs.")
 
 
 @dataclass(frozen=True, slots=True)

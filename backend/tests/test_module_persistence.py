@@ -9,6 +9,7 @@ import pytest_asyncio
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from fastapi import FastAPI
 from geoalchemy2 import Geometry
 from sqlalchemy import Column, Integer, MetaData, String, Table, func, insert, select, text, true
@@ -87,6 +88,7 @@ def module_definition(
     metadata: MetaData,
     *,
     migration_resource: str | None = None,
+    adopted_revisions: frozenset[str] = frozenset(),
 ) -> ModuleDefinition:
     def forbidden_loader():
         raise AssertionError("Persistence discovery must not instantiate module runtime code")
@@ -105,6 +107,7 @@ def module_definition(
                     package="tests.fixtures",
                     resource=migration_resource,
                     revision_namespace=revision_namespace_for(manifest.id),
+                    adopted_revisions=adopted_revisions,
                 )
                 if migration_resource is not None
                 else None
@@ -322,6 +325,157 @@ def test_revision_namespace_is_stable_and_namespaced() -> None:
     assert revision_namespace_for("analysis-areas") == "mod_analysis_areas"
 
 
+def adopted_migration_registry(
+    resource: str = "module_migrations/example_adopted",
+    *,
+    adopted_revisions: frozenset[str] = frozenset(
+        {"historical_001", "historical_002"}
+    ),
+) -> PersistenceRegistry:
+    manifest = module_manifest(
+        "example-adopted-module",
+        "example_adopted_module",
+        migrations=True,
+    )
+    definition = module_definition(
+        manifest,
+        module_metadata("example_adopted_module"),
+        migration_resource=resource,
+        adopted_revisions=adopted_revisions,
+    )
+    resolved = resolve_module_definitions(
+        enabled_module_ids=(manifest.id,),
+        discovery_providers=(FakeDiscovery((definition,)),),
+        host_version="0.2.0",
+    )
+    return build_persistence_registry(resolved, include_legacy=False)
+
+
+def test_adopted_history_and_future_revision_form_one_exact_alembic_graph() -> None:
+    config = Config(str(BACKEND_ROOT / "alembic.ini"))
+
+    plan = MigrationCoordinator(config, adopted_migration_registry()).preflight()
+    scripts = ScriptDirectory.from_config(config)
+
+    assert scripts.get_heads() == ["mod_example_adopted_module_0001"]
+    historical_001 = scripts.get_revision("historical_001")
+    historical_002 = scripts.get_revision("historical_002")
+    future = scripts.get_revision("mod_example_adopted_module_0001")
+    assert historical_001 is not None
+    assert historical_002 is not None
+    assert future is not None
+    assert (
+        historical_001.revision,
+        historical_001.down_revision,
+        historical_001.branch_labels,
+        historical_001.dependencies,
+    ) == ("historical_001", "20260825_0034", set(), None)
+    assert historical_002.down_revision == "historical_001"
+    assert future.down_revision == "historical_002"
+    assert [
+        revision.revision
+        for revision in scripts.iterate_revisions(
+            "mod_example_adopted_module_0001", "historical_001"
+        )
+    ] == ["mod_example_adopted_module_0001", "historical_002"]
+    assert (plan[-1].module_id, plan[-1].revision) == (
+        "example-adopted-module",
+        "mod_example_adopted_module_0001",
+    )
+
+
+def test_declared_adopted_revision_must_exist_in_module_source() -> None:
+    registry = adopted_migration_registry(
+        adopted_revisions=frozenset(
+            {"historical_001", "historical_002", "missing_historical_003"}
+        )
+    )
+
+    with pytest.raises(ModulePersistenceError, match="declared but missing") as captured:
+        MigrationCoordinator(Config(str(BACKEND_ROOT / "alembic.ini")), registry).preflight()
+
+    assert captured.value.module_id == "example-adopted-module"
+    assert captured.value.phase == "adoption_validation"
+
+
+def test_undeclared_historical_revision_remains_forbidden() -> None:
+    registry = adopted_migration_registry(adopted_revisions=frozenset())
+
+    with pytest.raises(ModulePersistenceError, match="explicitly adopted") as captured:
+        MigrationCoordinator(Config(str(BACKEND_ROOT / "alembic.ini")), registry).preflight()
+
+    assert captured.value.module_id == "example-adopted-module"
+    assert "historical_001" in str(captured.value)
+    assert captured.value.phase == "adoption_validation"
+
+
+def test_duplicate_host_and_module_revision_fails_before_graph_resolution() -> None:
+    registry = adopted_migration_registry(
+        "module_migrations/duplicate_host",
+        adopted_revisions=frozenset({"20260825_0034"}),
+    )
+
+    with pytest.raises(ModulePersistenceError, match="multiple migration sources") as captured:
+        MigrationCoordinator(Config(str(BACKEND_ROOT / "alembic.ini")), registry).preflight()
+
+    assert captured.value.module_id == "example-adopted-module"
+    assert "20260825_0034" in str(captured.value)
+    assert captured.value.phase == "adoption_validation"
+
+
+def test_duplicate_revision_between_modules_fails_before_graph_resolution() -> None:
+    manifests = (
+        module_manifest("duplicate-a", "duplicate_a", migrations=True),
+        module_manifest("duplicate-b", "duplicate_b", migrations=True),
+    )
+    definitions = tuple(
+        module_definition(
+            manifest,
+            module_metadata(manifest.persistence.schema_name),
+            migration_resource=f"module_migrations/duplicate_module_{suffix}",
+            adopted_revisions=frozenset({"shared_historical_001"}),
+        )
+        for manifest, suffix in zip(manifests, ("a", "b"), strict=True)
+    )
+    resolved = resolve_module_definitions(
+        enabled_module_ids=tuple(manifest.id for manifest in manifests),
+        discovery_providers=(FakeDiscovery(definitions),),
+        host_version="0.2.0",
+    )
+    registry = build_persistence_registry(resolved, include_legacy=False)
+
+    with pytest.raises(ModulePersistenceError, match="multiple migration sources") as captured:
+        MigrationCoordinator(Config(str(BACKEND_ROOT / "alembic.ini")), registry).preflight()
+
+    assert captured.value.module_id == "duplicate-a"
+    assert "shared_historical_001" in str(captured.value)
+    assert captured.value.phase == "adoption_validation"
+
+
+def test_disabled_available_module_retains_static_adoption_metadata() -> None:
+    manifest = module_manifest(
+        "example-adopted-module",
+        "example_adopted_module",
+        migrations=True,
+    )
+    definition = module_definition(
+        manifest,
+        module_metadata("example_adopted_module"),
+        migration_resource="module_migrations/example_adopted",
+        adopted_revisions=frozenset({"historical_001", "historical_002"}),
+    )
+
+    resolved = resolve_available_persistence_definitions(
+        (FakeAvailableDiscovery((definition,)),)
+    )
+
+    migration_source = resolved[0][0].persistence.migration_source
+    assert migration_source is not None
+    assert migration_source.adopted_revisions == frozenset(
+        {"historical_001", "historical_002"}
+    )
+
+
 @pytest.mark.parametrize(
     "object_type",
     ("table", "index", "unique_constraint", "foreign_key_constraint", "check_constraint"),
@@ -469,6 +623,73 @@ def migration_coordinator(
         config,
         migration_registry(module_b_resource=module_b_resource),
     )
+
+
+def adopted_migration_coordinator(
+    database_url: str,
+    *,
+    resource: str,
+) -> MigrationCoordinator:
+    config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    config.attributes["database_url"] = database_url
+    return MigrationCoordinator(
+        config,
+        adopted_migration_registry(resource),
+    )
+
+
+@pytest.mark.asyncio
+async def test_existing_database_on_adopted_revision_only_runs_future_revision(
+    fresh_database_url: str,
+) -> None:
+    historical = adopted_migration_coordinator(
+        fresh_database_url,
+        resource="module_migrations/example_adopted_history",
+    )
+    await asyncio.to_thread(historical.upgrade)
+
+    engine = create_async_engine(fresh_database_url)
+    async with engine.connect() as connection:
+        historical_revision = await connection.scalar(
+            text("SELECT version_num FROM alembic_version")
+        )
+        historical_markers = tuple(
+            await connection.scalars(
+                text(
+                    "SELECT revision FROM example_adopted_module.migration_markers "
+                    "ORDER BY revision"
+                )
+            )
+        )
+    assert historical_revision == "historical_002"
+    assert historical_markers == ("historical_001", "historical_002")
+
+    complete = adopted_migration_coordinator(
+        fresh_database_url,
+        resource="module_migrations/example_adopted",
+    )
+    await asyncio.to_thread(complete.upgrade)
+
+    async with engine.connect() as connection:
+        final_revision = await connection.scalar(
+            text("SELECT version_num FROM alembic_version")
+        )
+        final_markers = tuple(
+            await connection.scalars(
+                text(
+                    "SELECT revision FROM example_adopted_module.migration_markers "
+                    "ORDER BY revision"
+                )
+            )
+        )
+    assert final_revision == "mod_example_adopted_module_0001"
+    assert final_markers == (
+        "historical_001",
+        "historical_002",
+        "mod_example_adopted_module_0001",
+    )
+    await engine.dispose()
 
 
 @pytest.mark.asyncio

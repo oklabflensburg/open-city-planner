@@ -163,6 +163,9 @@ Die additive `PermissionDependencyFactory` erhöht die SDK-Version auf `1.7.0`. 
 gibt Modulrouten ausschließlich eine minimale `ModulePrincipal`-ID und adaptiert die
 bestehende Host-Authentifizierung, CSRF-Prüfung und Permission Engine, ohne User- oder
 Auth-Interna Teil des SDK zu machen.
+Die additive, optionale `ModuleMigrationSource.adopted_revisions`-Metadata erhöht
+die SDK-Version auf `1.8.0`. Bestehende Module erhalten standardmäßig eine leere
+unveränderliche Menge und müssen ihren Migration Contract nicht ändern.
 
 - **MAJOR:** Entfernen oder Umbenennen öffentlicher Methoden, inkompatible Änderungen
   an vorhandener Semantik oder eine inkompatible Context-Struktur.

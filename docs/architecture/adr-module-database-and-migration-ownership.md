@@ -130,6 +130,14 @@ Branch Labels werden in V1 nicht verwendet. Eine Modulmigration referenziert mit
 `down_revision` die letzte Revision der vorherigen geordneten Gruppe. Damit bleibt
 der Graph linear.
 
+Eine spätere Domain-Externalisierung darf veröffentlichte Host-Revisionen explizit
+über `ModuleMigrationSource.adopted_revisions` übernehmen. Diese Adoption ändert
+nur den Source-Code-Owner; Revisions-ID, Elternbeziehung und bereits ausgeführter
+DB-Zustand bleiben unverändert. Nicht adoptierte neue Modulrevisionen müssen
+weiterhin den Modulnamespace verwenden. Doppelte Revisionen zwischen Host und
+Modul oder zwischen Modulen sind immer ein Preflight-Fehler und werden nicht durch
+die Reihenfolge der `version_locations` aufgelöst.
+
 ## Deterministische Reihenfolge
 
 Für die erstmalige Aufnahme von Modulen lautet die Reihenfolge:
@@ -205,8 +213,9 @@ Kompatibilität, Datenverlust und Backup geprüft.
 
 ## Production-Migrationsstrategie
 
-- Veröffentlichte Revisionen bis einschließlich `20260825_0034` bleiben
-  unverändert und Host-/Legacy-owned.
+- Veröffentlichte Revisionen bis einschließlich `20260825_0034` bleiben in ihrer
+  Identität und Historie unverändert. Ihr Source-Code kann bei einer späteren
+  Domain-Externalisierung explizit und exklusiv von einem Modul adoptiert werden.
 - Bestehende Tabellen verbleiben zunächst im aktuellen Schema und im
   `LegacyPersistenceProvider`.
 - Eine spätere Fachmigration darf Tabellen schrittweise mit
@@ -216,13 +225,17 @@ Kompatibilität, Datenverlust und Backup geprüft.
 - Es gibt keinen Datenbank-Rebuild und keinen Reimport von Production-Daten.
 - Ein fehlgeschlagenes Migrationspreflight beziehungsweise Upgrade verhindert die
   Aktivierung des neuen Releases.
+- Nach einem Domain-Cutover liegt deren vollständige historische Migration History
+  ausschließlich im Modulpaket; adoptierte Dateien dürfen dann nicht parallel im
+  Host-Alembic-Verzeichnis verbleiben.
 
 ## Observability
 
 Migrationslogs verwenden die niedrig-kardinalen Felder `module_id`, `revision`,
 `schema` und `migration_phase`. Gültige Phasen sind `preflight`,
-`upgrade_started`, `upgrade_completed` und `upgrade_failed`. Verbindungs-URLs,
-SQL-Payloads und Secrets werden nicht protokolliert.
+`adoption_validation`, `upgrade_started`, `upgrade_completed` und
+`upgrade_failed`. Verbindungs-URLs, SQL-Payloads und Secrets werden nicht
+protokolliert.
 
 ## Folgen
 
