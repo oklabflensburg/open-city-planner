@@ -4,7 +4,8 @@ import {
   useMapFilterPort,
   useMapSelectionPort,
   useMapStylePort,
-  useModuleHttp
+  useModuleHttp,
+  useModuleSession
 } from '../module-host/platform-vue'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -14,6 +15,16 @@ describe('public frontend platform ports', () => {
     const client = { request: vi.fn() }
     vi.stubGlobal('useApi', () => client)
     expect(useModuleHttp()).toBe(client)
+  })
+
+  it('projects authentication state without exposing the host auth store', () => {
+    const auth = reactive({ authenticated: false, privateUser: { email: 'private@example.org' } })
+    vi.stubGlobal('useAuthStore', () => auth)
+    const session = useModuleSession()
+    expect(session.authenticated.value).toBe(false)
+    auth.authenticated = true
+    expect(session.authenticated.value).toBe(true)
+    expect(session).not.toHaveProperty('privateUser')
   })
 
   it('projects active map filters without exposing the host store', () => {

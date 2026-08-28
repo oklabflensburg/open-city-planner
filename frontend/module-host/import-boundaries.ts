@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, relative, resolve, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 
 export type ArchitectureViolation = {
@@ -7,6 +8,7 @@ export type ArchitectureViolation = {
   source: string
   target: string
   line: number
+  reason?: ModuleImportViolation['reason']
 }
 
 type BaselineEntry = {
@@ -29,10 +31,13 @@ export type ModuleImportViolation = {
   source: string
   target: string
   line: number
-  reason: 'private-host-import' | 'module-boundary-escape'
+  reason: 'private-host-import' | 'private-host-auto-import' | 'module-boundary-escape'
 }
 
 const sourceExtension = /\.(?:vue|[cm]?[jt]sx?)$/
+const moduleOwnedHostStoreFiles = new Set(['analysisAreas.ts'])
+const privateHostComposableFiles = ['useApi.ts', 'useMapSelection.ts']
+let cachedPrivateHostAutoImportNames: ReadonlySet<string> | undefined
 
 export function scanFrontendArchitecture(options: ScanOptions): ArchitectureViolation[] {
   const repositoryRoot = resolve(options.repositoryRoot)
@@ -50,10 +55,10 @@ export function scanFrontendArchitecture(options: ScanOptions): ArchitectureViol
 
   for (const module of moduleEntries) {
     for (const item of scanModuleImportBoundaries(module.root)) {
-      violations.push(makeViolation(repositoryRoot, 'ARCH-FE-MODULE-001', item.source, {
+      violations.push({ ...makeViolation(repositoryRoot, 'ARCH-FE-MODULE-001', item.source, {
         specifier: item.target,
         line: item.line
-      }))
+      }), reason: item.reason })
     }
   }
 
@@ -88,6 +93,7 @@ export function scanFrontendArchitecture(options: ScanOptions): ArchitectureViol
 export function scanModuleImportBoundaries(moduleRoot: string, sourceRoot = moduleRoot): ModuleImportViolation[] {
   const resolvedModuleRoot = resolve(moduleRoot)
   const violations: ModuleImportViolation[] = []
+  const privateHostAutoImports = privateHostAutoImportNames()
   for (const source of walkSourceFiles(resolve(sourceRoot))) {
     for (const imported of extractImports(source)) {
       if (imported.specifier.startsWith('~/') || imported.specifier.startsWith('@/') || imported.specifier.includes('frontend-modules/')) {
@@ -100,8 +106,118 @@ export function scanModuleImportBoundaries(moduleRoot: string, sourceRoot = modu
         violations.push({ source, target: imported.specifier, line: imported.line, reason: 'module-boundary-escape' })
       }
     }
+    for (const called of extractUnboundCalls(source, privateHostAutoImports)) {
+      violations.push({ source, target: called.name, line: called.line, reason: 'private-host-auto-import' })
+    }
   }
   return violations
+}
+
+function privateHostAutoImportNames(): ReadonlySet<string> {
+  if (cachedPrivateHostAutoImportNames) return cachedPrivateHostAutoImportNames
+
+  const frontendRoot = fileURLToPath(new URL('..', import.meta.url))
+  const storesDirectory = resolve(frontendRoot, 'app/stores')
+  const sources = [
+    ...(existsSync(storesDirectory)
+      ? readdirSync(storesDirectory, { withFileTypes: true })
+          .filter(entry => entry.isFile() && sourceExtension.test(entry.name) && !moduleOwnedHostStoreFiles.has(entry.name))
+          .map(entry => resolve(storesDirectory, entry.name))
+      : []),
+    ...privateHostComposableFiles.map(file => resolve(frontendRoot, 'app/composables', file)).filter(existsSync)
+  ]
+  const names = new Set(sources.flatMap(extractExportedValueNames))
+  // Keep detecting the previously used singular spelling if it reappears.
+  names.add('useNotificationStore')
+  cachedPrivateHostAutoImportNames = names
+  return cachedPrivateHostAutoImportNames
+}
+
+function extractExportedValueNames(source: string): string[] {
+  const file = ts.createSourceFile(source, readFileSync(source, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const names = new Set<string>()
+  for (const statement of file.statements) {
+    const modifiers = ts.canHaveModifiers(statement) ? ts.getModifiers(statement) : undefined
+    if (!modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword)) continue
+    if (ts.isFunctionDeclaration(statement) && statement.name) names.add(statement.name.text)
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) collectBindingNames(declaration.name, names)
+    }
+  }
+  return [...names]
+}
+
+function collectBindingNames(name: ts.BindingName, names: Set<string>) {
+  if (ts.isIdentifier(name)) {
+    names.add(name.text)
+    return
+  }
+  for (const element of name.elements) {
+    if (!ts.isOmittedExpression(element)) collectBindingNames(element.name, names)
+  }
+}
+
+function extractUnboundCalls(source: string, targets: ReadonlySet<string>): Array<{ name: string, line: number }> {
+  const calls: Array<{ name: string, line: number }> = []
+  for (const fragment of scriptFragments(source)) {
+    const file = ts.createSourceFile(source, fragment.text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const rootScope: LexicalScope = { bindings: new Set() }
+    const scopes = new Map<ts.Node, LexicalScope>()
+    collectLexicalScopes(file, rootScope, scopes)
+    const visit = (node: ts.Node) => {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+        && targets.has(node.expression.text) && !isBound(node.expression.text, scopes.get(node))) {
+        calls.push({
+          name: node.expression.text,
+          line: file.getLineAndCharacterOfPosition(node.expression.getStart(file)).line + fragment.startLine
+        })
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(file)
+  }
+  return calls
+}
+
+type LexicalScope = {
+  readonly parent?: LexicalScope
+  readonly bindings: Set<string>
+}
+
+function collectLexicalScopes(node: ts.Node, incoming: LexicalScope, scopes: Map<ts.Node, LexicalScope>) {
+  let scope = incoming
+  if (ts.isFunctionDeclaration(node) && node.name) incoming.bindings.add(node.name.text)
+  if (ts.isClassDeclaration(node) && node.name) incoming.bindings.add(node.name.text)
+  if (ts.isFunctionLike(node)) {
+    scope = { parent: incoming, bindings: new Set() }
+    if (ts.isFunctionExpression(node) && node.name) scope.bindings.add(node.name.text)
+    for (const parameter of node.parameters) collectBindingNames(parameter.name, scope.bindings)
+  } else if (node !== node.getSourceFile() && (ts.isBlock(node) || ts.isCatchClause(node))) {
+    scope = { parent: incoming, bindings: new Set() }
+    if (ts.isCatchClause(node) && node.variableDeclaration) {
+      collectBindingNames(node.variableDeclaration.name, scope.bindings)
+    }
+  }
+  scopes.set(node, scope)
+
+  if (ts.isImportDeclaration(node) && node.importClause) {
+    if (node.importClause.name) scope.bindings.add(node.importClause.name.text)
+    const bindings = node.importClause.namedBindings
+    if (bindings && ts.isNamespaceImport(bindings)) scope.bindings.add(bindings.name.text)
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const element of bindings.elements) scope.bindings.add(element.name.text)
+    }
+  }
+  if (ts.isVariableDeclaration(node)) collectBindingNames(node.name, scope.bindings)
+
+  ts.forEachChild(node, child => collectLexicalScopes(child, scope, scopes))
+}
+
+function isBound(name: string, scope: LexicalScope | undefined): boolean {
+  for (let current = scope; current; current = current.parent) {
+    if (current.bindings.has(name)) return true
+  }
+  return false
 }
 
 export function activeFrontendViolations(options: ScanOptions): ArchitectureViolation[] {

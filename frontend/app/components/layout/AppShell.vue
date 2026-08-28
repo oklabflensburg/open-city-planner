@@ -107,7 +107,9 @@ const activePanelCloseLabel = computed(() => {
 })
 const activePanelContentKey = computed(() => {
   const entity = mapStore.selectedMapEntity
-  if (mapStore.activeGisPanel !== 'selection' || !entity) return mapStore.activeGisPanel || 'closed'
+  if (mapStore.activeGisPanel !== 'selection') return mapStore.activeGisPanel || 'closed'
+  if (!entity && analysisAreasStore.selectedAreaId) return `analysis-area:${analysisAreasStore.selectedAreaId}`
+  if (!entity) return 'selection'
   if (entity.type === 'polygon') return `polygon:${entity.id}`
   if (entity.type === 'osm') return `osm:${entity.feature.properties.osm_type}:${entity.feature.properties.osm_id}`
   return `analysis-area:${entity.id}`

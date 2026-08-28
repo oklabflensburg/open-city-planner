@@ -60,13 +60,15 @@ export {
   type MapSelectionReference,
   type MapStylePort,
   type ModuleHttpClient,
-  type ModuleHttpOptions
+  type ModuleHttpOptions,
+  type ModuleSessionPort
 } from './platform-contract.ts'
 export {
   useMapFilterPort,
   useMapSelectionPort,
   useMapStylePort,
-  useModuleHttp
+  useModuleHttp,
+  useModuleSession
 } from './platform-vue.ts'
 export {
   externalProviders,

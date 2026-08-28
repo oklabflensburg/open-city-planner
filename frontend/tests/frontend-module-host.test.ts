@@ -277,6 +277,24 @@ describe('frontend build-time module host', () => {
       .toThrowError(/imports private host or module internals via "~\/stores\/map"/)
   })
 
+  it('rejects private host auto-imports from an extracted built frontend tgz', () => {
+    const paths = fixture()
+    addModule(paths.modulesDirectory, 'unsafe-package')
+    writeFileSync(
+      resolve(paths.modulesDirectory, 'unsafe-package/layer/app/pages/unsafe-package.vue'),
+      `<script setup>const map = useMapStore()</script><template><p>unsafe</p></template>`
+    )
+    const archive = resolve(paths.root, 'unsafe-auto-import-package.tgz')
+    execFileSync('tar', ['-czf', archive, '-C', resolve(paths.modulesDirectory, 'unsafe-package'), '.'])
+    const installedRoot = resolve(paths.root, 'extracted-auto-import')
+    const extractedModule = resolve(installedRoot, 'unsafe-package')
+    mkdirSync(extractedModule, { recursive: true })
+    execFileSync('tar', ['-xzf', archive, '-C', extractedModule])
+
+    expect(() => discoverFrontendModules(installedRoot))
+      .toThrowError(/private host auto-import "useMapStore".*private-host-auto-import/)
+  })
+
   it('keeps Nuxt generic and forbids runtime microfrontend loading', () => {
     const nuxtConfig = readFileSync(resolve(import.meta.dirname, '../nuxt.config.ts'), 'utf8')
     const discovery = readFileSync(resolve(import.meta.dirname, '../module-host/discovery.ts'), 'utf8')

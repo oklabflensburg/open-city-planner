@@ -10,6 +10,7 @@ noch einen zweiten Router, Pinia-Root oder globalen Host-Kontext.
 | Export | Zweck | Lifecycle und SSR | Fehlerverhalten | Status |
 | --- | --- | --- | --- | --- |
 | `useModuleHttp()` / `ModuleHttpClient` | Requests relativ zur Host-API einschließlich Cookies, CSRF, Request-ID und bestehendem Refresh-Verhalten | im Nuxt-Setup auf Client und Server; Request-Cookies werden bei SSR weitergereicht | verwirft mit dem bestehenden typisierten API-Fehler; kein stiller Fallback | stabil ab 1.3 |
+| `useModuleSession()` / `ModuleSessionPort` | ausschließlich den reaktiven Anmeldestatus lesen, ohne Benutzer-, Token- oder Store-Daten offenzulegen | im Nuxt-/Pinia-Kontext auf Client und Server | fail-fast außerhalb des Nuxt-/Pinia-Kontexts | stabil ab 1.3 |
 | `useMapFilterPort()` / `MapFilterPort` | aktive fachneutrale GIS-Filter als neue `URLSearchParams`-Instanz lesen | im Nuxt-/Pinia-Kontext; SSR-sicher und ohne Browser-Globals | fail-fast außerhalb des Nuxt-/Pinia-Kontexts | stabil ab 1.3 |
 | `useMapSelectionPort()` / `MapSelectionPort` | Auswahl als stabile `{ type, id }`-Projektion lesen oder über die bestehende Host-Auswahllogik löschen | im Nuxt-/Pinia-Kontext; rein lesender Zugriff auf den Auswahlzustand ist SSR-sicher | fail-fast außerhalb des Nuxt-/Pinia-Kontexts; OSM-Features werden ohne interne Feature-Daten als `osm_type/osm_id` projiziert | stabil ab 1.3 |
 | `useMapStylePort()` / `MapStylePort` | konfigurierten, validierten MapLibre-Stil mit bestehendem offenen Fallback laden | Composable selbst ist SSR-sicher; `load()` führt einen Fetch aus und wird für interaktive Karten clientseitig im Mount-Lifecycle aufgerufen | verwirft nach Fehlschlag von primärem Stil und Fallback mit den geprüften Ursachen | stabil ab 1.3 |
@@ -17,8 +18,9 @@ noch einen zweiten Router, Pinia-Root oder globalen Host-Kontext.
 | `OcpStatusBadge`, `OcpProviderIcon` aus `#frontend-module-sdk/ui` | bewusst öffentliche, kleine UI-Primitives des vorhandenen Designsystems | normale SSR-fähige Vue-Komponenten, kein eigener App- oder CSS-Root | ungültige Props fallen in der TypeScript-/Vue-Prüfung auf | stabil ab 1.3 |
 
 Nuxt-Navigation (`NuxtLink`, `navigateTo`) genügt den untersuchten Consumern. Für
-Notifications, Session/User, Locale und Dialoge bestand kein Consumer; dafür wurde
-keine spekulative API ergänzt.
+Für Notification-Aktionen, Benutzerprofile, Locale und Dialoge bestand kein
+Consumer; dafür wurde keine spekulative API ergänzt. Der lesende Session-Port hat
+genau einen Consumer für die Sichtbarkeit der Gebiets-Folgen-Aktion.
 
 ## Dependency migration für Analysis Areas
 

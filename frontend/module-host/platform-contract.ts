@@ -10,6 +10,11 @@ export interface ModuleHttpClient {
   request<T>(path: string, options?: ModuleHttpOptions): Promise<T>
 }
 
+/** Read-only projection of the current host session for module presentation. */
+export interface ModuleSessionPort {
+  readonly authenticated: ComputedRef<boolean>
+}
+
 /** A domain-neutral reference used by the host map selection surface. */
 export interface MapSelectionReference {
   readonly type: string

@@ -164,17 +164,24 @@ describe('ControlRegistry and InteractionRegistry', () => {
 
 describe('Selection, Draw and FeatureInfo', () => {
   it('selects, replaces, clears and invokes the matching presentation', async () => {
-    const manager = new SelectionManager()
+    const onSelect = vi.fn()
+    const onReveal = vi.fn()
+    const manager = new SelectionManager({ onSelect, onReveal })
     const present = vi.fn()
-    manager.registerPresentation({ id: 'alpha.presentation', moduleId: 'alpha', canPresent: () => true, present })
+    const clear = vi.fn()
+    manager.registerPresentation({ id: 'alpha.presentation', moduleId: 'alpha', canPresent: () => true, present, clear })
     const first = { moduleId: 'alpha', sourceId: 'alpha.data', layerId: 'alpha.points', featureId: '1' }
     const second = { ...first, featureId: '2' }
     await manager.select(first)
     await manager.select(second)
     expect(manager.current()?.featureId).toBe('2')
     expect(present).toHaveBeenCalledTimes(2)
+    expect(onSelect).toHaveBeenCalledTimes(2)
+    manager.reveal()
+    expect(onReveal).toHaveBeenCalledWith(expect.objectContaining({ featureId: '2' }))
     manager.clear()
     expect(manager.current()).toBeNull()
+    expect(clear).toHaveBeenCalledOnce()
   })
 
   it('owns exactly one draw adapter and cleans it up', () => {

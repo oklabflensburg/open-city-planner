@@ -14,12 +14,14 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
     statistics: null as AreaStatistics | null,
     loading: false,
     detailsLoading: false,
+    presentedAreaId: null as string | null,
     error: null as string | null,
     visibility: { MUNICIPALITY: true, DISTRICT: true, QUARTER: true } as Record<AnalysisAreaType, boolean>,
     requestId: 0
   }),
   getters: {
     selectedAreaId(): string | null {
+      if (this.presentedAreaId) return this.presentedAreaId
       const entity = useMapSelectionPort().selected.value
       return entity?.type === 'analysis-area' ? entity.id : null
     },
@@ -28,6 +30,10 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
     }
   },
   actions: {
+    async presentSelection(id: string) {
+      this.presentedAreaId = id
+      await this.loadDetails(id)
+    },
     async load() {
       if (this.areas.length && this.featureCollection.features.length) return
       this.loading = true
@@ -74,6 +80,7 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
       }
     },
     clearSelection() {
+      this.presentedAreaId = null
       this.analytics = null
       this.comparison = null
       this.statistics = null

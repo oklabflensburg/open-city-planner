@@ -3,6 +3,7 @@ import type { MapTheme } from '~/utils/mapThemes'
 import type { SelectedMapEntity } from '~/types/mapSelection'
 import type { FeatureCollection } from 'geojson'
 import type { AssistantMapActionType, SearchMapActionType } from '~/types/search'
+import { markRaw } from 'vue'
 
 export type DrawingMode = 'select' | 'polygon' | 'edit' | 'delete'
 export type GisPanel = 'assistant' | 'filter' | 'analytics' | 'selection' | null
@@ -23,6 +24,7 @@ export const useMapStore = defineStore('map', {
     gisDataGeneration: 0,
     gisDataDirty: false,
     searchActionGeneration: 0,
+    runtimeSelectionClear: null as (() => void) | null,
     searchAction: null as {
       type: SearchMapActionType | AssistantMapActionType
       fitBounds: boolean
@@ -58,6 +60,16 @@ export const useMapStore = defineStore('map', {
     },
     closeGisPanels() {
       this.activeGisPanel = null
+    },
+    connectRuntimeSelection(clear: () => void) {
+      const handler = markRaw(clear)
+      this.runtimeSelectionClear = handler
+      return () => {
+        if (this.runtimeSelectionClear === handler) this.runtimeSelectionClear = null
+      }
+    },
+    clearRuntimeSelection() {
+      this.runtimeSelectionClear?.()
     },
     markGisDataDirty() {
       this.gisDataGeneration += 1

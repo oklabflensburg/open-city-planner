@@ -62,6 +62,15 @@ export function useMapCanvasHost() {
   const configuredExtensions = resolveMapExtensionSnapshot(config.public.frontendMapContributions)
   const emptyFeatureCollection: FeatureCollection = { type: 'FeatureCollection', features: [] }
   const runtime = createMapRuntime({
+    onSelection: {
+      onSelect: () => {
+        mapStore.selectedMapEntity = null
+        polygonStore.clearSelection()
+        osmStore.clearSelection()
+        analysisAreasStore.clearSelection()
+      },
+      onReveal: () => mapStore.openGisPanel('selection')
+    },
     extensions: {
       sources: [
         ...configuredExtensions.sources,
@@ -113,6 +122,7 @@ export function useMapCanvasHost() {
     }
   })
   const runtimeContext = shallowRef<MapContext | null>(null)
+  let disconnectRuntimeSelection: (() => void) | undefined
   provide(MAP_CONTEXT_KEY, runtimeContext)
 
   runtime.interactions.register({
@@ -177,6 +187,7 @@ export function useMapCanvasHost() {
   })
 
   onMounted(async () => {
+    disconnectRuntimeSelection = mapStore.connectRuntimeSelection(() => runtime.selection.clear())
     if (!mapEl.value) return
     mapStore.mapLoaded = false
     try {
@@ -247,6 +258,8 @@ export function useMapCanvasHost() {
       clearSelectionRendering()
     }
     runtime.destroy()
+    disconnectRuntimeSelection?.()
+    disconnectRuntimeSelection = undefined
     runtimeContext.value = null
     map.value = null
     if (import.meta.client) delete (window as typeof window & { __stadtplanerMapPerformance?: unknown }).__stadtplanerMapPerformance
@@ -268,6 +281,7 @@ export function useMapCanvasHost() {
     updateSelectedPolygonOverlay()
     updateOsmSelection()
   })
+  watch(() => analysisAreasStore.presentedAreaId, updateSelectedPolygonOverlay)
   watch(() => mapStore.categoryHighlight, applyFeatureStyles)
   watch(() => mapStore.thematicStyle, () => {
     applyFeatureStyles()
@@ -597,11 +611,12 @@ export function useMapCanvasHost() {
 
   function updateSelectedPolygonOverlay() {
     const entity = mapStore.selectedMapEntity
-    if (!entity) {
+    const analysisAreaId = entity?.type === 'analysis-area' ? entity.id : analysisAreasStore.presentedAreaId
+    if (!entity && !analysisAreaId) {
       setSelectedPolygonOverlay(null)
       return
     }
-    if (entity.type === 'polygon') {
+    if (entity?.type === 'polygon') {
       const polygon = polygonStore.polygons.find(item => item.id === entity.id)
       setSelectedPolygonOverlay(polygon ? {
         id: polygon.id,
@@ -616,7 +631,7 @@ export function useMapCanvasHost() {
       } : null)
       return
     }
-    if (entity.type === 'osm') {
+    if (entity?.type === 'osm') {
       const feature = entity.feature
       const featureType = feature.properties.category === 'landuse' || feature.properties.category === 'building' ? 'OSM_CONTEXT_POLYGON' : 'OSM_POLYGON'
       setSelectedPolygonOverlay(feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon' ? {
@@ -632,17 +647,21 @@ export function useMapCanvasHost() {
       } : null)
       return
     }
-    const feature = analysisAreasStore.featureCollection.features.find(item => item.properties.id === entity.id)
+    if (!analysisAreaId) {
+      setSelectedPolygonOverlay(null)
+      return
+    }
+    const feature = analysisAreasStore.featureCollection.features.find(item => item.properties.id === analysisAreaId)
     setSelectedPolygonOverlay(feature ? {
-      id: entity.id,
+      id: analysisAreaId,
       source: 'analysis-areas.data',
       layerId: `analysis-areas.${feature.properties.area_type.toLowerCase()}-fill`,
       featureType: feature.properties.area_type,
       geometryType: feature.geometry.type,
-      selectionKey: `analysis-areas:${feature.properties.area_type}:${entity.id}`,
+      selectionKey: `analysis-areas:${feature.properties.area_type}:${analysisAreaId}`,
       geometry: feature.geometry,
       properties: { area_type: feature.properties.area_type },
-      target: { type: 'analysis-area', id: entity.id }
+      target: { type: 'analysis-area', id: analysisAreaId }
     } : null)
   }
 

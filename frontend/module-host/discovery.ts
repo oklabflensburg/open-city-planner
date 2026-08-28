@@ -353,6 +353,9 @@ function validateModuleImports(moduleId: string, moduleRoot: string, layerPath: 
   if (violation?.reason === 'private-host-import') {
     throw new FrontendModuleError(`Frontend module "${moduleId}" imports private host or module internals via "${violation.target}" in ${violation.source}.`)
   }
+  if (violation?.reason === 'private-host-auto-import') {
+    throw new FrontendModuleError(`Frontend module "${moduleId}" calls private host auto-import "${violation.target}" in ${violation.source} (private-host-auto-import).`)
+  }
   if (violation) {
     throw new FrontendModuleError(`Frontend module "${moduleId}" imports outside its own module through "${violation.target}" in ${violation.source}.`)
   }

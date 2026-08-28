@@ -4,13 +4,19 @@ import type {
   MapSelectionPort,
   MapSelectionReference,
   MapStylePort,
-  ModuleHttpClient
+  ModuleHttpClient,
+  ModuleSessionPort
 } from './platform-contract.ts'
 import { loadMapStyle } from '../app/config/mapStyles.ts'
 import { gisFilterQuery } from '../app/utils/gisFilters.ts'
 
 export function useModuleHttp(): ModuleHttpClient {
   return useApi()
+}
+
+export function useModuleSession(): ModuleSessionPort {
+  const auth = useAuthStore()
+  return { authenticated: computed(() => auth.authenticated) }
 }
 
 export function useMapFilterPort(): MapFilterPort {

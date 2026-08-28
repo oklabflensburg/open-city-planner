@@ -22,7 +22,8 @@ try {
     const guidance = item.rule === 'ARCH-FE-HOST-001'
       ? 'Use the contribution registry instead of concrete module knowledge.'
       : 'Use #frontend-module-sdk, #imports or a public contribution contract.'
-    console.error(`::error file=${item.source},line=${item.line},title=${item.rule}::Forbidden dependency ${item.target}. ${guidance}`)
+    const reason = item.reason ? ` (${item.reason})` : ''
+    console.error(`::error file=${item.source},line=${item.line},title=${item.rule}::Forbidden dependency ${item.target}${reason}. ${guidance}`)
   }
   if (violations.length) {
     console.error(`Frontend module architecture check failed with ${violations.length} violation(s).`)

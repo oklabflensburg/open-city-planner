@@ -100,7 +100,10 @@ test('one universal overlay selects every interactive polygon type and clears cl
   await mockMapData(page)
   await page.goto('/karte')
   await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 20_000 })
-  await expect(page.getByText('1 Stadtplaner · 1 OSM im Ausschnitt')).toBeVisible({ timeout: 20_000 })
+  await expect.poll(() => page.evaluate(() => {
+    const map = (window as typeof window & { __stadtplanerMapPerformance?: { map: import('maplibre-gl').Map } }).__stadtplanerMapPerformance?.map
+    return Boolean(map?.getLayer('analysis-areas.district-fill'))
+  })).toBe(true)
 
   const canvas = page.locator('.maplibregl-canvas')
   await expect(canvas).toHaveCSS('cursor', 'grab')
@@ -145,6 +148,29 @@ test('one universal overlay selects every interactive polygon type and clears cl
   await expect(page.getByText('Testgemeinde', { exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: 'Gebietsauswahl schließen' }).click()
+  await expect.poll(() => page.evaluate(() => {
+    const map = (window as typeof window & { __stadtplanerMapPerformance?: { map: import('maplibre-gl').Map } }).__stadtplanerMapPerformance!.map
+    return map.querySourceFeatures('selected-polygon-source').length
+  })).toBe(0)
+})
+
+test('mobile reveals an analysis area through the shared selection surface and clears it', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockMapData(page)
+  await page.goto('/karte')
+  await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 20_000 })
+  await expect.poll(() => page.evaluate(() => {
+    const map = (window as typeof window & { __stadtplanerMapPerformance?: { map: import('maplibre-gl').Map } }).__stadtplanerMapPerformance?.map
+    return Boolean(map?.getLayer('analysis-areas.district-fill'))
+  })).toBe(true)
+
+  await clickCoordinate(page, [9.430, 54.787], 12)
+  await expectUniversalSelection(page, 'DISTRICT')
+  const selectionSheet = page.getByRole('dialog', { name: 'Teststadtteil' })
+  await expect(selectionSheet).toBeVisible()
+
+  await selectionSheet.getByRole('button', { name: 'Auswahl schließen' }).click()
+  await expect(selectionSheet).toHaveCount(0)
   await expect.poll(() => page.evaluate(() => {
     const map = (window as typeof window & { __stadtplanerMapPerformance?: { map: import('maplibre-gl').Map } }).__stadtplanerMapPerformance!.map
     return map.querySourceFeatures('selected-polygon-source').length

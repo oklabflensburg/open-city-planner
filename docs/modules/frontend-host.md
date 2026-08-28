@@ -118,6 +118,9 @@ der deklarierte Backend-Range geprüft. Die Werte enthalten keine Secrets.
 - Routenkollisionen zwischen Modulen und mit Host-Pages;
 - V1-Grenzen gegen module-owned AppShell, Layouts, globale Plugins, globale
   Middleware, Server-Handler und Nuxt-Buildmodule.
+- private Host-Imports und ungebundene Aufrufe privater Host-Auto-Imports auch in
+  Vue-Scriptblöcken und entpackten installierbaren Paketen. Öffentliche Nuxt-/Vue-
+  Auto-Imports und lokal gebundene, gleichnamige Funktionen bleiben erlaubt.
 
 Fehler nennen Modul-ID und relevante Quellen. Die Reihenfolge ist topologisch und
 innerhalb gleicher Dependency-Stufen lexikografisch stabil.
@@ -165,3 +168,9 @@ Artefakte stehen in der [Distribution Policy](distribution.md).
 Der [Installer](installer.md) ergänzt dafür null oder mehr kontrollierte
 `OCP_INSTALLED_FRONTEND_MODULE_ROOTS`. Discovery prüft Built-in- und installierte
 Roots gemeinsam; doppelte IDs schlagen ohne Override-Priorität fehl.
+
+Map-Module schreiben ihre fachliche Auswahl ausschließlich über
+`MapContext.selection.select()`. Eine module-owned `MapSelectionPresentation` wird
+über denselben Manager registriert und kann Details laden oder beim Löschen
+aufräumen. `selection.reveal()` fordert bei Bedarf nur die vorhandene generische
+Host-Auswahlfläche an; es erzeugt keinen zweiten Selection-State.

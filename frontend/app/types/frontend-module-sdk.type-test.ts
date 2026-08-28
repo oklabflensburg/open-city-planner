@@ -5,7 +5,8 @@ import type {
   MapSelectionPort,
   MapSourceContribution,
   MapStylePort,
-  ModuleHttpClient
+  ModuleHttpClient,
+  ModuleSessionPort
 } from '#frontend-module-sdk'
 
 export const validNavigationContribution: FrontendModuleUiContribution = {
@@ -46,6 +47,8 @@ export const validMapLayer: MapLayerContribution = {
 export const validModuleHttp: ModuleHttpClient = {
   request: async <T>() => undefined as T
 }
+
+export const validModuleSession = {} as ModuleSessionPort
 
 export const validMapFilterPort: MapFilterPort = {
   toQuery: () => new URLSearchParams()
