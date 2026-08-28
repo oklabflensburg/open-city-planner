@@ -1,4 +1,5 @@
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -146,14 +147,14 @@ describe('frontend build-time module host', () => {
   it('accepts compatible SDK versions and rejects incompatible versions', () => {
     const paths = fixture()
     addModule(paths.modulesDirectory, 'compatible')
-    expect(FRONTEND_MODULE_SDK_VERSION).toBe('1.2.0')
+    expect(FRONTEND_MODULE_SDK_VERSION).toBe('1.3.0')
     expect(resolveFrontendModules({ ...paths, enabledModules: 'compatible' })).toHaveLength(1)
 
     addModule(paths.modulesDirectory, 'future', {
       compatibility: { host: '>=1.0.0 <2.0.0', sdk: '>=2.0.0 <3.0.0' }
     })
     expect(() => resolveFrontendModules({ ...paths, enabledModules: 'future' }))
-      .toThrowError(/requires frontend module SDK >=2.0.0 <3.0.0, but found 1.2.0/)
+      .toThrowError(/requires frontend module SDK >=2.0.0 <3.0.0, but found 1.3.0/)
   })
 
   it('requires one shared module ID and validates an explicit backend inventory', () => {
@@ -256,6 +257,24 @@ describe('frontend build-time module host', () => {
     })
     expect(() => discoverFrontendModules(foreignComponent.modulesDirectory))
       .toThrowError(/must remain inside/)
+  })
+
+  it('rejects private host imports from an extracted built frontend tgz', () => {
+    const paths = fixture()
+    addModule(paths.modulesDirectory, 'unsafe-package')
+    writeFileSync(
+      resolve(paths.modulesDirectory, 'unsafe-package/layer/app/pages/unsafe-package.vue'),
+      `<script setup>import '~/stores/map'</script><template><p>unsafe</p></template>`
+    )
+    const archive = resolve(paths.root, 'unsafe-package.tgz')
+    execFileSync('tar', ['-czf', archive, '-C', resolve(paths.modulesDirectory, 'unsafe-package'), '.'])
+    const installedRoot = resolve(paths.root, 'extracted')
+    const extractedModule = resolve(installedRoot, 'unsafe-package')
+    mkdirSync(extractedModule, { recursive: true })
+    execFileSync('tar', ['-xzf', archive, '-C', extractedModule])
+
+    expect(() => discoverFrontendModules(installedRoot))
+      .toThrowError(/imports private host or module internals via "~\/stores\/map"/)
   })
 
   it('keeps Nuxt generic and forbids runtime microfrontend loading', () => {

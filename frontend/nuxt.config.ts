@@ -84,6 +84,7 @@ export default defineNuxtConfig({
   },
   modules: ['@pinia/nuxt'],
   alias: {
+    '#frontend-module-sdk/ui': fileURLToPath(new URL('./module-host/ui-public.ts', import.meta.url)),
     '#frontend-module-sdk': fileURLToPath(new URL('./module-host/public.ts', import.meta.url))
   },
   components: [

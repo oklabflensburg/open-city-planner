@@ -9,8 +9,10 @@ bereitstellen. Die Architekturentscheidung steht im
 Das öffentliche SDK wird über `#frontend-module-sdk` exportiert. Die wichtigsten
 Typen sind `UiSlotId`, `FrontendModuleUiContribution`, `NavigationContribution`,
 `HeaderActionContribution`, `UiVisibilityRule` und `UiVisibilityContext`.
-`FRONTEND_MODULE_SDK_VERSION` ist seit #103 additiv `1.2.0`; die UI-Verträge aus
-Version `1.1.0` bleiben unverändert kompatibel.
+`FRONTEND_MODULE_SDK_VERSION` ist seit #186 additiv `1.3.0`; die UI-Verträge aus
+Versionen `1.1.0` und `1.2.0` bleiben unverändert kompatibel. Die zusätzlichen
+Platform-Ports sind separat unter
+[Frontend-Platform-Ports](frontend-platform-ports.md) beschrieben.
 
 Unterstützte Slots:
 

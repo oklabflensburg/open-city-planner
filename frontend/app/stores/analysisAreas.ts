@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { markRaw } from 'vue'
 import type { AnalysisArea, AnalysisAreaAnalytics, AnalysisAreaComparison, AnalysisAreaFeatureCollection, AnalysisAreaType, AreaStatistics } from '~/types/analysisArea'
-import { useMapStore } from '~/stores/map'
-import { gisFilterQuery } from '~/utils/gisFilters'
+import { useMapFilterPort, useMapSelectionPort, useModuleHttp } from '#frontend-module-sdk'
 
 const emptyCollection: AnalysisAreaFeatureCollection = { type: 'FeatureCollection', features: [] }
 
@@ -21,7 +20,7 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
   }),
   getters: {
     selectedAreaId(): string | null {
-      const entity = useMapStore().selectedMapEntity
+      const entity = useMapSelectionPort().selected.value
       return entity?.type === 'analysis-area' ? entity.id : null
     },
     selectedArea(state): AnalysisArea | null {
@@ -34,7 +33,7 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
       this.loading = true
       this.error = null
       try {
-        const api = useApi()
+        const api = useModuleHttp()
         const [areas, featureCollection] = await Promise.all([
           api.request<AnalysisArea[]>('/analysis-areas'),
           api.request<AnalysisAreaFeatureCollection>('/analysis-areas/geojson?limit=1000')
@@ -54,10 +53,9 @@ export const useAnalysisAreasStore = defineStore('analysisAreas', {
       this.detailsLoading = true
       this.error = null
       try {
-        const filter = useFilterStore()
-        const query = gisFilterQuery(filter.filterState)
+        const query = useMapFilterPort().toQuery()
         const suffix = query.size ? `?${query}` : ''
-        const api = useApi()
+        const api = useModuleHttp()
         const selectedArea = this.areas.find(area => area.id === id)
         const [analytics, comparison, statistics] = await Promise.all([
           api.request<AnalysisAreaAnalytics>(`/analysis-areas/${id}/analytics${suffix}`),

@@ -20,8 +20,16 @@ type BaselineEntry = {
 type ScanOptions = {
   repositoryRoot: string
   frontendRoot?: string
+  modulesDirectories?: readonly string[]
   rulesFile?: string
   baselineFile?: string
+}
+
+export type ModuleImportViolation = {
+  source: string
+  target: string
+  line: number
+  reason: 'private-host-import' | 'module-boundary-escape'
 }
 
 const sourceExtension = /\.(?:vue|[cm]?[jt]sx?)$/
@@ -29,22 +37,23 @@ const sourceExtension = /\.(?:vue|[cm]?[jt]sx?)$/
 export function scanFrontendArchitecture(options: ScanOptions): ArchitectureViolation[] {
   const repositoryRoot = resolve(options.repositoryRoot)
   const frontendRoot = resolve(options.frontendRoot ?? resolve(repositoryRoot, 'frontend'))
-  const modulesRoot = resolve(frontendRoot, 'frontend-modules')
-  const moduleIds = existsSync(modulesRoot)
+  const moduleDirectories = options.modulesDirectories?.length
+    ? options.modulesDirectories.map(directory => resolve(directory))
+    : [resolve(frontendRoot, 'frontend-modules')]
+  const moduleEntries = moduleDirectories.flatMap(modulesRoot => existsSync(modulesRoot)
     ? readdirSync(modulesRoot, { withFileTypes: true })
         .filter(entry => entry.isDirectory())
-        .map(entry => entry.name)
-    : []
+        .map(entry => ({ id: entry.name, root: resolve(modulesRoot, entry.name) }))
+    : [])
+  const moduleIds = [...new Set(moduleEntries.map(entry => entry.id))]
   const violations: ArchitectureViolation[] = []
 
-  for (const moduleId of moduleIds) {
-    const moduleRoot = resolve(modulesRoot, moduleId)
-    for (const source of walkSourceFiles(moduleRoot)) {
-      for (const imported of extractImports(source)) {
-        if (isForbiddenModuleImport(imported.specifier, source, moduleRoot, modulesRoot)) {
-          violations.push(makeViolation(repositoryRoot, 'ARCH-FE-MODULE-001', source, imported))
-        }
-      }
+  for (const module of moduleEntries) {
+    for (const item of scanModuleImportBoundaries(module.root)) {
+      violations.push(makeViolation(repositoryRoot, 'ARCH-FE-MODULE-001', item.source, {
+        specifier: item.target,
+        line: item.line
+      }))
     }
   }
 
@@ -55,7 +64,7 @@ export function scanFrontendArchitecture(options: ScanOptions): ArchitectureViol
   ].filter((source, index, all) => existsSync(source) && all.indexOf(source) === index)
   for (const source of hostSources) {
     for (const imported of extractImports(source)) {
-      if (resolvesInside(imported.specifier, source, frontendRoot, modulesRoot)) {
+      if (moduleDirectories.some(modulesRoot => resolvesInside(imported.specifier, source, frontendRoot, modulesRoot))) {
         violations.push(makeViolation(repositoryRoot, 'ARCH-FE-HOST-001', source, imported))
       }
     }
@@ -74,6 +83,25 @@ export function scanFrontendArchitecture(options: ScanOptions): ArchitectureViol
   return unique(violations).sort((left, right) =>
     left.source.localeCompare(right.source, 'en') || left.line - right.line || left.rule.localeCompare(right.rule, 'en')
   )
+}
+
+export function scanModuleImportBoundaries(moduleRoot: string, sourceRoot = moduleRoot): ModuleImportViolation[] {
+  const resolvedModuleRoot = resolve(moduleRoot)
+  const violations: ModuleImportViolation[] = []
+  for (const source of walkSourceFiles(resolve(sourceRoot))) {
+    for (const imported of extractImports(source)) {
+      if (imported.specifier.startsWith('~/') || imported.specifier.startsWith('@/') || imported.specifier.includes('frontend-modules/')) {
+        violations.push({ source, target: imported.specifier, line: imported.line, reason: 'private-host-import' })
+        continue
+      }
+      if (!imported.specifier.startsWith('.')) continue
+      const target = resolve(dirname(source), imported.specifier)
+      if (!isInside(resolvedModuleRoot, target)) {
+        violations.push({ source, target: imported.specifier, line: imported.line, reason: 'module-boundary-escape' })
+      }
+    }
+  }
+  return violations
 }
 
 export function activeFrontendViolations(options: ScanOptions): ArchitectureViolation[] {
@@ -108,14 +136,6 @@ function loadBaseline(repositoryRoot: string, rulesFile: string, baselineFile: s
     result.add(entryKey)
   }
   return result
-}
-
-function isForbiddenModuleImport(specifier: string, source: string, moduleRoot: string, modulesRoot: string): boolean {
-  if (specifier.startsWith('~/') || specifier.startsWith('@/')) return true
-  if (specifier.includes('frontend-modules/')) return true
-  if (!specifier.startsWith('.')) return false
-  const target = resolve(dirname(source), specifier)
-  return !isInside(moduleRoot, target) || (isInside(modulesRoot, target) && !isInside(moduleRoot, target))
 }
 
 function resolvesInside(specifier: string, source: string, frontendRoot: string, targetRoot: string): boolean {
@@ -165,7 +185,10 @@ function extractImports(source: string): Array<{ specifier: string, line: number
       let literal: ts.StringLiteralLike | undefined
       if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
         literal = node.moduleSpecifier && ts.isStringLiteralLike(node.moduleSpecifier) ? node.moduleSpecifier : undefined
-      } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      } else if (ts.isCallExpression(node) && (
+        node.expression.kind === ts.SyntaxKind.ImportKeyword
+        || (ts.isIdentifier(node.expression) && node.expression.text === 'require')
+      )) {
         const argument = node.arguments[0]
         literal = argument && ts.isStringLiteralLike(argument) ? argument : undefined
       }

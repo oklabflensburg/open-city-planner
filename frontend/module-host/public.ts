@@ -55,6 +55,31 @@ export {
 } from './map-contract.ts'
 export { MAP_CONTEXT_KEY, useMapContext } from './map-vue.ts'
 export {
+  type MapFilterPort,
+  type MapSelectionOptions,
+  type MapSelectionPort,
+  type MapSelectionReference,
+  type MapStylePort,
+  type ModuleHttpClient,
+  type ModuleHttpOptions
+} from './platform-contract.ts'
+export {
+  useMapFilterPort,
+  useMapSelectionPort,
+  useMapStylePort,
+  useModuleHttp
+} from './platform-vue.ts'
+export {
+  externalProviders,
+  isExternalProvider,
+  type ExternalProvider
+} from '../app/types/externalProvider.ts'
+export {
+  mapCursorValue,
+  setMapCursor,
+  type MapCursorState
+} from '../app/utils/mapCursor.ts'
+export {
   buildAbsoluteUrl,
   buildBreadcrumbStructuredData,
   buildCollectionPageStructuredData,

@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import type { MapContext, MapFeatureInfoProvider } from '#frontend-module-sdk'
-import { useMapContext } from '#frontend-module-sdk'
+import { useMapContext, useMapSelectionPort } from '#frontend-module-sdk'
 import { onBeforeUnmount, watch } from 'vue'
 
 interface RenderedAreaFeature {
@@ -15,8 +15,7 @@ interface RenderedAreaFeature {
 
 const mapContext = useMapContext()
 const areas = useAnalysisAreasStore()
-const mapStore = useMapStore()
-const mapSelection = useMapSelection()
+const mapSelection = useMapSelectionPort()
 const route = useRoute()
 let unregisterInteraction: (() => void) | undefined
 let unregisterFeatureInfo: (() => void) | undefined
@@ -94,9 +93,11 @@ async function selectFeature(feature: RenderedAreaFeature, context: MapContext) 
     properties: feature.properties,
     geometry: feature.geometry
   })
-  const request = mapSelection.selectAnalysisArea(id)
-  if (window.matchMedia('(max-width: 1279px)').matches) mapStore.openGisPanel('selection')
-  await request
+  mapSelection.select(
+    { type: 'analysis-area', id },
+    { reveal: import.meta.client && window.matchMedia('(max-width: 1279px)').matches }
+  )
+  await areas.loadDetails(id)
 }
 
 async function selectRequestedArea(context: MapContext) {

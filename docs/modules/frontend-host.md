@@ -10,6 +10,8 @@ geladen.
 Der Nuxt-Host integriert optionale Frontend-Module vor `dev`, `typecheck` und
 `build`. Die Architekturentscheidung und ihre Grenzen stehen im
 [Frontend-Modul-ADR](../architecture/adr-frontend-build-time-modules.md).
+Öffentliche Runtime-Fähigkeiten und UI-Primitives sind unter
+[Frontend-Platform-Ports](frontend-platform-ports.md) dokumentiert.
 
 ## Verzeichnis und Definition
 

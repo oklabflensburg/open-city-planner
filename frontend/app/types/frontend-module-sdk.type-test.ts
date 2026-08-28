@@ -1,4 +1,12 @@
-import type { FrontendModuleUiContribution, MapLayerContribution, MapSourceContribution } from '#frontend-module-sdk'
+import type {
+  FrontendModuleUiContribution,
+  MapFilterPort,
+  MapLayerContribution,
+  MapSelectionPort,
+  MapSourceContribution,
+  MapStylePort,
+  ModuleHttpClient
+} from '#frontend-module-sdk'
 
 export const validNavigationContribution: FrontendModuleUiContribution = {
   id: 'type-test.primary-navigation',
@@ -34,3 +42,14 @@ export const validMapLayer: MapLayerContribution = {
   group: 'overlay',
   layer: { type: 'circle', paint: { 'circle-color': '#154d73' } }
 }
+
+export const validModuleHttp: ModuleHttpClient = {
+  request: async <T>() => undefined as T
+}
+
+export const validMapFilterPort: MapFilterPort = {
+  toQuery: () => new URLSearchParams()
+}
+
+export const validMapSelectionPort = {} as MapSelectionPort
+export const validMapStylePort = {} as MapStylePort

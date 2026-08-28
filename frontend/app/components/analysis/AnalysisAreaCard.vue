@@ -48,9 +48,10 @@
 <script setup lang="ts">
 import { LoaderCircle, X } from '@lucide/vue'
 import type { AnalysisAreaType, AreaStatisticValue } from '~/types/analysisArea'
+import { useMapSelectionPort } from '#frontend-module-sdk'
 
 const store = useAnalysisAreasStore()
-const mapSelection = useMapSelection()
+const mapSelection = useMapSelectionPort()
 const props = withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 const embedded = computed(() => props.embedded)
 const area = computed(() => store.selectedArea)
@@ -78,6 +79,6 @@ function typeLabel(type: AnalysisAreaType) {
   return ({ MUNICIPALITY: 'Gemeinde', DISTRICT: 'Stadtteil', QUARTER: 'Quartier' })[type]
 }
 function clearSelection() {
-  mapSelection.clearSelection()
+  mapSelection.clear()
 }
 </script>

@@ -1,12 +1,23 @@
 import { fileURLToPath } from 'node:url'
+import { delimiter, resolve } from 'node:path'
 import { activeFrontendViolations } from './import-boundaries.ts'
 
 const defaultRepositoryRoot = fileURLToPath(new URL('../..', import.meta.url))
 const repositoryRoot = process.env.OCP_ARCHITECTURE_ROOT || defaultRepositoryRoot
 const frontendRoot = process.env.OCP_ARCHITECTURE_FRONTEND_ROOT
+const installedModuleDirectories = (process.env.OCP_INSTALLED_FRONTEND_MODULE_ROOTS || '')
+  .split(delimiter)
+  .filter(Boolean)
 
 try {
-  const violations = activeFrontendViolations({ repositoryRoot, frontendRoot })
+  const localModules = frontendRoot
+    ? resolve(frontendRoot, 'frontend-modules')
+    : fileURLToPath(new URL('../frontend-modules', import.meta.url))
+  const violations = activeFrontendViolations({
+    repositoryRoot,
+    frontendRoot,
+    modulesDirectories: [localModules, ...installedModuleDirectories]
+  })
   for (const item of violations) {
     const guidance = item.rule === 'ARCH-FE-HOST-001'
       ? 'Use the contribution registry instead of concrete module knowledge.'

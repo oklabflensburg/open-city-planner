@@ -11,6 +11,7 @@ import {
 import { createFrontendContributionRegistry } from './ui-registry.ts'
 import { createMapExtensionDefinitionRegistry } from './map-definition-registry.ts'
 import { MAP_LAYER_GROUPS } from './map-contract.ts'
+import { scanModuleImportBoundaries } from './import-boundaries.ts'
 
 const moduleId = z.string().regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/).max(63)
 const uiVisibility = z.strictObject({
@@ -348,22 +349,12 @@ function walkFiles(directory: string): string[] {
 }
 
 function validateModuleImports(moduleId: string, moduleRoot: string, layerPath: string) {
-  const sourceFiles = walkFiles(layerPath).filter(file => /\.(?:vue|[cm]?[jt]sx?)$/.test(file))
-  const importPattern = /(?:from\s*|import\s*\()\s*['"]([^'"]+)['"]/g
-  for (const file of sourceFiles) {
-    const contents = readFileSync(file, 'utf8')
-    for (const match of contents.matchAll(importPattern)) {
-      const specifier = match[1]!
-      if (specifier.startsWith('~/') || specifier.startsWith('@/') || specifier.includes('frontend-modules/')) {
-        throw new FrontendModuleError(`Frontend module "${moduleId}" imports private host or module internals via "${specifier}" in ${file}.`)
-      }
-      if (!specifier.startsWith('.')) continue
-      const target = resolve(dirname(file), specifier)
-      const fromModule = relative(moduleRoot, target)
-      if (fromModule === '..' || fromModule.startsWith(`..${sep}`)) {
-        throw new FrontendModuleError(`Frontend module "${moduleId}" imports outside its own module through "${specifier}" in ${file}.`)
-      }
-    }
+  const violation = scanModuleImportBoundaries(moduleRoot, layerPath)[0]
+  if (violation?.reason === 'private-host-import') {
+    throw new FrontendModuleError(`Frontend module "${moduleId}" imports private host or module internals via "${violation.target}" in ${violation.source}.`)
+  }
+  if (violation) {
+    throw new FrontendModuleError(`Frontend module "${moduleId}" imports outside its own module through "${violation.target}" in ${violation.source}.`)
   }
 }
 
