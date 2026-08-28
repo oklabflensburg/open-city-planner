@@ -121,8 +121,11 @@ der deklarierte Backend-Range geprüft. Die Werte enthalten keine Secrets.
 - private Host-Imports und ungebundene Aufrufe privater Host-Auto-Imports auch in
   Vue-Scriptblöcken und entpackten installierbaren Paketen. Öffentliche Nuxt-/Vue-
   Auto-Imports und lokal gebundene, gleichnamige Funktionen bleiben erlaubt;
-- Host-Auto-Imports werden aus `app/composables` und `app/stores`, moduleigene
-  Auto-Imports aus `layer/app/composables` und `layer/app/stores` abgeleitet.
+- Private Host-Auto-Imports aus den Nuxt-Auto-Import-Verzeichnissen sind in
+  installierbaren Modulen verboten. Host-Auto-Imports werden aus
+  `app/composables`, `app/utils` und `app/stores`, moduleigene Auto-Imports
+  symmetrisch aus `layer/app/composables`, `layer/app/utils` und
+  `layer/app/stores` abgeleitet.
   Namenskollisionen zwischen Host und Modul stoppen den Preflight; Modulnamen
   werden nicht aus der Modul-ID erraten.
 

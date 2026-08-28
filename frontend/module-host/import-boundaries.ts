@@ -34,6 +34,11 @@ export type ModuleImportViolation = {
 }
 
 const sourceExtension = /\.(?:vue|[cm]?[jt]sx?)$/
+const autoImportDirectories = [
+  'app/composables',
+  'app/utils',
+  'app/stores'
+] as const
 
 type ExportedValue = { name: string, source: string, line: number }
 type BoundaryScanOptions = {
@@ -55,10 +60,9 @@ export function scanFrontendArchitecture(options: ScanOptions): ArchitectureViol
   const moduleIds = [...new Set(moduleEntries.map(entry => entry.id))]
   const violations: ArchitectureViolation[] = []
 
-  const hostAutoImports = collectAutoImportExports([
-    resolve(frontendRoot, 'app/composables'),
-    resolve(frontendRoot, 'app/stores')
-  ])
+  const hostAutoImports = collectAutoImportExports(
+    autoImportDirectories.map(directory => resolve(frontendRoot, directory))
+  )
   for (const module of moduleEntries) {
     for (const item of scanModuleImportBoundaries(module.root, module.root, { frontendRoot, hostAutoImports })) {
       violations.push({ ...makeViolation(repositoryRoot, 'ARCH-FE-MODULE-001', item.source, {
@@ -104,14 +108,12 @@ export function scanModuleImportBoundaries(
   const resolvedModuleRoot = resolve(moduleRoot)
   const violations: ModuleImportViolation[] = []
   const frontendRoot = resolve(options.frontendRoot ?? resolve(import.meta.dirname, '..'))
-  const hostExports = options.hostAutoImports ?? collectAutoImportExports([
-    resolve(frontendRoot, 'app/composables'),
-    resolve(frontendRoot, 'app/stores')
-  ])
-  const moduleExports = collectAutoImportExports([
-    resolve(resolvedModuleRoot, 'layer/app/composables'),
-    resolve(resolvedModuleRoot, 'layer/app/stores')
-  ])
+  const hostExports = options.hostAutoImports ?? collectAutoImportExports(
+    autoImportDirectories.map(directory => resolve(frontendRoot, directory))
+  )
+  const moduleExports = collectAutoImportExports(
+    autoImportDirectories.map(directory => resolve(resolvedModuleRoot, 'layer', directory))
+  )
   const hostNames = new Set(hostExports.map(item => item.name))
   const moduleNames = new Set(moduleExports.map(item => item.name))
   for (const exported of moduleExports) {

@@ -99,6 +99,10 @@ describe('frontend module architecture gate', () => {
       'useAuthStore()',
       'function invoke(useFilterStore: () => unknown) { return useFilterStore() }'
     ].join('\n'))
+    writeFileSync(resolve(layer, 'sdk-imported.ts'), [
+      "import { mapCursorValue } from '#frontend-module-sdk'",
+      'mapCursorValue()'
+    ].join('\n'))
     writeFileSync(resolve(layer, 'public.vue'), [
       '<script>const useMapSelection = () => ({})</script>',
       '<script setup lang="ts">function invoke(useApi: () => unknown) { return useApi() }</script>',
@@ -108,38 +112,65 @@ describe('frontend module architecture gate', () => {
     expect(scanModuleImportBoundaries(resolve(root, 'analysis-areas'), layer)).toEqual([])
   })
 
-  it('derives arbitrary private composables and stores from the selected host root', () => {
+  it('derives arbitrary private composables, utilities and stores from the selected host root', () => {
     const root = mkdtempSync(resolve(tmpdir(), 'ocp-auto-import-root-'))
     const frontendRoot = resolve(root, 'frontend')
     const moduleRoot = resolve(frontendRoot, 'frontend-modules/demo')
     const layer = resolve(moduleRoot, 'layer/app')
     mkdirSync(resolve(frontendRoot, 'app/composables'), { recursive: true })
+    mkdirSync(resolve(frontendRoot, 'app/utils'), { recursive: true })
     mkdirSync(resolve(frontendRoot, 'app/stores'), { recursive: true })
     mkdirSync(layer, { recursive: true })
     writeFileSync(resolve(frontendRoot, 'app/composables/polygon.ts'), 'export function usePolygonApi() { return {} }\nexport const useGisInvalidation = () => undefined\n')
+    writeFileSync(resolve(frontendRoot, 'app/utils/private.ts'), 'export function privateHelper() {}\n')
     writeFileSync(resolve(frontendRoot, 'app/stores/auth.ts'), 'export const useAuthStore = () => ({})\n')
-    writeFileSync(resolve(layer, 'consumer.ts'), 'usePolygonApi()\nuseGisInvalidation()\nuseAuthStore()\n')
+    writeFileSync(resolve(layer, 'consumer.ts'), 'usePolygonApi()\nuseGisInvalidation()\nprivateHelper()\nuseAuthStore()\n')
 
     expect(scanModuleImportBoundaries(moduleRoot, layer, { frontendRoot }).map(item => item.target))
-      .toEqual(['usePolygonApi', 'useGisInvalidation', 'useAuthStore'])
+      .toEqual(['usePolygonApi', 'useGisInvalidation', 'privateHelper', 'useAuthStore'])
   })
 
-  it('allows module-owned auto-imports and rejects collisions at their declaration', () => {
+  it('rejects a real host utility when it is called as an unbound auto-import', () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'ocp-real-host-utility-'))
+    const moduleRoot = resolve(root, 'analysis-areas')
+    const layer = resolve(moduleRoot, 'layer/app')
+    mkdirSync(layer, { recursive: true })
+    writeFileSync(resolve(layer, 'consumer.ts'), 'mapCursorValue()\n')
+
+    expect(scanModuleImportBoundaries(moduleRoot, layer)).toEqual([
+      expect.objectContaining({ target: 'mapCursorValue', reason: 'private-host-auto-import' })
+    ])
+  })
+
+  it('allows module-owned auto-imports from composables, utilities and stores', () => {
     const root = mkdtempSync(resolve(tmpdir(), 'ocp-module-auto-imports-'))
     const frontendRoot = resolve(root, 'frontend')
     const moduleRoot = resolve(frontendRoot, 'frontend-modules/demo')
     const layer = resolve(moduleRoot, 'layer/app')
-    mkdirSync(resolve(frontendRoot, 'app/stores'), { recursive: true })
     mkdirSync(resolve(layer, 'composables'), { recursive: true })
+    mkdirSync(resolve(layer, 'utils'), { recursive: true })
     mkdirSync(resolve(layer, 'stores'), { recursive: true })
-    writeFileSync(resolve(frontendRoot, 'app/stores/auth.ts'), 'export const useAuthStore = () => ({})\n')
     writeFileSync(resolve(layer, 'composables/local.ts'), 'export function useLocalApi() { return {} }\n')
+    writeFileSync(resolve(layer, 'utils/local.ts'), 'export function moduleHelper() {}\n')
     writeFileSync(resolve(layer, 'stores/local.ts'), 'export const useLocalStore = () => ({})\n')
-    writeFileSync(resolve(layer, 'stores/collision.ts'), 'export const useAuthStore = () => ({})\n')
-    writeFileSync(resolve(layer, 'consumer.ts'), 'useLocalApi()\nuseLocalStore()\n')
+    writeFileSync(resolve(layer, 'consumer.ts'), 'useLocalApi()\nmoduleHelper()\nuseLocalStore()\n')
 
-    expect(scanModuleImportBoundaries(moduleRoot, layer, { frontendRoot })).toEqual([
-      expect.objectContaining({ target: 'useAuthStore', reason: 'private-host-auto-import' })
+    expect(scanModuleImportBoundaries(moduleRoot, layer, { frontendRoot })).toEqual([])
+  })
+
+  it('rejects host and module auto-import name collisions at their declaration', () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'ocp-module-auto-import-collision-'))
+    const frontendRoot = resolve(root, 'frontend')
+    const moduleRoot = resolve(frontendRoot, 'frontend-modules/demo')
+    const hostUtils = resolve(frontendRoot, 'app/utils')
+    const moduleUtils = resolve(moduleRoot, 'layer/app/utils')
+    mkdirSync(hostUtils, { recursive: true })
+    mkdirSync(moduleUtils, { recursive: true })
+    writeFileSync(resolve(hostUtils, 'shared.ts'), 'export function sharedHelper() {}\n')
+    writeFileSync(resolve(moduleUtils, 'shared.ts'), 'export function sharedHelper() {}\n')
+
+    expect(scanModuleImportBoundaries(moduleRoot, moduleRoot, { frontendRoot })).toEqual([
+      expect.objectContaining({ target: 'sharedHelper', reason: 'private-host-auto-import' })
     ])
   })
 
