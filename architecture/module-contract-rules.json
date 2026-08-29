@@ -32,6 +32,12 @@
       "checker": "scripts/check_external_module_imports.py"
     },
     {
+      "id": "ARCH-BE-PORT-OWNERSHIP-001",
+      "area": "backend",
+      "summary": "Oeffentliche Host-Port-Adapter haengen nicht vom entfernbaren Built-in Analysis Areas ab.",
+      "checker": "backend/tests/test_module_host_ports.py"
+    },
+    {
       "id": "ARCH-BE-SECRET-001",
       "area": "backend",
       "summary": "Backend-Module lesen Konfiguration und Secrets nur ueber namespacete Host-Primitives.",

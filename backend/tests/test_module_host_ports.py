@@ -1,9 +1,13 @@
+import ast
+import subprocess
+import sys
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from uuid import uuid4
 
 import pytest
+from sqlalchemy.dialects import postgresql
 
 from app.integrations import module_host_ports
 from app.integrations.module_host_ports import (
@@ -11,15 +15,19 @@ from app.integrations.module_host_ports import (
     HostMapPreviews,
     HostModuleCache,
     HostPolygonAnalytics,
+    HostPolygonQueries,
     HostPublicQueries,
 )
 from app.platform.modules.sdk import (
     MapPreviewRequest,
     MapPreviewUnavailableError,
     PolygonFilterValues,
+    PolygonScope,
 )
 from app.schemas.analytics import BenchmarkMetrics
 from app.services.map_previews import MapPreview, MapPreviewError
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.mark.asyncio
@@ -104,11 +112,11 @@ async def test_preview_port_returns_public_result_and_maps_private_error(monkeyp
 
 @pytest.mark.asyncio
 async def test_polygon_analytics_maps_private_schema_to_frozen_sdk_dto(monkeypatch) -> None:
-    session = SimpleNamespace(scalar=AsyncMock(return_value=1))
-    monkeypatch.setattr(module_host_ports.analytics, "_base_filters", lambda *args: [])
+    session = object()
+    monkeypatch.setattr(module_host_ports.polygon_analytics, "base_filters", lambda *args: [])
     monkeypatch.setattr(
-        module_host_ports.analytics,
-        "_benchmark_metrics",
+        module_host_ports.polygon_analytics,
+        "benchmark_metrics",
         AsyncMock(
             return_value=BenchmarkMetrics(
                 polygon_count=2,
@@ -122,11 +130,101 @@ async def test_polygon_analytics_maps_private_schema_to_frozen_sdk_dto(monkeypat
         ),
     )
 
-    result = await HostPolygonAnalytics().metrics_for_area(
-        session, uuid4(), PolygonFilterValues(categories=("food",))
+    result = await HostPolygonAnalytics().metrics(
+        session, PolygonScope((7, 11)), PolygonFilterValues(categories=("food",))
     )
 
     assert result is not None
     assert result.polygon_count == 2
     assert result.vacancy_rate is None
     assert not hasattr(result, "_sa_instance_state")
+
+
+def test_polygon_scope_uses_one_array_parameter_instead_of_expanding_ids() -> None:
+    expression = module_host_ports._polygon_scope_filter(PolygonScope((7, 11, 13)))
+    compiled = expression.compile(dialect=postgresql.dialect())
+
+    assert "user_polygons.id = ANY" in str(compiled)
+    assert len(compiled.params) == 1
+    assert tuple(next(iter(compiled.params.values()))) == (7, 11, 13)
+
+
+@pytest.mark.asyncio
+async def test_polygon_query_uses_neutral_scope_and_returns_public_dtos() -> None:
+    rows = [
+        {
+            "uuid": "8ed4671e-7080-4bd8-965c-8f4191bb2bb0",
+            "slug": "markt-1",
+            "name": "Markt 1",
+            "category": "food",
+            "floor": "EG",
+            "address_display_name": "Markt 1, Flensburg",
+            "occupancy_status": "OCCUPIED",
+            "area_m2": 42.5,
+        }
+    ]
+    result = SimpleNamespace(mappings=lambda: rows)
+    session = SimpleNamespace(execute=AsyncMock(return_value=result))
+
+    values = await HostPolygonQueries().list_by_scope(
+        session, PolygonScope((7,)), limit=25
+    )
+
+    assert len(values) == 1
+    assert values[0].slug == "markt-1"
+    statement = session.execute.await_args.args[0]
+    assert "analysis_area" not in str(statement).lower()
+    assert " = ANY" in str(statement)
+
+
+def test_module_port_adapters_do_not_import_analysis_areas() -> None:
+    adapter_root = ROOT / "backend/app/integrations"
+    sources = sorted(adapter_root.glob("*module*port*.py"))
+
+    assert sources
+    for source in sources:
+        tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        imports = {
+            node.module
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module
+        }
+        imports.update(
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+        )
+        assert not any(
+            name == "app.modules.analysis_areas"
+            or name.startswith("app.modules.analysis_areas.")
+            for name in imports
+        ), f"{source} must not import app.modules.analysis_areas"
+
+
+def test_module_host_ports_import_without_builtin_analysis_areas() -> None:
+    code = """
+import importlib.abc
+import sys
+
+class BlockAnalysisAreas(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "app.modules.analysis_areas" or fullname.startswith(
+            "app.modules.analysis_areas."
+        ):
+            raise ModuleNotFoundError(fullname)
+        return None
+
+sys.meta_path.insert(0, BlockAnalysisAreas())
+from app.integrations.module_host_ports import HostPolygonAnalytics, HostPolygonQueries
+assert HostPolygonAnalytics and HostPolygonQueries
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=ROOT / "backend",
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr

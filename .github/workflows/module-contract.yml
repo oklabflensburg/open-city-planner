@@ -119,6 +119,11 @@ jobs:
             --build-workflow github-actions/module-contract --license AGPL-3.0-only \
             --output "${RUNNER_TEMP}/analysis-areas-1.0.0.ocp")
         working-directory: .
+      - name: Prove the planned public polygon-port consumer flow
+        working-directory: backend
+        run: |
+          .venv/bin/python ../scripts/check_analysis_areas_port_consumer.py \
+            ../.external-analysis-areas/backend/src
       - name: Verify, install disabled and prove migration parity
         working-directory: backend
         run: |

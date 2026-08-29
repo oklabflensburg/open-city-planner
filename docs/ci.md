@@ -30,7 +30,10 @@ Der Cross-Repo-Teil des Module Contract Gate baut `ocp-module-analysis-areas`
 reproduzierbar vom vollständigen PR-#2-Commit
 `a63af188a0cf4ba10a389302bae4c1e0d80cfeda`, prüft Bundle, deaktivierte
 Installation, Migration Ownership, Enable/Disable/Re-enable und die bestehenden
-API-Characterization-Tests. `scripts/check_external_module_imports.py` steht für
+API-Characterization-Tests. Eine zusätzliche Consumer-Probe liest die
+Area→Polygon-Relation ausschließlich über die Persistenzmodelle des externen
+Moduls und übergibt einen neutralen `PolygonScope` an den Host-Port.
+`scripts/check_external_module_imports.py` steht für
 den koordinierten SDK-1.9-Folgecommit bereit und verbietet dort alle Host-Imports
 außer `app.platform.modules.sdk`.
 

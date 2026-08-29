@@ -15,6 +15,10 @@ Für ausgecheckte oder entpackte First-Party-Module prüft
 Regel `ARCH-BE-INSTALLED-001`. Erlaubt ist aus `app.*` ausschließlich
 `app.platform.modules.sdk`; damit kann dieselbe Negativregel vor Wheel-Build und
 nach Installation auf den tatsächlichen Paketinhalt angewendet werden.
+`ARCH-BE-PORT-OWNERSHIP-001` prüft zusätzlich alle öffentlichen
+Modul-Port-Adapter unter `app.integrations`: Sie dürfen das entfernbare Built-in
+`app.modules.analysis_areas` nicht importieren. Ein separater Importtest blockiert
+dieses Package vollständig und lädt anschließend `module_host_ports` neu.
 
 Nach der Installation der gelockten Backend- und Frontend-Abhängigkeiten reicht lokal:
 

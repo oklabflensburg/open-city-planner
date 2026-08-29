@@ -24,8 +24,8 @@ DB-Treiberfehler zum Modulvertrag zu machen.
 | `CacheGenerationPort` | geteilte Read-Model-Invalidierung lesen | Session, Ressourcenname | monotone Generation; keine Redis-/Key-Details |
 | `PublicQueryPort` | Host Security | Request, Session, begrenzter Ressourcenname | Guard oder etablierter HTTP-Fehler; `PublicQueryLimits` ist immutable |
 | `MapPreviewPort` | Host Map Rendering | `MapPreviewRequest` mit GeoJSON-Primitiven | Bytes, Content-Type, ETag, Cache-Hit; stabile Preview-Exception |
-| `PolygonQueryPort` | Polygon-Domäne | Session, Gebiet-UUID, Limit | immutable `PublicPolygonSummary`; niemals ORM |
-| `PolygonAnalyticsPort` | Polygon-/Analytics-Domäne | Session, Gebiet-UUID, primitive Filter | `PolygonMetrics` und `CountValue`; niemals SQL-Ausdrücke/ORM |
+| `PolygonQueryPort` | Polygon-Domäne | Session, immutable `PolygonScope` aus primitiven Polygon-IDs, Limit | immutable `PublicPolygonSummary`; niemals ORM |
+| `PolygonAnalyticsPort` | Polygon-/Analytics-Domäne | Session, `PolygonScope`, primitive Filter | `PolygonMetrics` und `CountValue`; niemals SQL-Ausdrücke/ORM |
 | `StatisticsQueryPort` | Kommunalstatistik-Domäne | Session, Slug, optionaler Metrik-Key | immutable Statistik-DTOs oder `None` |
 
 ## Legacy-Import-Inventar und Ownership
@@ -48,8 +48,8 @@ Fachdomäne, C = Analysis-Areas-owned, D = obsolete Legacy-Kopplung.
 | `app.services.map_previews.MapPreviewError` | A | `MapPreviewUnavailableError` | Map Preview |
 | `app.models.user_polygon.UserPolygon` | B | `PolygonQueryPort` / `PolygonAnalyticsPort` und DTOs | Polygons |
 | `app.services.analytics._base_filters` | B | primitive `PolygonFilterValues` am `PolygonAnalyticsPort` | Polygon Analytics |
-| `app.services.analytics._benchmark_metrics` | B | `PolygonAnalyticsPort.metrics_for_area` | Polygon Analytics |
-| `app.services.analytics._counts` | B | `PolygonAnalyticsPort.category_counts_for_area` | Polygon Analytics |
+| `app.services.analytics._benchmark_metrics` | B | `PolygonAnalyticsPort.metrics` | Polygon Analytics |
+| `app.services.analytics._counts` | B | `PolygonAnalyticsPort.category_counts` | Polygon Analytics |
 | `app.services.area_statistics.area_statistics` | B | `StatisticsQueryPort.for_area` | Statistics |
 | `app.services.area_statistics.area_statistic_series` | B | `StatisticsQueryPort.series_for_area` | Statistics |
 | `app.services.poi_categories.AREA_POI_CATEGORY_SQL` | C | kleine OSM-Tag-Projektion zusammen mit der bestehenden Gebiet-POI-Query im Modul | Modul |
@@ -72,6 +72,29 @@ die konkrete Analysis-Areas-Antwort. Die privaten Analytics-Helfer bleiben priva
 nur der bestehende Host-Adapter darf sie hinter fachlich benannten Operationen
 aufrufen. Der direkte Sessionimport ist ersatzlos obsolet, weil SDK 1.2 bereits
 die passende Transaktionsgrenze besitzt.
+
+## Area→Polygon-Ownership und Consumer-Flow
+
+Der erste Entwurf nahm eine Gebiet-UUID entgegen und löste sie im Host über die
+Built-in-Modelle `AnalysisArea` und `PolygonAnalysisArea` auf. Das war ein
+Ownership Leak: Nach dem Cutover soll dieses Built-in-Package entfernt werden,
+und die Relation gehört fachlich zum externen Modul.
+
+Das externe Modul löst künftig innerhalb einer vom vorhandenen
+`DatabaseSessionProvider` gelieferten Session zunächst seine eigene
+`AnalysisArea` auf. Danach liest es aus seinem eigenen
+`PolygonAnalysisArea`-Modell die primitiven Integer-IDs und erzeugt einen
+unveränderlichen `PolygonScope`. Nur dieser neutrale Scope wird an
+`PolygonQueryPort.list_by_scope`, `PolygonAnalyticsPort.metrics` oder
+`PolygonAnalyticsPort.category_counts` übergeben. Ein nicht vorhandenes Gebiet
+behandelt das Modul vor dem Port-Aufruf selbst.
+
+Der Host kennt dadurch weder Gebiet-UUID noch Relationstabelle. `UserPolygon` und
+die Analytics-Implementierung bleiben vollständig intern. Für größere Scopes
+bindet der Host alle IDs als einen PostgreSQL-Arrayparameter mit `ANY`; er erzeugt
+keine expandierte `IN (...)`-Parameterliste. Die Relation wird in genau einer
+module-owned Query gelesen, das Aggregat anschließend in genau einer Host-Query
+berechnet.
 
 ## Lifecycle und Datenschutz
 

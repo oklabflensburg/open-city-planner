@@ -35,11 +35,9 @@ from app.models.user import User
 from app.models.user_polygon import UserPolygon
 from app.models.user_session import UserSession
 from app.models.verification_token import EmailVerificationToken
-from app.modules.analysis_areas.persistence.models import AnalysisArea, PolygonAnalysisArea
 
 __all__ = [
     "AdminAuditLog",
-    "AnalysisArea",
     "AuthMfaChallenge",
     "CacheVersion",
     "CityMetrics",
@@ -59,7 +57,6 @@ __all__ = [
     "OAuthFlowGrant",
     "OsmFeature",
     "PasswordResetToken",
-    "PolygonAnalysisArea",
     "PolygonOsmSource",
     "PolygonOutbox",
     "SocialPublication",

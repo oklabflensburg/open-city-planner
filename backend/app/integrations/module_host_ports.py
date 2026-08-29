@@ -6,16 +6,14 @@ The adapters deliberately contain no copied business logic.
 
 from dataclasses import fields
 from typing import cast
-from uuid import UUID
 
 from fastapi import Request
-from sqlalchemy import func, select
+from sqlalchemy import any_, false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cache.service import cache_service
 from app.core.config import Settings, get_settings
 from app.models.user_polygon import UserPolygon
-from app.modules.analysis_areas.persistence.models import AnalysisArea, PolygonAnalysisArea
 from app.platform.modules.sdk import (
     AreaStatistics,
     AreaStatisticSeries,
@@ -27,6 +25,7 @@ from app.platform.modules.sdk import (
     MapPreviewUnavailableError,
     PolygonFilterValues,
     PolygonMetrics,
+    PolygonScope,
     PublicPolygonSummary,
     PublicQueryLimits,
     StatisticsArea,
@@ -34,7 +33,7 @@ from app.platform.modules.sdk import (
     StatisticsSource,
     StatisticValue,
 )
-from app.services import analytics, area_statistics
+from app.services import polygon_analytics
 from app.services.cache_versions import cache_version
 from app.services.map_previews import MapPreviewError, map_preview_service
 from app.services.public_query_security import (
@@ -125,21 +124,21 @@ class HostMapPreviews:
         )
 
 
-def _area_scope(area_id: UUID):
-    return select(PolygonAnalysisArea.polygon_id).join(
-        AnalysisArea, AnalysisArea.id == PolygonAnalysisArea.analysis_area_id
-    ).where(AnalysisArea.uuid == area_id)
+def _polygon_scope_filter(scope: PolygonScope):
+    if not scope.polygon_ids:
+        return false()
+    return UserPolygon.id == any_(scope.polygon_ids)
 
 
-def _polygon_filters(area_id: UUID, values: PolygonFilterValues):
-    result = analytics._base_filters(
+def _polygon_filters(scope: PolygonScope, values: PolygonFilterValues):
+    result = polygon_analytics.base_filters(
         values.floors,
         values.area_sizes,
         values.occupancy_statuses,
         values.business_structures,
         values.sources,
     )
-    result.append(UserPolygon.id.in_(_area_scope(area_id)))
+    result.append(_polygon_scope_filter(scope))
     if values.categories:
         result.append(UserPolygon.category.in_(values.categories))
     return result
@@ -148,14 +147,11 @@ def _polygon_filters(area_id: UUID, values: PolygonFilterValues):
 class HostPolygonQueries:
     """Public read projections owned by the polygon domain."""
 
-    async def list_for_area(
-        self, session: AsyncSession, area_id: UUID, *, limit: int
-    ) -> tuple[PublicPolygonSummary, ...] | None:
+    async def list_by_scope(
+        self, session: AsyncSession, scope: PolygonScope, *, limit: int
+    ) -> tuple[PublicPolygonSummary, ...]:
         if type(limit) is not int or limit < 1:
             raise ValueError("Polygon query limits must be positive integer values.")
-        exists = await session.scalar(select(AnalysisArea.id).where(AnalysisArea.uuid == area_id))
-        if exists is None:
-            return None
         area_m2 = func.ST_Area(func.ST_Transform(UserPolygon.geometry, 25832))
         rows = (
             await session.execute(
@@ -169,7 +165,7 @@ class HostPolygonQueries:
                     UserPolygon.occupancy_status,
                     area_m2.label("area_m2"),
                 )
-                .where(UserPolygon.id.in_(_area_scope(area_id)))
+                .where(_polygon_scope_filter(scope))
                 .order_by(UserPolygon.updated_at.desc(), UserPolygon.id.desc())
                 .limit(limit)
             )
@@ -203,16 +199,14 @@ def _count_values(values) -> tuple[CountValue, ...]:
 class HostPolygonAnalytics:
     """Public aggregate adapter owned by polygon analytics."""
 
-    async def metrics_for_area(
+    async def metrics(
         self,
         session: AsyncSession,
-        area_id: UUID,
+        scope: PolygonScope,
         filters: PolygonFilterValues,
-    ) -> PolygonMetrics | None:
-        if await session.scalar(select(AnalysisArea.id).where(AnalysisArea.uuid == area_id)) is None:
-            return None
-        result = await analytics._benchmark_metrics(
-            session, _polygon_filters(area_id, filters)
+    ) -> PolygonMetrics:
+        result = await polygon_analytics.benchmark_metrics(
+            session, _polygon_filters(scope, filters)
         )
         return PolygonMetrics(
             **{
@@ -238,16 +232,14 @@ class HostPolygonAnalytics:
             ),
         )
 
-    async def category_counts_for_area(
+    async def category_counts(
         self,
         session: AsyncSession,
-        area_id: UUID,
+        scope: PolygonScope,
         filters: PolygonFilterValues,
-    ) -> tuple[CountValue, ...] | None:
-        if await session.scalar(select(AnalysisArea.id).where(AnalysisArea.uuid == area_id)) is None:
-            return None
-        values = await analytics._counts(
-            session, _polygon_filters(area_id, filters)
+    ) -> tuple[CountValue, ...]:
+        values = await polygon_analytics.counts(
+            session, _polygon_filters(scope, filters)
         )
         return _count_values(values)
 
@@ -277,6 +269,8 @@ class HostStatisticsQueries:
     """Public DTO adapter owned by the municipal-statistics domain."""
 
     async def for_area(self, session: AsyncSession, slug: str) -> AreaStatistics | None:
+        from app.services import area_statistics
+
         value = await area_statistics.area_statistics(session, slug)
         if value is None:
             return None
@@ -291,6 +285,8 @@ class HostStatisticsQueries:
     async def series_for_area(
         self, session: AsyncSession, slug: str, metric_key: str
     ) -> AreaStatisticSeries | None:
+        from app.services import area_statistics
+
         value = await area_statistics.area_statistic_series(session, slug, metric_key)
         if value is None:
             return None

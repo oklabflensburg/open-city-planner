@@ -65,6 +65,12 @@ Sub-Interfaces `context.api` und `context.lifecycle`.
 | `permissions` | `PermissionPort` | hostseitige, fail-closed Policy-Auswertung aus #104 |
 | `permission_dependencies` | `PermissionDependencyFactory` | authentifizierte FastAPI-Dependency mit optionalem CSRF für Modulrouten |
 | `cache` | `CachePort` | optionaler, modulgebundener Byte-Cache |
+| `cache_generations` | `CacheGenerationPort` | Read-Model-Generationen ohne Cache-Interna |
+| `public_queries` | `PublicQueryPort` | öffentliche Query-Policy und Limits |
+| `map_previews` | `MapPreviewPort` | öffentliche Kartenvorschauen |
+| `polygons` | `PolygonQueryPort` | Polygonprojektionen für neutrale `PolygonScope`-IDs |
+| `polygon_analytics` | `PolygonAnalyticsPort` | Aggregate für neutrale `PolygonScope`-IDs |
+| `statistics` | `StatisticsQueryPort` | kommunale Statistikprojektionen |
 | `observability` | `ObservabilityPort` | immer vorhanden; Logger ist an Modul-ID/-Version gebunden |
 | `storage` | `StoragePort` | optionaler modulgebundener Blob-Storage |
 | `http` | `HttpClientFactoryPort` | optionaler sicherer Client-Port |
@@ -95,6 +101,14 @@ Migrationen sind im
 Cache-Schlüssel und Storage-Keys gelten relativ zum aktuellen Modul; konkrete
 Adapter müssen sie entsprechend isolieren. Cache-TTLs sind positive ganze Sekunden.
 Die Ports machen keine Redis-, Dateisystem- oder Cloud-SDK-Typen öffentlich.
+
+### Polygon-Scope
+
+Analysis-Areas-Module besitzen die Zuordnung von Gebieten zu Polygonen. Sie lesen
+die primitiven Polygon-IDs aus ihren eigenen Persistenzmodellen und übergeben
+diese als unveränderlichen `PolygonScope`. Die Host-Ports kennen weder
+`AnalysisArea` noch `PolygonAnalysisArea`; Host-ORM-Modelle werden nicht über die
+SDK-Grenze gereicht.
 
 ### Events, Services, Permissions und Jobs
 

@@ -28,6 +28,7 @@ from app.platform.modules.sdk import (
     PermissionPort,
     PolygonAnalyticsPort,
     PolygonQueryPort,
+    PolygonScope,
     PublicQueryLimits,
     PublicQueryPort,
     SchedulerPort,
@@ -126,6 +127,20 @@ def test_public_query_limits_are_validated_and_immutable() -> None:
             revision_namespace="mod_example_module",
             adopted_revisions=frozenset({" historical_001"}),
         )
+
+
+def test_polygon_scope_is_primitive_immutable_and_validated() -> None:
+    scope = PolygonScope((3, 5, 8))
+
+    assert scope.polygon_ids == (3, 5, 8)
+    with pytest.raises(FrozenInstanceError):
+        scope.polygon_ids = (13,)  # type: ignore[misc]
+    with pytest.raises(TypeError, match="immutable tuple"):
+        PolygonScope([3, 5])  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="positive integers"):
+        PolygonScope((0,))
+    with pytest.raises(ValueError, match="unique"):
+        PolygonScope((3, 3))
 
 
 def test_runtime_context_is_bound_to_manifest_and_unimplemented_ports_are_absent() -> None:

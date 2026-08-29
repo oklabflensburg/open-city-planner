@@ -44,6 +44,13 @@ SDK 1.9 stellt die öffentlichen Ersatzverträge bereit; der aktuelle Pin bleib
 bis zum koordinierten Modul-Folgecommit Trusted Code mit der dokumentierten
 Legacy-Grenze.
 
+Der Cross-Repo-Contract modelliert bereits den geplanten Folgeflow: Das externe
+Modul löst Gebiet und `polygon_analysis_areas` über seine eigenen ORM-Modelle und
+den bestehenden `DatabaseSessionProvider` auf, baut daraus einen neutralen
+`PolygonScope` und ruft erst danach den Host-Polygon-Port auf. Der aktuelle Pin
+verwendet produktiv weiterhin den dokumentierten Legacy-Adapter; der Contract
+behauptet daher noch keinen abgeschlossenen SDK-Cutover.
+
 ## Rollback
 
 1. Externes Modul deaktivieren und einen neuen Deployzustand rendern.

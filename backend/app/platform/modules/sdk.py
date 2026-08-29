@@ -404,6 +404,21 @@ class MapPreviewPort(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class PolygonScope:
+    """Fachneutrale Auswahl interner Polygon-IDs aus einer Modulrelation."""
+
+    polygon_ids: tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.polygon_ids, tuple):
+            raise TypeError("Polygon scope IDs must be an immutable tuple.")
+        if any(type(value) is not int or value < 1 for value in self.polygon_ids):
+            raise ValueError("Polygon scope IDs must be positive integers.")
+        if len(set(self.polygon_ids)) != len(self.polygon_ids):
+            raise ValueError("Polygon scope IDs must be unique.")
+
+
+@dataclass(frozen=True, slots=True)
 class PolygonFilterValues:
     """Öffentliche Polygonfilter aus stabilen primitiven Werten."""
 
@@ -476,29 +491,29 @@ class PublicPolygonSummary:
 
 
 class PolygonQueryPort(Protocol):
-    """Liest öffentliche Polygonprojektionen für ein räumliches Gebiet."""
+    """Liest öffentliche Polygonprojektionen für eine fachneutrale Auswahl."""
 
-    async def list_for_area(
-        self, session: AsyncSession, area_id: UUID, *, limit: int
-    ) -> tuple[PublicPolygonSummary, ...] | None: ...
+    async def list_by_scope(
+        self, session: AsyncSession, scope: PolygonScope, *, limit: int
+    ) -> tuple[PublicPolygonSummary, ...]: ...
 
 
 class PolygonAnalyticsPort(Protocol):
-    """Berechnet Polygon-Aggregate für ein räumliches Gebiet."""
+    """Berechnet Polygon-Aggregate für eine fachneutrale Auswahl."""
 
-    async def metrics_for_area(
+    async def metrics(
         self,
         session: AsyncSession,
-        area_id: UUID,
+        scope: PolygonScope,
         filters: PolygonFilterValues,
-    ) -> PolygonMetrics | None: ...
+    ) -> PolygonMetrics: ...
 
-    async def category_counts_for_area(
+    async def category_counts(
         self,
         session: AsyncSession,
-        area_id: UUID,
+        scope: PolygonScope,
         filters: PolygonFilterValues,
-    ) -> tuple[CountValue, ...] | None: ...
+    ) -> tuple[CountValue, ...]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -896,6 +911,7 @@ __all__ = [
     "PolygonFilterValues",
     "PolygonMetrics",
     "PolygonQueryPort",
+    "PolygonScope",
     "PublicPolygonSummary",
     "PublicQueryLimits",
     "PublicQueryPort",
