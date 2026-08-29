@@ -51,10 +51,14 @@ def _installer(root: Path) -> ModuleInstaller:
         host_version=settings.api_version,
         builtin_enabled_ids=settings.enabled_module_list,
         builtin_frontend_enabled_ids=builtin_frontend,
+        excluded_builtin_module_ids=settings.excluded_builtin_module_list,
         module_environment=read_module_environment(env_file=BACKEND_ENV_FILE),
         migration_preflight=lambda enabled_ids: _migration_preflight(root, enabled_ids),
         frontend_preflight=_frontend_preflight,
-        frontend_package_preflight=_frontend_package_preflight,
+        frontend_package_preflight=lambda installed_root: _frontend_package_preflight(
+            installed_root,
+            settings.ocp_excluded_builtin_modules,
+        ),
     )
 
 
@@ -94,7 +98,10 @@ def _frontend_preflight(environment: EnablementEnvironment) -> None:
     )
 
 
-def _frontend_package_preflight(installed_root: Path) -> None:
+def _frontend_package_preflight(
+    installed_root: Path,
+    excluded_builtin_modules: str = "",
+) -> None:
     subprocess.run(
         ["pnpm", "modules:check"],
         cwd=FRONTEND_ROOT,
@@ -103,6 +110,7 @@ def _frontend_package_preflight(installed_root: Path) -> None:
             "OCP_FRONTEND_MODULES": "",
             "OCP_BACKEND_MODULES": "",
             "OCP_INSTALLED_FRONTEND_MODULE_ROOTS": str(installed_root),
+            "OCP_EXCLUDED_BUILTIN_MODULES": excluded_builtin_modules,
         },
         check=True,
     )
@@ -117,6 +125,7 @@ def _environment_values(environment: EnablementEnvironment) -> dict[str, str]:
         "OCP_INSTALLED_FRONTEND_MODULE_ROOTS": (
             environment.installed_frontend_module_roots
         ),
+        "OCP_EXCLUDED_BUILTIN_MODULES": environment.excluded_builtin_modules,
     }
 
 

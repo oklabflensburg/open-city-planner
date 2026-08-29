@@ -1,6 +1,7 @@
 """Kontrollierte First-Party- und Python-Entry-Point-Discovery."""
 
 import os
+import re
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
@@ -9,10 +10,12 @@ from importlib import import_module, metadata
 from pathlib import Path
 
 from app.platform.modules.errors import ModuleDiscoveryError
+from app.platform.modules.manifest import MODULE_ID_PATTERN
 from app.platform.modules.sdk import ModuleDefinition
 
 ENTRY_POINT_GROUP = "open_city_planner.modules"
 ENABLED_INSTALLED_BACKEND_PATHS_ENV = "OCP_ENABLED_INSTALLED_BACKEND_PATHS"
+EXCLUDED_BUILTIN_MODULES_ENV = "OCP_EXCLUDED_BUILTIN_MODULES"
 type DefinitionSource = ModuleDefinition | Callable[[], ModuleDefinition]
 
 BUILTIN_MODULES_DIRECTORY = Path(__file__).resolve().parents[2] / "modules"
@@ -21,8 +24,26 @@ BUILTIN_MODULES_DIRECTORY = Path(__file__).resolve().parents[2] / "modules"
 class FirstPartyModuleDiscovery:
     """Discovery aus Built-in-Konvention oder explizitem Test-/Composition-Katalog."""
 
-    def __init__(self, catalog: Mapping[str, DefinitionSource] | None = None) -> None:
+    def __init__(
+        self,
+        catalog: Mapping[str, DefinitionSource] | None = None,
+        *,
+        excluded_module_ids: Sequence[str] | str | None = None,
+    ) -> None:
         self._catalog = catalog
+        available = frozenset(_available_builtin_module_ids() if catalog is None else catalog)
+        self._excluded_module_ids = parse_excluded_builtin_module_ids(
+            os.environ.get(EXCLUDED_BUILTIN_MODULES_ENV, "")
+            if excluded_module_ids is None
+            else excluded_module_ids
+        )
+        unknown = sorted(self._excluded_module_ids.difference(available))
+        if unknown:
+            raise ModuleDiscoveryError(
+                "The excluded built-in module does not exist; correct the composition configuration.",
+                module_id=unknown[0],
+                origin="first-party",
+            )
 
     def discover(self, enabled_module_ids: frozenset[str]) -> Sequence[ModuleDefinition]:
         return self._discover(enabled_module_ids)
@@ -31,9 +52,9 @@ class FirstPartyModuleDiscovery:
         """Entdecke alle lokal vorhandenen Built-ins ohne sie runtime-seitig zu aktivieren."""
 
         module_ids = (
-            frozenset(_available_builtin_module_ids())
+            frozenset(_available_builtin_module_ids()).difference(self._excluded_module_ids)
             if self._catalog is None
-            else frozenset(self._catalog)
+            else frozenset(self._catalog).difference(self._excluded_module_ids)
         )
         return self._discover(module_ids)
 
@@ -41,7 +62,7 @@ class FirstPartyModuleDiscovery:
         definitions: list[ModuleDefinition] = []
         selected_ids = (
             module_ids if self._catalog is None else module_ids.intersection(self._catalog)
-        )
+        ).difference(self._excluded_module_ids)
         for module_id in sorted(selected_ids):
             try:
                 definition = (
@@ -100,6 +121,31 @@ def _available_builtin_module_ids() -> tuple[str, ...]:
             and (path / "module.py").is_file()
         )
     )
+
+
+def parse_excluded_builtin_module_ids(
+    value: Sequence[str] | str,
+) -> frozenset[str]:
+    """Parse the shared deploy-time built-in composition exclusion strictly."""
+
+    raw = value.split(",") if isinstance(value, str) else list(value)
+    ids = [item.strip() for item in raw if item.strip()]
+    seen: set[str] = set()
+    for module_id in ids:
+        if len(module_id) > 63 or re.fullmatch(MODULE_ID_PATTERN, module_id) is None:
+            raise ModuleDiscoveryError(
+                "The built-in exclusion contains an invalid module ID.",
+                module_id=module_id,
+                origin="composition",
+            )
+        if module_id in seen:
+            raise ModuleDiscoveryError(
+                "The built-in exclusion contains the same module ID more than once.",
+                module_id=module_id,
+                origin="composition",
+            )
+        seen.add(module_id)
+    return frozenset(seen)
 
 
 def _resolve_source(source: DefinitionSource) -> ModuleDefinition:

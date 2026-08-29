@@ -11,6 +11,7 @@ const frontendModules = resolveFrontendModules({
   installedModulesDirectories: (process.env.OCP_INSTALLED_FRONTEND_MODULE_ROOTS || '')
     .split(delimiter)
     .filter(Boolean),
+  excludedBuiltinModules: process.env.OCP_EXCLUDED_BUILTIN_MODULES,
   appPagesDirectory,
   enabledModules: process.env.OCP_FRONTEND_MODULES,
   backendModules: process.env.OCP_BACKEND_MODULES
@@ -159,7 +160,17 @@ export default defineNuxtConfig({
     }
   },
   typescript: {
-    strict: true
+    strict: true,
+    // Installed layers can live outside the host package tree. Their public peer
+    // dependency types must still resolve from the one host build.
+    tsConfig: {
+      compilerOptions: {
+        paths: {
+          vue: [fileURLToPath(new URL('./node_modules/vue', import.meta.url))],
+          pinia: [fileURLToPath(new URL('./node_modules/pinia', import.meta.url))]
+        }
+      }
+    }
   },
   vite: {
     plugins: [tailwindcss()],

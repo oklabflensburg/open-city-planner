@@ -29,6 +29,8 @@ stadtplaner_backend_env_content: |
   APP_BASE_URL=https://stadtplaner.oklabflensburg.de
   API_BASE_URL=https://api.stadtplaner.oklabflensburg.de
   ENABLED_MODULES=analysis-areas
+  # Single source for backend and frontend built-in composition cutovers.
+  OCP_EXCLUDED_BUILTIN_MODULES=
   OCP_ENABLED_INSTALLED_BACKEND_PATHS=
   # Aktive Module ergänzen OCP_MODULE_<MODULE_ID>_<SETTING> aus sicherer Secret-Konfiguration.
   # OCP_MODULE_BIOTOPES_API_URL=https://example.org
@@ -202,6 +204,8 @@ stadtplaner_backend_env_content: |
 # Complete frontend/.env, snapshotted below /etc/stadtplaner/releases/<sha>/.
 stadtplaner_frontend_env_content: |
   OCP_FRONTEND_MODULES=analysis-areas
+  # Wird beim Deploy aus dem Backend-Input validiert und überschrieben.
+  OCP_EXCLUDED_BUILTIN_MODULES=
   OCP_INSTALLED_FRONTEND_MODULE_ROOTS=
   NUXT_PUBLIC_API_BASE_URL=https://api.stadtplaner.oklabflensburg.de/api/v1
   NUXT_API_INTERNAL_BASE_URL=

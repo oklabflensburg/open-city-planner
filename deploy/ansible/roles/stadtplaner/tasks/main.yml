@@ -555,6 +555,8 @@
       value: "{{ stadtplaner_installed_module_env.ENABLED_MODULES }}"
     - key: OCP_ENABLED_INSTALLED_BACKEND_PATHS
       value: "{{ stadtplaner_installed_module_env.OCP_ENABLED_INSTALLED_BACKEND_PATHS }}"
+    - key: OCP_EXCLUDED_BUILTIN_MODULES
+      value: "{{ stadtplaner_installed_module_env.OCP_EXCLUDED_BUILTIN_MODULES }}"
   no_log: true
 
 - name: Bind installed frontend module state to target environment
@@ -572,6 +574,8 @@
       value: "{{ stadtplaner_installed_module_env.OCP_FRONTEND_MODULES }}"
     - key: OCP_INSTALLED_FRONTEND_MODULE_ROOTS
       value: "{{ stadtplaner_installed_module_env.OCP_INSTALLED_FRONTEND_MODULE_ROOTS }}"
+    - key: OCP_EXCLUDED_BUILTIN_MODULES
+      value: "{{ stadtplaner_installed_module_env.OCP_EXCLUDED_BUILTIN_MODULES }}"
   no_log: true
 
 - name: Validate target backend settings before release activation

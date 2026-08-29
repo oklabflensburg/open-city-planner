@@ -31,6 +31,7 @@ class _HostDotEnvSettingsSource(DotEnvSettingsSource):
 class Settings(BaseSettings):
     api_version: str = "0.2.0"
     enabled_modules: str = "analysis-areas"
+    ocp_excluded_builtin_modules: str = ""
     ocp_enabled_installed_backend_paths: str = ""
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/open_city_map"
@@ -271,6 +272,14 @@ class Settings(BaseSettings):
     @property
     def enabled_module_list(self) -> list[str]:
         return [value.strip() for value in self.enabled_modules.split(",") if value.strip()]
+
+    @property
+    def excluded_builtin_module_list(self) -> list[str]:
+        return [
+            value.strip()
+            for value in self.ocp_excluded_builtin_modules.split(",")
+            if value.strip()
+        ]
 
     def validate_security(self) -> None:
         if not self.metrics_path.startswith("/") or "?" in self.metrics_path:

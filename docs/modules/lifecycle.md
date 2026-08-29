@@ -106,7 +106,10 @@ liest installierte Pfade direkt aus `modules.lock`, macht sie aber nicht zum
 Runtime-Importpfad. Der gerenderte Deployzustand entfernt bei Disable außerdem den
 Backend-Pfad aus `OCP_ENABLED_INSTALLED_BACKEND_PATHS`. Bereits importierter Code
 wird nicht aus einem laufenden Prozess entladen; Disable wird vollständig mit dem
-nächsten Build, Deploy beziehungsweise Neustart wirksam. Package-Entfernung und
+nächsten Build, Deploy beziehungsweise Neustart wirksam. Ein explizit
+ausgeschlossener Built-in ist bei Disable kein Fallback; die Composition bleibt
+ausgeschlossen. Der Ablauf steht im [Built-in-Cutover-Runbook](builtin-cutover.md).
+Package-Entfernung und
 explizites Daten-Cleanup gehören zum späteren Installer-Lifecycle.
 
 Beim Re-Enable wird die ID wieder konfiguriert und der vollständige Preflight

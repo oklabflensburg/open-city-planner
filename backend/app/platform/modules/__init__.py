@@ -11,9 +11,11 @@ from app.platform.modules.dependency_graph import resolve_module_order
 from app.platform.modules.discovery import (
     ENABLED_INSTALLED_BACKEND_PATHS_ENV,
     ENTRY_POINT_GROUP,
+    EXCLUDED_BUILTIN_MODULES_ENV,
     EntryPointModuleDiscovery,
     FirstPartyModuleDiscovery,
     activate_enabled_module_python_paths,
+    parse_excluded_builtin_module_ids,
     scoped_module_python_paths,
 )
 from app.platform.modules.errors import (
@@ -110,6 +112,7 @@ from app.platform.modules.services import ServiceRegistry
 __all__ = [
     "ENABLED_INSTALLED_BACKEND_PATHS_ENV",
     "ENTRY_POINT_GROUP",
+    "EXCLUDED_BUILTIN_MODULES_ENV",
     "MODULE_SDK_VERSION",
     "AvailableModuleDiscoveryProvider",
     "BackendModule",
@@ -190,6 +193,7 @@ __all__ = [
     "build_backend_module_inventory",
     "create_module_runtime",
     "module_manifest_json_schema",
+    "parse_excluded_builtin_module_ids",
     "parse_manifest",
     "resolve_module_definitions",
     "resolve_module_order",

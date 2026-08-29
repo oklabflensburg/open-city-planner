@@ -11,6 +11,9 @@ concurrency:
   group: module-contract-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  OCP_CI_RUN_KEY: ocp-ci-${{ github.run_id }}-${{ github.run_attempt }}
+
 jobs:
   backend-contracts:
     name: Backend module contracts
@@ -49,18 +52,127 @@ jobs:
       - name: Run frontend module contract gate
         run: scripts/module-contract-gate frontend
 
+  analysis-areas-cutover:
+    name: Analysis Areas cross-repo cutover
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgis/postgis:16-3.5@sha256:19b6ffa248d2f864d29d6c338459f02d63c0d7ce341fa86b3bcba8484a130bff
+        env:
+          POSTGRES_DB: open_city_map_test
+          POSTGRES_PASSWORD: ${{ env.OCP_CI_RUN_KEY }}
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d open_city_map_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_ENVIRONMENT: test
+      ENABLED_MODULES: ""
+      OCP_FRONTEND_MODULES: ""
+      OCP_EXCLUDED_BUILTIN_MODULES: analysis-areas
+      REDIS_ENABLED: "false"
+      MASTODON_ENABLED: "false"
+      OSM_EXTERNAL_FALLBACK_ENABLED: "false"
+    steps:
+      - name: Configure cutover environment
+        run: |
+          echo "DATABASE_URL=postgresql+asyncpg://postgres:${OCP_CI_RUN_KEY}@127.0.0.1:5432/open_city_map_test" >> "${GITHUB_ENV}"
+          echo "OCP_MODULE_INSTALL_ROOT=${RUNNER_TEMP}/ocp-modules" >> "${GITHUB_ENV}"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: oklabflensburg/ocp-module-analysis-areas
+          ref: 71815f0396ec8bea545588fd8978dc78b284331a
+          path: .external-analysis-areas
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.22.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - name: Install frozen host and module dependencies
+        run: |
+          python -m pip install 'uv==0.12.5'
+          (cd backend && uv sync --frozen --extra dev --no-editable)
+          (cd frontend && pnpm install --frozen-lockfile)
+          (cd .external-analysis-areas/backend && uv sync --frozen --extra dev)
+          (cd .external-analysis-areas/frontend && pnpm install --frozen-lockfile)
+      - name: Build the pinned real OCP bundle
+        run: |
+          (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct 71815f0396ec8bea545588fd8978dc78b284331a)" uv build --wheel)
+          (cd .external-analysis-areas/frontend && pnpm build)
+          (cd backend && .venv/bin/python -m app.cli.modules bundle build \
+            --manifest ../.external-analysis-areas/module.yaml \
+            --backend ../.external-analysis-areas/backend/dist/ocp_module_analysis_areas-1.0.0-py3-none-any.whl \
+            --frontend ../.external-analysis-areas/frontend/dist/analysis-areas-1.0.0.tgz \
+            --publisher oklabflensburg --source-reference pull/2 \
+            --source-repository https://github.com/oklabflensburg/ocp-module-analysis-areas \
+            --source-commit 71815f0396ec8bea545588fd8978dc78b284331a \
+            --build-workflow github-actions/module-contract --license AGPL-3.0-only \
+            --output "${RUNNER_TEMP}/analysis-areas-1.0.0.ocp")
+        working-directory: .
+      - name: Verify, install disabled and prove migration parity
+        working-directory: backend
+        run: |
+          .venv/bin/python -m app.cli.modules verify "${RUNNER_TEMP}/analysis-areas-1.0.0.ocp"
+          .venv/bin/python -m app.cli.modules install "${RUNNER_TEMP}/analysis-areas-1.0.0.ocp"
+          .venv/bin/python -m app.cli.modules env --format json | tee "${RUNNER_TEMP}/disabled-env.json"
+          .venv/bin/python -c 'import json,sys; value=json.load(open(sys.argv[1])); assert value["ENABLED_MODULES"] == ""; assert value["OCP_ENABLED_INSTALLED_BACKEND_PATHS"] == ""; assert value["OCP_EXCLUDED_BUILTIN_MODULES"] == "analysis-areas"' "${RUNNER_TEMP}/disabled-env.json"
+          migration_root="${OCP_MODULE_INSTALL_ROOT}/installed/analysis-areas/1.0.0/backend/site-packages/ocp_module_analysis_areas/migrations/history"
+          for file in 20260814_0014_analysis_areas.py 20260817_0023_area_wikidata.py 20260818_0025_osm_external_links.py 20260819_0032_optimize_area_poi_analytics.py; do
+            cmp "alembic/versions/${file}" "${migration_root}/${file}"
+          done
+      - name: Model exclusive migration ownership and run the full lifecycle
+        working-directory: backend
+        run: |
+          .venv/bin/python - <<'PY'
+          from pathlib import Path
+          for name in (
+              "20260814_0014_analysis_areas.py",
+              "20260817_0023_area_wikidata.py",
+              "20260818_0025_osm_external_links.py",
+              "20260819_0032_optimize_area_poi_analytics.py",
+          ):
+              Path("alembic/versions", name).unlink()
+          PY
+          .venv/bin/python -m app.cli.module_migrations preflight
+          .venv/bin/python -m app.cli.modules enable analysis-areas
+          eval "$(.venv/bin/python -m app.cli.modules env --format shell)"
+          .venv/bin/python -m app.cli.module_migrations upgrade
+          .venv/bin/python tests/e2e_seed.py
+          .venv/bin/python -m pytest tests/test_analysis_area_public_api.py tests/test_analysis_areas_characterization.py
+          backend_inventory="$(../scripts/backend-module-inventory --format env)"
+          (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm modules:check)
+          (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm typecheck)
+          (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm build)
+          .venv/bin/python -m app.cli.modules disable analysis-areas
+          eval "$(.venv/bin/python -m app.cli.modules env --format shell)"
+          test -z "${OCP_ENABLED_INSTALLED_BACKEND_PATHS}"
+          .venv/bin/python -m app.cli.module_migrations preflight
+          .venv/bin/python -m app.cli.modules enable analysis-areas
+
   gate:
     name: Module contract gate
-    needs: [backend-contracts, frontend-contracts]
+    needs: [backend-contracts, frontend-contracts, analysis-areas-cutover]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: ${{ always() }}
     steps:
-      - name: Require both contract suites to pass
+      - name: Require all contract suites to pass
         env:
           BACKEND_RESULT: ${{ needs.backend-contracts.result }}
           FRONTEND_RESULT: ${{ needs.frontend-contracts.result }}
+          CUTOVER_RESULT: ${{ needs.analysis-areas-cutover.result }}
         run: |
           set -euo pipefail
           test "${BACKEND_RESULT}" = success
           test "${FRONTEND_RESULT}" = success
+          test "${CUTOVER_RESULT}" = success

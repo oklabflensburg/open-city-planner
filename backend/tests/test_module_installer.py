@@ -571,6 +571,37 @@ def test_builtin_collision_and_inventory_kinds(tmp_path: Path) -> None:
     assert by_id["inventory-installed"].enabled is False
 
 
+def test_excluded_builtin_allows_external_install_enable_disable_reenable(
+    tmp_path: Path,
+) -> None:
+    installer = ModuleInstaller(
+        tmp_path / "state",
+        host_version="0.2.0",
+        builtin_enabled_ids=("reference",),
+        builtin_frontend_enabled_ids=("reference",),
+        excluded_builtin_module_ids=("reference",),
+    )
+
+    installed = installer.install(_package(tmp_path, "reference", backend=True))
+    assert installed.enabled is False
+    disabled_environment = installer.enablement_environment()
+    assert disabled_environment.enabled_modules == ""
+    assert disabled_environment.frontend_modules == ""
+    assert disabled_environment.runtime_backend_paths == ""
+    assert disabled_environment.excluded_builtin_modules == "reference"
+    inventory = installer.inventory().modules
+    assert [(entry.id, entry.kind) for entry in inventory if entry.id == "reference"] == [
+        ("reference", "installed")
+    ]
+
+    assert installer.enable("reference").enabled is True
+    assert installer.enablement_environment().enabled_modules == "reference"
+    assert "site-packages" in installer.enablement_environment().runtime_backend_paths
+    assert installer.disable("reference").enabled is False
+    assert installer.enablement_environment().runtime_backend_paths == ""
+    assert installer.enable("reference").enabled is True
+
+
 def test_disable_never_runs_preflight_or_removes_migration_resources(tmp_path: Path) -> None:
     package = _package(tmp_path, "migration-history", backend=True, frontend=False)
     calls: list[tuple[str, ...]] = []

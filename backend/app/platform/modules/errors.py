@@ -83,7 +83,8 @@ class DuplicateModuleIdError(ModuleManifestError):
         known_origins = [origin for origin in origins if origin]
         origin_suffix = f" Origins: {', '.join(known_origins)}." if known_origins else ""
         super().__init__(
-            f'Duplicate module ID "{module_id}".{origin_suffix}',
+            f'Duplicate module ID "{module_id}".{origin_suffix} '
+            "Exclude exactly one composition source before activation.",
             module_id=module_id,
         )
         self.origins = tuple(origins)

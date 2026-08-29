@@ -14,7 +14,12 @@ def resolve_backend_module_inventory(settings: Settings) -> BackendModuleInvento
 
     resolved = resolve_module_definitions(
         enabled_module_ids=settings.enabled_module_list,
-        discovery_providers=(FirstPartyModuleDiscovery(), EntryPointModuleDiscovery()),
+        discovery_providers=(
+            FirstPartyModuleDiscovery(
+                excluded_module_ids=settings.excluded_builtin_module_list
+            ),
+            EntryPointModuleDiscovery(),
+        ),
         host_version=settings.api_version,
     )
     return build_backend_module_inventory(resolved)

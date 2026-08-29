@@ -204,6 +204,7 @@ OCP_FRONTEND_MODULES
 OCP_BACKEND_MODULES
 OCP_ENABLED_INSTALLED_BACKEND_PATHS
 OCP_INSTALLED_FRONTEND_MODULE_ROOTS
+OCP_EXCLUDED_BUILTIN_MODULES
 ```
 
 `OCP_ENABLED_INSTALLED_BACKEND_PATHS` enthält ausschließlich Backend-Pfade der
@@ -214,6 +215,10 @@ installierten Backend-Pfade direkt aus `modules.lock` und aktiviert sie nur scop
 für passive Discovery, Preflight und Upgrade. Es gibt keine zweite manuell gepflegte
 Migration-Path-Variable. Built-ins werden weiterhin über die bestehende
 Hostkonfiguration ergänzt und niemals in `modules.lock` geschrieben.
+
+`OCP_EXCLUDED_BUILTIN_MODULES` ist der gemeinsame Backend-/Frontend-Contract für
+einen kontrollierten Source-Cutover. Details stehen im
+[Built-in-Cutover-Runbook](builtin-cutover.md).
 
 ## Compatibility und Lifecycle
 
