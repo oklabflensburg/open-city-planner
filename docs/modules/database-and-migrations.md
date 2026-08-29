@@ -64,6 +64,66 @@ Der Ressourcenpfad ist relativ zu einem installierten Python-Paket. URLs, absolu
 Pfade und Runtime-Downloads sind nicht erlaubt. `register()` wird für Migration
 Discovery nicht ausgeführt.
 
+## Historische Revisionen adoptieren
+
+Beim Externalisieren einer bestehenden Fachdomäne wechselt die Ownership des
+Migrationsquellcodes, nicht die Identität oder Ausführungshistorie der Migration.
+Das Modul deklariert jede übernommene Alembic-ID statisch an seiner einzigen
+`ModuleMigrationSource`:
+
+```python
+ModuleMigrationSource(
+    package="ocp_module_example",
+    resource="migrations",
+    revision_namespace="mod_example",
+    adopted_revisions=frozenset({
+        "20260101_0001",
+        "20260201_0002",
+    }),
+)
+```
+
+Die Dateien, ihre `revision`, `down_revision`, `branch_labels` und `depends_on`
+bleiben unverändert. Adoptierte Revisionen dürfen im globalen Graphen mit Host-
+Revisionen verschachtelt sein; sie müssen weder einen zusammenhängenden Block bilden
+noch am aktuellen Head enden. Eine neue Modulrevision verwendet weiterhin den
+Modulnamespace und wird wie jede neue Migration an den zu diesem Zeitpunkt aktuellen
+globalen Head angehängt:
+
+```python
+revision = "mod_example_0001"
+down_revision = "<aktueller-globaler-head>"
+```
+
+Direkt an die letzte adoptierte Revision darf sie nur anschließen, wenn diese
+zugleich der aktuelle globale Head ist. Andernfalls entstünde neben den späteren
+Host-Revisionen ein zweiter Head, und der Preflight stoppt.
+
+Source-Ownership bestimmt dabei nicht die Parent-Ownership: Eine Hostrevision darf
+auf eine adoptierte Modulrevision folgen und eine neue Modulrevision auf eine
+Hostrevision. Die `MigrationStep`-Planung darf entsprechend mehrfach zwischen Host
+und Modul wechseln.
+
+Der Coordinator akzeptiert eine nicht namespacete Modulrevision ausschließlich,
+wenn ihre exakte ID in `adopted_revisions` steht. Er stoppt bei deklarierten, aber
+fehlenden Revisionen, nicht deklarierten historischen IDs sowie jeder doppelten ID
+zwischen Host und Modul oder zwei Modulen. Es gibt kein Deduping nach Lade- oder
+Dateisystemreihenfolge und keine Ableitung aus Datei-, Tabellen- oder Modulnamen.
+
+Die Analysis-Areas-Referenzdateien heißen beispielsweise
+`20260814_0014_analysis_areas.py`, `20260817_0023_area_wikidata.py`,
+`20260818_0025_osm_external_links.py` und
+`20260819_0032_optimize_area_poi_analytics.py`; ihre tatsächlichen stabilen
+Alembic-IDs sind `20260814_0014`, `20260817_0023`, `20260818_0025` und
+`20260819_0032`.
+
+Während der Contract-Einführung verbleiben diese Dateien noch beim Host. Beim
+späteren Cutover wird jede adoptierte Datei übertragen, nicht kopiert: Danach
+gehört sie ausschließlich zum Modulpaket und darf nicht zusätzlich im Host-
+`versions`-Verzeichnis verbleiben. Eine bereits auf einer adoptierten Revision
+stehende Datenbank benötigt weder `stamp`, Baseline noch Reparatur und führt die
+Revision nicht erneut aus.
+
 ## Migration anlegen
 
 Die erste Revision eines Moduls erstellt das Schema und qualifiziert jede Operation:
@@ -102,7 +162,8 @@ Owner am einen globalen Head angehängt. `MigrationCoordinator.preflight()` prü
 - genau einen globalen Alembic-Head;
 - auflösbare installierte Migrationsressourcen;
 - eindeutige Schema-Ownership;
-- passende Revision-Namespaces;
+- vollständige Adoption-Metadaten und kollisionsfreie Revision-Ownership;
+- passende Revision-Namespaces für alle neuen, nicht adoptierten Modulrevisionen;
 - Host- und Modulgruppen in Dependency-Reihenfolge.
 
 Der generische CLI-Einstieg verwendet exakt diese Registry und den aktiven

@@ -19,6 +19,7 @@ from app.platform.modules.sdk import (
     HttpClientFactoryPort,
     LifecycleRegistrar,
     ModuleContext,
+    ModuleMigrationSource,
     ModuleSettingsPort,
     ObservabilityPort,
     PermissionDependencyFactory,
@@ -66,6 +67,42 @@ def test_module_context_has_typed_public_ports() -> None:
         "scheduler": SchedulerPort | None,
         "settings": ModuleSettingsPort | None,
     }
+
+
+def test_migration_adoption_metadata_is_immutable_and_backward_compatible() -> None:
+    default_source = ModuleMigrationSource(
+        package="example_module",
+        resource="migrations",
+        revision_namespace="mod_example_module",
+    )
+    adopted_source = ModuleMigrationSource(
+        package="example_module",
+        resource="migrations",
+        revision_namespace="mod_example_module",
+        adopted_revisions=frozenset({"historical_001"}),
+    )
+
+    assert default_source.adopted_revisions == frozenset()
+    assert adopted_source.adopted_revisions == frozenset({"historical_001"})
+    with pytest.raises(FrozenInstanceError):
+        adopted_source.adopted_revisions = frozenset()  # type: ignore[misc]
+
+
+def test_migration_adoption_metadata_requires_exact_immutable_ids() -> None:
+    with pytest.raises(TypeError, match="immutable frozenset"):
+        ModuleMigrationSource(
+            package="example_module",
+            resource="migrations",
+            revision_namespace="mod_example_module",
+            adopted_revisions={"historical_001"},  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="non-empty exact IDs"):
+        ModuleMigrationSource(
+            package="example_module",
+            resource="migrations",
+            revision_namespace="mod_example_module",
+            adopted_revisions=frozenset({" historical_001"}),
+        )
 
 
 def test_runtime_context_is_bound_to_manifest_and_unimplemented_ports_are_absent() -> None:
