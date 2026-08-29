@@ -126,8 +126,12 @@ mod_<normalisierte-modul-id>_<YYYYMMDD>_<sequence>
 ```
 
 Für `analysis-areas` ist der Namespace beispielsweise `mod_analysis_areas`.
-Branch Labels werden in V1 nicht verwendet. Eine Modulmigration referenziert mit
-`down_revision` die letzte Revision der vorherigen geordneten Gruppe. Damit bleibt
+Branch Labels werden in V1 nicht verwendet. Eine neu erstellte Host- oder
+Modulmigration referenziert mit `down_revision` stets den aktuellen globalen Head.
+Historische, später von einem Modul adoptierte Revisionen dürfen dagegen mit Host-
+Revisionen verschachtelt sein und bilden keine zusammenhängende Modulgruppe. Source-
+Ownership und Ownership der direkten Parent-Revision sind unabhängig: Hostrevisionen
+dürfen auf Modulrevisionen und Modulrevisionen auf Hostrevisionen folgen. Damit bleibt
 der Graph linear.
 
 Eine spätere Domain-Externalisierung darf veröffentlichte Host-Revisionen explizit

@@ -21,6 +21,16 @@ from app.platform.modules.persistence import (
 logger = logging.getLogger(__name__)
 
 
+def _load_revision_inventory(scripts: ScriptDirectory):
+    """Load every source file before Alembic's revision map hides duplicate IDs."""
+
+    # There is no public Alembic API that inventories duplicate revision files:
+    # RevisionMap resolves them by ID first. Keep the private call isolated here.
+    # backend/uv.lock pins Alembic 1.19.1 and the duplicate-source regression test
+    # guards this compatibility boundary when that pin is updated.
+    return scripts._load_revisions()
+
+
 @dataclass(frozen=True, slots=True)
 class MigrationStep:
     module_id: str
@@ -167,7 +177,7 @@ class MigrationCoordinator:
         # authoritative. Die rohe Inventur ist nötig, weil RevisionMap doppelte
         # IDs andernfalls nur warnt und abhängig von der Ladereihenfolge auflöst.
         loaded = sorted(
-            scripts._load_revisions(),
+            _load_revision_inventory(scripts),
             key=lambda revision: (revision.revision, str(Path(revision.path).resolve())),
         )
         for revision in loaded:

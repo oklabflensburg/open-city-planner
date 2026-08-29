@@ -84,13 +84,25 @@ ModuleMigrationSource(
 ```
 
 Die Dateien, ihre `revision`, `down_revision`, `branch_labels` und `depends_on`
-bleiben unverändert. Eine neue Modulrevision verwendet dagegen weiterhin den
-Modulnamespace und darf direkt an die letzte adoptierte Revision anschließen:
+bleiben unverändert. Adoptierte Revisionen dürfen im globalen Graphen mit Host-
+Revisionen verschachtelt sein; sie müssen weder einen zusammenhängenden Block bilden
+noch am aktuellen Head enden. Eine neue Modulrevision verwendet weiterhin den
+Modulnamespace und wird wie jede neue Migration an den zu diesem Zeitpunkt aktuellen
+globalen Head angehängt:
 
 ```python
 revision = "mod_example_0001"
-down_revision = "20260201_0002"
+down_revision = "<aktueller-globaler-head>"
 ```
+
+Direkt an die letzte adoptierte Revision darf sie nur anschließen, wenn diese
+zugleich der aktuelle globale Head ist. Andernfalls entstünde neben den späteren
+Host-Revisionen ein zweiter Head, und der Preflight stoppt.
+
+Source-Ownership bestimmt dabei nicht die Parent-Ownership: Eine Hostrevision darf
+auf eine adoptierte Modulrevision folgen und eine neue Modulrevision auf eine
+Hostrevision. Die `MigrationStep`-Planung darf entsprechend mehrfach zwischen Host
+und Modul wechseln.
 
 Der Coordinator akzeptiert eine nicht namespacete Modulrevision ausschließlich,
 wenn ihre exakte ID in `adopted_revisions` steht. Er stoppt bei deklarierten, aber
