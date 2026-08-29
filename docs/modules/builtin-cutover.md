@@ -36,12 +36,20 @@ Frontend-Snapshot ein. Aktivierung bleibt ausschließlich in `modules.lock`.
    `enable` mit erneutem Deploy/Restart prüfen.
 
 Für `analysis-areas` ist der geprüfte externe Contract auf Commit
-`71815f0396ec8bea545588fd8978dc78b284331a` gepinnt. Er liefert die Revisionen
+`a63af188a0cf4ba10a389302bae4c1e0d80cfeda` gepinnt. Er liefert die Revisionen
 `20260814_0014`, `20260817_0023`, `20260818_0025` und `20260819_0032` mit
-unveränderten Kanten. Der isolierte Legacy-Adapter greift weiterhin auf reviewte
-Host-Services zu. Das ist kein neuer Trust-Zustand, weil installierte In-Process-
-Module bereits Trusted Code sind; der Cutover weitet diese privaten Imports nicht
-aus und erfindet keine Analysis-Areas-spezifischen Platform-Ports.
+unveränderten Kanten. Der isolierte Legacy-Adapter des Pins ist vollständig in
+[öffentliche Backend-Service-Ports](backend-service-ports.md) inventarisiert.
+SDK 1.9 stellt die öffentlichen Ersatzverträge bereit; der aktuelle Pin bleibt
+bis zum koordinierten Modul-Folgecommit Trusted Code mit der dokumentierten
+Legacy-Grenze.
+
+Der Cross-Repo-Contract modelliert bereits den geplanten Folgeflow: Das externe
+Modul löst Gebiet und `polygon_analysis_areas` über seine eigenen ORM-Modelle und
+den bestehenden `DatabaseSessionProvider` auf, baut daraus einen neutralen
+`PolygonScope` und ruft erst danach den Host-Polygon-Port auf. Der aktuelle Pin
+verwendet produktiv weiterhin den dokumentierten Legacy-Adapter; der Contract
+behauptet daher noch keinen abgeschlossenen SDK-Cutover.
 
 ## Rollback
 

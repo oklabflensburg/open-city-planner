@@ -26,6 +26,17 @@ bei reinen Dokumentationsänderungen nicht.
 | Supply Chain | `sbom` | transitive CycloneDX-SBOMs für Backend und Frontend |
 | Module Contract Gate | `Module contract gate` | Backend-/Frontend-Importgrenzen, Manifest-, Dependency-, Registry-, Map- und SSR-Verträge ohne Playwright |
 
+Der Cross-Repo-Teil des Module Contract Gate baut `ocp-module-analysis-areas`
+reproduzierbar vom vollständigen PR-#2-Commit
+`a63af188a0cf4ba10a389302bae4c1e0d80cfeda`, prüft Bundle, deaktivierte
+Installation, Migration Ownership, Enable/Disable/Re-enable und die bestehenden
+API-Characterization-Tests. Eine zusätzliche Consumer-Probe liest die
+Area→Polygon-Relation ausschließlich über die Persistenzmodelle des externen
+Moduls und übergibt einen neutralen `PolygonScope` an den Host-Port.
+`scripts/check_external_module_imports.py` steht für
+den koordinierten SDK-1.9-Folgecommit bereit und verbietet dort alle Host-Imports
+außer `app.platform.modules.sdk`.
+
 Das Module Contract Gate prüft zusätzlich, dass Repository-Module Settings und
 Secrets über den namespaceten Host-Port beziehen. Diese Architekturregel ist keine
 Sandbox. Die bestehenden Security- und Supply-Chain-Jobs bleiben für First-Party-

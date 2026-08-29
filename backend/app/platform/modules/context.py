@@ -16,19 +16,25 @@ from app.platform.modules.permissions import (
     RegistryPermissionPort,
 )
 from app.platform.modules.sdk import (
+    CacheGenerationPort,
     CachePort,
     DatabaseSessionProvider,
     EventBusPort,
     HttpClientFactoryPort,
+    MapPreviewPort,
     MetricsPort,
     ModuleContext,
     ModuleSettingsPort,
     ObservabilityPort,
     PermissionDependencyFactory,
     PermissionPort,
+    PolygonAnalyticsPort,
+    PolygonQueryPort,
+    PublicQueryPort,
     SchedulerPort,
     ServiceRegistryPort,
     SpanPort,
+    StatisticsQueryPort,
     StoragePort,
     TracerPort,
 )
@@ -88,7 +94,7 @@ class _ModuleObservability:
 
 @dataclass(frozen=True, slots=True)
 class ModuleHostServices:
-    """Hostseitiges Adapter-Bundle; optionale Ports folgen in ihren Folge-Issues."""
+    """Hostseitiges Adapter-Bundle für öffentliche, typisierte Capabilities."""
 
     database: DatabaseSessionProvider | None = None
     events: EventBusPort | None = None
@@ -96,6 +102,13 @@ class ModuleHostServices:
     permissions: PermissionPort | None = None
     permission_dependencies: PermissionDependencyFactory | None = None
     cache: CachePort | None = None
+    cache_factory: Callable[[str], CachePort] | None = None
+    cache_generations: CacheGenerationPort | None = None
+    public_queries: PublicQueryPort | None = None
+    map_previews: MapPreviewPort | None = None
+    polygons: PolygonQueryPort | None = None
+    polygon_analytics: PolygonAnalyticsPort | None = None
+    statistics: StatisticsQueryPort | None = None
     storage: StoragePort | None = None
     http: HttpClientFactoryPort | None = None
     scheduler: SchedulerPort | None = None
@@ -197,7 +210,17 @@ class ModuleContextFactory:
             services=service_adapter,
             permissions=self._permission_port,
             permission_dependencies=self._services.permission_dependencies,
-            cache=self._services.cache,
+            cache=(
+                self._services.cache_factory(manifest.id)
+                if self._services.cache_factory is not None
+                else self._services.cache
+            ),
+            cache_generations=self._services.cache_generations,
+            public_queries=self._services.public_queries,
+            map_previews=self._services.map_previews,
+            polygons=self._services.polygons,
+            polygon_analytics=self._services.polygon_analytics,
+            statistics=self._services.statistics,
             storage=self._services.storage,
             http=self._services.http,
             scheduler=scheduler_adapter,

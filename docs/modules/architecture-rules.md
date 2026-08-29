@@ -11,6 +11,8 @@ aufeinander verweisen.
 | `ARCH-BE-HOST-001` | Der Host bleibt fachneutral. | `app.platform.modules.sdk` und explizite Infrastrukturadapter | Host importiert `app.services.statistics` | Python-AST-Checker |
 | `ARCH-BE-MODULE-001` | Provider können ihre Interna ändern. | Alpha importiert `beta.contracts` | Alpha importiert `beta.internal` | Python-AST-Checker |
 | `ARCH-BE-PRIVATE-001` | Host-Ports halten Lifecycle und Architekturgrenzen nachvollziehbar. | Modul importiert `app.platform.modules.sdk` | Modul importiert `app.db.session` oder `modules.runtime` | Python-AST-Checker |
+| `ARCH-BE-INSTALLED-001` | Installierte First-Party-Module dürfen keine neue private Host-Kopplung einführen. | Checkout/Wheel importiert `app.platform.modules.sdk` | Checkout/Wheel importiert `app.models.*` oder `app.services.*` | `check_external_module_imports.py` gegen entpackte Modulquellen |
+| `ARCH-BE-PORT-OWNERSHIP-001` | Host-Polygonfähigkeiten bleiben nach dem Built-in-Cutover importierbar. | Adapter verwendet `UserPolygon` hinter `PolygonScope` | Adapter importiert `app.modules.analysis_areas` | AST-Guard und Built-in-Removal-Importtest |
 | `ARCH-BE-SECRET-001` | Secrets bleiben namespaced und auditierbar. | Modul liest `ModuleContext.settings` | Modul liest `os.environ`, dotenv oder eigene `BaseSettings` | Python-AST-Checker |
 | `ARCH-FE-HOST-001` | Der Build-Time-Host bleibt generisch. | Host liest Contribution-Registries | `nuxt.config.ts` importiert `example-module` | TypeScript-AST-Checker |
 | `ARCH-FE-MODULE-001` | Nuxt-Layer bleiben unabhängig. | eigene relative Datei, `#frontend-module-sdk` oder `#imports` | `~/stores/auth` oder `../../beta/internal` | TypeScript-AST-Checker |

@@ -11,12 +11,13 @@ import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from types import MappingProxyType
 from typing import Protocol, TypeVar, overload
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -335,6 +336,260 @@ class CachePort(Protocol):
     async def clear(self) -> int: ...
 
 
+class CacheGenerationPort(Protocol):
+    """Versioniert geteilte Lesemodelle ohne Redis- oder Cache-Key-Details."""
+
+    async def current(self, session: AsyncSession, resource: str) -> int: ...
+
+
+@dataclass(frozen=True, slots=True)
+class PublicQueryLimits:
+    """Unveränderliche Limits für öffentliche, potentiell teure Modulabfragen."""
+
+    max_response_items: int
+    cache_debug_headers: bool = False
+
+    def __post_init__(self) -> None:
+        if type(self.max_response_items) is not int or self.max_response_items < 1:
+            raise ValueError("Public query response limits must be positive integers.")
+        if type(self.cache_debug_headers) is not bool:
+            raise TypeError("The cache debug header flag must be a boolean.")
+
+
+class PublicQueryPort(Protocol):
+    """Wendet Host-eigene Rate- und Statement-Timeout-Regeln an."""
+
+    @property
+    def limits(self) -> PublicQueryLimits: ...
+
+    async def guard(
+        self, request: Request, session: AsyncSession, resource: str
+    ) -> None: ...
+
+    def is_timeout(self, error: BaseException) -> bool: ...
+
+
+@dataclass(frozen=True, slots=True)
+class MapPreviewRequest:
+    """Technologieneutrale Eingabe für eine öffentliche Kartenvorschau."""
+
+    slug: str
+    updated_at: datetime
+    geometry: Mapping[str, object]
+    bbox: tuple[float, float, float, float]
+    width: int
+    height: int
+    category: str | None = None
+    feature_kind: str = "area"
+
+
+@dataclass(frozen=True, slots=True)
+class MapPreviewResult:
+    """Gerenderte Bytes mit stabilen HTTP-Validierungsmetadaten."""
+
+    body: bytes
+    content_type: str
+    etag: str
+    cache_hit: bool = False
+
+
+class MapPreviewUnavailableError(RuntimeError):
+    """Eine gültige Vorschauanfrage konnte nicht gerendert werden."""
+
+
+class MapPreviewPort(Protocol):
+    """Rendert Vorschauen ohne Renderer-, Dateisystem- oder Cache-Interna."""
+
+    async def render(self, request: MapPreviewRequest) -> MapPreviewResult: ...
+
+
+@dataclass(frozen=True, slots=True)
+class PolygonScope:
+    """Fachneutrale Auswahl interner Polygon-IDs aus einer Modulrelation."""
+
+    polygon_ids: tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.polygon_ids, tuple):
+            raise TypeError("Polygon scope IDs must be an immutable tuple.")
+        if any(type(value) is not int or value < 1 for value in self.polygon_ids):
+            raise ValueError("Polygon scope IDs must be positive integers.")
+        if len(set(self.polygon_ids)) != len(self.polygon_ids):
+            raise ValueError("Polygon scope IDs must be unique.")
+
+
+@dataclass(frozen=True, slots=True)
+class PolygonFilterValues:
+    """Öffentliche Polygonfilter aus stabilen primitiven Werten."""
+
+    categories: tuple[str, ...] = ()
+    floors: tuple[str, ...] = ()
+    area_sizes: tuple[str, ...] = ()
+    occupancy_statuses: tuple[str, ...] = ()
+    business_structures: tuple[str, ...] = ()
+    sources: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class CountValue:
+    """Ein stabiler Schlüssel mit Anzahl und optionaler Beschriftung."""
+
+    key: str
+    count: int
+    label: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CompletenessValue:
+    """Vollständigkeit eines Polygonattributs in einem Aggregat."""
+
+    key: str
+    label: str
+    complete: int
+    total: int
+    percent: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PolygonMetrics:
+    """Öffentliches Aggregat der Polygon-/Analytics-Domäne."""
+
+    polygon_count: int
+    occupied_count: int
+    vacant_count: int
+    chain_count: int
+    independent_count: int
+    known_occupancy_count: int
+    known_business_structure_count: int
+    total_area_m2: float | None = None
+    average_area_m2: float | None = None
+    median_area_m2: float | None = None
+    vacant_area_m2: float | None = None
+    vacancy_area_rate: float | None = None
+    vacancy_rate: float | None = None
+    chain_store_rate: float | None = None
+    data_updated_at: datetime | None = None
+    size_distribution: tuple[CountValue, ...] = ()
+    floor_distribution: tuple[CountValue, ...] = ()
+    status_distribution: tuple[CountValue, ...] = ()
+    business_structure_distribution: tuple[CountValue, ...] = ()
+    data_completeness: tuple[CompletenessValue, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PublicPolygonSummary:
+    """Schreibgeschützte Polygonprojektion, niemals eine Host-ORM-Instanz."""
+
+    id: str
+    slug: str
+    name: str
+    category: str
+    occupancy_status: str
+    floor: str | None = None
+    address_display_name: str | None = None
+    area_m2: float | None = None
+
+
+class PolygonQueryPort(Protocol):
+    """Liest öffentliche Polygonprojektionen für eine fachneutrale Auswahl."""
+
+    async def list_by_scope(
+        self, session: AsyncSession, scope: PolygonScope, *, limit: int
+    ) -> tuple[PublicPolygonSummary, ...]: ...
+
+
+class PolygonAnalyticsPort(Protocol):
+    """Berechnet Polygon-Aggregate für eine fachneutrale Auswahl."""
+
+    async def metrics(
+        self,
+        session: AsyncSession,
+        scope: PolygonScope,
+        filters: PolygonFilterValues,
+    ) -> PolygonMetrics: ...
+
+    async def category_counts(
+        self,
+        session: AsyncSession,
+        scope: PolygonScope,
+        filters: PolygonFilterValues,
+    ) -> tuple[CountValue, ...]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class StatisticsArea:
+    id: UUID
+    slug: str
+    name: str
+    area_type: str
+
+
+@dataclass(frozen=True, slots=True)
+class StatisticsSource:
+    name: str
+    url: str
+    license: str
+    source_updated_at: datetime | None
+    last_import_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class StatisticValue:
+    key: str
+    name: str
+    category: str
+    value: Decimal | None
+    unit: str
+    period: str
+    period_start: date
+    area_level: str
+    is_calculated: bool
+    municipality_value: Decimal | None = None
+    difference: Decimal | None = None
+    relative_difference: Decimal | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AreaStatistics:
+    area: StatisticsArea
+    statistics_area: StatisticsArea
+    inherited_from_parent: bool
+    source: StatisticsSource | None
+    latest: tuple[StatisticValue, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class StatisticSeriesPoint:
+    period: str
+    period_start: date
+    value: Decimal | None
+    suppressed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class AreaStatisticSeries:
+    area: StatisticsArea
+    statistics_area: StatisticsArea
+    inherited_from_parent: bool
+    source: StatisticsSource | None
+    metric: Mapping[str, str]
+    series: tuple[StatisticSeriesPoint, ...] = ()
+
+    def __post_init__(self) -> None:
+        _validate_string_mapping(self.metric, name="metric")
+        object.__setattr__(self, "metric", MappingProxyType(dict(self.metric)))
+
+
+class StatisticsQueryPort(Protocol):
+    """Liest öffentliche Kommunalstatistik ohne Statistics-ORM-Typen."""
+
+    async def for_area(self, session: AsyncSession, slug: str) -> AreaStatistics | None: ...
+
+    async def series_for_area(
+        self, session: AsyncSession, slug: str, metric_key: str
+    ) -> AreaStatisticSeries | None: ...
+
+
 class MetricsPort(Protocol):
     """Vendor-neutraler Zugriff auf begrenzte Modulmetriken."""
 
@@ -555,6 +810,12 @@ class ModuleContext:
     permissions: PermissionPort | None = None
     permission_dependencies: PermissionDependencyFactory | None = None
     cache: CachePort | None = None
+    cache_generations: CacheGenerationPort | None = None
+    public_queries: PublicQueryPort | None = None
+    map_previews: MapPreviewPort | None = None
+    polygons: PolygonQueryPort | None = None
+    polygon_analytics: PolygonAnalyticsPort | None = None
+    statistics: StatisticsQueryPort | None = None
     storage: StoragePort | None = None
     http: HttpClientFactoryPort | None = None
     scheduler: SchedulerPort | None = None
@@ -605,8 +866,13 @@ class ModuleDefinition:
 
 __all__ = [
     "ApiRegistrar",
+    "AreaStatisticSeries",
+    "AreaStatistics",
     "BackendModule",
+    "CacheGenerationPort",
     "CachePort",
+    "CompletenessValue",
+    "CountValue",
     "DatabaseSessionProvider",
     "DomainEvent",
     "EventBusPort",
@@ -622,6 +888,10 @@ __all__ = [
     "JsonValue",
     "LegacyJobHandler",
     "LifecycleRegistrar",
+    "MapPreviewPort",
+    "MapPreviewRequest",
+    "MapPreviewResult",
+    "MapPreviewUnavailableError",
     "MetricsPort",
     "ModuleContext",
     "ModuleDefinition",
@@ -637,11 +907,24 @@ __all__ = [
     "PermissionDefinition",
     "PermissionDependencyFactory",
     "PermissionPort",
+    "PolygonAnalyticsPort",
+    "PolygonFilterValues",
+    "PolygonMetrics",
+    "PolygonQueryPort",
+    "PolygonScope",
+    "PublicPolygonSummary",
+    "PublicQueryLimits",
+    "PublicQueryPort",
     "RetryPolicy",
     "SchedulerPort",
     "SerializableDomainEvent",
     "ServiceRegistryPort",
     "SpanPort",
+    "StatisticSeriesPoint",
+    "StatisticValue",
+    "StatisticsArea",
+    "StatisticsQueryPort",
+    "StatisticsSource",
     "StoragePort",
     "TracerPort",
     "event_envelope",
