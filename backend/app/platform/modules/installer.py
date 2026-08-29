@@ -244,6 +244,7 @@ class EnablementEnvironment(_StrictModel):
     frontend_modules: str
     runtime_backend_paths: str
     installed_frontend_module_roots: str
+    excluded_builtin_modules: str = ""
 
 
 def read_modules_lock(path: Path) -> ModulesLock:
@@ -309,6 +310,7 @@ class ModuleInstaller:
         host_version: str,
         builtin_enabled_ids: Sequence[str] = (),
         builtin_frontend_enabled_ids: Sequence[str] = (),
+        excluded_builtin_module_ids: Sequence[str] = (),
         module_environment: Mapping[str, str] | None = None,
         migration_preflight: Callable[[tuple[str, ...]], None] | None = None,
         frontend_preflight: Callable[[EnablementEnvironment], None] | None = None,
@@ -318,9 +320,20 @@ class ModuleInstaller:
         self.root = root.resolve()
         self.lock_path = self.root / "modules.lock"
         self.host_version = host_version
-        self.builtin_enabled_ids = tuple(sorted(set(builtin_enabled_ids)))
+        self.excluded_builtin_module_ids = tuple(sorted(set(excluded_builtin_module_ids)))
+        # Validate IDs and unknown exclusions once at the composition boundary.
+        FirstPartyModuleDiscovery(
+            excluded_module_ids=self.excluded_builtin_module_ids
+        )
+        self.builtin_enabled_ids = tuple(
+            sorted(set(builtin_enabled_ids).difference(self.excluded_builtin_module_ids))
+        )
         self.builtin_frontend_enabled_ids = tuple(
-            sorted(set(builtin_frontend_enabled_ids))
+            sorted(
+                set(builtin_frontend_enabled_ids).difference(
+                    self.excluded_builtin_module_ids
+                )
+            )
         )
         self.module_environment = dict(module_environment or {})
         self.migration_preflight = migration_preflight
@@ -442,7 +455,9 @@ class ModuleInstaller:
 
     def inventory(self) -> InstalledModuleInventory:
         lock = read_modules_lock(self.lock_path)
-        builtins = FirstPartyModuleDiscovery().discover_available()
+        builtins = FirstPartyModuleDiscovery(
+            excluded_module_ids=self.excluded_builtin_module_ids
+        ).discover_available()
         installed_ids = {entry.id for entry in lock.modules}
         duplicate = sorted(installed_ids.intersection(definition.declared_id for definition in builtins))
         if duplicate:
@@ -509,6 +524,7 @@ class ModuleInstaller:
             frontend_modules=",".join(sorted(frontend_ids)),
             runtime_backend_paths=os.pathsep.join(sorted(runtime_backend_paths)),
             installed_frontend_module_roots=os.pathsep.join(sorted(frontend_roots)),
+            excluded_builtin_modules=",".join(self.excluded_builtin_module_ids),
         )
 
     def _preflight(self, lock: ModulesLock) -> None:
@@ -521,7 +537,9 @@ class ModuleInstaller:
         resolved = resolve_module_definitions(
             enabled_module_ids=tuple(filter(None, environment.enabled_modules.split(","))),
             discovery_providers=(
-                FirstPartyModuleDiscovery(),
+                FirstPartyModuleDiscovery(
+                    excluded_module_ids=self.excluded_builtin_module_ids
+                ),
                 EntryPointModuleDiscovery(distribution_paths=runtime_paths),
             ),
             host_version=self.host_version,
@@ -759,7 +777,12 @@ class ModuleInstaller:
         return entry
 
     def _reject_builtin_collision(self, module_id: str) -> None:
-        builtins = {definition.declared_id for definition in FirstPartyModuleDiscovery().discover_available()}
+        builtins = {
+            definition.declared_id
+            for definition in FirstPartyModuleDiscovery(
+                excluded_module_ids=self.excluded_builtin_module_ids
+            ).discover_available()
+        }
         if module_id in builtins:
             raise ModuleInstallConflictError(
                 f'Module ID "{module_id}" already belongs to a built-in module.'

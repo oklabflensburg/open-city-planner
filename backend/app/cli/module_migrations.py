@@ -45,7 +45,9 @@ def coordinator(
         else _installed_distribution_paths()
     )
     enabled_discovery_providers = (
-        FirstPartyModuleDiscovery(),
+        FirstPartyModuleDiscovery(
+            excluded_module_ids=settings.excluded_builtin_module_list
+        ),
         EntryPointModuleDiscovery(
             distribution_paths=enabled_distribution_paths
         )
@@ -67,7 +69,9 @@ def coordinator(
     config.attributes["database_url"] = settings.database_url
     available = resolve_available_persistence_definitions(
         (
-            FirstPartyModuleDiscovery(),
+            FirstPartyModuleDiscovery(
+                excluded_module_ids=settings.excluded_builtin_module_list
+            ),
             EntryPointModuleDiscovery(distribution_paths=available_paths),
         )
     )

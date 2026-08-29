@@ -8,6 +8,7 @@ const modules = resolveFrontendModules({
   installedModulesDirectories: (process.env.OCP_INSTALLED_FRONTEND_MODULE_ROOTS || '')
     .split(delimiter)
     .filter(Boolean),
+  excludedBuiltinModules: process.env.OCP_EXCLUDED_BUILTIN_MODULES,
   appPagesDirectory: fileURLToPath(new URL('../app/pages', import.meta.url)),
   enabledModules: process.env.OCP_FRONTEND_MODULES,
   backendModules: process.env.OCP_BACKEND_MODULES

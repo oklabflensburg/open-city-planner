@@ -88,6 +88,41 @@ describe('frontend build-time module host', () => {
     })).toThrowError(/Duplicate frontend module ID "built-in"/)
   })
 
+  it('excludes a built-in source before duplicate validation and composes the installed source', () => {
+    const paths = fixture()
+    const installedModulesDirectory = resolve(paths.root, 'installed-modules')
+    mkdirSync(installedModulesDirectory)
+    addModule(paths.modulesDirectory, 'stable-module')
+    addModule(installedModulesDirectory, 'stable-module')
+
+    expect(resolveFrontendModules({
+      ...paths,
+      installedModulesDirectories: [installedModulesDirectory],
+      excludedBuiltinModules: ' stable-module ',
+      enabledModules: ''
+    })).toEqual([])
+    expect(resolveFrontendModules({
+      ...paths,
+      installedModulesDirectories: [installedModulesDirectory],
+      excludedBuiltinModules: 'stable-module',
+      enabledModules: 'stable-module'
+    }).map(module => module.source)).toEqual([
+      resolve(installedModulesDirectory, 'stable-module/module.json')
+    ])
+  })
+
+  it('rejects invalid, duplicate and unknown built-in exclusions', () => {
+    const paths = fixture()
+    addModule(paths.modulesDirectory, 'known-module')
+
+    expect(() => resolveFrontendModules({ ...paths, excludedBuiltinModules: 'invalid_id' }))
+      .toThrowError(/Invalid excluded built-in module ID/)
+    expect(() => resolveFrontendModules({ ...paths, excludedBuiltinModules: 'known-module,known-module' }))
+      .toThrowError(/excluded more than once/)
+    expect(() => resolveFrontendModules({ ...paths, excludedBuiltinModules: 'missing-module' }))
+      .toThrowError(/was not found/)
+  })
+
   it('omits every route, UI and map contribution when a module is disabled', () => {
     const paths = fixture()
     addModule(paths.modulesDirectory, 'full-stack', {

@@ -181,6 +181,39 @@ def test_first_party_discovery_loads_only_enabled_definitions() -> None:
     assert loaded == ["module-b"]
 
 
+def test_first_party_exclusion_applies_to_runtime_and_available_discovery() -> None:
+    provider = FirstPartyModuleDiscovery(
+        {"module-a": definition("module-a"), "module-b": definition("module-b")},
+        excluded_module_ids=("module-a",),
+    )
+
+    assert [item.declared_id for item in provider.discover_available()] == ["module-b"]
+    assert provider.discover(frozenset({"module-a"})) == ()
+
+
+@pytest.mark.parametrize(
+    ("configured", "message"),
+    (("invalid_id", "invalid module ID"), ("module-a,module-a", "more than once")),
+)
+def test_first_party_exclusion_rejects_invalid_or_duplicate_configuration(
+    configured: str,
+    message: str,
+) -> None:
+    with pytest.raises(ModuleDiscoveryError, match=message):
+        FirstPartyModuleDiscovery(
+            {"module-a": definition("module-a")},
+            excluded_module_ids=configured,
+        )
+
+
+def test_first_party_exclusion_rejects_unknown_builtin() -> None:
+    with pytest.raises(ModuleDiscoveryError, match="does not exist"):
+        FirstPartyModuleDiscovery(
+            {"module-a": definition("module-a")},
+            excluded_module_ids=("missing",),
+        )
+
+
 def test_first_party_available_discovery_is_generic_and_does_not_enable_runtime() -> None:
     provider = FirstPartyModuleDiscovery()
 

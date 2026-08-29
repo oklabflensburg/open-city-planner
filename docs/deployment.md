@@ -169,6 +169,13 @@ Backend und `OCP_FRONTEND_MODULES` für den Frontend-Build. Der daraus generiert
 ist ebenfalls kein Secret-Speicher. Secrets dürfen in keiner dieser Variablen
 gespeichert werden.
 
+Für einen geprüften Built-in-zu-Package-Cutover wird
+`OCP_EXCLUDED_BUILTIN_MODULES` ausschließlich im geschützten Backend-Input
+gepflegt. `modules env` validiert die Liste und Ansible schreibt denselben Wert in
+beide versionierten Environment-Snapshots. Die Variable aktiviert kein
+installiertes Modul. Runbook und Rollback stehen unter
+[Built-in-Cutover](modules/builtin-cutover.md).
+
 Vor der Aktivierung lädt der target Backend-Release seine strikten Pydantic-Settings mit dem target Snapshot. Unbekannte Variablen bleiben ein Fehler; `extra=ignore` wird nicht verwendet. Das Frontend-Environment wird mit Node validiert und anschließend beim Build des target Releases verwendet. Erst wenn diese Prüfungen erfolgreich waren, stoppt Ansible die primären Dienste und schaltet Code-, Backend-Env- und Frontend-Env-Symlink in kontrollierter Reihenfolge um. Während dieses kurzen Fensters läuft kein primärer Dienst mit einem gemischten Zustand.
 
 Beim automatischen Rollback werden zunächst die Dienste gestoppt, danach alle drei Symlinks auf den vorherigen Release-Stand zurückgesetzt. Erst anschließend startet die API; Ansible wartet zunächst auf den TCP-Port und prüft danach `/health/ready`. Frontend und – sofern im vorherigen Release vorhanden – Renderer werden ebenfalls geprüft. Beim erstmaligen Renderer-Deploy wird der Renderer beim Rollback gestoppt und deaktiviert. Die ursprüngliche Deployment-Ursache und ein möglicher zusätzlicher Rollbackfehler werden getrennt ausgegeben.

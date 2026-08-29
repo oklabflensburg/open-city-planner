@@ -104,6 +104,7 @@ const definitionSchema = z.strictObject({
 export interface ResolveFrontendModulesOptions {
   modulesDirectory: string
   installedModulesDirectories?: readonly string[]
+  excludedBuiltinModules?: string | readonly string[]
   appPagesDirectory: string
   enabledModules?: string | readonly string[]
   backendModules?: string
@@ -120,7 +121,11 @@ export class FrontendModuleError extends Error {
 
 export function resolveFrontendModules(options: ResolveFrontendModulesOptions): ResolvedFrontendModule[] {
   const moduleDirectories = [options.modulesDirectory, ...(options.installedModulesDirectories ?? [])]
-  const available = discoverFrontendModules(moduleDirectories, resolve(options.appPagesDirectory, '../..'))
+  const available = discoverFrontendModules(
+    moduleDirectories,
+    resolve(options.appPagesDirectory, '../..'),
+    options.excludedBuiltinModules ?? ''
+  )
   const byId = new Map(available.map(module => [module.id, module]))
   const enabledIds = parseEnabledModules(options.enabledModules ?? '')
   const enabled = enabledIds.map((id) => {
@@ -144,11 +149,17 @@ export function resolveFrontendModules(options: ResolveFrontendModulesOptions): 
   return ordered
 }
 
-export function discoverFrontendModules(modulesDirectories: string | readonly string[], frontendRoot?: string): ResolvedFrontendModule[] {
+export function discoverFrontendModules(
+  modulesDirectories: string | readonly string[],
+  frontendRoot?: string,
+  excludedBuiltinModules: string | readonly string[] = ''
+): ResolvedFrontendModule[] {
   const directories = typeof modulesDirectories === 'string' ? [modulesDirectories] : [...modulesDirectories]
+  const excludedBuiltinIds = parseExcludedBuiltinModules(excludedBuiltinModules)
+  const foundExcludedBuiltinIds = new Set<string>()
   const discovered: ResolvedFrontendModule[] = []
   const sources = new Map<string, string>()
-  for (const modulesDirectory of directories) {
+  for (const [directoryIndex, modulesDirectory] of directories.entries()) {
     if (!existsSync(modulesDirectory)) continue
     const entries = readdirSync(modulesDirectory, { withFileTypes: true })
       .filter(entry => entry.isDirectory())
@@ -175,9 +186,16 @@ export function discoverFrontendModules(modulesDirectories: string | readonly st
       if (definition.compatibility.backend && !definition.backendModuleId) {
         throw new FrontendModuleError(`Frontend module "${definition.id}" declares backend compatibility without a backendModuleId.`)
       }
+      if (directoryIndex === 0 && excludedBuiltinIds.includes(definition.id)) {
+        foundExcludedBuiltinIds.add(definition.id)
+        continue
+      }
       const previousSource = sources.get(definition.id)
       if (previousSource) {
-        throw new FrontendModuleError(`Duplicate frontend module ID "${definition.id}" in ${previousSource} and ${source}.`)
+        throw new FrontendModuleError(
+          `Duplicate frontend module ID "${definition.id}" in ${previousSource} and ${source}. `
+          + 'Exclude exactly one composition source before activation.'
+        )
       }
       sources.set(definition.id, source)
       const moduleRoot = dirname(source)
@@ -211,7 +229,23 @@ export function discoverFrontendModules(modulesDirectories: string | readonly st
       discovered.push({ ...definition, source, layerPath })
     }
   }
+  const unknownExclusion = excludedBuiltinIds.find(id => !foundExcludedBuiltinIds.has(id))
+  if (unknownExclusion) {
+    throw new FrontendModuleError(`Excluded built-in frontend module "${unknownExclusion}" was not found; correct OCP_EXCLUDED_BUILTIN_MODULES.`)
+  }
   return discovered.sort((left, right) => left.id.localeCompare(right.id, 'en'))
+}
+
+export function parseExcludedBuiltinModules(value: string | readonly string[]): string[] {
+  const raw = typeof value === 'string' ? value.split(',') : [...value]
+  const ids = raw.map(item => item.trim()).filter(Boolean)
+  const seen = new Set<string>()
+  for (const id of ids) {
+    if (!moduleId.safeParse(id).success) throw new FrontendModuleError(`Invalid excluded built-in module ID "${id}".`)
+    if (seen.has(id)) throw new FrontendModuleError(`Built-in module "${id}" is excluded more than once.`)
+    seen.add(id)
+  }
+  return [...seen].sort((left, right) => left.localeCompare(right, 'en'))
 }
 
 export function parseEnabledModules(value: string | readonly string[]): string[] {
