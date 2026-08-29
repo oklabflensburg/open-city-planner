@@ -13,19 +13,26 @@ from app.platform.modules.contracts import ModuleRegistrationContext
 from app.platform.modules.runtime import create_module_runtime
 from app.platform.modules.sdk import (
     ApiRegistrar,
+    CacheGenerationPort,
     CachePort,
     DatabaseSessionProvider,
     EventBusPort,
     HttpClientFactoryPort,
     LifecycleRegistrar,
+    MapPreviewPort,
     ModuleContext,
     ModuleMigrationSource,
     ModuleSettingsPort,
     ObservabilityPort,
     PermissionDependencyFactory,
     PermissionPort,
+    PolygonAnalyticsPort,
+    PolygonQueryPort,
+    PublicQueryLimits,
+    PublicQueryPort,
     SchedulerPort,
     ServiceRegistryPort,
+    StatisticsQueryPort,
     StoragePort,
 )
 from app.platform.modules.testing import (
@@ -62,6 +69,12 @@ def test_module_context_has_typed_public_ports() -> None:
         "permissions": PermissionPort | None,
         "permission_dependencies": PermissionDependencyFactory | None,
         "cache": CachePort | None,
+        "cache_generations": CacheGenerationPort | None,
+        "public_queries": PublicQueryPort | None,
+        "map_previews": MapPreviewPort | None,
+        "polygons": PolygonQueryPort | None,
+        "polygon_analytics": PolygonAnalyticsPort | None,
+        "statistics": StatisticsQueryPort | None,
         "storage": StoragePort | None,
         "http": HttpClientFactoryPort | None,
         "scheduler": SchedulerPort | None,
@@ -96,6 +109,16 @@ def test_migration_adoption_metadata_requires_exact_immutable_ids() -> None:
             revision_namespace="mod_example_module",
             adopted_revisions={"historical_001"},  # type: ignore[arg-type]
         )
+
+
+def test_public_query_limits_are_validated_and_immutable() -> None:
+    limits = PublicQueryLimits(max_response_items=100, cache_debug_headers=True)
+
+    assert limits.max_response_items == 100
+    with pytest.raises(FrozenInstanceError):
+        limits.max_response_items = 10  # type: ignore[misc]
+    with pytest.raises(ValueError, match="positive integers"):
+        PublicQueryLimits(max_response_items=0)
     with pytest.raises(ValueError, match="non-empty exact IDs"):
         ModuleMigrationSource(
             package="example_module",
@@ -117,6 +140,12 @@ def test_runtime_context_is_bound_to_manifest_and_unimplemented_ports_are_absent
     assert context.permissions is None
     assert context.permission_dependencies is None
     assert context.cache is None
+    assert context.cache_generations is None
+    assert context.public_queries is None
+    assert context.map_previews is None
+    assert context.polygons is None
+    assert context.polygon_analytics is None
+    assert context.statistics is None
     assert context.storage is None
     assert context.http is None
     assert context.scheduler is not None
@@ -287,7 +316,9 @@ def test_public_sdk_has_no_host_internal_or_domain_imports() -> None:
         "app.core",
         "app.db",
         "app.models",
+        "app.modules",
         "app.observability",
+        "app.schemas",
         "app.security",
         "app.services",
     )

@@ -26,6 +26,12 @@
       "checker": "scripts/check_module_architecture.py"
     },
     {
+      "id": "ARCH-BE-INSTALLED-001",
+      "area": "backend",
+      "summary": "Installierte First-Party-Module importieren den Host nur ueber das oeffentliche SDK.",
+      "checker": "scripts/check_external_module_imports.py"
+    },
+    {
       "id": "ARCH-BE-SECRET-001",
       "area": "backend",
       "summary": "Backend-Module lesen Konfiguration und Secrets nur ueber namespacete Host-Primitives.",

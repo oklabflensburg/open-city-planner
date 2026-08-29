@@ -87,7 +87,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: oklabflensburg/ocp-module-analysis-areas
-          ref: 71815f0396ec8bea545588fd8978dc78b284331a
+          ref: a63af188a0cf4ba10a389302bae4c1e0d80cfeda
           path: .external-analysis-areas
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -107,7 +107,7 @@ jobs:
           (cd .external-analysis-areas/frontend && pnpm install --frozen-lockfile)
       - name: Build the pinned real OCP bundle
         run: |
-          (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct 71815f0396ec8bea545588fd8978dc78b284331a)" uv build --wheel)
+          (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct a63af188a0cf4ba10a389302bae4c1e0d80cfeda)" uv build --wheel)
           (cd .external-analysis-areas/frontend && pnpm build)
           (cd backend && .venv/bin/python -m app.cli.modules bundle build \
             --manifest ../.external-analysis-areas/module.yaml \
@@ -115,7 +115,7 @@ jobs:
             --frontend ../.external-analysis-areas/frontend/dist/analysis-areas-1.0.0.tgz \
             --publisher oklabflensburg --source-reference pull/2 \
             --source-repository https://github.com/oklabflensburg/ocp-module-analysis-areas \
-            --source-commit 71815f0396ec8bea545588fd8978dc78b284331a \
+            --source-commit a63af188a0cf4ba10a389302bae4c1e0d80cfeda \
             --build-workflow github-actions/module-contract --license AGPL-3.0-only \
             --output "${RUNNER_TEMP}/analysis-areas-1.0.0.ocp")
         working-directory: .

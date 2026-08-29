@@ -18,6 +18,15 @@ from app.auth.module_sdk import HostPermissionDependencies
 from app.cache.redis import close_redis, initialize_redis, redis_health
 from app.core.config import BACKEND_ENV_FILE, get_settings
 from app.db.session import AsyncSessionLocal, database_health, engine
+from app.integrations.module_host_ports import (
+    HostCacheGenerations,
+    HostMapPreviews,
+    HostModuleCache,
+    HostPolygonAnalytics,
+    HostPolygonQueries,
+    HostPublicQueries,
+    HostStatisticsQueries,
+)
 from app.models.user import User
 from app.observability.logging import configure_logging
 from app.observability.metrics import REDIS_AVAILABLE, REGISTRY, set_build_info
@@ -94,6 +103,13 @@ module_runtime = create_module_runtime(
         ModuleHostServices(
             database=HostDatabaseSessionProvider(),
             permission_dependencies=HostPermissionDependencies(),
+            cache_factory=HostModuleCache,
+            cache_generations=HostCacheGenerations(),
+            public_queries=HostPublicQueries(settings),
+            map_previews=HostMapPreviews(),
+            polygons=HostPolygonQueries(),
+            polygon_analytics=HostPolygonAnalytics(),
+            statistics=HostStatisticsQueries(),
         ),
         event_bus=event_bus,
         permission_engine=permission_engine,

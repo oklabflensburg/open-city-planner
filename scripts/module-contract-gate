@@ -7,7 +7,7 @@ scope="${1:-all}"
 run_backend() {
   cd "${repository_root}/backend"
   uv run python ../scripts/check_module_architecture.py
-  uv run pytest tests/test_module_*.py tests/test_domain_events.py tests/modules/reference
+  uv run pytest tests/test_module_*.py tests/test_external_module_imports.py tests/test_domain_events.py tests/modules/reference
 }
 
 run_frontend() {

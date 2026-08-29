@@ -10,6 +10,12 @@ Prozessumgebung laden. Diese Architekturgrenze verspricht keine In-Process-Sandb
 Provenance und Integrität späterer Third-Party-Artefakte werden am Installer-/
 Deploymentrand geprüft (#173 und #174), nicht in der Runtime.
 
+Für ausgecheckte oder entpackte First-Party-Module prüft
+`scripts/check_external_module_imports.py <python-package-root>` zusätzlich die
+Regel `ARCH-BE-INSTALLED-001`. Erlaubt ist aus `app.*` ausschließlich
+`app.platform.modules.sdk`; damit kann dieselbe Negativregel vor Wheel-Build und
+nach Installation auf den tatsächlichen Paketinhalt angewendet werden.
+
 Nach der Installation der gelockten Backend- und Frontend-Abhängigkeiten reicht lokal:
 
 ```bash

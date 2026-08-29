@@ -146,6 +146,9 @@ unter `app.*` ausschließlich den öffentlichen SDK-Pfad verwendet.
 
 ## SDK-Versionierung
 
+Die Capability- und Legacy-Import-Zuordnung für die mit SDK 1.9 ergänzten Ports
+steht in [Öffentliche Backend-Service-Ports](backend-service-ports.md).
+
 `MODULE_SDK_VERSION` ist eine SemVer-Version und unabhängig von Release-SHA und
 Host-API-Version. Der Context wurde unter SDK `1.0.0` eingeführt. Die additive
 Event-/Outbox-API aus #96 erhöhte die SDK-Version auf `1.1.0`. Die additiven
@@ -166,6 +169,11 @@ Auth-Interna Teil des SDK zu machen.
 Die additive, optionale `ModuleMigrationSource.adopted_revisions`-Metadata erhöht
 die SDK-Version auf `1.8.0`. Bestehende Module erhalten standardmäßig eine leere
 unveränderliche Menge und müssen ihren Migration Contract nicht ändern.
+Die additiven öffentlichen Backend-Service-Ports für Cache-Generationen,
+Public-Query-Schutz, Kartenvorschauen, Polygonabfragen und -aggregate,
+Kommunalstatistik erhöhen die SDK-Version auf `1.9.0`.
+Alle Ports sind optional; bestehende Module und ihre Context-Konstruktion bleiben
+damit rückwärtskompatibel.
 
 - **MAJOR:** Entfernen oder Umbenennen öffentlicher Methoden, inkompatible Änderungen
   an vorhandener Semantik oder eine inkompatible Context-Struktur.
