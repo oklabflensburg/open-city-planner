@@ -28,7 +28,8 @@ Die mitgelieferten Units `stadtplaner-social-publisher.service` und `.timer` sta
 ## Veröffentlichungspolitik
 
 - Gleichartige Gebietsänderungen werden innerhalb des konfigurierten Zeitfensters gebündelt.
-- Der reguläre OSM-Sync erzeugt keine Social-Ereignisse. Nur ein bewusst mit `--publish-relevant-updates` gestarteter Gebietssync darf passende Änderungen einreihen.
+- Der reguläre Host-OSM-Sync erzeugt keine Social-Ereignisse. Gebietsbezogene
+  Publikationsereignisse liegen in der Verantwortung des externen Moduls.
 - Eine aus OSM übernommene Stadtplaner-Fläche kann genau ein Adoption-Ereignis erzeugen. Spätere Autosaves erzeugen keine Wiederholung.
 - Ein Statistikimport erzeugt bei tatsächlichen Änderungen höchstens einen zusammenfassenden Hinweis.
 - Löschungen, technische Cache- oder Zeitstempeländerungen sowie Login-, Audit- und Rollenereignisse werden nicht automatisch veröffentlicht.

@@ -83,7 +83,6 @@ def test_knowledge_catalog_tracks_canonical_categories_and_has_version() -> None
 
 def test_knowledge_sources_are_explicitly_allowlisted_and_public() -> None:
     allowed_prefixes = (
-        "backend/app/modules/analysis_areas/",
         "backend/app/services/",
         "backend/app/schemas/",
         "docs/",

@@ -14,7 +14,7 @@ concurrency:
 env:
   APP_ENVIRONMENT: test
   DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/open_city_map_test
-  ENABLED_MODULES: analysis-areas
+  ENABLED_MODULES: ""
   REDIS_ENABLED: "false"
   MASTODON_ENABLED: "false"
   MASTODON_SSO_ENABLED: "false"
@@ -50,6 +50,11 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: oklabflensburg/ocp-module-analysis-areas
+          ref: 06afb05fed5dab8426e0e52392d3716ba46c980a
+          path: .external-analysis-areas
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: .python-version
@@ -57,7 +62,10 @@ jobs:
         run: python -m pip install 'uv==0.12.5'
       - name: Install locked dependencies
         working-directory: backend
-        run: uv sync --frozen --extra dev --no-editable
+        run: |
+          uv sync --frozen --extra dev --no-editable
+          (cd ../.external-analysis-areas/backend && uv build --wheel)
+          uv pip install --python .venv/bin/python --no-deps ../.external-analysis-areas/backend/dist/ocp_module_analysis_areas-1.0.0-py3-none-any.whl
       - name: Run pytest
         working-directory: backend
         run: uv run pytest
@@ -88,6 +96,11 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: oklabflensburg/ocp-module-analysis-areas
+          ref: 06afb05fed5dab8426e0e52392d3716ba46c980a
+          path: .external-analysis-areas
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: .python-version
@@ -95,15 +108,16 @@ jobs:
         run: python -m pip install 'uv==0.12.5'
       - name: Install locked dependencies
         working-directory: backend
-        run: uv sync --frozen --extra dev --no-editable
-      - name: Verify single migration head
-        working-directory: backend
         run: |
-          uv run alembic heads
-          test "$(uv run alembic heads | sed '/^$/d' | wc -l)" -eq 1
+          uv sync --frozen --extra dev --no-editable
+          (cd ../.external-analysis-areas/backend && uv build --wheel)
+          uv pip install --python .venv/bin/python --no-deps ../.external-analysis-areas/backend/dist/ocp_module_analysis_areas-1.0.0-py3-none-any.whl
+      - name: Verify the combined host and module migration graph
+        working-directory: backend
+        run: uv run python -m app.cli.module_migrations preflight
       - name: Upgrade fresh database
         working-directory: backend
-        run: uv run alembic upgrade head
+        run: uv run python -m app.cli.module_migrations upgrade
       - name: Verify module persistence and migration contracts
         working-directory: backend
         run: uv run pytest tests/test_module_persistence.py

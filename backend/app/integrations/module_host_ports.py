@@ -246,7 +246,8 @@ class HostPolygonAnalytics:
 
 def _statistics_area(value) -> StatisticsArea:
     return StatisticsArea(
-        id=value.id,
+        # The module's JSON schema exposes identifiers as canonical strings.
+        id=str(value.id),
         slug=value.slug,
         name=value.name,
         area_type=value.area_type,

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal, close_session
-from app.modules.analysis_areas.application.legacy_queries import list_areas
+from app.integrations.external_analysis_areas import list_areas
 from app.schemas.assistant import (
     AnswerPresentation,
     AnswerPresentationSection,

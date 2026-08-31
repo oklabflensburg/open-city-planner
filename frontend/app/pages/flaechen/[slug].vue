@@ -158,7 +158,7 @@
       aria-labelledby="polygon-external-sources"
     >
       <h2 id="polygon-external-sources" class="text-lg font-bold text-slate-950">Externe Quellen</h2>
-      <AreaExternalLinks class="mt-4" :area-name="polygonData.name" :links="polygonData.external_links" variant="card" />
+      <ExternalLinks class="mt-4" :resource-name="polygonData.name" :links="polygonData.external_links" variant="card" />
     </section>
 
     <LocationAnalysis class="mt-8" :slug="slug" />

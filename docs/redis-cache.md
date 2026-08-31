@@ -62,7 +62,11 @@ Die Tabelle `cache_versions` persistiert die Namespaces `osm`, `analytics`, `ana
 | Polygon-GeoJSON | 60 s |
 | Standortanalyse/Comparables | 600 s |
 
-Polygon Create, Update, Verwaltung-Update und Delete erhöhen `polygons` und `analytics`. Geometrieänderungen aktualisieren zuvor die räumliche Gebietszuordnung. Kennzahlenänderungen erhöhen `analytics`. Der Boundary-Sync erhöht `analysis-areas` und `analytics`. Ein externer OSM-Import muss anschließend `python -m app.cli.cache_bump osm` aufrufen. OSM-Keys werden bei normalen Polygonänderungen nicht massenhaft gelöscht.
+Polygon Create, Update, Verwaltung-Update und Delete erhöhen `polygons` und
+`analytics`. Kennzahlenänderungen erhöhen `analytics`. Die Invalidierung des
+Namespaces `analysis-areas` gehört zum externen Modul. Ein externer OSM-Import
+muss anschließend `python -m app.cli.cache_bump osm` aufrufen. OSM-Keys werden
+bei normalen Polygonänderungen nicht massenhaft gelöscht.
 
 Alte Versionen laufen über ihre TTL beziehungsweise Redis-LRU aus. Pattern-Löschung verwendet `SCAN`, niemals `KEYS *`. Ein kurzer Redis-Lock mit TTL und ein pro Prozess geteilter Async-Lock reduzieren Cache Stampedes; nach kurzer Wartezeit bleibt ein Datenbank-Fallback möglich.
 

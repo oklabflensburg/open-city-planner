@@ -44,7 +44,14 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
+      - name: Configure module installation root
+        run: echo "OCP_MODULE_INSTALL_ROOT=${RUNNER_TEMP}/ocp-modules" >> "${GITHUB_ENV}"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: oklabflensburg/ocp-module-analysis-areas
+          ref: 06afb05fed5dab8426e0e52392d3716ba46c980a
+          path: .external-analysis-areas
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: .python-version
@@ -61,20 +68,43 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: uv sync --frozen --extra dev --no-editable
+      - name: Install frontend dependencies
+        run: |
+          (cd frontend && pnpm install --frozen-lockfile)
+          (cd .external-analysis-areas/frontend && pnpm install --frozen-lockfile)
+      - name: Build and install pinned analysis areas bundle
+        run: |
+          (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct 06afb05fed5dab8426e0e52392d3716ba46c980a)" uv build --wheel)
+          (cd .external-analysis-areas/frontend && pnpm build)
+          (cd backend && .venv/bin/python -m app.cli.modules bundle build \
+            --manifest ../.external-analysis-areas/module.yaml \
+            --backend ../.external-analysis-areas/backend/dist/ocp_module_analysis_areas-1.0.0-py3-none-any.whl \
+            --frontend ../.external-analysis-areas/frontend/dist/analysis-areas-1.0.0.tgz \
+            --publisher oklabflensburg --source-reference pull/2 \
+            --source-repository https://github.com/oklabflensburg/ocp-module-analysis-areas \
+            --source-commit 06afb05fed5dab8426e0e52392d3716ba46c980a \
+            --build-workflow github-actions/e2e --license AGPL-3.0-only \
+            --output "${RUNNER_TEMP}/analysis-areas-1.0.0.ocp")
+          (cd backend && .venv/bin/python -m app.cli.modules install "${RUNNER_TEMP}/analysis-areas-1.0.0.ocp")
+          (cd backend && .venv/bin/python -m app.cli.modules enable analysis-areas)
+          eval "$(cd backend && .venv/bin/python -m app.cli.modules env --format shell)"
+          printf '%s\n' \
+            "ENABLED_MODULES=${ENABLED_MODULES}" \
+            "OCP_ENABLED_INSTALLED_BACKEND_PATHS=${OCP_ENABLED_INSTALLED_BACKEND_PATHS}" \
+            "OCP_FRONTEND_MODULES=${OCP_FRONTEND_MODULES}" \
+            "OCP_INSTALLED_FRONTEND_MODULE_ROOTS=${OCP_INSTALLED_FRONTEND_MODULE_ROOTS}" \
+            "OCP_EXCLUDED_BUILTIN_MODULES=${OCP_EXCLUDED_BUILTIN_MODULES}" >> "${GITHUB_ENV}"
       - name: Resolve backend module inventory
         run: |
           inventory="$(scripts/backend-module-inventory --format env)"
           printf 'OCP_BACKEND_MODULES=%s\n' "$inventory" >> "$GITHUB_ENV"
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: pnpm install --frozen-lockfile
       - name: Verify E2E frontend module configuration
         working-directory: frontend
         run: pnpm modules:check
       - name: Prepare fresh database
         working-directory: backend
         run: |
-          uv run alembic upgrade head
+          uv run python -m app.cli.module_migrations upgrade
           uv run python tests/e2e_seed.py
       - name: Verify E2E backend module configuration
         working-directory: backend

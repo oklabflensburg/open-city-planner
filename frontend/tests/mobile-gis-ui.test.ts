@@ -6,6 +6,18 @@ import { mapHostSource } from './map-host-source'
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
 
 describe('mobile GIS interface', () => {
+  it('delegates URL history changes to Vue Router', () => {
+    const filterHistory = appFile('composables/useGisFilterHistory.ts')
+    const comparison = appFile('pages/vergleich.vue')
+
+    expect(filterHistory).toContain('void router.replace(')
+    expect(filterHistory).toContain('void router.push(')
+    expect(filterHistory).not.toContain('window.history.replaceState')
+    expect(filterHistory).not.toContain('window.history.pushState')
+    expect(comparison).toContain('void router.push(')
+    expect(comparison).not.toContain('window.history.pushState')
+  })
+
   it('hydrates the map directly with the same SSR and client root node', () => {
     const shell = appFile('components/layout/AppShell.vue')
     expect(shell).toContain('<LazyMapCanvas />')

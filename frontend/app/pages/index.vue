@@ -4,17 +4,17 @@
       <div class="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,1fr)_22rem] lg:px-8">
         <div>
           <p class="text-sm font-bold uppercase tracking-[0.14em] text-[#086b78]">Offene Stadtentwicklung in Flensburg</p>
-          <h1 class="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Flächen und Stadtgebiete auf einen Blick</h1>
-          <p class="mt-5 max-w-3xl text-lg leading-8 text-slate-600">Der Stadtplaner macht öffentliche Verkaufsflächen, Stadtteile und statistische Bezirke direkt auffindbar. Alle Einträge dieser Seite werden serverseitig ausgegeben und sind ohne Kartenanwendung zugänglich.</p>
+          <h1 class="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">{{ analysisAreasEnabled ? 'Flächen und Stadtgebiete auf einen Blick' : 'Öffentliche Flächen auf einen Blick' }}</h1>
+          <p class="mt-5 max-w-3xl text-lg leading-8 text-slate-600">{{ analysisAreasEnabled ? 'Der Stadtplaner macht öffentliche Verkaufsflächen, Stadtteile und statistische Bezirke direkt auffindbar.' : 'Der Stadtplaner macht öffentliche Verkaufsflächen direkt auffindbar.' }} Alle Einträge dieser Seite werden serverseitig ausgegeben und sind ohne Kartenanwendung zugänglich.</p>
           <div class="mt-7 flex flex-wrap gap-3">
             <NuxtLink class="inline-flex min-h-11 items-center rounded-xl bg-[#154d73] px-5 font-bold text-white hover:bg-[#0f3f61] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]" to="/karte">Interaktive Karte öffnen</NuxtLink>
-            <NuxtLink class="inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-5 font-bold text-slate-800 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]" to="/gebiete">Gebiete entdecken</NuxtLink>
+            <NuxtLink v-if="analysisAreasEnabled" class="inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-5 font-bold text-slate-800 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]" to="/gebiete">Gebiete entdecken</NuxtLink>
             <NuxtLink class="inline-flex min-h-11 items-center px-2 font-bold text-[#154d73] underline-offset-4 hover:underline" to="/open-data">Open Data ansehen</NuxtLink>
           </div>
         </div>
         <dl class="grid grid-cols-2 gap-3 self-end">
           <div class="rounded-2xl bg-[#edf4f8] p-5"><dt class="text-sm text-slate-600">Flächen</dt><dd class="mt-1 text-3xl font-black text-[#154d73]">{{ polygons.length }}</dd></div>
-          <div class="rounded-2xl bg-[#edf4f8] p-5"><dt class="text-sm text-slate-600">Gebiete</dt><dd class="mt-1 text-3xl font-black text-[#154d73]">{{ publicAreas.length }}</dd></div>
+          <div v-if="analysisAreasEnabled" class="rounded-2xl bg-[#edf4f8] p-5"><dt class="text-sm text-slate-600">Gebiete</dt><dd class="mt-1 text-3xl font-black text-[#154d73]">{{ publicAreas.length }}</dd></div>
         </dl>
       </div>
     </section>
@@ -58,7 +58,7 @@
           </ul>
         </nav>
 
-        <section aria-labelledby="areas-heading">
+        <section v-if="analysisAreasEnabled" aria-labelledby="areas-heading">
           <div class="flex flex-wrap items-end justify-between gap-3">
             <div><p class="text-sm font-bold text-[#086b78]">Räumliche Gliederung</p><h2 id="areas-heading" class="mt-1 text-3xl font-black text-slate-950">Stadtteile und Quartiere</h2></div>
             <NuxtLink class="font-bold text-[#154d73] underline-offset-4 hover:underline" to="/gebiete">Alle Gebietsdetails</NuxtLink>
@@ -128,13 +128,15 @@
 
 <script setup lang="ts">
 import { Check } from '@lucide/vue'
-import type { AnalysisArea, AnalysisAreaType } from '~/types/analysisArea'
+import type { PublicAreaReference, PublicAreaType } from '~/types/publicAreaReference'
 import type { OccupancyStatus, PolygonDirectoryItem } from '~/types/geo'
 import { buildApiUrl } from '~/utils/apiUrl'
 import { buildAbsoluteUrl } from '~/utils/seo'
 import { getIndustryColor, getIndustryLabel, industries } from '~/utils/industries'
 
 const config = useRuntimeConfig()
+const enabledFrontendModules = new Set((config.public.frontendModules ?? []) as readonly string[])
+const analysisAreasEnabled = enabledFrontendModules.has('analysis-areas')
 const authStore = useAuthStore()
 const mounted = ref(false)
 const showSignupCta = computed(() => !mounted.value || !authStore.authenticated)
@@ -142,12 +144,14 @@ onMounted(() => { mounted.value = true })
 const { data, error } = await useAsyncData('public-home-directory', async () => {
   const [polygons, areas] = await Promise.all([
     usePolygonApi().directoryAll(),
-    useApi().request<AnalysisArea[]>('/analysis-areas')
+    analysisAreasEnabled
+      ? useApi().request<PublicAreaReference[]>('/analysis-areas')
+      : Promise.resolve([] as PublicAreaReference[])
   ])
   return { polygons, areas }
 })
 const polygons = computed(() => data.value?.polygons || [] as PolygonDirectoryItem[])
-const areas = computed(() => data.value?.areas || [] as AnalysisArea[])
+const areas = computed(() => data.value?.areas || [] as PublicAreaReference[])
 const publicAreas = computed(() => areas.value.filter(area => area.area_type === 'DISTRICT' || area.area_type === 'QUARTER'))
 const polygonGroups = computed(() => {
   const order = new Map<string, number>(industries.map((industry, index) => [industry.key, index]))
@@ -164,7 +168,7 @@ const areaPreviewUrl = (slug: string) => previewUrl(`/analysis-areas/by-slug/${e
 const previewSrcset = (path: string) => `${buildApiUrl(config.public.apiBaseUrl, `${path}?width=320&height=180`)} 320w, ${buildApiUrl(config.public.apiBaseUrl, `${path}?width=640&height=360`)} 640w`
 const polygonPreviewSrcset = (slug: string) => previewSrcset(`/polygons/by-slug/${encodeURIComponent(slug)}/preview.webp`)
 const areaPreviewSrcset = (slug: string) => previewSrcset(`/analysis-areas/by-slug/${encodeURIComponent(slug)}/preview.webp`)
-const areaTypeLabel = (type: AnalysisAreaType) => ({ MUNICIPALITY: 'Stadt', DISTRICT: 'Stadtteil', QUARTER: 'Statistischer Bezirk' })[type]
+const areaTypeLabel = (type: PublicAreaType) => ({ MUNICIPALITY: 'Stadt', DISTRICT: 'Stadtteil', QUARTER: 'Statistischer Bezirk' })[type]
 const occupancyLabel = (status: OccupancyStatus) => ({ OCCUPIED: 'Belegt', VACANT: 'Leerstehend', UNKNOWN: 'Status unbekannt' })[status]
 const formatArea = (area: number) => `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(area / 1_000_000)} km²`
 const accountBenefits = [
@@ -177,7 +181,9 @@ const topics = [
   { title: 'Gebiete vergleichen', text: 'Stadtteile und Quartiere anhand vorhandener Flächen-, Branchen- und Statistikdaten einordnen.', to: '/vergleich', link: 'Zum Gebietsvergleich' },
   { title: 'Open Data und Datenquellen', text: 'Herkunft, Lizenz, Aktualität und technische Bereitstellung der verwendeten Daten nachvollziehen.', to: '/open-data', link: 'Open Data ansehen' },
   { title: 'Wie entstehen die Daten?', text: 'Methodik, räumliche Zuordnung und Grenzen der berechneten Kennzahlen transparent nachlesen.', to: '/dokumentation/methodik', link: 'Methodik lesen' },
-  { title: 'Stadtteile und Quartiere', text: 'Die räumliche Hierarchie Flensburgs über dauerhafte, öffentlich verlinkbare Gebietsprofile erschließen.', to: '/gebiete', link: 'Gebiete entdecken' },
+  ...(analysisAreasEnabled
+    ? [{ title: 'Stadtteile und Quartiere', text: 'Die räumliche Hierarchie Flensburgs über dauerhafte, öffentlich verlinkbare Gebietsprofile erschließen.', to: '/gebiete', link: 'Gebiete entdecken' }]
+    : []),
   { title: 'Über das Projekt', text: 'Mehr über die Civic-Tech-Plattform und das OK Lab Flensburg erfahren.', to: '/ueber-das-projekt', link: 'Projekt kennenlernen' }
 ]
 const questions = [
@@ -187,13 +193,20 @@ const questions = [
   { question: 'Woher stammen die Daten?', answer: 'Die Plattform verbindet gepflegte Stadtplaner-Daten, OpenStreetMap und veröffentlichte kommunale Statistik. Detailseiten nennen Quelle und Datenstand.' }
 ]
 
-const description = 'Öffentliches Verzeichnis der Verkaufsflächen, Stadtteile und statistischen Bezirke in Flensburg.'
+const description = analysisAreasEnabled
+  ? 'Öffentliches Verzeichnis der Verkaufsflächen, Stadtteile und statistischen Bezirke in Flensburg.'
+  : 'Öffentliches Verzeichnis der Verkaufsflächen in Flensburg.'
+const structuredData = [
+  { '@context': 'https://schema.org', '@type': 'WebSite', '@id': `${buildAbsoluteUrl(config.public.siteUrl, '/')}#website`, name: config.public.siteName, url: buildAbsoluteUrl(config.public.siteUrl, '/'), description },
+  { '@context': 'https://schema.org', '@type': 'CollectionPage', name: analysisAreasEnabled ? 'Flächen und Stadtgebiete in Flensburg' : 'Öffentliche Flächen in Flensburg', url: buildAbsoluteUrl(config.public.siteUrl, '/'), description },
+  ...(analysisAreasEnabled
+    ? [{ '@context': 'https://schema.org', '@type': 'ItemList', name: 'Stadtteile und Quartiere in Flensburg', numberOfItems: publicAreas.value.length, itemListElement: publicAreas.value.map((area, index) => ({ '@type': 'ListItem', position: index + 1, name: area.name, url: buildAbsoluteUrl(config.public.siteUrl, `/gebiete/${area.slug}`) })) }]
+    : [])
+]
 usePageSeo({
-  title: 'Flächen und Stadtgebiete in Flensburg', description, path: '/',
-  structuredData: [
-    { '@context': 'https://schema.org', '@type': 'WebSite', '@id': `${buildAbsoluteUrl(config.public.siteUrl, '/')}#website`, name: config.public.siteName, url: buildAbsoluteUrl(config.public.siteUrl, '/'), description },
-    { '@context': 'https://schema.org', '@type': 'CollectionPage', name: 'Flächen und Stadtgebiete in Flensburg', url: buildAbsoluteUrl(config.public.siteUrl, '/'), description },
-    { '@context': 'https://schema.org', '@type': 'ItemList', name: 'Stadtteile und Quartiere in Flensburg', numberOfItems: publicAreas.value.length, itemListElement: publicAreas.value.map((area, index) => ({ '@type': 'ListItem', position: index + 1, name: area.name, url: buildAbsoluteUrl(config.public.siteUrl, `/gebiete/${area.slug}`) })) }
-  ]
+  title: analysisAreasEnabled ? 'Flächen und Stadtgebiete in Flensburg' : 'Öffentliche Flächen in Flensburg',
+  description,
+  path: '/',
+  structuredData
 })
 </script>

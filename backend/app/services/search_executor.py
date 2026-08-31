@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.analysis_areas.application.legacy_queries import (
+from app.integrations.external_analysis_areas import (
     area_analytics,
     area_comparison,
     area_detail_by_slug,

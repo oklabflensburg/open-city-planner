@@ -178,7 +178,4 @@ async def test_failed_import_run_is_recorded_by_stable_id() -> None:
 
 def test_openapi_documents_statistics_endpoints() -> None:
     paths = app.openapi()["paths"]
-    assert "/api/v1/analysis-areas/by-slug/{slug}/statistics" in paths
-    assert "/api/v1/analysis-areas/by-slug/{slug}/statistics/{metric_key}" in paths
     assert "/api/v1/data-sources/status" in paths
-    assert "Statistics" in paths["/api/v1/analysis-areas/by-slug/{slug}/statistics"]["get"]["tags"]

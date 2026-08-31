@@ -849,7 +849,7 @@
 
 - name: Apply Alembic migrations
   ansible.builtin.command:
-    cmd: .venv/bin/alembic upgrade head
+    cmd: .venv/bin/python -m app.cli.module_migrations upgrade
     chdir: "{{ stadtplaner_release_path }}/backend"
   become_user: "{{ stadtplaner_service_user }}"
   when: stadtplaner_run_migrations

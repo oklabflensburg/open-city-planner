@@ -1,5 +1,10 @@
 # Wikidata-Anreicherung von Gebieten
 
+> Ownership-Hinweis: Diese Fachfunktion gehört seit dem finalen Cutover zum
+> externen `ocp-module-analysis-areas`. Der Host enthält weder Implementierung
+> noch CLI-Fallback; dieser Text dokumentiert Datenvertrag und bisheriges
+> Verhalten für Betrieb und Nachbardomänen.
+
 Die Verknüpfung ist ein persistenter Importprozess und kein Bestandteil eines öffentlichen Page Requests:
 
 ```text
@@ -57,12 +62,10 @@ wikipedia=de:Lutherpark (Flensburg)
 
 ## Betrieb
 
-```bash
-python -m app.cli.sync_analysis_areas --municipality Flensburg
-python -m app.cli.sync_wikidata
-python -m app.cli.sync_wikidata --force
-python -m app.cli.set_area_wikidata flensburg Q3798
-```
+Gebietssync, automatische Anreicherung und manuelle Verifikation müssen über den
+vom installierten Modul dokumentierten Betriebspfad ausgeführt werden. Die
+früheren Host-Kommandos `app.cli.sync_analysis_areas`, `app.cli.sync_wikidata`
+und `app.cli.set_area_wikidata` wurden mit der Domain-Source entfernt.
 
 Standardmäßig werden nur fehlende, nicht erfolgreiche oder nach 90 Tagen veraltete Matches geprüft. Entity- und Suchantworten liegen mit langer TTL im vorhandenen Redis; negative Antworten kürzer. Der Client setzt einen Projekt-User-Agent, begrenzt Timeout und Suchmenge und wiederholt nur Netzwerkfehler, HTTP 429 und 5xx mit Backoff.
 

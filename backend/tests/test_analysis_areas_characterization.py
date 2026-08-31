@@ -1,6 +1,15 @@
 """Production contracts captured before the Analysis Areas module migration."""
 
+import os
+
+import pytest
+
 from app.main import app
+
+pytestmark = pytest.mark.skipif(
+    "analysis-areas" not in os.getenv("ENABLED_MODULES", "").split(","),
+    reason="The external Analysis Areas module is not enabled in this Host test run.",
+)
 
 EXPECTED_PATHS = {
     "/api/v1/analysis-areas",

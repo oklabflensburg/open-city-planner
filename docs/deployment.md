@@ -74,15 +74,12 @@ uv python install 3.12.14
 uv sync --frozen --no-dev --no-editable --python 3.12.14 --managed-python
 export OCP_MODULE_INSTALL_ROOT=/var/lib/stadtplaner/modules
 eval "$(uv run python -m app.cli.modules env --format shell)"
-uv run alembic heads
-uv run alembic upgrade head
 uv run python -m app.cli.module_migrations preflight
 uv run python -m app.cli.module_migrations upgrade
 ```
 
-Die Alembic-Befehle bleiben für die veröffentlichte Host-/Legacy-Historie maßgeblich.
-Der anschließende generische Modul-CLI löst die in `ENABLED_MODULES` konfigurierten,
-aktiven Module für Compatibility, Dependencies und Settings auf. Fehlende oder
+Der generische Modul-CLI löst aktive Runtime-Module und die passiv verfügbaren
+Migrationsquellen auf. Fehlende oder
 ungültige Settings eines aktiven Moduls stoppen damit vor dem Migrations-Preflight.
 Für den gemeinsamen linearen Alembic-Graphen entdeckt der CLI davon getrennt alle
 lokal verfügbaren Built-in- und installierten Entry-Point-Migrationsquellen. Ein
@@ -241,7 +238,10 @@ sudo journalctl -u stadtplaner-osm-update.service -n 100 --no-pager
 scripts/osm/status.sh
 ```
 
-Nach dem lokalen OSM-Import aktualisiert das Postprocessing die anwendungsseitigen Tabellen und Cache-Versionen. Analysegebiete werden mit dem CLI-Modul `app.cli.sync_analysis_areas` synchronisiert; Details stehen in [osm-data.md](osm-data.md).
+Nach dem lokalen OSM-Import aktualisiert das Host-Postprocessing ausschließlich
+Host-eigene Tabellen und Cache-Versionen. Gebietsressourcen und deren Sync gehören
+zum installierten `analysis-areas`-Modul; der Host enthält weder Sync-CLI noch
+Runtime-Fallback. Details stehen in [osm-data.md](osm-data.md).
 
 ## Kommunale Statistik
 

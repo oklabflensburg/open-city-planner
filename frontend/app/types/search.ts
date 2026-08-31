@@ -1,6 +1,6 @@
 import type { FeatureCollection } from 'geojson'
 import type { BusinessStructure, OccupancyStatus } from '~/types/geo'
-import type { AnalysisAreaType } from '~/types/analysisArea'
+import type { PublicAreaType } from '~/types/publicAreaReference'
 import type { FloorGroup, GisDataSource, SalesAreaSize } from '~/utils/gisFilters'
 import type { IndustryKey } from '~/utils/industries'
 
@@ -19,8 +19,8 @@ export type SearchFilters = {
 
 export type SearchPlan = {
   intent: SearchIntent
-  area: { id: string, name: string, slug: string, area_type: AnalysisAreaType } | null
-  area_type: AnalysisAreaType | null
+  area: { id: string, name: string, slug: string, area_type: PublicAreaType } | null
+  area_type: PublicAreaType | null
   filters: SearchFilters
   geometry_filter: SearchGeometryFilter
   osm_amenities?: string[]
@@ -68,7 +68,7 @@ export type AssistantMapAction = {
   type: AssistantMapActionType
   area_slug: string | null
   area_slugs: string[]
-  area_type: AnalysisAreaType | null
+  area_type: PublicAreaType | null
   fit_bounds: boolean
   bounds: [number, number, number, number] | null
   feature_collection: FeatureCollection | null

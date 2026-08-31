@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.analysis_areas.application.legacy_queries import (
+from app.integrations.external_analysis_areas import (
     area_analytics,
     area_detail_by_slug,
     area_polygons_by_slug,

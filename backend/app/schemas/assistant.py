@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.modules.analysis_areas.api.schemas import (
+from app.integrations.external_analysis_areas import (
     AnalysisAreaAnalytics,
     AnalysisAreaDetail,
     AnalysisAreaPolygon,

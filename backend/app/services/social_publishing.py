@@ -4,7 +4,7 @@ import re
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, column, func, or_, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -12,7 +12,6 @@ from app.integrations.mastodon import MastodonClient, MastodonError
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.social_publication import SocialPublication, SocialPublicationOutbox
 from app.models.user_polygon import UserPolygon
-from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.observability.metrics import OUTBOX_FAILED, OUTBOX_PROCESSED, OUTBOX_RETRY
 from app.observability.outbox import update_outbox_gauges
 from app.schemas.social import PublicAdoptedPolygonSnapshot
@@ -20,9 +19,18 @@ from app.services.notification_policy import DomainEvent, NotificationEventType
 from app.services.notifications import notify_superusers, publish_notifications
 from app.services.social_policy import enabled_event_types, event_is_enabled, get_social_settings
 from app.services.social_screenshots import (
+    AreaScreenshotResource,
     ScreenshotError,
     ScreenshotService,
     screenshot_target,
+)
+
+_ANALYSIS_AREAS = table(
+    "analysis_areas",
+    column("uuid"),
+    column("slug"),
+    column("name"),
+    column("area_type"),
 )
 
 PUBLISHABLE_AREA_TYPES = {"MUNICIPALITY", "DISTRICT", "QUARTER"}
@@ -142,7 +150,7 @@ def render_polygon_adoption_post(
 
 
 def render_area_post(
-    area: AnalysisArea,
+    area: AreaScreenshotResource,
     event_type: str,
     changed_fields: set[str],
     settings: Settings,
@@ -206,7 +214,7 @@ def mastodon_idempotency_key(event_id: uuid.UUID) -> str:
 
 async def enqueue_area_publication(
     session: AsyncSession,
-    area: AnalysisArea,
+    area: AreaScreenshotResource,
     event_type: str,
     changed_fields: set[str],
     *,
@@ -381,7 +389,7 @@ async def _event_context(
     event: SocialPublicationOutbox,
     settings: Settings,
     hashtags: list[str],
-) -> tuple[str, AnalysisArea | UserPolygon | None]:
+) -> tuple[str, AreaScreenshotResource | UserPolygon | None]:
     if event.resource_type == "ANALYSIS_AREA_COLLECTION":
         return render_statistics_summary_post(settings, hashtags), None
     if event.resource_type == "USER_POLYGON" and event.event_type == POLYGON_ADOPTION_EVENT:
@@ -415,9 +423,19 @@ async def _event_context(
             ),
             polygon,
         )
-    area = await session.scalar(select(AnalysisArea).where(AnalysisArea.uuid == event.resource_id))
-    if area is None:
+    row = (
+        await session.execute(
+            select(
+                _ANALYSIS_AREAS.c.uuid,
+                _ANALYSIS_AREAS.c.slug,
+                _ANALYSIS_AREAS.c.name,
+                _ANALYSIS_AREAS.c.area_type,
+            ).where(_ANALYSIS_AREAS.c.uuid == event.resource_id)
+        )
+    ).mappings().one_or_none()
+    if row is None:
         raise PublicationResourceGone("Das zu veröffentlichende Gebiet wurde gelöscht.")
+    area = AreaScreenshotResource(**row)
     return (
         render_area_post(
             area,
@@ -435,7 +453,7 @@ async def render_event_preview(
     event: SocialPublicationOutbox,
     settings: Settings,
     hashtags: list[str],
-) -> tuple[str, AnalysisArea | UserPolygon | None]:
+) -> tuple[str, AreaScreenshotResource | UserPolygon | None]:
     return await _event_context(session, event, settings, hashtags)
 
 

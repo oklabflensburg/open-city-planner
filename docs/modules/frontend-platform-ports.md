@@ -25,7 +25,8 @@ genau einen Consumer für die Sichtbarkeit der Gebiets-Folgen-Aktion.
 
 ## Dependency migration für Analysis Areas
 
-Inventargrundlage ist `ocp-module-analysis-areas` PR #2, Commit `776da22`, mit 16
+Inventargrundlage ist `ocp-module-analysis-areas` PR #2, Merge-Commit
+`06afb05fed5dab8426e0e52392d3716ba46c980a`, mit 16
 Dateien unter `frontend/host-compatibility/`. Kategorie: A öffentliches SDK, B
 Platform Service, C UI Primitive, D Map Port, E Navigation, F Notification, G
 andere Fachdomäne, H Analysis-Areas-Fachlogik, I Presentation Helper.

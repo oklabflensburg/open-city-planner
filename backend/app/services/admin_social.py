@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, column, func, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -10,7 +10,6 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.social_publication import SocialPublicationOutbox, SocialPublishingSettings
 from app.models.user import User
 from app.models.user_polygon import UserPolygon
-from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.schemas.social import (
     MastodonAdminStatusRead,
     SocialEventDefinitionRead,
@@ -34,6 +33,10 @@ from app.services.social_publishing import (
     render_event_preview,
 )
 from app.services.social_screenshots import ScreenshotService, screenshot_target
+
+_ANALYSIS_AREAS = table(
+    "analysis_areas", column("uuid"), column("name"), column("slug")
+)
 
 
 async def mastodon_admin_status(session: AsyncSession, *, settings: Settings | None = None, client: MastodonClient | None = None) -> MastodonAdminStatusRead:
@@ -156,12 +159,12 @@ async def list_social_publications(session: AsyncSession, *, page: int, page_siz
     rows = (await session.execute(
         select(
             SocialPublicationOutbox,
-            func.coalesce(AnalysisArea.name, UserPolygon.name),
-            func.coalesce(AnalysisArea.slug, UserPolygon.slug),
+            func.coalesce(_ANALYSIS_AREAS.c.name, UserPolygon.name),
+            func.coalesce(_ANALYSIS_AREAS.c.slug, UserPolygon.slug),
         )
-        .outerjoin(AnalysisArea, and_(
+        .outerjoin(_ANALYSIS_AREAS, and_(
             SocialPublicationOutbox.resource_type == "ANALYSIS_AREA",
-            AnalysisArea.uuid == SocialPublicationOutbox.resource_id,
+            _ANALYSIS_AREAS.c.uuid == SocialPublicationOutbox.resource_id,
         ))
         .outerjoin(UserPolygon, and_(
             SocialPublicationOutbox.resource_type == "USER_POLYGON",
@@ -186,12 +189,12 @@ async def get_social_publication(session: AsyncSession, event_id: uuid.UUID) -> 
     row = (await session.execute(
         select(
             SocialPublicationOutbox,
-            func.coalesce(AnalysisArea.name, UserPolygon.name),
-            func.coalesce(AnalysisArea.slug, UserPolygon.slug),
+            func.coalesce(_ANALYSIS_AREAS.c.name, UserPolygon.name),
+            func.coalesce(_ANALYSIS_AREAS.c.slug, UserPolygon.slug),
         )
-        .outerjoin(AnalysisArea, and_(
+        .outerjoin(_ANALYSIS_AREAS, and_(
             SocialPublicationOutbox.resource_type == "ANALYSIS_AREA",
-            AnalysisArea.uuid == SocialPublicationOutbox.resource_id,
+            _ANALYSIS_AREAS.c.uuid == SocialPublicationOutbox.resource_id,
         ))
         .outerjoin(UserPolygon, and_(
             SocialPublicationOutbox.resource_type == "USER_POLYGON",

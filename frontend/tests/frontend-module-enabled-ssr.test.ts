@@ -24,8 +24,8 @@ const address = api.address()
 if (!address || typeof address === 'string') throw new Error('Reference API test server failed.')
 const apiBaseUrl = `http://127.0.0.1:${address.port}/api/v1`
 
-process.env.OCP_FRONTEND_MODULES = 'analysis-areas,example-module,reference'
-process.env.OCP_BACKEND_MODULES = 'analysis-areas,reference'
+process.env.OCP_FRONTEND_MODULES = 'example-module,reference'
+process.env.OCP_BACKEND_MODULES = 'reference'
 process.env.NUXT_API_INTERNAL_BASE_URL = apiBaseUrl
 process.env.NUXT_PUBLIC_API_BASE_URL = apiBaseUrl
 

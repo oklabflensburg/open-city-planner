@@ -15,11 +15,6 @@ describe('site navigation', () => {
       expect.objectContaining({ label: 'Dokumentation', to: '/dokumentation' })
     ])
     expect(hostPrimaryNavigation.some(item => item.to === '/gebiete')).toBe(false)
-    const areaModule = JSON.parse(readFileSync(fileURLToPath(new URL('../frontend-modules/analysis-areas/module.json', import.meta.url)), 'utf8'))
-    expect(areaModule.publicContributions.ui).toContainEqual(expect.objectContaining({
-      id: 'analysis-areas.primary-navigation', label: 'Gebiete', to: '/gebiete'
-    }))
-
     const header = appFile('components/layout/AppHeader.vue')
     expect(header).toContain('<NuxtLink class="group flex min-h-11 shrink-0 items-center rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#154d73]" to="/"')
     expect(header).toContain('v-for="item in primaryNavigation"')
@@ -30,5 +25,14 @@ describe('site navigation', () => {
     expect(mobile).toContain(':aria-current="isActive(item) ? \'page\' : undefined"')
     expect(mobile).toContain('@click="$emit(\'close\')"')
     expect(mobile).toContain('focus-visible:outline')
+  })
+
+  it('does not advertise routes owned by a disabled analysis-areas module', () => {
+    const home = appFile('pages/index.vue')
+
+    expect(home).toContain('<NuxtLink v-if="analysisAreasEnabled"')
+    expect(home).toContain('<section v-if="analysisAreasEnabled" aria-labelledby="areas-heading">')
+    expect(home).toContain("analysisAreasEnabled\n      ? useApi().request<PublicAreaReference[]>('/analysis-areas')")
+    expect(home).toContain("const analysisAreasEnabled = enabledFrontendModules.has('analysis-areas')")
   })
 })

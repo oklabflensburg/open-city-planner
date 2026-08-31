@@ -34,4 +34,4 @@ WEBAUTHN_RP_NAME="Stadtplaner OK Lab Flensburg"
 WEBAUTHN_ORIGIN=https://stadtplaner.oklabflensburg.de
 ```
 
-Nach Installation der Python-Abhängigkeiten `alembic upgrade head` ausführen. Migration `20260819_0027` legt `user_webauthn_credentials` und `webauthn_challenges` an. RP-ID und Origin müssen zur tatsächlich im Browser sichtbaren Frontend-Origin passen; eine separate API-Subdomain darf nicht versehentlich als WebAuthn-Origin konfiguriert werden.
+Nach Installation der Python-Abhängigkeiten `python -m app.cli.module_migrations upgrade` ausführen. Migration `20260819_0027` legt `user_webauthn_credentials` und `webauthn_challenges` an. RP-ID und Origin müssen zur tatsächlich im Browser sichtbaren Frontend-Origin passen; eine separate API-Subdomain darf nicht versehentlich als WebAuthn-Origin konfiguriert werden.

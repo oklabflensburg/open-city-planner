@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +18,6 @@ from app.models.statistics import (
     StatisticalMetric,
     StatisticalObservation,
 )
-from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.services.cache_versions import bump_cache_versions
 from app.services.flensburg_superset import DATASET_SPECS, FlensburgSupersetClient
 from app.services.notification_policy import DomainEvent, NotificationEventType
@@ -244,8 +243,19 @@ def normalize_rows(
 
 async def _ensure_mappings(session: AsyncSession) -> dict[str, ExternalAreaMapping]:
     names = [name for name, _area_type in AREA_MAPPING.values()]
-    areas = (await session.scalars(select(AnalysisArea).where(AnalysisArea.name.in_(names)))).all()
-    by_key = {(area.name, area.area_type): area for area in areas}
+    rows = (
+        await session.execute(
+            text(
+                "SELECT id, name, area_type FROM analysis_areas "
+                "WHERE name = ANY(CAST(:names AS text[]))"
+            ),
+            {"names": names},
+        )
+    ).mappings().all()
+    by_key = {
+        (str(row["name"]), str(row["area_type"])): int(row["id"])
+        for row in rows
+    }
     missing = [
         f"{name} ({area_type})"
         for name, area_type in AREA_MAPPING.values()
@@ -254,9 +264,8 @@ async def _ensure_mappings(session: AsyncSession) -> dict[str, ExternalAreaMappi
     if missing:
         raise ValueError(
             "Required analysis areas are missing: "
-            f"{', '.join(missing)}. Synchronize them first with "
-            "`python -m app.cli.sync_analysis_areas --municipality Flensburg` "
-            "after loading the OSM boundary data."
+            f"{', '.join(missing)}. Enable the analysis-areas module and run its "
+            "documented boundary synchronization after loading the OSM data."
         )
     existing = {
         mapping.external_area_id: mapping
@@ -267,17 +276,17 @@ async def _ensure_mappings(session: AsyncSession) -> dict[str, ExternalAreaMappi
         ).all()
     }
     for external_id, (name, area_type) in AREA_MAPPING.items():
-        area = by_key[(name, area_type)]
+        area_id = by_key[(name, area_type)]
         mapping = existing.get(external_id)
         if mapping:
-            if mapping.external_area_name != name or mapping.analysis_area_id != area.id:
+            if mapping.external_area_name != name or mapping.analysis_area_id != area_id:
                 raise ValueError(f"Conflicting reviewed mapping for external area {external_id}")
         else:
             mapping = ExternalAreaMapping(
                 source=SOURCE,
                 external_area_id=external_id,
                 external_area_name=name,
-                analysis_area_id=area.id,
+                analysis_area_id=area_id,
             )
             session.add(mapping)
             existing[external_id] = mapping
@@ -460,14 +469,20 @@ async def import_flensburg_statistics(
         await bump_cache_versions(session, ("statistics", "analysis-areas"))
         notifications = []
         if changed_area_ids:
-            areas = await session.scalars(
-                select(AnalysisArea).where(AnalysisArea.id.in_(changed_area_ids))
-            )
+            areas = (
+                await session.execute(
+                    text(
+                        "SELECT id, slug, name FROM analysis_areas "
+                        "WHERE id = ANY(CAST(:area_ids AS integer[]))"
+                    ),
+                    {"area_ids": list(changed_area_ids)},
+                )
+            ).mappings()
             for area in areas:
                 recipients = await subscription_recipient_ids(
                     session,
                     resource_type="AREA",
-                    resource_id=str(area.id),
+                    resource_id=str(area["id"]),
                     event_type=NotificationEventType.AREA_STATISTICS_UPDATED,
                 )
                 notifications.extend(
@@ -477,9 +492,9 @@ async def import_flensburg_statistics(
                         DomainEvent(
                             event_type=NotificationEventType.AREA_STATISTICS_UPDATED,
                             resource_type="AREA",
-                            resource_id=str(area.id),
-                            resource_slug=area.slug,
-                            resource_title=area.name,
+                            resource_id=str(area["id"]),
+                            resource_slug=str(area["slug"]),
+                            resource_title=str(area["name"]),
                         ),
                     )
                 )

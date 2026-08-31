@@ -101,7 +101,7 @@ async function openDetail(page: Page) {
   await page.goto('/karte')
   await expect(page.locator('.maplibregl-map')).toBeVisible({ timeout: 20_000 })
   await page.evaluate((path) => {
-    window.history.pushState({}, '', path)
+    window.history.pushState({ ...window.history.state }, '', path)
     window.dispatchEvent(new PopStateEvent('popstate'))
   }, `/flaechen/${slug}`)
   await expect(page.locator('[data-polygon-title]')).toBeVisible()

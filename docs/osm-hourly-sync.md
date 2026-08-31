@@ -76,17 +76,17 @@ Die Anwendung liest nur `public.osm_features` mit dem Primärschlüssel
 OSM. Ein OSM-Delete entfernt nicht die lokale Stadtplaner-Fläche und nicht ihren
 gespeicherten Quell-Snapshot.
 
-Damit sind die OSM-relevanten Anwendungstabellen `osm_features`,
-`polygon_osm_sources`, `analysis_areas`, `polygon_analysis_areas`,
-`cache_versions` und neu `osm_sync_state`. Pro-Objekt-Felder `osm_version` und
+Damit sind die Host-eigenen OSM-Anwendungstabellen `osm_features`,
+`polygon_osm_sources`, `cache_versions` und `osm_sync_state`. Analysegebiets-
+und Zuordnungstabellen gehören zum externen Analysis-Areas-Modul. Pro-Objekt-Felder `osm_version` und
 `osm_timestamp` existieren im Anwendungsvertrag nicht; statt einer uneinheitlichen
 Teilbefüllung hält `osm_sync_state` den belastbaren globalen Replikationsstand.
 
 Nach OSM-Änderungen sind tatsächlich erforderlich:
 
 1. Staging-Daten in `osm_features` abgleichen, einschließlich Deletes.
-2. Flensburger OSM-Analysegebiete und räumliche Polygon-Zuordnungen aktualisieren.
-3. die persistenten Cache-Versionen `osm`, `analytics`, `analysis-areas` erhöhen.
+2. OSM-Snapshots bereits übernommener Stadtplaner-Flächen aktualisieren.
+3. die persistenten Host-Cache-Versionen `osm`, `analytics` und `polygons` erhöhen.
 
 Es existieren keine OSM-Materialized-Views und kein Suchindex. Redis ist nur ein
 wiederberechenbarer Read-Cache. Es wird weder `FLUSHDB` noch `FLUSHALL` verwendet;
@@ -269,7 +269,7 @@ Migrationen zuerst gegen die Anwendungsdatenbank einspielen:
 
 ```bash
 cd /opt/git/open-city-planner/backend
-.venv/bin/alembic upgrade head
+.venv/bin/python -m app.cli.module_migrations upgrade
 sudo -u postgres psql open_city_map -c \
   'GRANT SELECT ON TABLE public.osm_sync_state TO osm;'
 ```
@@ -368,12 +368,13 @@ weitergereicht. Fehlt es, versucht osm2pgsql während des Append-Laufs im Schema
 2. neue/geänderte Punkte und Flächen nach `public.osm_features` upserten;
 3. nicht mehr vorhandene oder aus Schleswig-Holstein verschobene OSM-Quellen
    aus `osm_features` entfernen;
-4. Flensburger Analysegebiete und Polygon-Gebietszuordnungen idempotent erneuern;
-5. OSM-Snapshots bereits übernommener Stadtplaner-Flächen aktualisieren;
-6. `osm`, `analytics`, `polygons` und über den Gebietssync `analysis-areas` invalidieren;
-7. Sequenz, OSM-Datenzeit und Change-Counts in `osm_sync_state` speichern;
-8. alles gemeinsam committen und anschließend geänderte Gebietstags persistent
-   über den `WikidataEnrichmentService` prüfen.
+4. OSM-Snapshots bereits übernommener Stadtplaner-Flächen aktualisieren;
+5. `osm`, `analytics` und `polygons` invalidieren;
+6. Sequenz, OSM-Datenzeit und Change-Counts in `osm_sync_state` speichern;
+7. alles gemeinsam committen.
+
+Gebiets-Sync, Polygon-Gebietszuordnung und Wikidata-Anreicherung sind keine
+Postprocessing-Phasen des Hosts mehr; ihr Betrieb liegt beim externen Modul.
 
 Mit `--verbose` meldet die CLI Beginn und Abschluss jeder Phase inklusive
 verstrichener Zeit und Change-Counts. Die versionierten Import-/Update-Skripte
@@ -555,7 +556,8 @@ Backend-Environment und absoluten Lua-Pfad prüfen.
 ### GIS zeigt alte Daten
 
 In dieser Reihenfolge prüfen: Replikationsstatus → `osm_sync_state` → konkrete
-`osm_features`-Zeile → Analysis-Area-Sync → `cache_versions` → API → Frontend.
+`osm_features`-Zeile → `cache_versions` → Host-API → Frontend. Gebietsressourcen
+separat über den Betriebspfad des externen Moduls prüfen.
 
 ### Netzwerk- oder DB-Ausfall
 

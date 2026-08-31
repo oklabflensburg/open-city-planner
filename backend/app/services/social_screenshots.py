@@ -10,7 +10,6 @@ from PIL import Image, ImageOps
 from app.core.config import Settings
 from app.models.social_publication import SocialPublicationOutbox, SocialPublishingSettings
 from app.models.user_polygon import UserPolygon
-from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.services.social_policy import VIEWPORTS
 
 
@@ -26,15 +25,23 @@ class ScreenshotTarget:
     alt_text: str
 
 
+@dataclass(frozen=True, slots=True)
+class AreaScreenshotResource:
+    uuid: uuid.UUID
+    slug: str
+    name: str
+    area_type: str
+
+
 def screenshot_target(
     event: SocialPublicationOutbox,
-    resource: AnalysisArea | UserPolygon | None,
+    resource: AreaScreenshotResource | UserPolygon | None,
     env: Settings,
     policy: SocialPublishingSettings,
 ) -> ScreenshotTarget:
     base = env.app_base_url.rstrip("/")
     if event.resource_type == "ANALYSIS_AREA":
-        if not isinstance(resource, AnalysisArea):
+        if not isinstance(resource, AreaScreenshotResource):
             raise ScreenshotError("Die öffentliche Gebietsseite existiert nicht mehr.", retryable=False)
         path = f"/gebiete/{resource.slug}"
         type_label = {

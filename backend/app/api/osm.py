@@ -2,13 +2,12 @@ import hashlib
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from sqlalchemy import select
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cache.service import last_cache_status
 from app.core.config import get_settings
 from app.db.session import get_session
-from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.schemas.osm import OsmObjectInfo, OsmViewportFeatureCollection, OsmViewportQuery
 from app.schemas.polygon_filters import PolygonFilterParams, polygon_filter_query
 from app.services.osm_features import (
@@ -43,7 +42,8 @@ async def get_osm_viewport_features(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if query.analysis_area:
         area_exists = await session.scalar(
-            select(AnalysisArea.id).where(AnalysisArea.slug == query.analysis_area)
+            text("SELECT id FROM analysis_areas WHERE slug = :slug"),
+            {"slug": query.analysis_area},
         )
         if area_exists is None:
             raise HTTPException(status_code=404, detail="Das Gebiet wurde nicht gefunden.")

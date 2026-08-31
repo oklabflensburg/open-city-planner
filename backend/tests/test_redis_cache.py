@@ -6,7 +6,6 @@ import pytest
 
 from app.cache.keys import build_cache_key, viewport_tile_bucket
 from app.cache.service import CacheService
-from app.modules.analysis_areas.application.legacy_queries import areas_geojson
 from app.schemas.analytics import AnalyticsFastFacts, AnalyticsOverview, PrimeRentData
 from app.schemas.osm import OsmViewportQuery
 from app.services import analytics as analytics_service
@@ -197,31 +196,6 @@ async def test_version_bump_is_persisted_for_namespace_invalidation() -> None:
     session = AsyncMock()
     await cache_versions.bump_cache_versions(session, ("analytics", "polygons"))
     assert session.execute.await_args.args[1] == {"names": ["analytics", "polygons"]}
-
-
-@pytest.mark.asyncio
-async def test_analysis_area_geojson_second_read_is_cached(monkeypatch) -> None:
-    redis = FakeRedis()
-    monkeypatch.setattr("app.cache.service.get_redis", lambda: redis)
-    session = AsyncMock()
-
-    class Rows:
-        def mappings(self):
-            return self
-
-        def all(self):
-            return [{
-                "id": "area-1", "slug": "test", "name": "Test", "area_type": "QUARTER",
-                "parent_id": 2, "area_m2": 10.0, "source": "OSM", "source_osm_type": "relation",
-                "source_osm_id": 1, "source_admin_level": 10,
-                "geometry": {"type": "MultiPolygon", "coordinates": []},
-            }]
-
-    session.execute.return_value = Rows()
-    first = await areas_geojson(session)
-    second = await areas_geojson(session)
-    assert first == second
-    assert session.execute.await_count == 1
 
 
 @pytest.mark.asyncio

@@ -45,7 +45,7 @@ test('successful delete invalidates map, analytics and linked OSM suppression wi
   await page.goto('/karte')
   await page.waitForLoadState('networkidle')
   await page.evaluate(() => {
-    window.history.pushState({}, '', '/flaechen/delete-test')
+    window.history.pushState({ ...window.history.state }, '', '/flaechen/delete-test')
     window.dispatchEvent(new PopStateEvent('popstate'))
   })
   await expect(page).toHaveURL('/flaechen/delete-test')

@@ -55,10 +55,10 @@
 
 <script setup lang="ts">
 import { Search, X } from '@lucide/vue'
-import type { AnalysisArea, AnalysisAreaType } from '~/types/analysisArea'
+import type { PublicAreaReference, PublicAreaType } from '~/types/publicAreaReference'
 
 const props = withDefaults(defineProps<{
-  areas: AnalysisArea[]
+  areas: PublicAreaReference[]
   selectedSlugs: string[]
   colors: string[]
   loading?: boolean
@@ -77,15 +77,15 @@ const available = computed(() => {
   const needle = search.value.trim().toLocaleLowerCase('de-DE')
   return props.areas.filter(area => !props.selectedSlugs.includes(area.slug) && (!needle || [area.name, area.slug, area.parent_name].some(value => value?.toLocaleLowerCase('de-DE').includes(needle))))
 })
-const groupOrder: Array<{ type: AnalysisAreaType, label: string }> = [
+const groupOrder: Array<{ type: PublicAreaType, label: string }> = [
   { type: 'MUNICIPALITY', label: 'Gemeinden' }, { type: 'DISTRICT', label: 'Stadtteile' }, { type: 'QUARTER', label: 'Quartiere' }
 ]
 const groups = computed(() => groupOrder.map(group => ({ ...group, areas: available.value.filter(area => area.area_type === group.type) })).filter(group => group.areas.length))
 
-function typeLabel(type: AnalysisAreaType) {
+function typeLabel(type: PublicAreaType) {
   return ({ MUNICIPALITY: 'Gemeinde', DISTRICT: 'Stadtteil', QUARTER: 'Quartier' })[type]
 }
-function optionContext(area: AnalysisArea) {
+function optionContext(area: PublicAreaReference) {
   return [typeLabel(area.area_type), area.parent_name].filter(Boolean).join(' · ')
 }
 function add(slug: string) {

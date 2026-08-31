@@ -30,7 +30,6 @@ describe('frontend bundle boundaries', () => {
     for (const componentSource of [
       source('app/composables/useMapCanvasHost.ts'),
       source('app/components/polygon/PolygonDetailMap.vue'),
-      source('app/components/analysis/AnalysisAreaDetailMap.vue'),
       source('app/components/polygon/PolygonCreateMap.vue')
     ]) {
       expect(componentSource).toContain("import('maplibre-gl')")

@@ -15,6 +15,8 @@ describe('E2E workflow module configuration', () => {
     expect(workflow).toMatch(/^  OCP_FRONTEND_MODULES: analysis-areas$/m)
     expect(workflow).toMatch(/^  CORS_ORIGINS: http:\/\/127\.0\.0\.1:3010$/m)
     expect(workflow).not.toContain('analysis-areas@1.0.0')
+    expect(workflow).toContain('ref: 06afb05fed5dab8426e0e52392d3716ba46c980a')
+    expect(workflow).toContain('app.cli.modules enable analysis-areas')
     expect(workflow).toContain('scripts/backend-module-inventory --format env')
 
     const playwright = repositoryFile('frontend/playwright.config.ts')
@@ -36,6 +38,6 @@ describe('E2E workflow module configuration', () => {
   })
 
   it('keeps backend CI independent from the Settings default', () => {
-    expect(repositoryFile('.github/workflows/backend.yml')).toMatch(/^  ENABLED_MODULES: analysis-areas$/m)
+    expect(repositoryFile('.github/workflows/backend.yml')).toMatch(/^  ENABLED_MODULES: ""$/m)
   })
 })

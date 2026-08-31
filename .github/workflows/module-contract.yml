@@ -74,7 +74,6 @@ jobs:
       APP_ENVIRONMENT: test
       ENABLED_MODULES: ""
       OCP_FRONTEND_MODULES: ""
-      OCP_EXCLUDED_BUILTIN_MODULES: analysis-areas
       REDIS_ENABLED: "false"
       MASTODON_ENABLED: "false"
       OSM_EXTERNAL_FALLBACK_ENABLED: "false"
@@ -87,7 +86,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: oklabflensburg/ocp-module-analysis-areas
-          ref: a63af188a0cf4ba10a389302bae4c1e0d80cfeda
+          ref: 06afb05fed5dab8426e0e52392d3716ba46c980a
           path: .external-analysis-areas
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -107,7 +106,9 @@ jobs:
           (cd .external-analysis-areas/frontend && pnpm install --frozen-lockfile)
       - name: Build the pinned real OCP bundle
         run: |
-          (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct a63af188a0cf4ba10a389302bae4c1e0d80cfeda)" uv build --wheel)
+          (cd .external-analysis-areas/backend && uv run pytest)
+          (cd .external-analysis-areas/frontend && pnpm test && pnpm typecheck)
+          (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct 06afb05fed5dab8426e0e52392d3716ba46c980a)" uv build --wheel)
           (cd .external-analysis-areas/frontend && pnpm build)
           (cd backend && .venv/bin/python -m app.cli.modules bundle build \
             --manifest ../.external-analysis-areas/module.yaml \
@@ -115,7 +116,7 @@ jobs:
             --frontend ../.external-analysis-areas/frontend/dist/analysis-areas-1.0.0.tgz \
             --publisher oklabflensburg --source-reference pull/2 \
             --source-repository https://github.com/oklabflensburg/ocp-module-analysis-areas \
-            --source-commit a63af188a0cf4ba10a389302bae4c1e0d80cfeda \
+            --source-commit 06afb05fed5dab8426e0e52392d3716ba46c980a \
             --build-workflow github-actions/module-contract --license AGPL-3.0-only \
             --output "${RUNNER_TEMP}/analysis-areas-1.0.0.ocp")
         working-directory: .
@@ -130,24 +131,15 @@ jobs:
           .venv/bin/python -m app.cli.modules verify "${RUNNER_TEMP}/analysis-areas-1.0.0.ocp"
           .venv/bin/python -m app.cli.modules install "${RUNNER_TEMP}/analysis-areas-1.0.0.ocp"
           .venv/bin/python -m app.cli.modules env --format json | tee "${RUNNER_TEMP}/disabled-env.json"
-          .venv/bin/python -c 'import json,sys; value=json.load(open(sys.argv[1])); assert value["ENABLED_MODULES"] == ""; assert value["OCP_ENABLED_INSTALLED_BACKEND_PATHS"] == ""; assert value["OCP_EXCLUDED_BUILTIN_MODULES"] == "analysis-areas"' "${RUNNER_TEMP}/disabled-env.json"
+          .venv/bin/python -c 'import json,sys; value=json.load(open(sys.argv[1])); assert value["ENABLED_MODULES"] == ""; assert value["OCP_FRONTEND_MODULES"] == ""; assert value["OCP_ENABLED_INSTALLED_BACKEND_PATHS"] == ""; assert value["OCP_EXCLUDED_BUILTIN_MODULES"] == ""' "${RUNNER_TEMP}/disabled-env.json"
           migration_root="${OCP_MODULE_INSTALL_ROOT}/installed/analysis-areas/1.0.0/backend/site-packages/ocp_module_analysis_areas/migrations/history"
           for file in 20260814_0014_analysis_areas.py 20260817_0023_area_wikidata.py 20260818_0025_osm_external_links.py 20260819_0032_optimize_area_poi_analytics.py; do
-            cmp "alembic/versions/${file}" "${migration_root}/${file}"
+            test ! -e "alembic/versions/${file}"
+            test -f "${migration_root}/${file}"
           done
-      - name: Model exclusive migration ownership and run the full lifecycle
+      - name: Run the real exclusive-source lifecycle
         working-directory: backend
         run: |
-          .venv/bin/python - <<'PY'
-          from pathlib import Path
-          for name in (
-              "20260814_0014_analysis_areas.py",
-              "20260817_0023_area_wikidata.py",
-              "20260818_0025_osm_external_links.py",
-              "20260819_0032_optimize_area_poi_analytics.py",
-          ):
-              Path("alembic/versions", name).unlink()
-          PY
           .venv/bin/python -m app.cli.module_migrations preflight
           .venv/bin/python -m app.cli.modules enable analysis-areas
           eval "$(.venv/bin/python -m app.cli.modules env --format shell)"
@@ -158,11 +150,17 @@ jobs:
           (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm modules:check)
           (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm typecheck)
           (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm build)
+          (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm audit:seo)
           .venv/bin/python -m app.cli.modules disable analysis-areas
           eval "$(.venv/bin/python -m app.cli.modules env --format shell)"
           test -z "${OCP_ENABLED_INSTALLED_BACKEND_PATHS}"
+          test -z "${OCP_FRONTEND_MODULES}"
+          test -d "${OCP_INSTALLED_FRONTEND_MODULE_ROOTS}/analysis-areas"
           .venv/bin/python -m app.cli.module_migrations preflight
           .venv/bin/python -m app.cli.modules enable analysis-areas
+          eval "$(.venv/bin/python -m app.cli.modules env --format shell)"
+          .venv/bin/python -m app.cli.module_migrations preflight
+          .venv/bin/python -c 'import ocp_module_analysis_areas; from app.main import app; assert app.title'
 
   gate:
     name: Module contract gate

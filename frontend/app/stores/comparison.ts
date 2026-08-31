@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { AnalysisArea } from '~/types/analysisArea'
+import type { PublicAreaReference } from '~/types/publicAreaReference'
 import type { AreaCompareResult } from '~/types/analytics'
 import { gisFilterQuery } from '~/utils/gisFilters'
 
@@ -7,7 +7,7 @@ let comparisonController: AbortController | undefined
 
 export const useComparisonStore = defineStore('comparison', {
   state: () => ({
-    availableAreas: [] as AnalysisArea[],
+    availableAreas: [] as PublicAreaReference[],
     areasLoading: false,
     areasError: null as string | null,
     result: null as AreaCompareResult | null,
@@ -21,7 +21,7 @@ export const useComparisonStore = defineStore('comparison', {
       this.areasLoading = true
       this.areasError = null
       try {
-        this.availableAreas = await useApi().request<AnalysisArea[]>('/analysis-areas')
+        this.availableAreas = await useApi().request<PublicAreaReference[]>('/analysis-areas')
       } catch (error) {
         this.areasError = error instanceof Error ? error.message : 'Gebiete konnten nicht geladen werden.'
       } finally {

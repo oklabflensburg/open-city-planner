@@ -1,15 +1,14 @@
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 
-from sqlalchemy import func, select
+from sqlalchemy import column, func, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased
 
 from app.cache.keys import build_cache_key
 from app.cache.service import cache_service
 from app.core.config import get_settings
 from app.models.user_polygon import UserPolygon
-from app.modules.analysis_areas.persistence.models import AnalysisArea, PolygonAnalysisArea
 from app.schemas.analytics import (
     AnalyticsFastFacts,
     AnalyticsOverview,
@@ -46,6 +45,47 @@ SHOP_CATEGORIES = (
     "services",
 )
 
+# Explicit, read-only neighboring-domain table contract. Ownership of both
+# tables and their ORM mappings remains with the external Analysis Areas module.
+_AREAS = table(
+    "analysis_areas",
+    column("id"),
+    column("uuid"),
+    column("slug"),
+    column("name"),
+    column("area_type"),
+    column("parent_id"),
+    column("area_m2"),
+    column("geometry"),
+    column("centroid"),
+)
+_POLYGON_AREAS = table(
+    "polygon_analysis_areas",
+    column("polygon_id"),
+    column("analysis_area_id"),
+)
+
+
+@dataclass(frozen=True, slots=True)
+class AreaAnalyticsScope:
+    id: int
+    uuid: uuid.UUID
+    slug: str
+    name: str
+    area_type: str
+    parent_id: int | None
+    area_m2: float
+    geometry: object
+    centroid: object
+
+
+def _area_scope(row) -> AreaAnalyticsScope:
+    return AreaAnalyticsScope(**{field: row[field] for field in AreaAnalyticsScope.__slots__})
+
+
+def _area_columns(source=_AREAS):
+    return tuple(source.c[name] for name in AreaAnalyticsScope.__slots__)
+
 
 def _base_filters(
     floors: Sequence[str],
@@ -60,15 +100,22 @@ def _base_filters(
     )
     if analysis_area_id is not None:
         filters.append(UserPolygon.id.in_(
-            select(PolygonAnalysisArea.polygon_id).where(PolygonAnalysisArea.analysis_area_id == analysis_area_id)
+            select(_POLYGON_AREAS.c.polygon_id).where(
+                _POLYGON_AREAS.c.analysis_area_id == analysis_area_id
+            )
         ))
     return filters
 
 
-async def _resolve_area(session: AsyncSession, area_id: uuid.UUID | None) -> AnalysisArea | None:
+async def _resolve_area(
+    session: AsyncSession, area_id: uuid.UUID | None
+) -> AreaAnalyticsScope | None:
     if area_id is None:
         return None
-    return await session.scalar(select(AnalysisArea).where(AnalysisArea.uuid == area_id))
+    row = (
+        await session.execute(select(*_area_columns()).where(_AREAS.c.uuid == area_id))
+    ).mappings().one_or_none()
+    return _area_scope(row) if row is not None else None
 
 
 async def _analytics_overview_uncached(
@@ -91,14 +138,18 @@ async def _analytics_overview_uncached(
     base_filters = polygon_filter_clauses(filter_params, exclude={"categories"})
     if area:
         base_filters.append(UserPolygon.id.in_(
-            select(PolygonAnalysisArea.polygon_id).where(PolygonAnalysisArea.analysis_area_id == area.id)
+            select(_POLYGON_AREAS.c.polygon_id).where(
+                _POLYGON_AREAS.c.analysis_area_id == area.id
+            )
         ))
     category_counts = await _counts(session, base_filters)
 
     selected_filters = polygon_filter_clauses(filter_params)
     if area:
         selected_filters.append(UserPolygon.id.in_(
-            select(PolygonAnalysisArea.polygon_id).where(PolygonAnalysisArea.analysis_area_id == area.id)
+            select(_POLYGON_AREAS.c.polygon_id).where(
+                _POLYGON_AREAS.c.analysis_area_id == area.id
+            )
         ))
     distribution = await _counts(session, selected_filters)
 
@@ -203,9 +254,20 @@ async def _market_benchmarks_uncached(
     selected = await _benchmark_metrics(session, selected_filters)
     municipality = None
     if area is not None:
-        municipality = area if area.area_type == "MUNICIPALITY" else await session.scalar(
-            select(AnalysisArea).where(AnalysisArea.area_type == "MUNICIPALITY", func.ST_Covers(AnalysisArea.geometry, area.centroid)).limit(1)
-        )
+        if area.area_type == "MUNICIPALITY":
+            municipality = area
+        else:
+            row = (
+                await session.execute(
+                    select(*_area_columns())
+                    .where(
+                        _AREAS.c.area_type == "MUNICIPALITY",
+                        func.ST_Covers(_AREAS.c.geometry, area.centroid),
+                    )
+                    .limit(1)
+                )
+            ).mappings().one_or_none()
+            municipality = _area_scope(row) if row is not None else None
     city_filters = _base_filters(
         floors, area_sizes, occupancy_statuses, business_structures, sources,
         municipality.id if municipality else None,
@@ -290,7 +352,7 @@ async def _compare_metrics_by_area(
     clauses = polygon_filter_clauses(_compare_filter_params(filters))
     statement = (
         select(
-            PolygonAnalysisArea.analysis_area_id.label("analysis_area_id"),
+            _POLYGON_AREAS.c.analysis_area_id.label("analysis_area_id"),
             func.count(UserPolygon.id).label("polygon_count"),
             func.sum(area).label("total_area_m2"),
             func.avg(area).label("average_area_m2"),
@@ -303,10 +365,10 @@ async def _compare_metrics_by_area(
             func.count(UserPolygon.id).filter(UserPolygon.business_structure != "UNKNOWN").label("known_business_count"),
             func.max(UserPolygon.updated_at).label("data_updated_at"),
         )
-        .select_from(PolygonAnalysisArea)
-        .join(UserPolygon, UserPolygon.id == PolygonAnalysisArea.polygon_id)
-        .where(PolygonAnalysisArea.analysis_area_id.in_(area_ids), *clauses)
-        .group_by(PolygonAnalysisArea.analysis_area_id)
+        .select_from(_POLYGON_AREAS)
+        .join(UserPolygon, UserPolygon.id == _POLYGON_AREAS.c.polygon_id)
+        .where(_POLYGON_AREAS.c.analysis_area_id.in_(area_ids), *clauses)
+        .group_by(_POLYGON_AREAS.c.analysis_area_id)
     )
     rows = (await session.execute(statement)).mappings().all()
     result: dict[int, AreaCompareMetrics] = {}
@@ -334,7 +396,7 @@ async def _compare_metrics_by_area(
 
 
 def _compare_item(
-    area: AnalysisArea,
+    area: AreaAnalyticsScope,
     parent_name: str | None,
     metrics: AreaCompareMetrics | None,
 ) -> AreaCompareItem:
@@ -358,29 +420,39 @@ async def _compare_areas_uncached(
     session: AsyncSession,
     request: AreaCompareRequest,
 ) -> AreaCompareResult:
-    parent = aliased(AnalysisArea)
-    rows = (await session.execute(
-        select(AnalysisArea, parent.name)
-        .outerjoin(parent, parent.id == AnalysisArea.parent_id)
-        .where(AnalysisArea.slug.in_(request.area_slugs))
-    )).all()
-    found = {area.slug: (area, parent_name) for area, parent_name in rows}
+    parent = _AREAS.alias("parent_analysis_area")
+    rows = (
+        await session.execute(
+            select(*_area_columns(), parent.c.name.label("parent_name"))
+            .select_from(_AREAS.outerjoin(parent, parent.c.id == _AREAS.c.parent_id))
+            .where(_AREAS.c.slug.in_(request.area_slugs))
+        )
+    ).mappings().all()
+    found = {
+        row["slug"]: (_area_scope(row), row["parent_name"])
+        for row in rows
+    }
     selected = [found[slug] for slug in request.area_slugs if slug in found]
     ignored = [slug for slug in request.area_slugs if slug not in found]
 
-    municipality: AnalysisArea | None = None
+    municipality: AreaAnalyticsScope | None = None
     municipality_parent_name: str | None = None
     if request.include_municipality_benchmark and selected:
         municipality_pair = next((pair for pair in selected if pair[0].area_type == "MUNICIPALITY"), None)
         if municipality_pair:
             municipality, municipality_parent_name = municipality_pair
         else:
-            municipality = await session.scalar(
-                select(AnalysisArea).where(
-                    AnalysisArea.area_type == "MUNICIPALITY",
-                    func.ST_Covers(AnalysisArea.geometry, selected[0][0].centroid),
-                ).limit(1)
-            )
+            row = (
+                await session.execute(
+                    select(*_area_columns())
+                    .where(
+                        _AREAS.c.area_type == "MUNICIPALITY",
+                        func.ST_Covers(_AREAS.c.geometry, selected[0][0].centroid),
+                    )
+                    .limit(1)
+                )
+            ).mappings().one_or_none()
+            municipality = _area_scope(row) if row is not None else None
 
     metric_areas = [area for area, _parent_name in selected]
     if municipality and all(area.id != municipality.id for area in metric_areas):

@@ -14,5 +14,4 @@ cd "$OSM_BACKEND_DIR"
 "$OSM_BACKEND_DIR/.venv/bin/python" -m app.cli.postprocess_osm \
   --sequence "$sequence" \
   --timestamp "$timestamp" \
-  --municipality "$OSM_MUNICIPALITY" \
   --verbose

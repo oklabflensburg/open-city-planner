@@ -11,7 +11,6 @@ from app.core.config import Settings
 from app.integrations.mastodon import MastodonClient, MastodonError
 from app.models.social_publication import SocialPublicationOutbox, SocialPublishingSettings
 from app.models.user_polygon import UserPolygon
-from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.schemas.social import PublicAdoptedPolygonSnapshot
 from app.services.social_policy import default_social_settings
 from app.services.social_publishing import (
@@ -27,7 +26,12 @@ from app.services.social_publishing import (
     render_event_preview,
     render_polygon_adoption_post,
 )
-from app.services.social_screenshots import ScreenshotError, ScreenshotService, screenshot_target
+from app.services.social_screenshots import (
+    AreaScreenshotResource,
+    ScreenshotError,
+    ScreenshotService,
+    screenshot_target,
+)
 
 
 def settings(**overrides: object) -> Settings:
@@ -41,22 +45,15 @@ def settings(**overrides: object) -> Settings:
     return Settings(_env_file=None, **values)
 
 
-def area(**overrides: object) -> AnalysisArea:
+def area(**overrides: object) -> AreaScreenshotResource:
     values = {
-        "id": 1,
         "uuid": uuid.uuid4(),
         "slug": "innenstadt-1",
         "name": "Innenstadt",
         "area_type": "DISTRICT",
-        "geometry": "MULTIPOLYGON EMPTY",
-        "centroid": "POINT EMPTY",
-        "area_m2": 123.0,
-        "source": "OSM",
-        "created_at": datetime.now(UTC),
-        "updated_at": datetime.now(UTC),
     }
     values.update(overrides)
-    return AnalysisArea(**values)
+    return AreaScreenshotResource(**values)
 
 
 def polygon(**overrides: object) -> UserPolygon:

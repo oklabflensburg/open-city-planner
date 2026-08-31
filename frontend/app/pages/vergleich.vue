@@ -78,9 +78,10 @@
 
 <script setup lang="ts">
 import { MapPinned } from '@lucide/vue'
-import type { AnalysisAreaType } from '~/types/analysisArea'
+import type { PublicAreaType } from '~/types/publicAreaReference'
 
 const route = useRoute()
+const router = useRouter()
 const comparison = useComparisonStore()
 const filter = useFilterStore()
 const selectedSlugs = ref<string[]>([])
@@ -125,7 +126,7 @@ function syncUrl() {
   url.searchParams.delete('area')
   if (benchmarkEnabled.value) url.searchParams.delete('benchmark')
   else url.searchParams.set('benchmark', '0')
-  window.history.pushState({ ...window.history.state }, '', url)
+  void router.push(`${url.pathname}${url.search}${url.hash}`)
 }
 function scheduleComparison() {
   clearTimeout(compareTimer)
@@ -141,7 +142,7 @@ function removeArea(slug: string) {
 function focusAreaSearch() {
   document.querySelector<HTMLInputElement>('#compare-area-search')?.focus()
 }
-function typeLabel(type: AnalysisAreaType) {
+function typeLabel(type: PublicAreaType) {
   return ({ MUNICIPALITY: 'Gemeinde', DISTRICT: 'Stadtteil', QUARTER: 'Quartier' })[type]
 }
 function formatNumber(value: number | null) {

@@ -14,10 +14,10 @@
       <div v-if="!compact && object.level"><dt class="text-[#687176]">Ebene</dt><dd class="font-semibold text-[#202427]">{{ object.level }}</dd></div>
       <div v-if="!compact && object.building_levels"><dt class="text-[#687176]">Gebäudeebenen</dt><dd class="font-semibold text-[#202427]">{{ object.building_levels }}</dd></div>
     </dl>
-    <AreaExternalLinks
+    <ExternalLinks
       v-if="object.external_links.wikipedia || object.external_links.wikidata"
       class="mt-3"
-      :area-name="displayName || 'OpenStreetMap-Objekt'"
+      :resource-name="displayName || 'OpenStreetMap-Objekt'"
       :links="object.external_links"
     />
     <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold text-[#154d73]">

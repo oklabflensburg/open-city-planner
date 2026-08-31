@@ -4,6 +4,7 @@ import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, replace
 from importlib.metadata import version as package_version
+from importlib.resources import files
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from fastapi import FastAPI
 from geoalchemy2 import Geometry
+from ocp_module_analysis_areas.module import DEFINITION as ANALYSIS_AREAS_DEFINITION
 from sqlalchemy import Column, Integer, MetaData, String, Table, func, insert, select, text, true
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import DBAPIError, OperationalError
@@ -55,6 +57,17 @@ from tests.fixtures.example_persistence_module import DEFINITION as DEPENDENT_DE
 from tests.test_module_runtime import FakeDiscovery, definition, runtime_for
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
+ANALYSIS_AREAS_RESOLVED = (
+    (ANALYSIS_AREAS_DEFINITION, ANALYSIS_AREAS_DEFINITION.manifest),
+)
+
+
+def migration_persistence_registry(
+    resolved=(), *, include_legacy: bool = True
+) -> PersistenceRegistry:
+    return build_persistence_registry(
+        (*ANALYSIS_AREAS_RESOLVED, *resolved), include_legacy=include_legacy
+    )
 
 
 @dataclass
@@ -377,8 +390,12 @@ def interleaved_sources(tmp_path: Path) -> tuple[Path, Path]:
     host_versions.mkdir()
     module_versions.mkdir()
     for source in (BACKEND_ROOT / "alembic" / "versions").glob("*.py"):
-        target = module_versions if source.name in ADOPTED_REVISION_FILES else host_versions
-        shutil.copy2(source, target / source.name)
+        shutil.copy2(source, host_versions / source.name)
+    external_history = Path(
+        str(files("ocp_module_analysis_areas.migrations.history"))
+    )
+    for name in ADOPTED_REVISION_FILES:
+        shutil.copy2(external_history / name, module_versions / name)
     return host_versions, module_versions
 
 
@@ -592,7 +609,7 @@ def test_duplicate_revision_between_modules_fails_before_graph_resolution() -> N
         discovery_providers=(FakeDiscovery(definitions),),
         host_version="0.2.0",
     )
-    registry = build_persistence_registry(resolved, include_legacy=False)
+    registry = migration_persistence_registry(resolved, include_legacy=False)
 
     with pytest.raises(ModulePersistenceError, match="multiple migration sources") as captured:
         MigrationCoordinator(Config(str(BACKEND_ROOT / "alembic.ini")), registry).preflight()
@@ -666,7 +683,7 @@ def test_migration_preflight_combines_host_and_modules_in_dependency_order() -> 
         discovery_providers=(FakeDiscovery(definitions),),
         host_version="0.2.0",
     )
-    registry = build_persistence_registry(resolved, include_legacy=False)
+    registry = migration_persistence_registry(resolved, include_legacy=False)
     config = Config(str(BACKEND_ROOT / "alembic.ini"))
 
     plan = MigrationCoordinator(config, registry).preflight()
@@ -703,7 +720,7 @@ def migration_registry(*, module_b_resource: str) -> PersistenceRegistry:
         discovery_providers=(FakeDiscovery(definitions),),
         host_version="0.2.0",
     )
-    return build_persistence_registry(resolved, include_legacy=False)
+    return migration_persistence_registry(resolved, include_legacy=False)
 
 
 @pytest_asyncio.fixture
@@ -873,7 +890,7 @@ async def test_reference_module_migration_up_down_and_seed_data(
     )
     config = Config(str(BACKEND_ROOT / "alembic.ini"))
     config.attributes["database_url"] = fresh_database_url
-    coordinator = MigrationCoordinator(config, build_persistence_registry(resolved))
+    coordinator = MigrationCoordinator(config, migration_persistence_registry(resolved))
 
     await asyncio.to_thread(coordinator.upgrade)
     engine = create_async_engine(fresh_database_url)
@@ -912,7 +929,7 @@ async def test_reference_module_disable_and_reenable_keep_graph_revision_and_dat
     )
     config = Config(str(BACKEND_ROOT / "alembic.ini"))
     config.attributes["database_url"] = fresh_database_url
-    coordinator = MigrationCoordinator(config, build_persistence_registry(enabled))
+    coordinator = MigrationCoordinator(config, migration_persistence_registry(enabled))
     await asyncio.to_thread(coordinator.upgrade)
 
     engine = create_async_engine(fresh_database_url)
@@ -969,7 +986,7 @@ async def test_successful_migration_then_startup_failure_does_not_downgrade(
     config = Config(str(BACKEND_ROOT / "alembic.ini"))
     config.attributes["database_url"] = fresh_database_url
     await asyncio.to_thread(
-        MigrationCoordinator(config, build_persistence_registry(resolved)).upgrade
+        MigrationCoordinator(config, migration_persistence_registry(resolved)).upgrade
     )
 
     runtime = runtime_for(

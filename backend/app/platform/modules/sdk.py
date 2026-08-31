@@ -577,7 +577,10 @@ class AreaStatisticSeries:
 
     def __post_init__(self) -> None:
         _validate_string_mapping(self.metric, name="metric")
-        object.__setattr__(self, "metric", MappingProxyType(dict(self.metric)))
+        # Module HTTP adapters serialize this public DTO with dataclasses.asdict().
+        # A MappingProxyType cannot be deep-copied by asdict, so retain a detached
+        # plain mapping at this serialization boundary.
+        object.__setattr__(self, "metric", dict(self.metric))
 
 
 class StatisticsQueryPort(Protocol):

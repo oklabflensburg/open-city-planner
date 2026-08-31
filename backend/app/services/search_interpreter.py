@@ -3,10 +3,9 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Protocol
 
-from sqlalchemy import select
+from sqlalchemy import column, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.schemas.search import (
     SearchArea,
     SearchAreaType,
@@ -53,6 +52,16 @@ class _AreaCandidate:
         )
 
 
+_ANALYSIS_AREAS = table(
+    "analysis_areas",
+    column("id"),
+    column("uuid"),
+    column("slug"),
+    column("name"),
+    column("area_type"),
+)
+
+
 FORBIDDEN_PATTERNS = (
     r"\b(drop|delete|truncate|insert|update|alter)\s+(table|from|into|users?)\b",
     r"\b(passw(?:or)?d|mfa|session|oauth|token)s?\b",
@@ -70,11 +79,11 @@ async def resolve_analysis_area(session: AsyncSession, query: str) -> SearchArea
     rows = (
         await session.execute(
             select(
-                AnalysisArea.uuid.label("id"),
-                AnalysisArea.slug,
-                AnalysisArea.name,
-                AnalysisArea.area_type,
-            ).order_by(AnalysisArea.name, AnalysisArea.id)
+                _ANALYSIS_AREAS.c.uuid.label("id"),
+                _ANALYSIS_AREAS.c.slug,
+                _ANALYSIS_AREAS.c.name,
+                _ANALYSIS_AREAS.c.area_type,
+            ).order_by(_ANALYSIS_AREAS.c.name, _ANALYSIS_AREAS.c.id)
         )
     ).mappings().all()
     candidates = [

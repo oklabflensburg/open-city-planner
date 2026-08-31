@@ -8,19 +8,21 @@ Das FastAPI-Backend stellt öffentliche GIS-, Polygon-, OSM-, Analytics- und Ana
 cp .env.example .env
 python3 -m pip install 'uv==0.12.5'
 uv sync --frozen --extra dev
-uv run alembic upgrade head
+uv run python -m app.cli.module_migrations upgrade
 uv run uvicorn app.main:app --reload
 ```
 
 Mindestens `DATABASE_URL`, eine sichere `JWT_SECRET_KEY` und die erlaubten `CORS_ORIGINS` konfigurieren. Redis ist in der lokalen Entwicklung bei `REDIS_REQUIRED=false` optional. Die vollständige Variablenliste steht in `.env.example`; produktive Installation, persistente Secrets und Service-Konfiguration sind zentral in [Deployment und Betrieb](../docs/deployment.md) sowie der [Produktions-Sicherheitscheckliste](../docs/security/production-checklist.md) dokumentiert.
 
-## Analysegebiete und OSM
+## Analysegebiete
 
-`analysis_areas` enthält die Typen `MUNICIPALITY`, `DISTRICT` und `QUARTER`, global eindeutige stabile Slugs, Parent-Relationen, MultiPolygon-Geometrien, Zentroid und OSM-Provenienz. Der Boundary-Sync verwendet lokale OSM-Daten, bestimmt räumliche Parents und ordnet Stadtplaner-Flächen über `ST_PointOnSurface` zu. Ausführung und Importvorbereitung sind in [osm-data.md](../docs/osm-data.md) beschrieben.
-
-Der Area-Sync übernimmt außerdem die OSM-Tags `wikidata` und `wikipedia`. Anschließend löst `WikidataEnrichmentService` bevorzugt die explizite Q-ID, danach einen deutschen Wikipedia-Titel und zuletzt konservativ Name, Parent und Referenzpunkt über die offizielle Wikibase API auf. Ergebnisse, Prüffrist und Matchzustand werden persistent gespeichert; öffentliche Requests fragen Wikimedia nie live ab. `python -m app.cli.sync_wikidata [--force]` startet nur die Anreicherung, `sync_analysis_areas` führt sie standardmäßig nach dem OSM-Import aus (`--skip-wikidata` deaktiviert sie). Manuell verifizierte Matches werden nicht überschrieben; abweichende OSM-IDs erzeugen `CONFLICT`.
-
-Öffentliche Gebiets-Endpunkte liegen unter `/api/v1/analysis-areas`; Detail, Analytics, Gesamtstadtvergleich und eine begrenzte Flächenliste können über `by-slug/{slug}` geladen werden. Eigentümer-, Preis- und interne Verwaltungsfelder sind nicht Teil dieser DTOs.
+Die Analysis-Areas-Domäne, ihre öffentlichen `/api/v1/analysis-areas/**`-Routen
+und ihre historische Migrationsquelle gehören ausschließlich zum installierbaren
+Modul [`ocp-module-analysis-areas`](https://github.com/oklabflensburg/ocp-module-analysis-areas).
+Der Host stellt dafür nur Module Runtime, öffentliche SDK-Ports und dokumentierte
+Nachbarverträge bereit. Ohne aktiviertes Modul gibt es keine Gebiets-Runtime und
+keinen Built-in-Fallback. Installation und Cutover stehen in
+[Analysis Areas als Produktionsmodul](../docs/modules/analysis-areas-module.md).
 
 ## Administratives Auditlog
 
@@ -45,6 +47,9 @@ uv run pytest
 uv run ruff check app tests
 ```
 
-Migrationen werden mit `uv run alembic upgrade head` eingespielt. Cache-Versionen werden nach Area-Sync, Polygonänderungen, Kennzahlenpflege und OSM-Import durch die Services erhöht.
+Der gemeinsame Host-/Modulgraph wird mit `uv run python -m app.cli.module_migrations preflight`
+geprüft und mit `uv run python -m app.cli.module_migrations upgrade` eingespielt.
+Cache-Versionen werden nach Polygonänderungen, Kennzahlenpflege und OSM-Import
+durch die jeweiligen Owner erhöht.
 
 Produktionsdeployment, Worker und Timer gehören nicht in diesen Entwicklungs-Quickstart. Dafür gilt [docs/deployment.md](../docs/deployment.md).

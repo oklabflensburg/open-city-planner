@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.models.city_metrics import CityMetrics
-from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.schemas.analytics import AreaCompareFilters, AreaCompareRequest
 from app.services import analytics as analytics_service
 from app.services.analytics import (
+    AreaAnalyticsScope,
     _compare_areas_uncached,
     _compare_metrics_by_area,
     analytics_overview,
@@ -53,6 +53,9 @@ class CompareRows:
 
     def all(self) -> list[dict[str, object]]:
         return self.values
+
+    def one_or_none(self) -> dict[str, object] | None:
+        return self.values[0] if self.values else None
 
 
 @pytest.mark.asyncio
@@ -196,19 +199,33 @@ async def test_compare_groups_distinct_area_metrics_in_one_query() -> None:
 async def test_compare_benchmark_resolves_covering_municipality_not_selected_area(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    district = AnalysisArea(
+    district = AreaAnalyticsScope(
         id=11, uuid=uuid.uuid4(), slug="innenstadt", name="Innenstadt",
         area_type="DISTRICT", parent_id=20, geometry="district-geometry",
         centroid="district-centroid", area_m2=1_000_000,
     )
-    municipality = AnalysisArea(
+    municipality = AreaAnalyticsScope(
         id=20, uuid=uuid.uuid4(), slug="flensburg", name="Flensburg",
         area_type="MUNICIPALITY", parent_id=None, geometry="city-geometry",
         centroid="city-centroid", area_m2=56_000_000,
     )
     session = AsyncMock()
-    session.execute.return_value = Rows([(district, "Flensburg")])
-    session.scalar.return_value = municipality
+    session.execute.side_effect = [
+        CompareRows([{
+            "id": district.id, "uuid": district.uuid, "slug": district.slug,
+            "name": district.name, "area_type": district.area_type,
+            "parent_id": district.parent_id, "area_m2": district.area_m2,
+            "geometry": district.geometry, "centroid": district.centroid,
+            "parent_name": "Flensburg",
+        }]),
+        CompareRows([{
+            "id": municipality.id, "uuid": municipality.uuid,
+            "slug": municipality.slug, "name": municipality.name,
+            "area_type": municipality.area_type, "parent_id": municipality.parent_id,
+            "area_m2": municipality.area_m2, "geometry": municipality.geometry,
+            "centroid": municipality.centroid,
+        }]),
+    ]
     metrics = AsyncMock(return_value={})
     monkeypatch.setattr(analytics_service, "_compare_metrics_by_area", metrics)
 
@@ -219,7 +236,7 @@ async def test_compare_benchmark_resolves_covering_municipality_not_selected_are
     assert [item.slug for item in result.areas] == ["innenstadt"]
     assert result.benchmark is not None
     assert result.benchmark.slug == "flensburg"
-    statement = str(session.scalar.await_args.args[0])
+    statement = str(session.execute.await_args_list[1].args[0])
     assert "ST_Covers" in statement
     metrics.assert_awaited_once()
     assert metrics.await_args.args[1] == [11, 20]

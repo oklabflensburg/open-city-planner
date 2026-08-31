@@ -36,10 +36,10 @@
       <div v-if="detail.building_levels" class="grid grid-cols-[5rem_minmax(0,1fr)] gap-2"><dt class="text-slate-500">Geschosse</dt><dd>{{ detail.building_levels }}</dd></div>
     </dl>
 
-    <AreaExternalLinks
+    <ExternalLinks
       v-if="detail && (detail.external_links.wikipedia || detail.external_links.wikidata)"
       class="mt-4"
-      :area-name="displayName || typeLabel"
+      :resource-name="displayName || typeLabel"
       :links="detail.external_links"
     />
 

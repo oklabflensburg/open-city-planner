@@ -271,14 +271,14 @@ test('binary layer switches stay independent and the OSM master preserves its ch
   await expect.poll(() => layerVisibility('overview-polygons-fill')).toBe('none')
   await expect.poll(() => layerVisibility('analysis-areas.district')).toBe('visible')
 
-  const municipality = page.getByRole('switch', { name: /Gemeinde anzeigen:/ })
+  const municipality = page.getByRole('checkbox', { name: 'Gemeinde anzeigen' })
   await municipality.click()
-  await expect(municipality).toHaveAttribute('aria-checked', 'false')
+  await expect(municipality).not.toBeChecked()
   await expect.poll(() => layerVisibility('analysis-areas.municipality')).toBe('none')
   await expect.poll(() => layerVisibility('analysis-areas.district')).toBe('visible')
 
-  const district = page.getByRole('switch', { name: /Stadtteile anzeigen:/ })
-  const quarter = page.getByRole('switch', { name: /Quartiere anzeigen:/ })
+  const district = page.getByRole('checkbox', { name: 'Stadtteile anzeigen' })
+  const quarter = page.getByRole('checkbox', { name: 'Quartiere anzeigen' })
   await district.click()
   await expect.poll(() => layerVisibility('analysis-areas.district')).toBe('none')
   await expect.poll(() => layerVisibility('analysis-areas.quarter')).toBe('visible')

@@ -1,5 +1,5 @@
 import type { PolygonSitemapEntry } from '~/types/geo'
-import type { AnalysisAreaSitemapEntry } from '~/types/analysisArea'
+import type { PublicAreaSitemapEntry } from '~/types/publicAreaReference'
 import { buildAbsoluteUrl } from '~/utils/seo'
 import { documentationPaths } from '~/config/documentation'
 import { buildSitemapXml, type SitemapUrl } from '../utils/sitemap'
@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
     $fetch<PolygonSitemapEntry[]>(`${apiBaseUrl}/polygons/sitemap`, {
       headers: { 'X-Request-ID': event.context.requestId }
     }),
-    $fetch<AnalysisAreaSitemapEntry[]>(`${apiBaseUrl}/analysis-areas/sitemap`, {
+    $fetch<PublicAreaSitemapEntry[]>(`${apiBaseUrl}/analysis-areas/sitemap`, {
       headers: { 'X-Request-ID': event.context.requestId }
     })
   ])

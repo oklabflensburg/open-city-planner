@@ -30,7 +30,7 @@ class _HostDotEnvSettingsSource(DotEnvSettingsSource):
 
 class Settings(BaseSettings):
     api_version: str = "0.2.0"
-    enabled_modules: str = "analysis-areas"
+    enabled_modules: str = ""
     ocp_excluded_builtin_modules: str = ""
     ocp_enabled_installed_backend_paths: str = ""
     database_url: str = Field(

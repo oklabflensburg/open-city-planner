@@ -22,7 +22,6 @@ fi
 : "${OSM_PREFIX:=stadtplaner_osm}"
 : "${OSM_STYLE:=${OSM_REPOSITORY}/scripts/osm/osm.lua}"
 : "${OSM_REPLICATION_URL:=https://planet.openstreetmap.org/replication/minute}"
-: "${OSM_MUNICIPALITY:=Flensburg}"
 : "${OSM_CACHE_MB:=1024}"
 : "${OSM_MAX_DIFF_MB:=100}"
 

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
+from ocp_module_analysis_areas.module import DEFINITION as ANALYSIS_AREAS_DEFINITION
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 from app.cli import module_migrations as migration_cli
@@ -237,7 +238,10 @@ def test_disabled_available_migration_does_not_validate_required_settings(
     monkeypatch.setattr(
         migration_cli,
         "resolve_available_persistence_definitions",
-        lambda _providers: ((available_definition, REFERENCE_MANIFEST),),
+        lambda _providers: (
+            (ANALYSIS_AREAS_DEFINITION, ANALYSIS_AREAS_DEFINITION.manifest),
+            (available_definition, REFERENCE_MANIFEST),
+        ),
     )
     monkeypatch.setattr(
         migration_cli,

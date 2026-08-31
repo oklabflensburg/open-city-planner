@@ -45,12 +45,9 @@ describe('MapCanvas legacy behavior characterization', () => {
     expect(source).toContain("mapStore.openGisPanel('selection')")
   })
 
-  it('keeps Analysis Areas out of MapCanvas and contributes it through the Map SDK', () => {
+  it('keeps Analysis Areas out of the generic MapCanvas host', () => {
     const canvas = readFileSync(resolve(process.cwd(), 'app/components/map/MapCanvas.vue'), 'utf8')
-    const manifest = readFileSync(resolve(process.cwd(), 'frontend-modules/analysis-areas/module.json'), 'utf8')
     expect(canvas).not.toContain('analysis-areas')
-    expect(manifest).toContain('analysis-areas.data')
-    expect(manifest).toContain('analysis-areas.quarter-fill')
   })
 
   it('retains viewport debounce, stale-result guard, resize and preview readiness', () => {

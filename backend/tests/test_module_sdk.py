@@ -1,7 +1,8 @@
 import ast
 import subprocess
 import sys
-from dataclasses import FrozenInstanceError, dataclass
+import uuid
+from dataclasses import FrozenInstanceError, asdict, dataclass
 from pathlib import Path
 from typing import Protocol, get_type_hints
 
@@ -13,6 +14,7 @@ from app.platform.modules.contracts import ModuleRegistrationContext
 from app.platform.modules.runtime import create_module_runtime
 from app.platform.modules.sdk import (
     ApiRegistrar,
+    AreaStatisticSeries,
     CacheGenerationPort,
     CachePort,
     DatabaseSessionProvider,
@@ -33,6 +35,7 @@ from app.platform.modules.sdk import (
     PublicQueryPort,
     SchedulerPort,
     ServiceRegistryPort,
+    StatisticsArea,
     StatisticsQueryPort,
     StoragePort,
 )
@@ -141,6 +144,27 @@ def test_polygon_scope_is_primitive_immutable_and_validated() -> None:
         PolygonScope((0,))
     with pytest.raises(ValueError, match="unique"):
         PolygonScope((3, 3))
+
+
+def test_statistics_series_contract_is_dataclass_serializable() -> None:
+    area = StatisticsArea(
+        id=uuid.UUID("8ed4671e-7080-4bd8-965c-8f4191bb2bb0"),
+        slug="altstadt",
+        name="Altstadt",
+        area_type="DISTRICT",
+    )
+    series = AreaStatisticSeries(
+        area=area,
+        statistics_area=area,
+        inherited_from_parent=False,
+        source=None,
+        metric={"key": "population", "name": "Bevölkerung"},
+    )
+
+    assert asdict(series)["metric"] == {
+        "key": "population",
+        "name": "Bevölkerung",
+    }
 
 
 def test_runtime_context_is_bound_to_manifest_and_unimplemented_ports_are_absent() -> None:

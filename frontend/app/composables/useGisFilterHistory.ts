@@ -8,6 +8,7 @@ import {
 /** Keeps the GIS filter state in the URL only while the map application is mounted. */
 export function useGisFilterHistory() {
   const filters = useFilterStore()
+  const router = useRouter()
   let applyingLocation = false
   let ready = false
   let historyTimer: ReturnType<typeof setTimeout> | undefined
@@ -38,7 +39,7 @@ export function useGisFilterHistory() {
     const previous = url.search
     for (const key of GIS_FILTER_QUERY_KEYS) url.searchParams.delete(key)
     for (const [key, value] of gisFilterUrlQuery(next)) url.searchParams.set(key, value)
-    if (url.search !== previous) window.history.replaceState({ ...window.history.state }, '', url)
+    if (url.search !== previous) void router.replace(`${url.pathname}${url.search}${url.hash}`)
   }
 
   onMounted(() => {
@@ -55,7 +56,7 @@ export function useGisFilterHistory() {
       for (const [key, value] of gisFilterUrlQuery(filters.filterState)) {
         url.searchParams.set(key, value)
       }
-      window.history.pushState({ ...window.history.state }, '', url)
+      void router.push(`${url.pathname}${url.search}${url.hash}`)
     }, 200)
   })
 

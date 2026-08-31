@@ -6,9 +6,10 @@ Discovery und den normalen Nuxt-Build. Es gibt keinen automatischen Fallback.
 
 ## Konfiguration
 
-```env
-OCP_EXCLUDED_BUILTIN_MODULES=analysis-areas
-```
+Für `analysis-areas` bleibt `OCP_EXCLUDED_BUILTIN_MODULES` nach dem finalen
+Source-Cutover leer. Die frühere Exclusion war nur für den Release mit parallel
+vorhandenem Built-in bestimmt; nach dessen physischer Entfernung wäre sie eine
+ungültige Unknown-Exclusion und würde den Preflight absichtlich stoppen.
 
 Die Liste ist generisch, komma-separiert und auf beiden Host-Seiten identisch.
 Whitespace wird entfernt; ungültige, doppelte und unbekannte IDs stoppen den
@@ -25,9 +26,9 @@ Frontend-Snapshot ein. Aktivierung bleibt ausschließlich in `modules.lock`.
 3. Installierte Migrationsquelle und exklusiven globalen Graphen prüfen. Vor einer
    Ownership-Änderung müssen überlappende Dateien bytegleich sein; doppelte Quellen
    müssen bis dahin fehlschlagen.
-4. Exclusion im Backend-Deploymentinput setzen und Target Release deployen. Im
-   disabled Zustand ist der Built-in abwesend, die externe Runtime inaktiv und die
-   externe Migration History weiterhin discoverbar.
+4. Target Release ohne die frühere `analysis-areas`-Exclusion deployen. Im
+   disabled Zustand ist keine Domain-Runtime aktiv; die externe Migration History
+   bleibt dennoch discoverbar.
 5. `modules enable <id>` ausführen, den gerenderten Zustand deployen,
    Migrations-Preflight/Upgrade ausführen und Backend neu starten.
 6. Backend-Inventar erzeugen, Frontend mit dem installierten Root bauen und API-,
@@ -35,28 +36,25 @@ Frontend-Snapshot ein. Aktivierung bleibt ausschließlich in `modules.lock`.
 7. Einmal `disable`, Deploy/Restart, passive Migration Discovery und anschließend
    `enable` mit erneutem Deploy/Restart prüfen.
 
-Für `analysis-areas` ist der geprüfte externe Contract auf Commit
-`a63af188a0cf4ba10a389302bae4c1e0d80cfeda` gepinnt. Er liefert die Revisionen
+Für `analysis-areas` ist der geprüfte externe Contract auf den PR-#2-Merge-Commit
+`06afb05fed5dab8426e0e52392d3716ba46c980a` gepinnt. Er liefert die Revisionen
 `20260814_0014`, `20260817_0023`, `20260818_0025` und `20260819_0032` mit
-unveränderten Kanten. Der isolierte Legacy-Adapter des Pins ist vollständig in
-[öffentliche Backend-Service-Ports](backend-service-ports.md) inventarisiert.
-SDK 1.9 stellt die öffentlichen Ersatzverträge bereit; der aktuelle Pin bleibt
-bis zum koordinierten Modul-Folgecommit Trusted Code mit der dokumentierten
-Legacy-Grenze.
+unveränderten Kanten. Der Merge-Stand importiert ausschließlich das öffentliche
+Backend-SDK 1.9; private Host-Imports und der frühere Legacy-Adapter sind entfernt.
 
-Der Cross-Repo-Contract modelliert bereits den geplanten Folgeflow: Das externe
+Der Cross-Repo-Contract prüft den produktiven Folgeflow: Das externe
 Modul löst Gebiet und `polygon_analysis_areas` über seine eigenen ORM-Modelle und
 den bestehenden `DatabaseSessionProvider` auf, baut daraus einen neutralen
-`PolygonScope` und ruft erst danach den Host-Polygon-Port auf. Der aktuelle Pin
-verwendet produktiv weiterhin den dokumentierten Legacy-Adapter; der Contract
-behauptet daher noch keinen abgeschlossenen SDK-Cutover.
+`PolygonScope` und ruft erst danach den Host-Polygon-Port auf. Der Host behält
+dabei ausschließlich generische Plattform- und Nachbardomain-Ports.
 
 ## Rollback
 
-1. Externes Modul deaktivieren und einen neuen Deployzustand rendern.
-2. Vorherige Composition und bei Bedarf den vorherigen Host-Release bewusst
-   wiederherstellen.
-3. Backend und Frontend gemeinsam redeployen und Smokes wiederholen.
+1. Den vorherigen Host-Release beziehungsweise Host-Commit bewusst
+   wiederherstellen; es existiert kein automatischer Built-in-Fallback.
+2. Den dazugehörigen Modulzustand rendern und Backend und Frontend gemeinsam
+   redeployen.
+3. Smokes wiederholen.
 
 Rollback ändert die Alembic-Historie nicht, führt historische Revisionen nicht
 erneut aus und startet keinen automatischen Downgrade.

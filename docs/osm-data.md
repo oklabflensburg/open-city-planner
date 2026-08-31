@@ -95,13 +95,19 @@ Stadtplaner enthält weder OSM-Schreibzugriff noch OSM-OAuth-Schreibrechte oder 
 
 ## Administrative Analysegebiete
 
-Die Migration `20260814_0014` führt `analysis_areas` und `polygon_analysis_areas` ein. Der Import wird ausschließlich administrativ ausgeführt:
+Analysegebiete sind keine Host-OSM-Importfunktion mehr. Tabelle, Boundary-Sync,
+Wikidata-Anreicherung und die adoptierte Revision `20260814_0014` gehören zum
+externen `analysis-areas`-Modul. Der Host führt nur den gemeinsamen Graphen aus:
 
 ```bash
 cd backend
-.venv/bin/alembic upgrade head
-.venv/bin/python -m app.cli.sync_analysis_areas --municipality Flensburg
+.venv/bin/python -m app.cli.module_migrations preflight
+.venv/bin/python -m app.cli.module_migrations upgrade
 ```
+
+Import und Pflege der Gebietsressourcen müssen über den dokumentierten
+Betriebspfad des installierten Moduls erfolgen; im Host existiert dafür kein
+Fallback-CLI.
 
 Der Dienst sucht die Gemeinde anhand einer realen polygonalen `boundary=administrative`-Relation und leitet die nächsten zwei vorhandenen administrativen Ebenen aus dem lokalen Bestand ab. Geometrien werden mit `ST_MakeValid`, `ST_CollectionExtract(..., 3)` und `ST_Multi` normalisiert. Polygonale `place=borough/suburb/quarter/neighbourhood`-Objekte sind nur ein Fallback; Punkte werden nie gepuffert. Der Upsert ist über OSM-Typ und OSM-ID idempotent.
 

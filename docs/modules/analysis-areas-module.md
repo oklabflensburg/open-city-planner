@@ -2,8 +2,12 @@
 
 Die Migration aus #107 setzt den für #127 geplanten Analysis-Areas-Umbau als
 Pilot des modularen Hosts um. Die Abhängigkeitsklassifikation steht im
-[Dependency Inventory](analysis-areas-dependency-inventory.md), der ausführbare
-Modulvertrag im [Backend-README](../../backend/app/modules/analysis_areas/README.md).
+[Dependency Inventory](analysis-areas-dependency-inventory.md). Der ausführbare
+Modulvertrag liegt seit dem finalen Cutover im externen Repository
+[ocp-module-analysis-areas](https://github.com/oklabflensburg/ocp-module-analysis-areas/tree/06afb05fed5dab8426e0e52392d3716ba46c980a).
+Damit sind die Abnahmekriterien von #192 (keine privaten Host-Imports, kein
+Legacy-Adapter) technisch erfüllt; dieser Host-Cutover erfüllt zugleich die
+Ownership-Kriterien von #188.
 
 ## Kompatibilitätsentscheidungen
 

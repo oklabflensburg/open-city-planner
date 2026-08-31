@@ -11,10 +11,10 @@ bei reinen Dokumentationsänderungen nicht.
 | --- | --- | --- |
 | Backend CI | `backend-lint` | Ruff sowie Import- und Startkonfigurations-Smoke-Test |
 | Backend CI | `backend-tests` | vollständige Pytest-Suite |
-| Backend CI | `backend-migrations` | genau ein Alembic-Head, Upgrade einer frischen PostGIS-Datenbank sowie Modul-Persistence-, Schema- und Migrationscontracts |
+| Backend CI | `backend-migrations` | genau ein globaler Host-/Modul-Alembic-Head, koordiniertes Upgrade einer frischen PostGIS-Datenbank sowie Modul-Persistence-, Schema- und Migrationscontracts |
 | Frontend CI | `frontend-tests` | vollständige Vitest-Suite sowie explizite Frontend-Modul-, UI-Contribution- und SSR-Smoke-Tests |
 | Frontend CI | `frontend-typecheck` | Nuxt-/Vue-Typecheck ohne optionale Module und mit dem Example-Modul |
-| Frontend CI | `frontend-build` | Produktiver Modul-Preflight, getrennte Nuxt-Builds für Example-Modul, produktive Analysis Areas und deaktivierten Host sowie SSR-/SEO-Audit des produktiven Analysis-Areas-Artefakts |
+| Frontend CI | `frontend-build` | getrennte Nuxt-Builds für Example-Modul und deaktivierten generischen Host |
 | Frontend CI | `frontend-language-audit` | Audit der sichtbaren Sprache |
 | E2E Tests | `e2e` | vollständige Playwright-Suite mit echtem Frontend, Backend, produktiver `analysis-areas`-Modulkonfiguration und frischer PostGIS-Datenbank |
 | Security | `security-policy-validation` | Format, Vollständigkeit und Ablauf befristeter Security-Ausnahmen sowie negative Policy-Tests |
@@ -28,7 +28,7 @@ bei reinen Dokumentationsänderungen nicht.
 
 Der Cross-Repo-Teil des Module Contract Gate baut `ocp-module-analysis-areas`
 reproduzierbar vom vollständigen PR-#2-Commit
-`a63af188a0cf4ba10a389302bae4c1e0d80cfeda`, prüft Bundle, deaktivierte
+`06afb05fed5dab8426e0e52392d3716ba46c980a`, prüft Bundle, deaktivierte
 Installation, Migration Ownership, Enable/Disable/Re-enable und die bestehenden
 API-Characterization-Tests. Eine zusätzliche Consumer-Probe liest die
 Area→Polygon-Relation ausschließlich über die Persistenzmodelle des externen
@@ -85,14 +85,13 @@ uv sync --frozen --extra dev --no-editable
 uv run ruff check app tests
 uv run pytest
 uv run python -c "from app.main import app; assert app.title"
-uv run alembic heads
-uv run alembic upgrade head
+uv run python -m app.cli.module_migrations preflight
+uv run python -m app.cli.module_migrations upgrade
 ```
 
 Frontend:
 
 ```bash
-export ENABLED_MODULES=analysis-areas
 export OCP_BACKEND_MODULES="$(scripts/backend-module-inventory --format env)"
 cd frontend
 pnpm install --frozen-lockfile
@@ -103,9 +102,6 @@ pnpm test:modules:ssr
 pnpm typecheck
 OCP_FRONTEND_MODULES=example-module pnpm typecheck
 OCP_FRONTEND_MODULES=example-module pnpm build
-OCP_FRONTEND_MODULES=analysis-areas pnpm modules:check
-OCP_FRONTEND_MODULES=analysis-areas pnpm build
-pnpm audit:seo
 OCP_FRONTEND_MODULES= pnpm build
 pnpm audit:language
 ```
@@ -121,11 +117,10 @@ Favicon-/Manifest-Set, die tatsächlichen PNG-Abmessungen und den 1200×630-
 Social-Image-Fallback aller indexierbaren Seiten.
 
 Der Frontend-Modul-Preflight läuft zusätzlich beim Laden von `nuxt.config.ts` und
-kann daher nicht durch einen direkten Nuxt-Aufruf umgangen werden. CI baut zuerst
-den generischen Host mit dem lokal entdeckten `example-module`, danach die
-produktive Konfiguration mit `analysis-areas`. Der SEO-Audit läuft unmittelbar auf
-diesem produktiven Artefakt. Erst anschließend belegt ein eigener Build, dass der
-Host mit explizit deaktivierten optionalen Modulen weiterhin funktioniert.
+kann daher nicht durch einen direkten Nuxt-Aufruf umgangen werden. Die reguläre
+Frontend-CI baut den generischen Host mit `example-module` und ohne optionale
+Module. Der produktive Analysis-Areas-Build und SEO-Audit laufen im Cross-Repo-
+Gate gegen das exakt gepinnte externe Artefakt.
 Duplicate IDs, fehlende Module, inkompatible Versionen, Routenkollisionen,
 Contribution-Ownership, Visibility und versiegelte Registry-Lifecycles werden
 durch gezielte negative Tests abgedeckt.
@@ -137,7 +132,7 @@ Testdatenbank zeigen:
 cd backend
 uv sync --frozen --extra dev --no-editable
 export ENABLED_MODULES=analysis-areas
-uv run alembic upgrade head
+uv run python -m app.cli.module_migrations upgrade
 uv run python tests/e2e_seed.py
 uv run python -m app.cli.module_migrations preflight
 export OCP_BACKEND_MODULES="$(../scripts/backend-module-inventory --format env)"

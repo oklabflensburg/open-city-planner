@@ -109,10 +109,9 @@ osm2pgsql-replication init \
   --start-at "$pbf_timestamp"
 
 cd "$OSM_BACKEND_DIR"
-"$OSM_BACKEND_DIR/.venv/bin/alembic" -c "$OSM_BACKEND_DIR/alembic.ini" upgrade head
+"$OSM_BACKEND_DIR/.venv/bin/python" -m app.cli.module_migrations upgrade
 "$OSM_BACKEND_DIR/.venv/bin/python" -m app.cli.postprocess_osm \
   --timestamp "$pbf_timestamp" \
-  --municipality "$OSM_MUNICIPALITY" \
   --verbose
 
 echo "OSM_INITIAL_SUCCESS duration_seconds=$(($(date +%s) - started_at)) timestamp=$pbf_timestamp"

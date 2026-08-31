@@ -1,7 +1,16 @@
+import os
 from datetime import UTC, datetime
 
+import pytest
+
 from app.main import app
-from app.modules.analysis_areas.api.schemas import AnalysisAreaDetail, AnalysisAreaPolygon
+
+if "analysis-areas" not in os.environ.get("ENABLED_MODULES", "").split(","):
+    pytest.skip("analysis-areas module is not enabled", allow_module_level=True)
+
+schemas = pytest.importorskip("ocp_module_analysis_areas.api.schemas")
+AnalysisAreaDetail = schemas.AnalysisAreaDetail
+AnalysisAreaPolygon = schemas.AnalysisAreaPolygon
 
 
 def test_openapi_documents_public_area_routes_and_unique_operations() -> None:
@@ -10,7 +19,10 @@ def test_openapi_documents_public_area_routes_and_unique_operations() -> None:
     assert schema["info"]["version"] == "0.2.0"
     paths = schema["paths"]
     for path in (
+        "/api/v1/analysis-areas",
+        "/api/v1/analysis-areas/geojson",
         "/api/v1/analysis-areas/by-slug/{slug}",
+        "/api/v1/analysis-areas/{area_id}",
         "/api/v1/analysis-areas/by-slug/{slug}/analytics",
         "/api/v1/analysis-areas/by-slug/{slug}/comparison",
         "/api/v1/analysis-areas/by-slug/{slug}/polygons",

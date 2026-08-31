@@ -28,7 +28,7 @@ stadtplaner_backend_env_content: |
   APP_ENVIRONMENT=production
   APP_BASE_URL=https://stadtplaner.oklabflensburg.de
   API_BASE_URL=https://api.stadtplaner.oklabflensburg.de
-  ENABLED_MODULES=analysis-areas
+  ENABLED_MODULES=
   # Single source for backend and frontend built-in composition cutovers.
   OCP_EXCLUDED_BUILTIN_MODULES=
   OCP_ENABLED_INSTALLED_BACKEND_PATHS=
@@ -203,7 +203,7 @@ stadtplaner_backend_env_content: |
 
 # Complete frontend/.env, snapshotted below /etc/stadtplaner/releases/<sha>/.
 stadtplaner_frontend_env_content: |
-  OCP_FRONTEND_MODULES=analysis-areas
+  OCP_FRONTEND_MODULES=
   # Wird beim Deploy aus dem Backend-Input validiert und überschrieben.
   OCP_EXCLUDED_BUILTIN_MODULES=
   OCP_INSTALLED_FRONTEND_MODULE_ROOTS=
@@ -245,7 +245,6 @@ stadtplaner_osm_env_content: |
   OSM_PBF_URL=https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf
   OSM_PBF_MD5_URL=https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf.md5
   OSM_REPLICATION_URL=https://planet.openstreetmap.org/replication/minute
-  OSM_MUNICIPALITY=Flensburg
   OSM_CACHE_MB=1024
   OSM_MAX_DIFF_MB=100
   OSM_BBOX_WEST=7.5
