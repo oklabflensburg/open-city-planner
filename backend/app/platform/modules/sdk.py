@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import MappingProxyType
-from typing import Protocol, TypeVar, overload
+from typing import ClassVar, Literal, Protocol, TypeVar, overload
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Request
@@ -277,6 +277,205 @@ class ServiceRegistryPort(Protocol):
     def optional(self, contract: type[T], *, service_id: str, version: int) -> T | None: ...
 
     def resolve(self, contract: type[T]) -> T: ...
+
+
+OSM_SNAPSHOT_QUERY_SERVICE_ID = "platform.osm-snapshot-query"
+OSM_SNAPSHOT_QUERY_SERVICE_VERSION = 1
+OSM_POSTPROCESSING_COMPLETED_EVENT = "osm.postprocessing-completed"
+OSM_POSTPROCESSING_COMPLETED_EVENT_VERSION = 1
+OSM_SNAPSHOT_MAX_PAGE_SIZE = 500
+
+type OsmType = Literal["node", "way", "relation"]
+type OsmGeometryKind = Literal["point", "area"]
+
+
+@dataclass(frozen=True, slots=True)
+class OsmFeatureCursor:
+    """Exklusiver, stabiler Cursor in OSM-Typ-/ID-Reihenfolge."""
+
+    osm_type: OsmType
+    osm_id: int
+
+    def __post_init__(self) -> None:
+        if self.osm_type not in {"node", "way", "relation"}:
+            raise ValueError("OSM types must be node, way, or relation.")
+        if type(self.osm_id) is not int or self.osm_id < 0:
+            raise ValueError("OSM IDs must be non-negative integers.")
+
+
+@dataclass(frozen=True, slots=True)
+class OsmTagFilter:
+    """Fordert einen Tag-Schlüssel und optional einen seiner Werte."""
+
+    key: str
+    values: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if (
+            not self.key
+            or self.key != self.key.strip()
+            or "\x00" in self.key
+            or len(self.key) > 255
+        ):
+            raise ValueError("OSM tag keys must be non-empty normalized text.")
+        if not isinstance(self.values, tuple) or any(
+            not isinstance(value, str) or "\x00" in value or len(value) > 1024
+            for value in self.values
+        ):
+            raise TypeError("OSM tag filter values must be an immutable tuple of strings.")
+        if len(self.values) > 50 or len(set(self.values)) != len(self.values):
+            raise ValueError("OSM tag filters allow at most 50 unique values.")
+
+
+def _validate_osm_bbox(
+    value: tuple[float, float, float, float], *, allow_degenerate: bool
+) -> None:
+    if not isinstance(value, tuple) or len(value) != 4:
+        raise TypeError("OSM bounding boxes must be immutable four-value tuples.")
+    west, south, east, north = value
+    if not all(type(item) in (int, float) and math.isfinite(item) for item in value):
+        raise ValueError("OSM bounding boxes must contain finite numbers.")
+    if allow_degenerate:
+        ordered = west <= east and south <= north
+    else:
+        ordered = west < east and south < north
+    if not (-180 <= west <= east <= 180 and -90 <= south <= north <= 90 and ordered):
+        raise ValueError("OSM bounding boxes must be valid EPSG:4326 bounds.")
+
+
+@dataclass(frozen=True, slots=True)
+class OsmSnapshotQuery:
+    """Begrenzte, fachneutrale Filter für einen unveränderlichen OSM-Snapshot."""
+
+    osm_types: tuple[OsmType, ...] = ()
+    geometry_kinds: tuple[OsmGeometryKind, ...] = ()
+    required_tag_keys: tuple[str, ...] = ()
+    tag_filters: tuple[OsmTagFilter, ...] = ()
+    bbox: tuple[float, float, float, float] | None = None
+    cursor: OsmFeatureCursor | None = None
+    limit: int = 100
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.osm_types, tuple) or any(
+            value not in {"node", "way", "relation"} for value in self.osm_types
+        ):
+            raise ValueError("OSM types must be an immutable tuple of supported values.")
+        if len(self.osm_types) > 3 or len(set(self.osm_types)) != len(self.osm_types):
+            raise ValueError("OSM types must contain unique supported values.")
+        if not isinstance(self.geometry_kinds, tuple) or any(
+            value not in {"point", "area"} for value in self.geometry_kinds
+        ):
+            raise ValueError("OSM geometry kinds must be point or area.")
+        if len(self.geometry_kinds) > 2 or len(set(self.geometry_kinds)) != len(
+            self.geometry_kinds
+        ):
+            raise ValueError("OSM geometry kinds must contain unique supported values.")
+        if not isinstance(self.required_tag_keys, tuple) or any(
+            not isinstance(key, str)
+            or not key
+            or key != key.strip()
+            or "\x00" in key
+            or len(key) > 255
+            for key in self.required_tag_keys
+        ):
+            raise ValueError("Required OSM tag keys must be normalized strings.")
+        if len(self.required_tag_keys) > 20 or len(set(self.required_tag_keys)) != len(
+            self.required_tag_keys
+        ):
+            raise ValueError("OSM snapshot queries allow at most 20 unique required tag keys.")
+        if not isinstance(self.tag_filters, tuple) or not all(
+            isinstance(value, OsmTagFilter) for value in self.tag_filters
+        ):
+            raise TypeError("OSM tag filters must be an immutable tuple.")
+        if len(self.tag_filters) > 20 or len({item.key for item in self.tag_filters}) != len(
+            self.tag_filters
+        ):
+            raise ValueError("OSM snapshot queries allow at most 20 unique tag filters.")
+        if self.cursor is not None and not isinstance(self.cursor, OsmFeatureCursor):
+            raise TypeError("OSM snapshot cursors must use OsmFeatureCursor.")
+        if type(self.limit) is not int or not 1 <= self.limit <= OSM_SNAPSHOT_MAX_PAGE_SIZE:
+            raise ValueError(
+                f"OSM snapshot limits must be between 1 and {OSM_SNAPSHOT_MAX_PAGE_SIZE}."
+            )
+        if self.bbox is not None:
+            _validate_osm_bbox(self.bbox, allow_degenerate=False)
+
+
+@dataclass(frozen=True, slots=True)
+class OsmFeatureSnapshot:
+    """ORM-freie OSM-Leseprojektion; Geometrie ist EWKB in EPSG:4326."""
+
+    osm_type: OsmType
+    osm_id: int
+    tags: Mapping[str, str]
+    geometry_wkb: bytes
+    bbox: tuple[float, float, float, float]
+    imported_at: datetime
+
+    def __post_init__(self) -> None:
+        OsmFeatureCursor(self.osm_type, self.osm_id)
+        _validate_string_mapping(self.tags, name="tags")
+        if not isinstance(self.geometry_wkb, bytes):
+            raise TypeError("OSM snapshot geometry must be immutable EWKB bytes.")
+        _validate_osm_bbox(self.bbox, allow_degenerate=True)
+        if self.imported_at.tzinfo is None or self.imported_at.utcoffset() is None:
+            raise ValueError("OSM import timestamps must include a timezone.")
+        object.__setattr__(self, "tags", MappingProxyType(dict(self.tags)))
+
+
+@dataclass(frozen=True, slots=True)
+class OsmFeatureSnapshotPage:
+    items: tuple[OsmFeatureSnapshot, ...]
+    next_cursor: OsmFeatureCursor | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.items, tuple) or not all(
+            isinstance(item, OsmFeatureSnapshot) for item in self.items
+        ):
+            raise TypeError("OSM snapshot pages must contain an immutable tuple of DTOs.")
+        if self.next_cursor is not None and not isinstance(
+            self.next_cursor, OsmFeatureCursor
+        ):
+            raise TypeError("OSM snapshot next cursors must use OsmFeatureCursor.")
+
+
+class OsmSnapshotQueryPort(Protocol):
+    async def list_features(
+        self, session: AsyncSession, query: OsmSnapshotQuery
+    ) -> OsmFeatureSnapshotPage: ...
+
+
+@dataclass(frozen=True, slots=True)
+class OsmPostprocessingCompleted:
+    """Öffentliches Ereignis nach atomar erfolgreicher OSM-Nachverarbeitung."""
+
+    sequence: int | None
+    osm_timestamp: datetime
+    inserted: int
+    updated: int
+    deleted: int
+    event_name: ClassVar[str] = OSM_POSTPROCESSING_COMPLETED_EVENT
+    event_version: ClassVar[int] = OSM_POSTPROCESSING_COMPLETED_EVENT_VERSION
+
+    def __post_init__(self) -> None:
+        if self.sequence is not None and (type(self.sequence) is not int or self.sequence < 0):
+            raise ValueError("OSM replication sequences must be non-negative integers.")
+        if self.osm_timestamp.tzinfo is None or self.osm_timestamp.utcoffset() is None:
+            raise ValueError("OSM timestamps must include a timezone.")
+        if any(
+            type(value) is not int or value < 0
+            for value in (self.inserted, self.updated, self.deleted)
+        ):
+            raise ValueError("OSM reconciliation counts must be non-negative integers.")
+
+    def to_payload(self) -> dict[str, JsonValue]:
+        return {
+            "sequence": self.sequence,
+            "osm_timestamp": self.osm_timestamp.isoformat(),
+            "inserted": self.inserted,
+            "updated": self.updated,
+            "deleted": self.deleted,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -869,6 +1068,11 @@ class ModuleDefinition:
 
 
 __all__ = [
+    "OSM_POSTPROCESSING_COMPLETED_EVENT",
+    "OSM_POSTPROCESSING_COMPLETED_EVENT_VERSION",
+    "OSM_SNAPSHOT_MAX_PAGE_SIZE",
+    "OSM_SNAPSHOT_QUERY_SERVICE_ID",
+    "OSM_SNAPSHOT_QUERY_SERVICE_VERSION",
     "ApiRegistrar",
     "AreaStatisticSeries",
     "AreaStatistics",
@@ -908,6 +1112,15 @@ __all__ = [
     "ModuleSettingsContribution",
     "ModuleSettingsPort",
     "ObservabilityPort",
+    "OsmFeatureCursor",
+    "OsmFeatureSnapshot",
+    "OsmFeatureSnapshotPage",
+    "OsmGeometryKind",
+    "OsmPostprocessingCompleted",
+    "OsmSnapshotQuery",
+    "OsmSnapshotQueryPort",
+    "OsmTagFilter",
+    "OsmType",
     "PermissionDefinition",
     "PermissionDependencyFactory",
     "PermissionPort",

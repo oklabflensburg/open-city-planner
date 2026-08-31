@@ -35,7 +35,13 @@ from app.platform.modules.context import ModuleContextFactory
 from app.platform.modules.contracts import ModuleRegistrationContext
 from app.platform.modules.manifest import parse_manifest
 from app.platform.modules.runtime import create_module_runtime
-from app.platform.modules.sdk import EventEnvelope, JsonValue, event_envelope
+from app.platform.modules.sdk import (
+    EventEnvelope,
+    JsonValue,
+    OsmPostprocessingCompleted,
+    event_envelope,
+)
+from app.services.osm_event_publisher import enqueue_osm_postprocessing_completed
 from app.services.polygon_event_handlers import register_polygon_event_handlers
 from app.services.polygon_event_publisher import enqueue_polygon_event
 from app.services.polygon_events import PolygonCreated
@@ -272,6 +278,43 @@ async def test_transactional_publish_is_invisible_before_commit_and_removed_by_r
     async with postgres_events.sessions() as observer:
         assert await observer.scalar(select(func.count(DomainEventOutbox.id))) == 1
         assert await observer.scalar(select(func.count(postgres_events.facts.c.id))) == 1
+
+
+@pytest.mark.asyncio
+async def test_osm_completion_event_shares_commit_and_rollback_boundary(
+    postgres_events: PostgresFixture,
+) -> None:
+    event = OsmPostprocessingCompleted(
+        sequence=123,
+        osm_timestamp=datetime(2026, 8, 31, tzinfo=UTC),
+        inserted=2,
+        updated=3,
+        deleted=1,
+    )
+    async with postgres_events.sessions() as session:
+        await session.execute(
+            insert(postgres_events.facts).values(id=str(uuid.uuid4()), value="osm-committed")
+        )
+        await enqueue_osm_postprocessing_completed(session, event)
+        await session.commit()
+    async with postgres_events.sessions() as observer:
+        row = await observer.scalar(
+            select(DomainEventOutbox).where(
+                DomainEventOutbox.event_name == "osm.postprocessing-completed"
+            )
+        )
+        assert row is not None
+        assert row.payload["sequence"] == 123
+
+    async with postgres_events.sessions() as session:
+        await enqueue_osm_postprocessing_completed(session, event)
+        await session.rollback()
+    async with postgres_events.sessions() as observer:
+        assert await observer.scalar(
+            select(func.count(DomainEventOutbox.id)).where(
+                DomainEventOutbox.event_name == "osm.postprocessing-completed"
+            )
+        ) == 1
 
 
 @pytest.mark.asyncio

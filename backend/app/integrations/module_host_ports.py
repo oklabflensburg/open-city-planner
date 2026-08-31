@@ -24,6 +24,8 @@ from app.platform.modules.sdk import (
     MapPreviewRequest,
     MapPreviewResult,
     MapPreviewUnavailableError,
+    OsmFeatureSnapshotPage,
+    OsmSnapshotQuery,
     PolygonFilterValues,
     PolygonMetrics,
     PolygonScope,
@@ -37,6 +39,7 @@ from app.platform.modules.sdk import (
 from app.services import polygon_analytics
 from app.services.cache_versions import bump_cache_versions, cache_version
 from app.services.map_previews import MapPreviewError, map_preview_service
+from app.services.osm_snapshots import list_osm_feature_snapshots
 from app.services.public_query_security import (
     guard_public_query,
     is_statement_timeout_error,
@@ -103,6 +106,15 @@ class HostPublicQueries:
 
     def is_timeout(self, error: BaseException) -> bool:
         return is_statement_timeout_error(error)
+
+
+class HostOsmSnapshotQueries:
+    """Public, immutable projections of the Host-owned OSM snapshot."""
+
+    async def list_features(
+        self, session: AsyncSession, query: OsmSnapshotQuery
+    ) -> OsmFeatureSnapshotPage:
+        return await list_osm_feature_snapshots(session, query)
 
 
 class HostMapPreviews:
@@ -312,6 +324,7 @@ __all__ = [
     "HostCacheGenerations",
     "HostMapPreviews",
     "HostModuleCache",
+    "HostOsmSnapshotQueries",
     "HostPolygonAnalytics",
     "HostPolygonQueries",
     "HostPublicQueries",
