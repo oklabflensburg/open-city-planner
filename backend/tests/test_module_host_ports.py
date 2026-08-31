@@ -1,4 +1,5 @@
 import ast
+import inspect
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -53,12 +54,26 @@ async def test_module_cache_namespaces_keys_and_hides_cache_service(monkeypatch)
 @pytest.mark.asyncio
 async def test_cache_generations_delegate_without_exposing_storage(monkeypatch) -> None:
     current = AsyncMock(return_value=7)
+    bump = AsyncMock()
     monkeypatch.setattr(module_host_ports, "cache_version", current)
+    monkeypatch.setattr(module_host_ports, "bump_cache_versions", bump)
     port = HostCacheGenerations()
     session = object()
 
     assert await port.current(session, "analytics") == 7
+    await port.bump(session, ("analytics", "polygons", "analytics"))
+
     current.assert_awaited_once_with(session, "analytics")
+    bump.assert_awaited_once_with(
+        session, ("analytics", "polygons", "analytics")
+    )
+
+
+def test_cache_generation_adapter_is_generic() -> None:
+    source = inspect.getsource(HostCacheGenerations).lower()
+
+    assert "analysis-areas" not in source
+    assert "analysis_areas" not in source
 
 
 @pytest.mark.asyncio

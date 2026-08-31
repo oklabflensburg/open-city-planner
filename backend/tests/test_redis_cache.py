@@ -1,6 +1,6 @@
 import asyncio
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -193,10 +193,31 @@ async def test_osm_v2_ignores_old_viewport_cache_with_peninsula(monkeypatch) -> 
 
 
 @pytest.mark.asyncio
+async def test_cache_version_reuses_committed_safe_local_value(monkeypatch) -> None:
+    monkeypatch.setattr(cache_versions, "get_redis", lambda: object())
+    cache_versions._local_versions.clear()
+    session = MagicMock()
+    session.info = {}
+    session.get_transaction.return_value = None
+    session.scalar = AsyncMock(return_value=7)
+
+    assert await cache_versions.cache_version(session, "domain") == 7
+    assert await cache_versions.cache_version(session, "domain") == 7
+    session.scalar.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_version_bump_is_persisted_for_namespace_invalidation() -> None:
-    session = AsyncMock()
-    await cache_versions.bump_cache_versions(session, ("analytics", "polygons"))
+    session = MagicMock()
+    session.execute = AsyncMock()
+    session.commit = AsyncMock()
+    session.info = {}
+    session.get_transaction.return_value = None
+    await cache_versions.bump_cache_versions(
+        session, ("analytics", "polygons", "analytics")
+    )
     assert session.execute.await_args.args[1] == {"names": ["analytics", "polygons"]}
+    session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio

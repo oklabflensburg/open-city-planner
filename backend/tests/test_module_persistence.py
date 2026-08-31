@@ -27,6 +27,8 @@ from sqlalchemy.ext.asyncio import (
 from app.cli import module_migrations as migration_cli
 from app.core.config import Settings, get_settings
 from app.db.base import Base
+from app.integrations.module_host_ports import HostCacheGenerations
+from app.models.cache_version import CacheVersion
 from app.modules.reference.module import DEFINITION as REFERENCE_DEFINITION
 from app.platform.modules import (
     DuplicatePersistenceSchemaError,
@@ -50,6 +52,7 @@ from app.platform.modules.persistence import (
     resolve_migration_source,
     revision_namespace_for,
 )
+from app.services import cache_versions
 from tests.fixtures.example_backend_module import DEFINITION as EXAMPLE_DEFINITION
 from tests.fixtures.example_persistence_module import DEFINITION as DEPENDENT_DEFINITION
 from tests.test_module_runtime import FakeDiscovery, definition, runtime_for
@@ -1188,6 +1191,234 @@ async def test_host_session_provider_commits_and_rolls_back(
     async with postgres_schemas.sessions() as session:
         names = tuple(await session.scalars(select(postgres_schemas.table_a.c.name)))
     assert names == ("kept",)
+
+
+async def _create_cache_generation_test_tables(
+    fixture: SchemaFixture,
+) -> tuple[Table, Table]:
+    metadata = MetaData()
+    generations = CacheVersion.__table__.to_metadata(
+        metadata, schema=fixture.schema_a
+    )
+    facts = Table(
+        "cache_generation_test_facts",
+        metadata,
+        Column("id", Integer, primary_key=True),
+        Column("value", String(80), nullable=False),
+        schema=fixture.schema_a,
+    )
+    async with fixture.engine.begin() as connection:
+        await connection.run_sync(metadata.create_all)
+    return generations, facts
+
+
+async def _use_test_schema(session: AsyncSession, fixture: SchemaFixture) -> None:
+    await session.execute(
+        text(f'SET LOCAL search_path TO "{fixture.schema_a}", public')
+    )
+
+
+@pytest.mark.asyncio
+async def test_cache_generation_port_current_and_committed_bumps(
+    postgres_schemas: SchemaFixture,
+    monkeypatch,
+) -> None:
+    generations, _facts = await _create_cache_generation_test_tables(postgres_schemas)
+    monkeypatch.setattr(cache_versions, "get_redis", lambda: object())
+    cache_versions._local_versions.clear()
+    port = HostCacheGenerations()
+    async with postgres_schemas.engine.begin() as connection:
+        await connection.execute(
+            insert(generations),
+            [
+                {"namespace": "single", "version": 4},
+                {"namespace": "first", "version": 7},
+                {"namespace": "second", "version": 11},
+            ],
+        )
+
+    async with postgres_schemas.sessions() as writer:
+        await _use_test_schema(writer, postgres_schemas)
+        assert await port.current(writer, "single") == 4
+        await port.bump(writer, ("single",))
+        assert await writer.scalar(
+            select(generations.c.version).where(generations.c.namespace == "single")
+        ) == 5
+        async with postgres_schemas.sessions() as observer:
+            assert await observer.scalar(
+                select(generations.c.version).where(
+                    generations.c.namespace == "single"
+                )
+            ) == 4
+        await writer.commit()
+
+    async with postgres_schemas.sessions() as writer:
+        await _use_test_schema(writer, postgres_schemas)
+        await port.bump(writer, ("first", "second", "first"))
+        await writer.commit()
+
+    async with postgres_schemas.sessions() as observer:
+        result = await observer.execute(
+            select(generations.c.namespace, generations.c.version).where(
+                generations.c.namespace.in_(("single", "first", "second"))
+            )
+        )
+        rows = dict(result.tuples().all())
+    assert rows == {"single": 5, "first": 8, "second": 12}
+
+
+@pytest.mark.asyncio
+async def test_cache_generation_current_does_not_publish_rolled_back_bump(
+    postgres_schemas: SchemaFixture,
+    monkeypatch,
+) -> None:
+    generations, _facts = await _create_cache_generation_test_tables(postgres_schemas)
+    monkeypatch.setattr(cache_versions, "get_redis", lambda: object())
+    cache_versions._local_versions.clear()
+    port = HostCacheGenerations()
+    async with postgres_schemas.engine.begin() as connection:
+        await connection.execute(
+            insert(generations).values(namespace="domain", version=3)
+        )
+
+    async with postgres_schemas.sessions() as writer:
+        await _use_test_schema(writer, postgres_schemas)
+        await port.bump(writer, ("domain",))
+        assert await port.current(writer, "domain") == 4
+        assert "domain" not in cache_versions._local_versions
+        await writer.rollback()
+
+    async with postgres_schemas.sessions() as observer:
+        await _use_test_schema(observer, postgres_schemas)
+        assert await port.current(observer, "domain") == 3
+    assert cache_versions._local_versions["domain"][1] == 3
+
+
+@pytest.mark.asyncio
+async def test_cache_generation_current_after_bump_is_visible_after_commit(
+    postgres_schemas: SchemaFixture,
+    monkeypatch,
+) -> None:
+    generations, _facts = await _create_cache_generation_test_tables(postgres_schemas)
+    monkeypatch.setattr(cache_versions, "get_redis", lambda: object())
+    cache_versions._local_versions.clear()
+    port = HostCacheGenerations()
+    async with postgres_schemas.engine.begin() as connection:
+        await connection.execute(
+            insert(generations).values(namespace="domain", version=3)
+        )
+
+    async with postgres_schemas.sessions() as writer:
+        await _use_test_schema(writer, postgres_schemas)
+        await port.bump(writer, ("domain",))
+        assert await port.current(writer, "domain") == 4
+        assert "domain" not in cache_versions._local_versions
+        await writer.commit()
+
+    async with postgres_schemas.sessions() as observer:
+        await _use_test_schema(observer, postgres_schemas)
+        assert await port.current(observer, "domain") == 4
+    assert cache_versions._local_versions["domain"][1] == 4
+
+
+@pytest.mark.asyncio
+async def test_cache_generation_commit_invalidates_concurrently_recached_value(
+    postgres_schemas: SchemaFixture,
+    monkeypatch,
+) -> None:
+    generations, _facts = await _create_cache_generation_test_tables(postgres_schemas)
+    monkeypatch.setattr(cache_versions, "get_redis", lambda: object())
+    cache_versions._local_versions.clear()
+    port = HostCacheGenerations()
+    async with postgres_schemas.engine.begin() as connection:
+        await connection.execute(
+            insert(generations).values(namespace="domain", version=3)
+        )
+
+    async with postgres_schemas.sessions() as writer:
+        await _use_test_schema(writer, postgres_schemas)
+        await port.bump(writer, ("domain",))
+
+        async with postgres_schemas.sessions() as observer_before_commit:
+            await _use_test_schema(observer_before_commit, postgres_schemas)
+            assert await port.current(observer_before_commit, "domain") == 3
+        assert cache_versions._local_versions["domain"][1] == 3
+
+        await writer.commit()
+
+    async with postgres_schemas.sessions() as observer_after_commit:
+        await _use_test_schema(observer_after_commit, postgres_schemas)
+        assert await port.current(observer_after_commit, "domain") == 4
+
+
+@pytest.mark.asyncio
+async def test_cache_generation_savepoint_is_not_a_commit_boundary(
+    postgres_schemas: SchemaFixture,
+    monkeypatch,
+) -> None:
+    generations, _facts = await _create_cache_generation_test_tables(postgres_schemas)
+    monkeypatch.setattr(cache_versions, "get_redis", lambda: object())
+    cache_versions._local_versions.clear()
+    port = HostCacheGenerations()
+    async with postgres_schemas.engine.begin() as connection:
+        await connection.execute(
+            insert(generations).values(namespace="domain", version=3)
+        )
+
+    async with postgres_schemas.sessions() as writer:
+        await _use_test_schema(writer, postgres_schemas)
+        await port.bump(writer, ("domain",))
+
+        async with postgres_schemas.sessions() as observer_before_commit:
+            await _use_test_schema(observer_before_commit, postgres_schemas)
+            assert await port.current(observer_before_commit, "domain") == 3
+
+        savepoint = await writer.begin_nested()
+        await savepoint.commit()
+        assert cache_versions._local_versions["domain"][1] == 3
+
+        await writer.commit()
+        assert "domain" not in cache_versions._local_versions
+
+    async with postgres_schemas.sessions() as observer_after_commit:
+        await _use_test_schema(observer_after_commit, postgres_schemas)
+        assert await port.current(observer_after_commit, "domain") == 4
+
+
+@pytest.mark.asyncio
+async def test_cache_generation_port_rolls_back_and_commits_with_domain_write(
+    postgres_schemas: SchemaFixture,
+) -> None:
+    generations, facts = await _create_cache_generation_test_tables(postgres_schemas)
+    port = HostCacheGenerations()
+    async with postgres_schemas.engine.begin() as connection:
+        await connection.execute(
+            insert(generations).values(namespace="domain", version=3)
+        )
+
+    async with postgres_schemas.sessions() as writer:
+        await _use_test_schema(writer, postgres_schemas)
+        await writer.execute(insert(facts).values(id=1, value="rolled-back"))
+        await port.bump(writer, ("domain",))
+        await writer.rollback()
+
+    async with postgres_schemas.sessions() as observer:
+        assert await observer.scalar(select(func.count()).select_from(facts)) == 0
+        assert await observer.scalar(
+            select(generations.c.version).where(generations.c.namespace == "domain")
+        ) == 3
+
+    async with postgres_schemas.sessions() as writer:
+        await _use_test_schema(writer, postgres_schemas)
+        await writer.execute(insert(facts).values(id=2, value="committed"))
+        await port.bump(writer, ("domain",))
+        await writer.commit()
+
+    async with postgres_schemas.sessions() as observer:
+        assert tuple(await observer.scalars(select(facts.c.value))) == ("committed",)
+        assert await observer.scalar(
+            select(generations.c.version).where(generations.c.namespace == "domain")
+        ) == 4
 
 
 @pytest.mark.asyncio

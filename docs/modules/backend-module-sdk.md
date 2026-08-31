@@ -65,7 +65,7 @@ Sub-Interfaces `context.api` und `context.lifecycle`.
 | `permissions` | `PermissionPort` | hostseitige, fail-closed Policy-Auswertung aus #104 |
 | `permission_dependencies` | `PermissionDependencyFactory` | authentifizierte FastAPI-Dependency mit optionalem CSRF für Modulrouten |
 | `cache` | `CachePort` | optionaler, modulgebundener Byte-Cache |
-| `cache_generations` | `CacheGenerationPort` | Read-Model-Generationen ohne Cache-Interna |
+| `cache_generations` | `CacheGenerationPort` | Read-Model-Generationen transaktional lesen und erhöhen |
 | `public_queries` | `PublicQueryPort` | öffentliche Query-Policy und Limits |
 | `map_previews` | `MapPreviewPort` | öffentliche Kartenvorschauen |
 | `polygons` | `PolygonQueryPort` | Polygonprojektionen für neutrale `PolygonScope`-IDs |
@@ -101,6 +101,15 @@ Migrationen sind im
 Cache-Schlüssel und Storage-Keys gelten relativ zum aktuellen Modul; konkrete
 Adapter müssen sie entsprechend isolieren. Cache-TTLs sind positive ganze Sekunden.
 Die Ports machen keine Redis-, Dateisystem- oder Cloud-SDK-Typen öffentlich.
+
+`CachePort.clear()` und `CacheGenerationPort.bump()` haben unterschiedliche
+Aufgaben: `clear()` löscht die Keys des aktuellen Moduls. `bump(session,
+resources)` erhöht dagegen die Generationen gemeinsam genutzter Lesemodelle über
+die vom Aufrufer bereitgestellte Datenbank-Session. Der Bump nimmt vollständig an
+dieser caller-owned Transaktion teil und committet niemals implizit. Dadurch können
+fachlicher Write und Generation-Bump gemeinsam committed oder gemeinsam
+zurückgerollt werden. Doppelte Resource-IDs werden in stabiler Eingabereihenfolge
+dedupliziert und pro Aufruf genau einmal erhöht.
 
 ### Polygon-Scope
 
@@ -186,6 +195,9 @@ unveränderliche Menge und müssen ihren Migration Contract nicht ändern.
 Die additiven öffentlichen Backend-Service-Ports für Cache-Generationen,
 Public-Query-Schutz, Kartenvorschauen, Polygonabfragen und -aggregate,
 Kommunalstatistik erhöhen die SDK-Version auf `1.9.0`.
+Die additive transaktionale `CacheGenerationPort.bump()`-Methode erhöht die
+SDK-Version auf `1.10.0`. `current()` bleibt unverändert; `bump()` verwendet die
+Caller-Session, öffnet keine zweite Transaktion und committet nicht selbst.
 Alle Ports sind optional; bestehende Module und ihre Context-Konstruktion bleiben
 damit rückwärtskompatibel.
 
