@@ -1,14 +1,42 @@
 import time
 from collections.abc import Iterable
 
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session, SessionTransaction
 
 from app.cache.redis import get_redis
 
 _local_versions: dict[str, tuple[float, int]] = {}
 # Session-local marker; only values from this transaction bypass the process cache.
 _PENDING_BUMPS_KEY = "cache_versions.pending_bumps"
+
+
+def _pending_resources(session: Session) -> set[str] | None:
+    pending = session.info.get(_PENDING_BUMPS_KEY)
+    if (
+        isinstance(pending, tuple)
+        and len(pending) == 2
+        and isinstance(pending[1], set)
+    ):
+        return pending[1]
+    return None
+
+
+@event.listens_for(Session, "after_commit")
+def _invalidate_versions_after_commit(session: Session) -> None:
+    if session.in_nested_transaction():
+        return
+    for namespace in _pending_resources(session) or ():
+        _local_versions.pop(namespace, None)
+
+
+@event.listens_for(Session, "after_transaction_end")
+def _clear_pending_bumps_after_root_transaction(
+    session: Session, transaction: SessionTransaction
+) -> None:
+    if transaction.parent is None:
+        session.info.pop(_PENDING_BUMPS_KEY, None)
 
 
 def _has_pending_bump(session: AsyncSession, namespace: str) -> bool:

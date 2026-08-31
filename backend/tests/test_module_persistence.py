@@ -1322,6 +1322,70 @@ async def test_cache_generation_current_after_bump_is_visible_after_commit(
 
 
 @pytest.mark.asyncio
+async def test_cache_generation_commit_invalidates_concurrently_recached_value(
+    postgres_schemas: SchemaFixture,
+    monkeypatch,
+) -> None:
+    generations, _facts = await _create_cache_generation_test_tables(postgres_schemas)
+    monkeypatch.setattr(cache_versions, "get_redis", lambda: object())
+    cache_versions._local_versions.clear()
+    port = HostCacheGenerations()
+    async with postgres_schemas.engine.begin() as connection:
+        await connection.execute(
+            insert(generations).values(namespace="domain", version=3)
+        )
+
+    async with postgres_schemas.sessions() as writer:
+        await _use_test_schema(writer, postgres_schemas)
+        await port.bump(writer, ("domain",))
+
+        async with postgres_schemas.sessions() as observer_before_commit:
+            await _use_test_schema(observer_before_commit, postgres_schemas)
+            assert await port.current(observer_before_commit, "domain") == 3
+        assert cache_versions._local_versions["domain"][1] == 3
+
+        await writer.commit()
+
+    async with postgres_schemas.sessions() as observer_after_commit:
+        await _use_test_schema(observer_after_commit, postgres_schemas)
+        assert await port.current(observer_after_commit, "domain") == 4
+
+
+@pytest.mark.asyncio
+async def test_cache_generation_savepoint_is_not_a_commit_boundary(
+    postgres_schemas: SchemaFixture,
+    monkeypatch,
+) -> None:
+    generations, _facts = await _create_cache_generation_test_tables(postgres_schemas)
+    monkeypatch.setattr(cache_versions, "get_redis", lambda: object())
+    cache_versions._local_versions.clear()
+    port = HostCacheGenerations()
+    async with postgres_schemas.engine.begin() as connection:
+        await connection.execute(
+            insert(generations).values(namespace="domain", version=3)
+        )
+
+    async with postgres_schemas.sessions() as writer:
+        await _use_test_schema(writer, postgres_schemas)
+        await port.bump(writer, ("domain",))
+
+        async with postgres_schemas.sessions() as observer_before_commit:
+            await _use_test_schema(observer_before_commit, postgres_schemas)
+            assert await port.current(observer_before_commit, "domain") == 3
+
+        savepoint = await writer.begin_nested()
+        await savepoint.commit()
+        assert cache_versions._local_versions["domain"][1] == 3
+
+        await writer.commit()
+        assert "domain" not in cache_versions._local_versions
+
+    async with postgres_schemas.sessions() as observer_after_commit:
+        await _use_test_schema(observer_after_commit, postgres_schemas)
+        assert await port.current(observer_after_commit, "domain") == 4
+
+
+@pytest.mark.asyncio
 async def test_cache_generation_port_rolls_back_and_commits_with_domain_write(
     postgres_schemas: SchemaFixture,
 ) -> None:
