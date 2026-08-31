@@ -6,7 +6,11 @@ import pytest
 from app.platform.modules.dependency_graph import resolve_module_order
 from app.platform.modules.errors import ModuleCompatibilityError, ModuleDependencyCycleError
 from app.platform.modules.manifest import parse_manifest, validate_manifest
-from app.platform.modules.testing import FakeServiceRegistry, ModuleTestHost
+from app.platform.modules.testing import (
+    FakeCacheGenerations,
+    FakeServiceRegistry,
+    ModuleTestHost,
+)
 from tests.fixtures.service_modules.analysis_areas.module import DEFINITION
 
 FIXTURES = Path(__file__).parent / "fixtures/module_contracts"
@@ -25,6 +29,18 @@ def test_module_test_host_registers_example_without_infrastructure() -> None:
     assert context.module_id == "analysis-areas-fixture"
     assert isinstance(context.services, FakeServiceRegistry)
     assert context.services.sealed is True
+
+
+@pytest.mark.asyncio
+async def test_module_test_host_exposes_mutable_cache_generations() -> None:
+    host = ModuleTestHost(DEFINITION)
+
+    context = host.register()
+    assert isinstance(context.cache_generations, FakeCacheGenerations)
+
+    await context.cache_generations.bump(object(), ("fixture-resource",))
+
+    assert await context.cache_generations.current(object(), "fixture-resource") == 2
 
 
 def test_module_test_host_closes_registration_after_bootstrap() -> None:

@@ -195,8 +195,11 @@ async def test_osm_v2_ignores_old_viewport_cache_with_peninsula(monkeypatch) -> 
 @pytest.mark.asyncio
 async def test_version_bump_is_persisted_for_namespace_invalidation() -> None:
     session = AsyncMock()
-    await cache_versions.bump_cache_versions(session, ("analytics", "polygons"))
+    await cache_versions.bump_cache_versions(
+        session, ("analytics", "polygons", "analytics")
+    )
     assert session.execute.await_args.args[1] == {"names": ["analytics", "polygons"]}
+    session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio

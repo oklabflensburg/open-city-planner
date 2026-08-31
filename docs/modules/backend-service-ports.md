@@ -9,7 +9,8 @@ Alle Verträge werden ausschließlich aus `app.platform.modules.sdk` importiert
 und optional über den unveränderlichen `ModuleContext` injiziert. Konkrete
 Implementierungen liegen in `app.integrations.module_host_ports`; dort wird zu
 den bestehenden Services komponiert, ohne deren Logik in das SDK zu kopieren.
-Die Verträge sind seit SDK 1.9 additiv und stabil. Einen fehlenden optionalen Port
+Die Leseverträge sind seit SDK 1.9 additiv und stabil; die transaktionale
+Cache-Generation-Mutation ist seit SDK 1.10 verfügbar. Einen fehlenden optionalen Port
 erkennt das konsumierende Modul bei seiner Registrierung. Validierungsfehler bleiben `ValueError`;
 ein nicht renderbares Preview wird als `MapPreviewUnavailableError` abstrahiert.
 Query-Timeouts werden über `PublicQueryPort.is_timeout()` erkannt, ohne
@@ -21,7 +22,7 @@ DB-Treiberfehler zum Modulvertrag zu machen.
 | --- | --- | --- | --- |
 | `DatabaseSessionProvider` | Host-eigene Transaktionsgrenze | keine | Async-Kontext mit `AsyncSession`; Exception löst Rollback aus |
 | `CachePort` | modulgebundener Byte-Cache | lokaler Key, Bytes, TTL | Bytes/Status; Backend-Ausfall verhält sich als Cache Miss |
-| `CacheGenerationPort` | geteilte Read-Model-Invalidierung lesen | Session, Ressourcenname | monotone Generation; keine Redis-/Key-Details |
+| `CacheGenerationPort` | geteilte Read-Model-Invalidierung lesen oder transaktional erhöhen | Session, Ressourcenname beziehungsweise Sequenz | monotone Generation; `bump()` committet nie selbst; keine Redis-/Key-Details |
 | `PublicQueryPort` | Host Security | Request, Session, begrenzter Ressourcenname | Guard oder etablierter HTTP-Fehler; `PublicQueryLimits` ist immutable |
 | `MapPreviewPort` | Host Map Rendering | `MapPreviewRequest` mit GeoJSON-Primitiven | Bytes, Content-Type, ETag, Cache-Hit; stabile Preview-Exception |
 | `PolygonQueryPort` | Polygon-Domäne | Session, immutable `PolygonScope` aus primitiven Polygon-IDs, Limit | immutable `PublicPolygonSummary`; niemals ORM |
@@ -41,7 +42,7 @@ Fachdomäne, C = Analysis-Areas-owned, D = obsolete Legacy-Kopplung.
 | `app.cache.service.last_cache_status` | C | request-lokaler Status im Modul-Cache-Adapter | Modul |
 | `app.cache.keys.build_cache_key` | C | kanonischer Key-Builder im Modul, vor dem bereits Host-seitig namespaceten `CachePort` | Modul |
 | `app.services.cache_versions.cache_version` | A | `CacheGenerationPort.current` | Platform |
-| `app.services.cache_versions.bump_cache_versions` | D | Der unregistrierte externe Legacy-Sync entfällt; kein mutierender Cache-Port | Modul / Platform |
+| `app.services.cache_versions.bump_cache_versions` | A | `CacheGenerationPort.bump`; delegiert an dieselbe Host-Implementierung und Caller-Transaktion | Platform |
 | `app.services.public_query_security.guard_public_query` | A | `PublicQueryPort.guard` | Platform Security |
 | `app.services.public_query_security.is_statement_timeout_error` | A | `PublicQueryPort.is_timeout` | Platform Security |
 | `app.services.map_previews.map_preview_service` | A | `MapPreviewPort.render` | Map Preview |
@@ -66,8 +67,8 @@ Fachdomäne, C = Analysis-Areas-owned, D = obsolete Legacy-Kopplung.
 | `app.schemas.polygon_filters.polygon_filter_query` | C | module-owned FastAPI-Dependency | Modul |
 
 `AREA_POI_CATEGORY_SQL`, API-Schemas, Filter-Parsing, Cache-Key-Building,
-Cache-Bumping, Social-Publishing und Response-Mapping werden bewusst nicht als
-Host-Port veröffentlicht: Sie bestimmen
+Social-Publishing und Response-Mapping werden bewusst nicht als Host-Port
+veröffentlicht: Sie bestimmen
 die konkrete Analysis-Areas-Antwort. Die privaten Analytics-Helfer bleiben privat;
 nur der bestehende Host-Adapter darf sie hinter fachlich benannten Operationen
 aufrufen. Der direkte Sessionimport ist ersatzlos obsolet, weil SDK 1.2 bereits

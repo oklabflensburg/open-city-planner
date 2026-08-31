@@ -1,9 +1,11 @@
 import ast
+import inspect
 import subprocess
 import sys
 from dataclasses import FrozenInstanceError, dataclass
 from pathlib import Path
 from typing import Protocol, get_type_hints
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import APIRouter, FastAPI
@@ -38,6 +40,7 @@ from app.platform.modules.sdk import (
 )
 from app.platform.modules.testing import (
     FakeCache,
+    FakeCacheGenerations,
     FakeEventBus,
     FakeHttpClientFactory,
     FakeHttpResponse,
@@ -243,6 +246,7 @@ async def test_public_test_context_fakes_need_no_infrastructure() -> None:
     )
 
     assert isinstance(context.cache, FakeCache)
+    assert isinstance(context.cache_generations, FakeCacheGenerations)
     assert isinstance(context.events, FakeEventBus)
     assert isinstance(context.services, FakeServiceRegistry)
     assert isinstance(context.permissions, FakePermissions)
@@ -256,6 +260,17 @@ async def test_public_test_context_fakes_need_no_infrastructure() -> None:
     assert await context.cache.set("key", b"value", ttl_seconds=30)
     assert await context.cache.get("key") == b"value"
     assert context.cache.ttls == {"key": 30}
+
+    session = AsyncMock()
+    await context.cache_generations.bump(
+        session, ("example-read-model", "example-analytics", "example-read-model")
+    )
+    assert await context.cache_generations.current(session, "example-read-model") == 2
+    assert await context.cache_generations.current(session, "example-analytics") == 2
+    assert context.cache_generations.bump_calls == [
+        ("example-read-model", "example-analytics")
+    ]
+    session.commit.assert_not_awaited()
 
     event = ExampleEvent()
     await context.events.publish(event)
@@ -315,6 +330,13 @@ def test_public_sdk_import_does_not_start_application() -> None:
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_cache_generation_contract_is_generic() -> None:
+    source = inspect.getsource(CacheGenerationPort).lower()
+
+    assert "analysis-areas" not in source
+    assert "analysis_areas" not in source
 
 
 def test_public_sdk_has_no_host_internal_or_domain_imports() -> None:

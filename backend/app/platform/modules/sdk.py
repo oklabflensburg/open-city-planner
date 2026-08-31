@@ -337,9 +337,13 @@ class CachePort(Protocol):
 
 
 class CacheGenerationPort(Protocol):
-    """Versioniert geteilte Lesemodelle ohne Redis- oder Cache-Key-Details."""
+    """Versioniert geteilte Lesemodelle in der Transaktion des Aufrufers."""
 
     async def current(self, session: AsyncSession, resource: str) -> int: ...
+
+    async def bump(
+        self, session: AsyncSession, resources: Sequence[str]
+    ) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)

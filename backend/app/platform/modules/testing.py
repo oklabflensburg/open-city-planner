@@ -2,7 +2,7 @@
 
 import json
 import logging
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field, replace
 from types import MappingProxyType
@@ -67,6 +67,25 @@ class FakeCache:
         self.values.clear()
         self.ttls.clear()
         return deleted
+
+
+class FakeCacheGenerations:
+    """In-memory cache-generation port for isolated module contract tests."""
+
+    def __init__(self, generations: Mapping[str, int] | None = None) -> None:
+        self.generations = dict(generations or {})
+        self.bump_calls: list[tuple[str, ...]] = []
+
+    async def current(self, session, resource: str) -> int:
+        del session
+        return self.generations.get(resource, 1)
+
+    async def bump(self, session, resources: Sequence[str]) -> None:
+        del session
+        unique_resources = tuple(dict.fromkeys(resources))
+        self.bump_calls.append(unique_resources)
+        for resource in unique_resources:
+            self.generations[resource] = self.generations.get(resource, 1) + 1
 
 
 class FakeEventBus:
@@ -478,6 +497,7 @@ def create_test_module_context(
         permissions=FakePermissions(),
         permission_dependencies=FakePermissionDependencies(),
         cache=FakeCache(module_id),
+        cache_generations=FakeCacheGenerations(),
         storage=FakeStorage(module_id),
         http=FakeHttpClientFactory(),
         scheduler=FakeJobRegistry(module_id),
@@ -487,6 +507,7 @@ def create_test_module_context(
 
 __all__ = [
     "FakeCache",
+    "FakeCacheGenerations",
     "FakeEventBus",
     "FakeHttpClient",
     "FakeHttpClientFactory",

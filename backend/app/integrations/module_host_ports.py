@@ -4,6 +4,7 @@ Only this boundary knows both the public SDK DTOs and private Host services/mode
 The adapters deliberately contain no copied business logic.
 """
 
+from collections.abc import Sequence
 from dataclasses import fields
 from typing import cast
 
@@ -34,7 +35,7 @@ from app.platform.modules.sdk import (
     StatisticValue,
 )
 from app.services import polygon_analytics
-from app.services.cache_versions import cache_version
+from app.services.cache_versions import bump_cache_versions, cache_version
 from app.services.map_previews import MapPreviewError, map_preview_service
 from app.services.public_query_security import (
     guard_public_query,
@@ -74,6 +75,11 @@ class HostCacheGenerations:
 
     async def current(self, session: AsyncSession, resource: str) -> int:
         return await cache_version(session, resource)
+
+    async def bump(
+        self, session: AsyncSession, resources: Sequence[str]
+    ) -> None:
+        await bump_cache_versions(session, resources)
 
 
 class HostPublicQueries:
