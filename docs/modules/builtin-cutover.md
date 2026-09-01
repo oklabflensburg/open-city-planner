@@ -36,20 +36,18 @@ Frontend-Snapshot ein. Aktivierung bleibt ausschließlich in `modules.lock`.
    `enable` mit erneutem Deploy/Restart prüfen.
 
 Für `analysis-areas` ist der geprüfte externe Contract auf Commit
-`a63af188a0cf4ba10a389302bae4c1e0d80cfeda` gepinnt. Er liefert die Revisionen
+`fe6d11cb53575e0cbc383d8de714d5f9711f77c0` gepinnt. Er liefert die Revisionen
 `20260814_0014`, `20260817_0023`, `20260818_0025` und `20260819_0032` mit
-unveränderten Kanten. Der isolierte Legacy-Adapter des Pins ist vollständig in
+unveränderten Kanten. Seine Host-Capabilities sind vollständig in
 [öffentliche Backend-Service-Ports](backend-service-ports.md) inventarisiert.
-SDK 1.9 stellt die öffentlichen Ersatzverträge bereit; der aktuelle Pin bleibt
-bis zum koordinierten Modul-Folgecommit Trusted Code mit der dokumentierten
-Legacy-Grenze.
+Das Paket importiert ausschließlich das öffentliche SDK; Gebietsfachlogik und
+Persistenz bleiben im Modul.
 
-Der Cross-Repo-Contract modelliert bereits den geplanten Folgeflow: Das externe
+Der Cross-Repo-Contract prüft den produktiven Flow: Das externe
 Modul löst Gebiet und `polygon_analysis_areas` über seine eigenen ORM-Modelle und
 den bestehenden `DatabaseSessionProvider` auf, baut daraus einen neutralen
-`PolygonScope` und ruft erst danach den Host-Polygon-Port auf. Der aktuelle Pin
-verwendet produktiv weiterhin den dokumentierten Legacy-Adapter; der Contract
-behauptet daher noch keinen abgeschlossenen SDK-Cutover.
+`PolygonScope` und ruft erst danach den Host-Polygon-Port auf. Die
+Statistikhierarchie wird ebenso vor dem neutralen Host-Port im Modul aufgelöst.
 
 ## Rollback
 

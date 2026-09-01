@@ -1,7 +1,7 @@
 # Öffentliche Backend-Service-Ports
 
-Stand dieser Inventarisierung ist `ocp-module-analysis-areas` PR #2, exakt Commit
-`a63af188a0cf4ba10a389302bae4c1e0d80cfeda`. Installierte In-Process-Module
+Stand dieser Inventarisierung ist `ocp-module-analysis-areas` PR #9, exakt Commit
+`fe6d11cb53575e0cbc383d8de714d5f9711f77c0`. Installierte In-Process-Module
 dürfen stabile öffentliche Host-Capabilities verwenden. Sie dürfen nie von
 privaten Implementierungsdetails einer Host-Fachdomäne abhängen.
 
