@@ -4,10 +4,14 @@ Only this boundary knows both the public SDK DTOs and private Host services/mode
 The adapters deliberately contain no copied business logic.
 """
 
-from collections.abc import Sequence
+import re
+from collections.abc import AsyncIterator, Mapping, Sequence
+from contextlib import asynccontextmanager
 from dataclasses import fields
 from typing import cast
+from urllib.parse import urlsplit
 
+import httpx
 from fastapi import Request
 from sqlalchemy import any_, false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,12 +19,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cache.service import cache_service
 from app.core.config import Settings, get_settings
 from app.models.user_polygon import UserPolygon
+from app.observability.external import instrumented_httpx_request
 from app.platform.modules.sdk import (
     AreaStatistics,
     AreaStatisticSeries,
     CachePort,
     CompletenessValue,
     CountValue,
+    HttpClientPort,
+    HttpResponsePort,
     MapPreviewRequest,
     MapPreviewResult,
     MapPreviewUnavailableError,
@@ -47,6 +54,115 @@ from app.services.public_query_security import (
     guard_public_query,
     is_statement_timeout_error,
 )
+
+_MODULE_HTTP_SERVICE_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
+_MODULE_HTTP_METHODS = frozenset({"DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"})
+_MODULE_HTTP_TIMEOUT_SECONDS = 10.0
+
+
+def _module_http_user_agent(settings: Settings) -> str:
+    return (
+        f"Stadtplaner/{settings.api_version} "
+        "(module-http; https://stadtplaner.oklabflensburg.de)"
+    )
+
+
+def _validate_module_http_url(value: str, *, allow_relative: bool) -> None:
+    if not value or "\x00" in value:
+        raise ValueError("Module HTTP URLs must be non-empty text without NUL bytes.")
+    parsed = urlsplit(value)
+    if not parsed.scheme and not parsed.netloc:
+        if allow_relative:
+            return
+        raise ValueError("Module HTTP requests require an absolute HTTP(S) URL.")
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("Module HTTP URLs must use HTTP or HTTPS with a hostname.")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("Module HTTP URLs must not contain credentials.")
+
+
+class _HostModuleHttpClient:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        *,
+        service_name: str,
+        has_base_url: bool,
+    ) -> None:
+        self._client = client
+        self._service_name = service_name
+        self._has_base_url = has_base_url
+
+    async def request(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        params: Mapping[str, str] | None = None,
+        content: bytes | None = None,
+    ) -> HttpResponsePort:
+        _validate_module_http_url(url, allow_relative=self._has_base_url)
+        normalized_method = method.upper()
+        if normalized_method not in _MODULE_HTTP_METHODS:
+            raise ValueError("Module HTTP requests require a supported standard method.")
+        request_kwargs: dict[str, object] = {}
+        if headers is not None:
+            request_kwargs["headers"] = dict(headers)
+        if params is not None:
+            request_kwargs["params"] = params
+        if content is not None:
+            request_kwargs["content"] = content
+        return await instrumented_httpx_request(
+            self._client,
+            normalized_method,
+            url,
+            provider=self._service_name,
+            operation=normalized_method,
+            **request_kwargs,
+        )
+
+
+class HostModuleHttpClientFactory:
+    """Bounded, observable HTTP clients for trusted in-process modules."""
+
+    def __init__(
+        self,
+        *,
+        settings: Settings | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
+        self._user_agent = _module_http_user_agent(settings or get_settings())
+        self._transport = transport
+
+    @asynccontextmanager
+    async def create(
+        self,
+        *,
+        service_name: str,
+        base_url: str | None = None,
+    ) -> AsyncIterator[HttpClientPort]:
+        if not _MODULE_HTTP_SERVICE_NAME.fullmatch(service_name):
+            raise ValueError(
+                "Module HTTP service names must use 1-64 lowercase letters, digits, dots, "
+                "underscores, or hyphens."
+            )
+        if base_url is not None:
+            _validate_module_http_url(base_url, allow_relative=False)
+        async with httpx.AsyncClient(
+            base_url=base_url or "",
+            timeout=httpx.Timeout(_MODULE_HTTP_TIMEOUT_SECONDS),
+            limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
+            headers={"User-Agent": self._user_agent},
+            follow_redirects=False,
+            trust_env=False,
+            transport=self._transport,
+        ) as client:
+            yield _HostModuleHttpClient(
+                client,
+                service_name=service_name,
+                has_base_url=base_url is not None,
+            )
 
 
 class HostModuleCache(CachePort):

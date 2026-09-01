@@ -73,7 +73,7 @@ Sub-Interfaces `context.api` und `context.lifecycle`.
 | `statistics` | `StatisticsQueryPort` | kommunale Statistikprojektionen |
 | `observability` | `ObservabilityPort` | immer vorhanden; Logger ist an Modul-ID/-Version gebunden |
 | `storage` | `StoragePort` | optionaler modulgebundener Blob-Storage |
-| `http` | `HttpClientFactoryPort` | optionaler sicherer Client-Port |
+| `http` | `HttpClientFactoryPort` | in normalen Production-Contexts verfügbarer sicherer Client-Port |
 | `scheduler` | `SchedulerPort` | modulgebundene Job-Registry und Job-Definitionen aus #100 |
 | `settings` | `ModuleSettingsPort` | typisierte, namespacete Runtime aus #99 |
 
@@ -140,9 +140,37 @@ explizites Opt-in.
 
 ### HTTP
 
-Module definieren fachliche Zielpfade. Der Hostadapter besitzt Timeouts, User-Agent,
-Connection Pooling, Observability und Sicherheitsregeln wie SSRF-Schutz. Der Port
-gibt keinen konkreten `httpx.AsyncClient` an Module weiter.
+Trusted In-Process-Module erhalten `ModuleContext.http` sowohl in der normalen
+Web-Runtime als auch in der Domain-Event-Outbox-Worker-Runtime. Sie verwenden
+ausschließlich den bestehenden öffentlichen Contract:
+
+```python
+if context.http is None:
+    raise RuntimeError("Host HTTP port is required")
+async with context.http.create(
+    service_name="wikidata",
+    base_url="https://www.wikidata.org",
+) as client:
+    response = await client.request("GET", "/w/api.php", params={"format": "json"})
+```
+
+Der Async-Context-Manager besitzt den vollständigen Client-Lifecycle und schließt
+Transport sowie Connection Pool auch bei Transport- oder Timeout-Exceptions. Der
+Production-Adapter verwendet einen Host-kontrollierten 10-Sekunden-Timeout, einen
+begrenzten Pool mit vier Verbindungen und zwei Keep-Alive-Verbindungen, einen festen
+User-Agent und keine automatischen Redirects. Er führt selbst keine Retries aus;
+Retry-Ownership bleibt beim Consumer beziehungsweise beim bestehenden Job-Vertrag.
+
+Der Adapter übernimmt keine Authorization-, Cookie-, Proxy- oder internen
+Service-Token aus dem Host-Prozess. Insbesondere wird die `httpx`-Umgebungsauflösung
+für Proxy-/Credential-Konfiguration deaktiviert. Explizite fachliche Header bleiben
+Aufgabe des trusted Moduls. Base- und Request-URLs müssen HTTP(S) verwenden und
+dürfen keine eingebetteten Zugangsdaten enthalten.
+
+`service_name` ist ein validierter, niedrig-kardinaler Provider-Key. Bestehende
+externe Request-Metriken verwenden ausschließlich diesen Key, die HTTP-Methode und
+Outcome/Fehlerklasse; vollständige URLs oder Queryparameter werden nicht als Label
+verwendet. Der SDK-Port gibt keinen konkreten `httpx.AsyncClient` an Module weiter.
 
 ### Observability
 
@@ -206,6 +234,9 @@ Der additive [`PolygonSpatialMatchPort`](polygon-assignment-contract.md) erhöht
 SDK-Version auf `1.12.0`. Er gleicht immutable Area-Geometrien rein lesend mit
 Host-eigenen Polygonen ab und liefert stabile Polygon-UUIDs sowie räumliche
 Match-Metriken. Domänenspezifische Relation und Persistenz bleiben beim Consumer.
+Die Production-Verdrahtung des bereits seit SDK 1.9 vorhandenen
+`HttpClientFactoryPort` ändert den öffentlichen Contract nicht; die SDK-Version
+bleibt deshalb `1.12.0`.
 Alle Ports sind optional; bestehende Module und ihre Context-Konstruktion bleiben
 damit rückwärtskompatibel.
 

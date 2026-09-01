@@ -30,6 +30,7 @@ DB-Treiberfehler zum Modulvertrag zu machen.
 | `StatisticsQueryPort` | Kommunalstatistik-Domäne | Session, Slug, optionaler Metrik-Key | immutable Statistik-DTOs oder `None` |
 | `OsmSnapshotQueryPort` | Plattform-eigener OSM-Snapshot | Session, immutable und begrenzte `OsmSnapshotQuery` | cursor-paginierte, ORM-freie `OsmFeatureSnapshot`-DTOs; Details im [OSM-Vertrag](osm-public-contract.md) |
 | `PolygonSpatialMatchPort` | Polygon-Domäne | Session, immutable Area-Geometrien mit EWKB | stabile Polygon-UUIDs und räumliche Match-Metriken; Details im [Polygon-Spatial-Match-Vertrag](polygon-assignment-contract.md) |
+| `HttpClientFactoryPort` | Plattform-eigener HTTP-Egress | validierter Service-Name, optionale HTTP(S)-Base-URL; danach Methode, Pfad, Header, Parameter und Bytes | begrenzte Response-Projektion oder unveränderte `httpx`-Transport-/Timeout-Exception; keine impliziten Retries |
 
 ## Legacy-Import-Inventar und Ownership
 
@@ -92,11 +93,22 @@ Assignment-Persistenz bleibt Consumer-intern.
 ## Lifecycle und Datenschutz
 
 Die Adapter werden einmal beim Host-Composition-Root erzeugt und pro
-`ModuleContext` injiziert. Der Cache wird zusätzlich an die Modul-ID gebunden und
-seine Keys mit dem konfigurierten Deployment-Prefix versehen. Die Ports nehmen
-weder Secrets noch Benutzerobjekte entgegen. Polygonprojektionen enthalten nur
-bereits öffentliche Felder. Keine Exception enthält Query-Text, Parameter oder
-Treiberantworten.
+`ModuleContext` injiziert. Das gilt für die Web-Runtime und den Outbox-Worker, da
+beide aktive Module beziehungsweise deren Jobs ausführen. Der Cache wird zusätzlich
+an die Modul-ID gebunden und seine Keys mit dem konfigurierten Deployment-Prefix
+versehen.
+
+Jeder über `HttpClientFactoryPort.create()` erzeugte HTTP-Client ist an seinen
+Async-Context-Manager gebunden. Der Host besitzt Timeout, Pool-Limits, festen
+User-Agent, Redirect-Policy und bestehende externe Request-Observability. Der
+Adapter injiziert oder übernimmt keine Host-Credentials, Cookies, internen Tokens
+oder Proxy-Credentials. Der validierte Service-Name und die HTTP-Methode sind
+stabile Observability-Dimensionen; URL und Queryparameter sind keine Labels.
+Retries bleiben Consumer-/Job-Policy und werden nicht im Adapter dupliziert.
+
+Die übrigen Ports nehmen weder Secrets noch Benutzerobjekte entgegen.
+Polygonprojektionen enthalten nur bereits öffentliche Felder. Keine Exception
+enthält Query-Text, Parameter oder Treiberantworten.
 
 ## Settings-Auflösung
 
