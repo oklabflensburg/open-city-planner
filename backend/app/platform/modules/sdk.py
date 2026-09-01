@@ -284,9 +284,9 @@ OSM_SNAPSHOT_QUERY_SERVICE_VERSION = 1
 OSM_POSTPROCESSING_COMPLETED_EVENT = "osm.postprocessing-completed"
 OSM_POSTPROCESSING_COMPLETED_EVENT_VERSION = 1
 OSM_SNAPSHOT_MAX_PAGE_SIZE = 500
-POLYGON_ASSIGNMENT_MAX_AREAS = 5000
-POLYGON_ASSIGNMENT_SERVICE_ID = "platform.polygon-assignment"
-POLYGON_ASSIGNMENT_SERVICE_VERSION = 1
+POLYGON_SPATIAL_MATCH_MAX_AREAS = 5000
+POLYGON_SPATIAL_MATCH_SERVICE_ID = "platform.polygon-spatial-match"
+POLYGON_SPATIAL_MATCH_SERVICE_VERSION = 1
 
 type OsmType = Literal["node", "way", "relation"]
 type OsmGeometryKind = Literal["point", "area"]
@@ -448,8 +448,19 @@ class OsmSnapshotQueryPort(Protocol):
     ) -> OsmFeatureSnapshotPage: ...
 
 
+def _validate_polygon_spatial_text(value: str, *, name: str, max_length: int) -> None:
+    if (
+        not isinstance(value, str)
+        or not value
+        or value != value.strip()
+        or "\x00" in value
+        or len(value) > max_length
+    ):
+        raise ValueError(f"Polygon spatial {name} must be non-empty normalized text.")
+
+
 @dataclass(frozen=True, slots=True)
-class PolygonAssignmentArea:
+class PolygonSpatialArea:
     """Gebietsreferenz mit EWKB-Geometrie in EPSG:4326."""
 
     external_id: str
@@ -457,72 +468,79 @@ class PolygonAssignmentArea:
     geometry_wkb: bytes
 
     def __post_init__(self) -> None:
-        try:
-            parsed_id = UUID(self.external_id)
-        except (TypeError, ValueError, AttributeError) as exc:
-            raise ValueError("Polygon assignment area IDs must be UUID strings.") from exc
-        if str(parsed_id) != self.external_id:
-            raise ValueError("Polygon assignment area IDs must be canonical UUID strings.")
-        if (
-            not isinstance(self.selection_group, str)
-            or not self.selection_group
-            or self.selection_group != self.selection_group.strip()
-            or "\x00" in self.selection_group
-            or len(self.selection_group) > 100
-        ):
-            raise ValueError(
-                "Polygon assignment selection groups must be non-empty normalized text."
-            )
+        _validate_polygon_spatial_text(
+            self.external_id, name="area IDs", max_length=255
+        )
+        _validate_polygon_spatial_text(
+            self.selection_group, name="selection groups", max_length=100
+        )
         if not isinstance(self.geometry_wkb, bytes) or not self.geometry_wkb:
-            raise ValueError("Polygon assignment geometries must be non-empty EWKB bytes.")
+            raise ValueError("Polygon spatial geometries must be non-empty EWKB bytes.")
 
 
 @dataclass(frozen=True, slots=True)
-class PolygonAssignmentRequest:
-    """Vollständiger Gebietssnapshot für eine Polygon-Zuordnungsaktualisierung."""
+class PolygonSpatialMatchRequest:
+    """Gebietsgeometrien für eine rein lesende räumliche Polygon-Auswahl."""
 
-    areas: tuple[PolygonAssignmentArea, ...]
+    areas: tuple[PolygonSpatialArea, ...]
 
     def __post_init__(self) -> None:
         if not isinstance(self.areas, tuple) or not all(
-            isinstance(area, PolygonAssignmentArea) for area in self.areas
+            isinstance(area, PolygonSpatialArea) for area in self.areas
         ):
-            raise TypeError("Polygon assignment requests require an immutable tuple of areas.")
-        if len(self.areas) > POLYGON_ASSIGNMENT_MAX_AREAS:
+            raise TypeError("Polygon spatial requests require an immutable tuple of areas.")
+        if len(self.areas) > POLYGON_SPATIAL_MATCH_MAX_AREAS:
             raise ValueError(
-                f"Polygon assignment requests allow at most {POLYGON_ASSIGNMENT_MAX_AREAS} areas."
+                f"Polygon spatial requests allow at most {POLYGON_SPATIAL_MATCH_MAX_AREAS} areas."
             )
         external_ids = tuple(area.external_id for area in self.areas)
         if len(set(external_ids)) != len(external_ids):
-            raise ValueError("Polygon assignment area IDs must be unique per snapshot.")
+            raise ValueError("Polygon spatial area IDs must be unique per request.")
 
 
 @dataclass(frozen=True, slots=True)
-class PolygonAssignmentResult:
-    processed_polygons: int
-    created_assignments: int
-    updated_assignments: int
-    removed_assignments: int
-    unchanged_assignments: int
+class PolygonSpatialMatch:
+    polygon_id: str
+    external_area_id: str
+    selection_group: str
+    overlap_ratio: float | None
 
     def __post_init__(self) -> None:
-        if any(
-            type(value) is not int or value < 0
-            for value in (
-                self.processed_polygons,
-                self.created_assignments,
-                self.updated_assignments,
-                self.removed_assignments,
-                self.unchanged_assignments,
-            )
+        try:
+            polygon_id = UUID(self.polygon_id)
+        except (TypeError, ValueError, AttributeError) as exc:
+            raise ValueError("Polygon match IDs must be UUID strings.") from exc
+        if str(polygon_id) != self.polygon_id:
+            raise ValueError("Polygon match IDs must be canonical UUID strings.")
+        _validate_polygon_spatial_text(
+            self.external_area_id, name="area IDs", max_length=255
+        )
+        _validate_polygon_spatial_text(
+            self.selection_group, name="selection groups", max_length=100
+        )
+        if self.overlap_ratio is not None and (
+            type(self.overlap_ratio) not in (int, float)
+            or not math.isfinite(self.overlap_ratio)
+            or not 0 <= self.overlap_ratio <= 1
         ):
-            raise ValueError("Polygon assignment result counts must be non-negative integers.")
+            raise ValueError("Polygon overlap ratios must be finite values from zero to one.")
 
 
-class PolygonAssignmentPort(Protocol):
-    async def refresh_assignments(
-        self, session: AsyncSession, request: PolygonAssignmentRequest
-    ) -> PolygonAssignmentResult: ...
+@dataclass(frozen=True, slots=True)
+class PolygonSpatialMatchResult:
+    matches: tuple[PolygonSpatialMatch, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.matches, tuple) or not all(
+            isinstance(match, PolygonSpatialMatch) for match in self.matches
+        ):
+            raise TypeError("Polygon spatial results require an immutable tuple of matches.")
+
+
+class PolygonSpatialMatchPort(Protocol):
+    async def match_polygons(
+        self, session: AsyncSession, request: PolygonSpatialMatchRequest
+    ) -> PolygonSpatialMatchResult: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -1153,9 +1171,9 @@ __all__ = [
     "OSM_SNAPSHOT_MAX_PAGE_SIZE",
     "OSM_SNAPSHOT_QUERY_SERVICE_ID",
     "OSM_SNAPSHOT_QUERY_SERVICE_VERSION",
-    "POLYGON_ASSIGNMENT_MAX_AREAS",
-    "POLYGON_ASSIGNMENT_SERVICE_ID",
-    "POLYGON_ASSIGNMENT_SERVICE_VERSION",
+    "POLYGON_SPATIAL_MATCH_MAX_AREAS",
+    "POLYGON_SPATIAL_MATCH_SERVICE_ID",
+    "POLYGON_SPATIAL_MATCH_SERVICE_VERSION",
     "ApiRegistrar",
     "AreaStatisticSeries",
     "AreaStatistics",
@@ -1208,14 +1226,15 @@ __all__ = [
     "PermissionDependencyFactory",
     "PermissionPort",
     "PolygonAnalyticsPort",
-    "PolygonAssignmentArea",
-    "PolygonAssignmentPort",
-    "PolygonAssignmentRequest",
-    "PolygonAssignmentResult",
     "PolygonFilterValues",
     "PolygonMetrics",
     "PolygonQueryPort",
     "PolygonScope",
+    "PolygonSpatialArea",
+    "PolygonSpatialMatch",
+    "PolygonSpatialMatchPort",
+    "PolygonSpatialMatchRequest",
+    "PolygonSpatialMatchResult",
     "PublicPolygonSummary",
     "PublicQueryLimits",
     "PublicQueryPort",

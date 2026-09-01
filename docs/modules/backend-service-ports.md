@@ -29,7 +29,7 @@ DB-Treiberfehler zum Modulvertrag zu machen.
 | `PolygonAnalyticsPort` | Polygon-/Analytics-Domäne | Session, `PolygonScope`, primitive Filter | `PolygonMetrics` und `CountValue`; niemals SQL-Ausdrücke/ORM |
 | `StatisticsQueryPort` | Kommunalstatistik-Domäne | Session, Slug, optionaler Metrik-Key | immutable Statistik-DTOs oder `None` |
 | `OsmSnapshotQueryPort` | Plattform-eigener OSM-Snapshot | Session, immutable und begrenzte `OsmSnapshotQuery` | cursor-paginierte, ORM-freie `OsmFeatureSnapshot`-DTOs; Details im [OSM-Vertrag](osm-public-contract.md) |
-| `PolygonAssignmentPort` | Polygon-Domäne | Session, vollständiger immutable Area-Snapshot mit EWKB | generische Änderungszähler; Details im [Polygon-Assignment-Vertrag](polygon-assignment-contract.md) |
+| `PolygonSpatialMatchPort` | Polygon-Domäne | Session, immutable Area-Geometrien mit EWKB | stabile Polygon-UUIDs und räumliche Match-Metriken; Details im [Polygon-Spatial-Match-Vertrag](polygon-assignment-contract.md) |
 
 ## Legacy-Import-Inventar und Ownership
 
@@ -78,16 +78,16 @@ die passende Transaktionsgrenze besitzt.
 
 ## Area→Polygon-Ownership und Consumer-Flow
 
-Das Area-owning Modul verwaltet Gebietszustand und -geometrie. Die Polygon-Domäne
-verwaltet `user_polygons` sowie die Mutation der bestehenden Zuordnungsrelation.
-Ein Modul übergibt deshalb seinen vollständigen Area-Snapshot an den
-`PolygonAssignmentPort`; es liest weder Polygon- noch Assignment-Tabellen selbst.
-Die stabile UUID wird intern auf die bereits vorhandene Relation abgebildet, ohne
-eine zweite Tabelle oder eine Persistenz-ID im öffentlichen Vertrag einzuführen.
+Das Area-owning Modul verwaltet Gebietszustand, -geometrie und seine konkrete
+Polygon↔Gebiet-Relation. Die Polygon-Domäne verwaltet `user_polygons` und stellt mit
+dem `PolygonSpatialMatchPort` ausschließlich eine generische räumliche Leseoperation
+bereit. Ein Modul übergibt opaque Area-Referenzen und Geometrien, erhält stabile
+Polygon-UUIDs sowie Match-Metriken zurück und gleicht seine eigene Relation in
+seiner eigenen Transaktion ab.
 
 Für Polygon-Lese- und Analytics-Flows bleibt `PolygonScope` der neutrale Scope.
-`UserPolygon`, Assignment-Persistenz und räumliche Berechnung bleiben in beiden
-Fällen vollständig Host-intern.
+`UserPolygon` und räumliche Berechnung bleiben Host-intern; domänenspezifische
+Assignment-Persistenz bleibt Consumer-intern.
 
 ## Lifecycle und Datenschutz
 

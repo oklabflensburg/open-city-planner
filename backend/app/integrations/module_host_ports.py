@@ -26,11 +26,11 @@ from app.platform.modules.sdk import (
     MapPreviewUnavailableError,
     OsmFeatureSnapshotPage,
     OsmSnapshotQuery,
-    PolygonAssignmentRequest,
-    PolygonAssignmentResult,
     PolygonFilterValues,
     PolygonMetrics,
     PolygonScope,
+    PolygonSpatialMatchRequest,
+    PolygonSpatialMatchResult,
     PublicPolygonSummary,
     PublicQueryLimits,
     StatisticsArea,
@@ -42,7 +42,7 @@ from app.services import polygon_analytics
 from app.services.cache_versions import bump_cache_versions, cache_version
 from app.services.map_previews import MapPreviewError, map_preview_service
 from app.services.osm_snapshots import list_osm_feature_snapshots
-from app.services.polygon_assignments import refresh_polygon_assignments
+from app.services.polygon_spatial_matches import match_user_polygons
 from app.services.public_query_security import (
     guard_public_query,
     is_statement_timeout_error,
@@ -206,13 +206,13 @@ class HostPolygonQueries:
         )
 
 
-class HostPolygonAssignments:
-    """Delegates assignment reconciliation to the polygon-owned mutation service."""
+class HostPolygonSpatialMatches:
+    """Delegates read-only spatial matching to the polygon-owned query service."""
 
-    async def refresh_assignments(
-        self, session: AsyncSession, request: PolygonAssignmentRequest
-    ) -> PolygonAssignmentResult:
-        return await refresh_polygon_assignments(session, request)
+    async def match_polygons(
+        self, session: AsyncSession, request: PolygonSpatialMatchRequest
+    ) -> PolygonSpatialMatchResult:
+        return await match_user_polygons(session, request)
 
 
 def _count_values(values) -> tuple[CountValue, ...]:
@@ -338,8 +338,8 @@ __all__ = [
     "HostModuleCache",
     "HostOsmSnapshotQueries",
     "HostPolygonAnalytics",
-    "HostPolygonAssignments",
     "HostPolygonQueries",
+    "HostPolygonSpatialMatches",
     "HostPublicQueries",
     "HostStatisticsQueries",
 ]

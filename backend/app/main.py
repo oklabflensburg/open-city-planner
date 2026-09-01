@@ -24,8 +24,8 @@ from app.integrations.module_host_ports import (
     HostModuleCache,
     HostOsmSnapshotQueries,
     HostPolygonAnalytics,
-    HostPolygonAssignments,
     HostPolygonQueries,
+    HostPolygonSpatialMatches,
     HostPublicQueries,
     HostStatisticsQueries,
 )
@@ -113,7 +113,7 @@ module_runtime = create_module_runtime(
             polygon_analytics=HostPolygonAnalytics(),
             statistics=HostStatisticsQueries(),
             osm_snapshots=HostOsmSnapshotQueries(),
-            polygon_assignments=HostPolygonAssignments(),
+            polygon_spatial_matches=HostPolygonSpatialMatches(),
         ),
         event_bus=event_bus,
         permission_engine=permission_engine,

@@ -9,7 +9,7 @@ from app.core.config import BACKEND_ENV_FILE, get_settings
 from app.db.session import AsyncSessionLocal
 from app.integrations.module_host_ports import (
     HostOsmSnapshotQueries,
-    HostPolygonAssignments,
+    HostPolygonSpatialMatches,
 )
 from app.observability.jobs import observed_job
 from app.platform.events import InProcessEventBus
@@ -45,7 +45,7 @@ async def run(limit: int) -> dict[str, int]:
             ModuleHostServices(
                 database=HostDatabaseSessionProvider(),
                 osm_snapshots=HostOsmSnapshotQueries(),
-                polygon_assignments=HostPolygonAssignments(),
+                polygon_spatial_matches=HostPolygonSpatialMatches(),
             ),
             event_bus=bus,
             module_env_file=BACKEND_ENV_FILE,

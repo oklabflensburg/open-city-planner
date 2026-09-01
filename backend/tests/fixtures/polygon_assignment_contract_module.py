@@ -1,22 +1,22 @@
-"""External-style consumer of only the public Polygon Assignment SDK contract."""
+"""External-style consumer of only the public Polygon Spatial Match contract."""
 
 from app.platform.modules.sdk import (
-    POLYGON_ASSIGNMENT_SERVICE_ID,
-    POLYGON_ASSIGNMENT_SERVICE_VERSION,
+    POLYGON_SPATIAL_MATCH_SERVICE_ID,
+    POLYGON_SPATIAL_MATCH_SERVICE_VERSION,
     ModuleContext,
     ModuleDefinition,
     ModuleManifestV1,
-    PolygonAssignmentPort,
-    PolygonAssignmentRequest,
-    PolygonAssignmentResult,
+    PolygonSpatialMatchPort,
+    PolygonSpatialMatchRequest,
+    PolygonSpatialMatchResult,
     parse_manifest,
 )
 
 MANIFEST = parse_manifest(
     {
         "manifest_version": 1,
-        "id": "test-polygon-assignment-consumer",
-        "name": "Polygon assignment contract test module",
+        "id": "test-polygon-spatial-match-consumer",
+        "name": "Polygon spatial match contract test module",
         "version": "1.0.0",
         "requires": {"host": ">=0.2.0,<1.0.0", "sdk": ">=1.12.0,<2.0.0"},
     },
@@ -24,27 +24,27 @@ MANIFEST = parse_manifest(
 )
 
 
-class PolygonAssignmentContractConsumerModule:
+class PolygonSpatialMatchContractConsumerModule:
     manifest: ModuleManifestV1 = MANIFEST
 
     def register(self, context: ModuleContext) -> None:
         if context.services is None:
             raise RuntimeError("The service registry is required.")
-        self.assignments = context.services.require(
-            PolygonAssignmentPort,
-            service_id=POLYGON_ASSIGNMENT_SERVICE_ID,
-            version=POLYGON_ASSIGNMENT_SERVICE_VERSION,
+        self.spatial_matches = context.services.require(
+            PolygonSpatialMatchPort,
+            service_id=POLYGON_SPATIAL_MATCH_SERVICE_ID,
+            version=POLYGON_SPATIAL_MATCH_SERVICE_VERSION,
         )
 
-    async def refresh(
-        self, session, request: PolygonAssignmentRequest
-    ) -> PolygonAssignmentResult:
-        return await self.assignments.refresh_assignments(session, request)
+    async def match(
+        self, session, request: PolygonSpatialMatchRequest
+    ) -> PolygonSpatialMatchResult:
+        return await self.spatial_matches.match_polygons(session, request)
 
 
 DEFINITION = ModuleDefinition(
     manifest=MANIFEST,
-    loader=PolygonAssignmentContractConsumerModule,
+    loader=PolygonSpatialMatchContractConsumerModule,
     origin="tests.fixtures.polygon_assignment_contract_module",
     declared_id=MANIFEST.id,
 )
