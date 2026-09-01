@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSitemapXml } from '../server/utils/sitemap'
+import { buildSitemapXml, moduleSitemapPaths } from '../server/utils/sitemap'
 
 describe('XML sitemap', () => {
   it('renders public pages and polygon lastmod as valid escaped XML', () => {
@@ -27,11 +27,29 @@ describe('XML sitemap', () => {
     }
   })
 
+  it('includes module routes only for supplied enabled contributions', () => {
+    expect(moduleSitemapPaths([])).toEqual([])
+    expect(moduleSitemapPaths([{
+      staticRoutes: ['/gebiete'],
+      dynamicRoutes: [{
+        route: '/gebiete/:slug',
+        entries: [{ slug: 'altstadt-15630273', updated_at: '2026-09-01T10:00:00Z' }]
+      }]
+    }])).toEqual([
+      { path: '/gebiete' },
+      {
+        path: '/gebiete/altstadt-15630273',
+        lastmod: '2026-09-01T10:00:00Z'
+      }
+    ])
+  })
+
   it('keeps the public Open Data collection address stable', async () => {
     const source = await import('../server/routes/sitemap.xml.ts?raw').then(module => module.default)
     expect(source).toContain("'/open-data'")
-    expect(source).toContain("'/gebiete'")
-    expect(source).toContain('/analysis-areas/sitemap')
-    expect(source).toContain('`/gebiete/${area.slug}`')
+    expect(source).toContain('frontendSitemapContributions')
+    expect(source).toContain('moduleSitemapPaths')
+    expect(source).not.toContain("'/gebiete'")
+    expect(source).not.toContain('/analysis-areas/sitemap')
   })
 })

@@ -1,7 +1,7 @@
 # Öffentliche Backend-Service-Ports
 
-Stand dieser Inventarisierung ist `ocp-module-analysis-areas` PR #2, exakt Commit
-`a63af188a0cf4ba10a389302bae4c1e0d80cfeda`. Installierte In-Process-Module
+Stand dieser Inventarisierung ist `ocp-module-analysis-areas` PR #9, exakt Commit
+`fe6d11cb53575e0cbc383d8de714d5f9711f77c0`. Installierte In-Process-Module
 dürfen stabile öffentliche Host-Capabilities verwenden. Sie dürfen nie von
 privaten Implementierungsdetails einer Host-Fachdomäne abhängen.
 
@@ -27,7 +27,7 @@ DB-Treiberfehler zum Modulvertrag zu machen.
 | `MapPreviewPort` | Host Map Rendering | `MapPreviewRequest` mit GeoJSON-Primitiven | Bytes, Content-Type, ETag, Cache-Hit; stabile Preview-Exception |
 | `PolygonQueryPort` | Polygon-Domäne | Session, immutable `PolygonScope` aus primitiven Polygon-IDs, Limit | immutable `PublicPolygonSummary`; niemals ORM |
 | `PolygonAnalyticsPort` | Polygon-/Analytics-Domäne | Session, `PolygonScope`, primitive Filter | `PolygonMetrics` und `CountValue`; niemals SQL-Ausdrücke/ORM |
-| `StatisticsQueryPort` | Kommunalstatistik-Domäne | Session, Slug, optionaler Metrik-Key | immutable Statistik-DTOs oder `None` |
+| `StatisticsQueryPort` | Kommunalstatistik-Domäne | Session, fachlich aufgelöste `StatisticsSelection`, optionaler Metrik-Key | immutable Statistik-DTOs oder `None` |
 | `OsmSnapshotQueryPort` | Plattform-eigener OSM-Snapshot | Session, immutable und begrenzte `OsmSnapshotQuery` | cursor-paginierte, ORM-freie `OsmFeatureSnapshot`-DTOs; Details im [OSM-Vertrag](osm-public-contract.md) |
 | `PolygonSpatialMatchPort` | Polygon-Domäne | Session, immutable Area-Geometrien mit EWKB | stabile Polygon-UUIDs und räumliche Match-Metriken; Details im [Polygon-Spatial-Match-Vertrag](polygon-assignment-contract.md) |
 | `PolygonIdentityPort` (`platform.polygon-identity@1`) | Polygon-Domäne | Caller-Session, höchstens 5.000 stabile Polygon-UUIDs | immutable UUID↔interne-ID-Zuordnungen und explizite unbekannte UUIDs; niemals ORM |
@@ -56,8 +56,8 @@ Fachdomäne, C = Analysis-Areas-owned, D = obsolete Legacy-Kopplung.
 | `app.services.analytics._base_filters` | B | primitive `PolygonFilterValues` am `PolygonAnalyticsPort` | Polygon Analytics |
 | `app.services.analytics._benchmark_metrics` | B | `PolygonAnalyticsPort.metrics` | Polygon Analytics |
 | `app.services.analytics._counts` | B | `PolygonAnalyticsPort.category_counts` | Polygon Analytics |
-| `app.services.area_statistics.area_statistics` | B | `StatisticsQueryPort.for_area` | Statistics |
-| `app.services.area_statistics.area_statistic_series` | B | `StatisticsQueryPort.series_for_area` | Statistics |
+| `app.services.area_statistics.area_statistics` | B | `StatisticsQueryPort.for_selection` | Statistics |
+| `app.services.area_statistics.area_statistic_series` | B | `StatisticsQueryPort.series_for_selection` | Statistics |
 | `app.services.poi_categories.AREA_POI_CATEGORY_SQL` | C | kleine OSM-Tag-Projektion zusammen mit der bestehenden Gebiet-POI-Query im Modul | Modul |
 | `app.services.social_publishing.enqueue_area_publication` | D | Der unregistrierte externe Legacy-Sync entfällt; kein spekulativer Social-Port | Social Publishing |
 | `app.schemas.analytics.BenchmarkMetrics` | B | `PolygonMetrics`, danach module-owned API-Schema | Polygon Analytics / Modul |
@@ -96,6 +96,15 @@ ab; der Host liest oder schreibt diese fremde Relation nie.
 Für Polygon-Lese- und Analytics-Flows bleibt `PolygonScope` der neutrale Scope.
 `UserPolygon` und räumliche Berechnung bleiben Host-intern; domänenspezifische
 Assignment-Persistenz bleibt Consumer-intern.
+
+## Kommunalstatistik-Grenze
+
+Die Gebietsdomain bestimmt Requested Area, tatsächliches Statistikziel,
+Municipality-Vergleich und Vererbungsstatus. Sie übergibt diese Entscheidung als
+immutable `StatisticsSelection`. Der Statistics-Owner ordnet das gewählte Ziel
+anschließend seiner eigenen `(source, external_area_id)`-Identität zu. Beobachtungen
+referenzieren die Host-eigene Mapping-Zeile; es gibt weder einen Foreign Key noch
+Runtime-SQL auf einer fremden Gebietstabelle.
 
 ## Lifecycle und Datenschutz
 

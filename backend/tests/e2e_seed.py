@@ -10,7 +10,12 @@ from geoalchemy2.elements import WKTElement
 
 from app.auth.passwords import hash_password
 from app.db.session import AsyncSessionLocal
-from app.models.statistics import StatisticalDataset, StatisticalMetric, StatisticalObservation
+from app.models.statistics import (
+    ExternalAreaMapping,
+    StatisticalDataset,
+    StatisticalMetric,
+    StatisticalObservation,
+)
 from app.models.user import User
 from app.models.user_polygon import UserPolygon
 from app.modules.analysis_areas.persistence.models import AnalysisArea, PolygonAnalysisArea
@@ -59,15 +64,15 @@ def area(
 
 def observation(
     metric_id: int,
-    area_id: int,
+    statistical_area_id: int,
     year: int,
     value: int,
     source_area_id: str,
 ) -> StatisticalObservation:
-    fingerprint = f"{metric_id}:{area_id}:{year}:{value}"
+    fingerprint = f"{metric_id}:{statistical_area_id}:{year}:{value}"
     return StatisticalObservation(
         metric_id=metric_id,
-        analysis_area_id=area_id,
+        statistical_area_id=statistical_area_id,
         period_type="YEAR",
         period_start=date(year, 1, 1),
         period_end=date(year, 12, 31),
@@ -218,12 +223,26 @@ async def seed() -> None:
         )
         session.add(metric)
         await session.flush()
+        flensburg_mapping = ExternalAreaMapping(
+            source="FLENSBURG_STATISTICS",
+            external_area_id="00",
+            external_area_name="Flensburg",
+            level="MUNICIPALITY",
+        )
+        altstadt_mapping = ExternalAreaMapping(
+            source="FLENSBURG_STATISTICS",
+            external_area_id="01",
+            external_area_name="Altstadt",
+            level="DISTRICT",
+        )
+        session.add_all([flensburg_mapping, altstadt_mapping])
+        await session.flush()
         session.add_all(
             [
-                observation(metric.id, flensburg.id, 2020, 90_164, "flensburg"),
-                observation(metric.id, flensburg.id, 2025, 98_040, "flensburg"),
-                observation(metric.id, altstadt.id, 2020, 3_412, "altstadt"),
-                observation(metric.id, altstadt.id, 2025, 3_657, "altstadt"),
+                observation(metric.id, flensburg_mapping.id, 2020, 90_164, "flensburg"),
+                observation(metric.id, flensburg_mapping.id, 2025, 98_040, "flensburg"),
+                observation(metric.id, altstadt_mapping.id, 2020, 3_412, "altstadt"),
+                observation(metric.id, altstadt_mapping.id, 2025, 3_657, "altstadt"),
             ]
         )
         await session.commit()

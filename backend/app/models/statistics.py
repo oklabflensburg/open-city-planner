@@ -76,9 +76,7 @@ class ExternalAreaMapping(Base):
     source: Mapped[str] = mapped_column(String(40), nullable=False)
     external_area_id: Mapped[str] = mapped_column(String(80), nullable=False)
     external_area_name: Mapped[str] = mapped_column(String(200), nullable=False)
-    analysis_area_id: Mapped[int] = mapped_column(
-        ForeignKey("analysis_areas.id", ondelete="CASCADE"), nullable=False
-    )
+    level: Mapped[str] = mapped_column(String(40), nullable=False)
     valid_from: Mapped[date | None] = mapped_column(Date)
     valid_to: Mapped[date | None] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -89,7 +87,7 @@ class ExternalAreaMapping(Base):
     __table_args__ = (
         UniqueConstraint("source", "external_area_id", name="uq_external_area_mapping_id"),
         UniqueConstraint("source", "external_area_name", name="uq_external_area_mapping_name"),
-        Index("idx_external_area_mapping_area", "analysis_area_id"),
+        Index("idx_external_area_mapping_name_level", "external_area_name", "level"),
     )
 
 
@@ -100,8 +98,8 @@ class StatisticalObservation(Base):
     metric_id: Mapped[int] = mapped_column(
         ForeignKey("statistical_metrics.id", ondelete="CASCADE"), nullable=False
     )
-    analysis_area_id: Mapped[int] = mapped_column(
-        ForeignKey("analysis_areas.id", ondelete="CASCADE"), nullable=False
+    statistical_area_id: Mapped[int] = mapped_column(
+        ForeignKey("external_area_mappings.id", ondelete="RESTRICT"), nullable=False
     )
     period_type: Mapped[str] = mapped_column(String(24), default="YEAR", nullable=False)
     period_start: Mapped[date] = mapped_column(Date, nullable=False)
@@ -117,14 +115,14 @@ class StatisticalObservation(Base):
     __table_args__ = (
         UniqueConstraint(
             "metric_id",
-            "analysis_area_id",
+            "statistical_area_id",
             "period_start",
             "source_area_id",
             name="uq_statistical_observation",
         ),
         Index(
             "idx_statistical_observations_area_period",
-            "analysis_area_id",
+            "statistical_area_id",
             "period_start",
         ),
         Index(

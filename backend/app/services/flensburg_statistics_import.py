@@ -18,15 +18,12 @@ from app.models.statistics import (
     StatisticalMetric,
     StatisticalObservation,
 )
-from app.modules.analysis_areas.persistence.models import AnalysisArea
 from app.services.cache_versions import bump_cache_versions
 from app.services.flensburg_superset import DATASET_SPECS, FlensburgSupersetClient
 from app.services.notification_policy import DomainEvent, NotificationEventType
 from app.services.notifications import (
     notify_superusers,
-    notify_users,
     publish_notifications,
-    subscription_recipient_ids,
 )
 from app.services.social_publishing import enqueue_statistics_summary
 
@@ -243,21 +240,6 @@ def normalize_rows(
 
 
 async def _ensure_mappings(session: AsyncSession) -> dict[str, ExternalAreaMapping]:
-    names = [name for name, _area_type in AREA_MAPPING.values()]
-    areas = (await session.scalars(select(AnalysisArea).where(AnalysisArea.name.in_(names)))).all()
-    by_key = {(area.name, area.area_type): area for area in areas}
-    missing = [
-        f"{name} ({area_type})"
-        for name, area_type in AREA_MAPPING.values()
-        if (name, area_type) not in by_key
-    ]
-    if missing:
-        raise ValueError(
-            "Required analysis areas are missing: "
-            f"{', '.join(missing)}. Synchronize them first with "
-            "`python -m app.cli.sync_analysis_areas --municipality Flensburg` "
-            "after loading the OSM boundary data."
-        )
     existing = {
         mapping.external_area_id: mapping
         for mapping in (
@@ -267,17 +249,16 @@ async def _ensure_mappings(session: AsyncSession) -> dict[str, ExternalAreaMappi
         ).all()
     }
     for external_id, (name, area_type) in AREA_MAPPING.items():
-        area = by_key[(name, area_type)]
         mapping = existing.get(external_id)
         if mapping:
-            if mapping.external_area_name != name or mapping.analysis_area_id != area.id:
+            if mapping.external_area_name != name or mapping.level != area_type:
                 raise ValueError(f"Conflicting reviewed mapping for external area {external_id}")
         else:
             mapping = ExternalAreaMapping(
                 source=SOURCE,
                 external_area_id=external_id,
                 external_area_name=name,
-                analysis_area_id=area.id,
+                level=area_type,
             )
             session.add(mapping)
             existing[external_id] = mapping
@@ -390,12 +371,11 @@ async def import_flensburg_statistics(
         datasets, metrics = await _ensure_catalog(session, source_updated_at)
         existing_rows = (await session.scalars(select(StatisticalObservation))).all()
         existing = {
-            (row.metric_id, row.analysis_area_id, row.period_start, row.source_area_id): row
+            (row.metric_id, row.statistical_area_id, row.period_start, row.source_area_id): row
             for row in existing_rows
         }
         external_ids = {name: external_id for external_id, (name, _type) in AREA_MAPPING.items()}
         inserted = updated = unchanged = 0
-        changed_area_ids: set[object] = set()
         imported_at = datetime.now(UTC)
         for (metric_key, area_name, year), value in observations.items():
             metric = metrics[metric_key]
@@ -403,7 +383,7 @@ async def import_flensburg_statistics(
             external_id = external_ids[area_name]
             period_start = date(year, 1, 1)
             row_hash = _source_hash(metric_key, external_id, year, value)
-            identity = (metric.id, mapping.analysis_area_id, period_start, external_id)
+            identity = (metric.id, mapping.id, period_start, external_id)
             current = existing.get(identity)
             change = observation_change(current.source_row_hash if current else None, row_hash)
             if change == "unchanged":
@@ -411,7 +391,7 @@ async def import_flensburg_statistics(
                 continue
             statement = insert(StatisticalObservation).values(
                 metric_id=metric.id,
-                analysis_area_id=mapping.analysis_area_id,
+                statistical_area_id=mapping.id,
                 period_type="YEAR",
                 period_start=period_start,
                 period_end=date(year, 12, 31),
@@ -439,7 +419,6 @@ async def import_flensburg_statistics(
                 updated += 1
             else:
                 inserted += 1
-            changed_area_ids.add(mapping.analysis_area_id)
         for dataset in datasets.values():
             dataset.last_import_at = imported_at
         run = await session.get(StatisticalImportRun, run_id)
@@ -457,34 +436,8 @@ async def import_flensburg_statistics(
         run.column_names = json.dumps(column_names, ensure_ascii=False, sort_keys=True)
         session.add(AdminAuditLog(action="FLENSBURG_STATISTICS_SYNC"))
         await enqueue_statistics_summary(session, inserted + updated)
-        await bump_cache_versions(session, ("statistics", "analysis-areas"))
-        notifications = []
-        if changed_area_ids:
-            areas = await session.scalars(
-                select(AnalysisArea).where(AnalysisArea.id.in_(changed_area_ids))
-            )
-            for area in areas:
-                recipients = await subscription_recipient_ids(
-                    session,
-                    resource_type="AREA",
-                    resource_id=str(area.id),
-                    event_type=NotificationEventType.AREA_STATISTICS_UPDATED,
-                )
-                notifications.extend(
-                    await notify_users(
-                        session,
-                        recipients,
-                        DomainEvent(
-                            event_type=NotificationEventType.AREA_STATISTICS_UPDATED,
-                            resource_type="AREA",
-                            resource_id=str(area.id),
-                            resource_slug=area.slug,
-                            resource_title=area.name,
-                        ),
-                    )
-                )
+        await bump_cache_versions(session, ("statistics",))
         await session.commit()
-        publish_notifications(notifications)
         return StatisticsImportReport(
             status="SUCCESS",
             rows_downloaded=run.rows_downloaded,

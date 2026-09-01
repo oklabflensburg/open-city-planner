@@ -892,6 +892,16 @@ class StatisticsArea:
 
 
 @dataclass(frozen=True, slots=True)
+class StatisticsSelection:
+    """Vom aufrufenden Fachmodul vollständig aufgelöster Statistikbezug."""
+
+    requested: StatisticsArea
+    target: StatisticsArea
+    municipality: StatisticsArea
+    inherited: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class StatisticsSource:
     name: str
     url: str
@@ -948,12 +958,14 @@ class AreaStatisticSeries:
 
 
 class StatisticsQueryPort(Protocol):
-    """Liest öffentliche Kommunalstatistik ohne Statistics-ORM-Typen."""
+    """Liest Kommunalstatistik für einen fachlich bereits aufgelösten Bezug."""
 
-    async def for_area(self, session: AsyncSession, slug: str) -> AreaStatistics | None: ...
+    async def for_selection(
+        self, session: AsyncSession, selection: StatisticsSelection
+    ) -> AreaStatistics | None: ...
 
-    async def series_for_area(
-        self, session: AsyncSession, slug: str, metric_key: str
+    async def series_for_selection(
+        self, session: AsyncSession, selection: StatisticsSelection, metric_key: str
     ) -> AreaStatisticSeries | None: ...
 
 
@@ -1320,6 +1332,7 @@ __all__ = [
     "StatisticValue",
     "StatisticsArea",
     "StatisticsQueryPort",
+    "StatisticsSelection",
     "StatisticsSource",
     "StoragePort",
     "TracerPort",

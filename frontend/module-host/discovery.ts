@@ -65,6 +65,11 @@ const route = z.strictObject({
   path: z.string().startsWith('/'),
   source: z.string().min(1)
 })
+const sitemapRoute = z.string().startsWith('/')
+const sitemapDynamicRoute = z.strictObject({
+  route: sitemapRoute,
+  endpoint: z.string().startsWith('/')
+})
 const mapSourceContribution = z.strictObject({
   id: z.string().min(3),
   source: z.record(z.string(), z.json())
@@ -97,7 +102,11 @@ const definitionSchema = z.strictObject({
     map: z.strictObject({
       sources: z.array(mapSourceContribution).default([]),
       layers: z.array(mapLayerContribution).default([])
-    }).default({ sources: [], layers: [] })
+    }).default({ sources: [], layers: [] }),
+    sitemap: z.strictObject({
+      staticRoutes: z.array(sitemapRoute).default([]),
+      dynamicRoutes: z.array(sitemapDynamicRoute).default([])
+    }).default({ staticRoutes: [], dynamicRoutes: [] })
   })
 })
 
@@ -204,6 +213,7 @@ export function discoverFrontendModules(
         throw new FrontendModuleError(`Layer for frontend module "${definition.id}" does not exist at ${layerPath}.`)
       }
       validateLayerBoundaries(definition, moduleRoot, layerPath)
+      validateSitemapContributions(definition, source)
       for (const contribution of definition.publicContributions.routes) {
         const routeSource = safeChildPath(moduleRoot, contribution.source, `route source of frontend module "${definition.id}"`)
         if (!existsSync(routeSource) || !statSync(routeSource).isFile()) {
@@ -234,6 +244,27 @@ export function discoverFrontendModules(
     throw new FrontendModuleError(`Excluded built-in frontend module "${unknownExclusion}" was not found; correct OCP_EXCLUDED_BUILTIN_MODULES.`)
   }
   return discovered.sort((left, right) => left.id.localeCompare(right.id, 'en'))
+}
+
+function validateSitemapContributions(
+  definition: FrontendModuleDefinition,
+  source: string
+) {
+  const declaredRoutes = new Set(definition.publicContributions.routes.map(item => normalizeRoute(item.path)))
+  for (const route of definition.publicContributions.sitemap.staticRoutes) {
+    if (route.includes(':') || !declaredRoutes.has(normalizeRoute(route))) {
+      throw new FrontendModuleError(`Static sitemap route "${route}" in ${source} must be a declared non-dynamic module route.`)
+    }
+  }
+  for (const contribution of definition.publicContributions.sitemap.dynamicRoutes) {
+    if (!/^\/[^?#]*:slug[^?#]*$/.test(contribution.route)
+      || !declaredRoutes.has(normalizeRoute(contribution.route))) {
+      throw new FrontendModuleError(`Dynamic sitemap route "${contribution.route}" in ${source} must be a declared module route with one :slug parameter.`)
+    }
+    if (!/^\/[A-Za-z0-9/_-]+$/.test(contribution.endpoint)) {
+      throw new FrontendModuleError(`Dynamic sitemap endpoint "${contribution.endpoint}" in ${source} must be a safe relative API path.`)
+    }
+  }
 }
 
 export function parseExcludedBuiltinModules(value: string | readonly string[]): string[] {

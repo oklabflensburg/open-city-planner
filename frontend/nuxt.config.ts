@@ -101,6 +101,10 @@ export default defineNuxtConfig({
     apiInternalBaseUrl: process.env.NUXT_API_INTERNAL_BASE_URL || '',
     public: {
       frontendModules: frontendModules.map(module => module.id),
+      frontendSitemapContributions: frontendModules.map(module => ({
+        moduleId: module.id,
+        ...module.publicContributions.sitemap
+      })),
       frontendUiContributions: [...frontendContributionRegistry.all()],
       frontendMapContributions: mapExtensionDefinitions,
       siteName: 'OK Lab Flensburg',

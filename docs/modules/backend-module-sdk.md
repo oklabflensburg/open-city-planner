@@ -258,6 +258,12 @@ Der additive, über die Service-Registry aufgelöste `PolygonIdentityPort` erhö
 SDK-Version auf `1.13.0`. Er löst stabile öffentliche Polygon-UUIDs begrenzt und
 deterministisch in die bereits von `PolygonScope` und bestehenden Relationsschemas
 benötigte Host-Identität auf, ohne ORM-Typen oder Transaktionsownership offenzulegen.
+SDK `1.14.0` korrigiert die Statistics-Grenze: Consumer übergeben eine vollständig
+aufgelöste `StatisticsSelection` aus Requested-, Target- und Municipality-Referenz.
+Damit entscheidet die owning Fachdomäne über Hierarchie und Vererbung; die
+Kommunalstatistik liest ausschließlich ihre eigene Gebietszuordnung und kennt weder
+fremde Tabellen noch Slug- oder Parent-Semantik. Module, die den Statistics-Port
+verwenden, müssen deshalb mindestens SDK 1.14 deklarieren.
 Alle Ports sind optional; bestehende Module und ihre Context-Konstruktion bleiben
 damit rückwärtskompatibel.
 

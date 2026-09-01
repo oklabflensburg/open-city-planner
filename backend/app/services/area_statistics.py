@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cache.keys import build_cache_key
 from app.cache.service import cache_service
 from app.core.config import get_settings
+from app.platform.modules.sdk import StatisticsArea, StatisticsSelection
 from app.schemas.statistics import (
     AreaStatisticSeriesRead,
     AreaStatisticsRead,
@@ -21,23 +22,31 @@ def _relative(value: Decimal | None, reference: Decimal | None) -> Decimal | Non
     return ((value - reference) / reference * 100).quantize(Decimal("0.01"))
 
 
-async def _area_context(session: AsyncSession, slug: str) -> dict | None:
+async def _mapping_context(
+    session: AsyncSession, selection: StatisticsSelection
+) -> dict | None:
     row = (
         await session.execute(
             text("""
-              SELECT requested.id,requested.uuid,requested.slug,requested.name,requested.area_type,
-                     stats.id AS statistics_id,stats.uuid AS statistics_uuid,
-                     stats.slug AS statistics_slug,stats.name AS statistics_name,
-                     stats.area_type AS statistics_type,
+              SELECT target.id AS statistics_id,
                      municipality.id AS municipality_id
-              FROM analysis_areas requested
-              JOIN analysis_areas stats ON stats.id=CASE
-                WHEN requested.area_type='QUARTER' THEN requested.parent_id ELSE requested.id END
-              JOIN analysis_areas municipality ON municipality.area_type='MUNICIPALITY'
-              WHERE requested.slug=:slug
-              ORDER BY municipality.id LIMIT 1
+              FROM external_area_mappings target
+              JOIN external_area_mappings municipality
+                ON municipality.source=target.source
+              WHERE target.source=:source
+                AND target.external_area_name=:target_name
+                AND target.level=:target_level
+                AND municipality.external_area_name=:municipality_name
+                AND municipality.level=:municipality_level
+              LIMIT 1
             """),
-            {"slug": slug},
+            {
+                "source": SOURCE,
+                "target_name": selection.target.name,
+                "target_level": selection.target.area_type,
+                "municipality_name": selection.municipality.name,
+                "municipality_level": selection.municipality.area_type,
+            },
         )
     ).mappings().first()
     return dict(row) if row else None
@@ -64,26 +73,19 @@ async def _source(session: AsyncSession) -> dict | None:
     }
 
 
-def _references(context: dict) -> tuple[dict, dict]:
-    requested = {
-        "id": context["uuid"],
-        "slug": context["slug"],
-        "name": context["name"],
-        "area_type": context["area_type"],
+def _reference(value: StatisticsArea) -> dict:
+    return {
+        "id": value.id,
+        "slug": value.slug,
+        "name": value.name,
+        "area_type": value.area_type,
     }
-    statistics_area = {
-        "id": context["statistics_uuid"],
-        "slug": context["statistics_slug"],
-        "name": context["statistics_name"],
-        "area_type": context["statistics_type"],
-    }
-    return requested, statistics_area
 
 
 async def _area_statistics_uncached(
-    session: AsyncSession, slug: str
+    session: AsyncSession, selection: StatisticsSelection
 ) -> AreaStatisticsRead | None:
-    context = await _area_context(session, slug)
+    context = await _mapping_context(session, selection)
     if context is None:
         return None
     rows = (
@@ -94,7 +96,7 @@ async def _area_statistics_uncached(
                   PARTITION BY observation.metric_id ORDER BY observation.period_start DESC
                 ) AS rank
                 FROM statistical_observations observation
-                WHERE observation.analysis_area_id=:statistics_id
+                WHERE observation.statistical_area_id=:statistics_id
               )
               SELECT metric.key,metric.name,metric.category,metric.unit,
                      ranked.value_numeric,ranked.period_start,ranked.is_calculated,
@@ -102,7 +104,7 @@ async def _area_statistics_uncached(
               FROM ranked JOIN statistical_metrics metric ON metric.id=ranked.metric_id
               LEFT JOIN statistical_observations city
                 ON city.metric_id=ranked.metric_id
-               AND city.analysis_area_id=:municipality_id
+               AND city.statistical_area_id=:municipality_id
                AND city.period_start=ranked.period_start
               WHERE ranked.rank=1 AND metric.public=true
               ORDER BY CASE metric.category
@@ -115,7 +117,6 @@ async def _area_statistics_uncached(
             },
         )
     ).mappings().all()
-    requested, statistics_area = _references(context)
     latest = []
     for row in rows:
         value = row["value_numeric"]
@@ -129,7 +130,7 @@ async def _area_statistics_uncached(
                 "unit": row["unit"],
                 "period": str(row["period_start"].year),
                 "period_start": row["period_start"],
-                "area_level": context["statistics_type"],
+                "area_level": selection.target.area_type,
                 "is_calculated": row["is_calculated"],
                 "municipality_value": municipality,
                 "difference": value - municipality
@@ -139,35 +140,45 @@ async def _area_statistics_uncached(
             }
         )
     return AreaStatisticsRead(
-        area=requested,
-        statistics_area=statistics_area,
-        inherited_from_parent=context["id"] != context["statistics_id"],
+        area=_reference(selection.requested),
+        statistics_area=_reference(selection.target),
+        inherited_from_parent=selection.inherited,
         source=await _source(session),
         latest=latest,
     )
 
 
-async def area_statistics(session: AsyncSession, slug: str) -> AreaStatisticsRead | None:
+async def area_statistics(
+    session: AsyncSession, selection: StatisticsSelection
+) -> AreaStatisticsRead | None:
     version = await cache_version(session, "statistics")
-    key = build_cache_key("analysis-area:statistics", {"slug": slug}, version=version)
+    key = build_cache_key(
+        "statistics:selection",
+        {
+            "requested": str(selection.requested.id),
+            "target": str(selection.target.id),
+            "municipality": str(selection.municipality.id),
+        },
+        version=version,
+    )
 
     async def compute() -> dict | None:
-        result = await _area_statistics_uncached(session, slug)
+        result = await _area_statistics_uncached(session, selection)
         return result.model_dump(mode="json") if result else None
 
     data, _status = await cache_service.get_or_compute(
         key,
         ttl=get_settings().statistics_cache_ttl,
-        resource="analysis-area-statistics",
+        resource="statistics-selection",
         compute=compute,
     )
     return AreaStatisticsRead.model_validate(data) if data else None
 
 
 async def _area_statistic_series_uncached(
-    session: AsyncSession, slug: str, metric_key: str
+    session: AsyncSession, selection: StatisticsSelection, metric_key: str
 ) -> AreaStatisticSeriesRead | None:
-    context = await _area_context(session, slug)
+    context = await _mapping_context(session, selection)
     if context is None:
         return None
     metric = (
@@ -186,17 +197,16 @@ async def _area_statistic_series_uncached(
             text("""
               SELECT period_start,value_numeric,value_text
               FROM statistical_observations
-              WHERE metric_id=:metric_id AND analysis_area_id=:area_id
+              WHERE metric_id=:metric_id AND statistical_area_id=:area_id
               ORDER BY period_start
             """),
             {"metric_id": metric["id"], "area_id": context["statistics_id"]},
         )
     ).mappings().all()
-    requested, statistics_area = _references(context)
     return AreaStatisticSeriesRead(
-        area=requested,
-        statistics_area=statistics_area,
-        inherited_from_parent=context["id"] != context["statistics_id"],
+        area=_reference(selection.requested),
+        statistics_area=_reference(selection.target),
+        inherited_from_parent=selection.inherited,
         source=await _source(session),
         metric={key: str(metric[key]) for key in ("key", "name", "unit", "category")},
         series=[
@@ -212,23 +222,28 @@ async def _area_statistic_series_uncached(
 
 
 async def area_statistic_series(
-    session: AsyncSession, slug: str, metric_key: str
+    session: AsyncSession, selection: StatisticsSelection, metric_key: str
 ) -> AreaStatisticSeriesRead | None:
     version = await cache_version(session, "statistics")
     key = build_cache_key(
-        "analysis-area:statistics-series",
-        {"slug": slug, "metric": metric_key},
+        "statistics:selection-series",
+        {
+            "requested": str(selection.requested.id),
+            "target": str(selection.target.id),
+            "municipality": str(selection.municipality.id),
+            "metric": metric_key,
+        },
         version=version,
     )
 
     async def compute() -> dict | None:
-        result = await _area_statistic_series_uncached(session, slug, metric_key)
+        result = await _area_statistic_series_uncached(session, selection, metric_key)
         return result.model_dump(mode="json") if result else None
 
     data, _status = await cache_service.get_or_compute(
         key,
         ttl=get_settings().statistics_cache_ttl,
-        resource="analysis-area-statistics-series",
+        resource="statistics-selection-series",
         compute=compute,
     )
     return AreaStatisticSeriesRead.model_validate(data) if data else None

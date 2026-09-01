@@ -249,7 +249,7 @@ def test_disabled_available_migration_does_not_validate_required_settings(
 
     assert (plan[-1].module_id, plan[-1].revision) == (
         "reference",
-        "mod_reference_20260826_0001",
+        "mod_reference_20260901_0002",
     )
 
 
