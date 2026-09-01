@@ -2,7 +2,7 @@ import type { FrontendModuleUiContribution } from './ui-contract.ts'
 import type { FrontendModuleMapContributions } from './map-contract.ts'
 
 export const FRONTEND_HOST_VERSION = '1.0.0'
-export const FRONTEND_MODULE_SDK_VERSION = '1.4.0'
+export const FRONTEND_MODULE_SDK_VERSION = '1.5.0'
 
 export interface FrontendModuleCompatibility {
   host: string
@@ -15,10 +15,21 @@ export interface FrontendModuleRouteContribution {
   source: string
 }
 
+export interface FrontendModuleSitemapDynamicRoute {
+  route: string
+  endpoint: string
+}
+
+export interface FrontendModuleSitemapContributions {
+  readonly staticRoutes: readonly string[]
+  readonly dynamicRoutes: readonly FrontendModuleSitemapDynamicRoute[]
+}
+
 export interface FrontendModulePublicContributions {
   readonly routes: readonly FrontendModuleRouteContribution[]
   readonly ui: readonly FrontendModuleUiContribution[]
   readonly map: FrontendModuleMapContributions
+  readonly sitemap: FrontendModuleSitemapContributions
 }
 
 export interface FrontendModuleRequirements {

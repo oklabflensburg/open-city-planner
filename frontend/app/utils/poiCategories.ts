@@ -67,10 +67,6 @@ export function isPoiCategoryToken(category: unknown): category is string {
   return typeof category === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$/.test(category)
 }
 
-export function areaPoiMapLink(areaSlug: string, category: string) {
-  return { path: '/karte', query: { gebiet: areaSlug, poi: category } }
-}
-
 export function withoutPoiQuery<T extends Record<string, unknown>>(query: T) {
   const result = { ...query }
   delete result.poi

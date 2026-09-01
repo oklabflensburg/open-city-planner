@@ -243,3 +243,17 @@ assert HostPolygonAnalytics and HostPolygonQueries
     )
 
     assert completed.returncode == 0, completed.stderr
+
+
+def test_statistics_runtime_has_no_analysis_areas_persistence_dependency() -> None:
+    sources = [
+        ROOT / "backend/app/models/statistics.py",
+        ROOT / "backend/app/services/area_statistics.py",
+        ROOT / "backend/app/services/flensburg_statistics_import.py",
+        ROOT / "backend/app/integrations/module_host_ports.py",
+    ]
+    combined = "\n".join(source.read_text(encoding="utf-8") for source in sources)
+
+    assert "analysis_areas" not in combined
+    assert "analysis_area_id" not in combined
+    assert "area_type == \"QUARTER\"" not in combined

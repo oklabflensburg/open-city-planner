@@ -1,8 +1,11 @@
 import { createPinia, setActivePinia } from 'pinia'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useOsmViewportStore } from '../app/stores/osmViewport'
 import { fallbackIndustryColor, getIndustryColor } from '../app/utils/industries'
-import { areaPoiMapLink, getPoiCategoryLabel, isPoiCategoryToken, withoutPoiQuery } from '../app/utils/poiCategories'
+import { getPoiCategoryLabel, isPoiCategoryToken, withoutPoiQuery } from '../app/utils/poiCategories'
+import { areaPoiMapLink } from '../frontend-modules/analysis-areas/layer/app/utils/areaPoiMapLink'
 
 describe('Gebietsfarben und Orte', () => {
   it('uses deterministic central industry colors and a neutral fallback', () => {
@@ -25,6 +28,8 @@ describe('Gebietsfarben und Orte', () => {
     })
     expect(isPoiCategoryToken('restaurant')).toBe(true)
     expect(isPoiCategoryToken('drop table')).toBe(false)
+    const publicSdk = readFileSync(fileURLToPath(new URL('../module-host/public.ts', import.meta.url)), 'utf8')
+    expect(publicSdk).not.toContain('areaPoiMapLink')
   })
 
   it('removes only the place filter from a map query', () => {

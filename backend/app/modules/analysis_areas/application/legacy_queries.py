@@ -19,6 +19,7 @@ from app.modules.analysis_areas.api.schemas import (
     MetricDifference,
 )
 from app.modules.analysis_areas.persistence.models import AnalysisArea, PolygonAnalysisArea
+from app.platform.modules.sdk import StatisticsArea, StatisticsSelection
 
 from ..integrations.legacy import (
     AREA_POI_CATEGORY_SQL,
@@ -51,6 +52,39 @@ SELECT area.uuid::text AS id, area.slug, area.name, area.area_type, parent.uuid:
        (SELECT count(*) FROM analysis_areas child WHERE child.parent_id=area.id) AS child_count
 FROM analysis_areas area LEFT JOIN analysis_areas parent ON parent.id=area.parent_id
 """)
+
+
+def statistics_selection(area: AnalysisAreaDetail) -> StatisticsSelection:
+    """Resolve Analysis-Areas hierarchy before crossing into Statistics."""
+
+    requested = StatisticsArea(
+        id=uuid.UUID(area.id),
+        slug=area.slug,
+        name=area.name,
+        area_type=area.area_type,
+    )
+    target_value = area.parent if area.area_type == "QUARTER" else area
+    municipality_value = area if area.area_type == "MUNICIPALITY" else area.municipality
+    if target_value is None or municipality_value is None:
+        raise ValueError("Analysis area has no complete statistics hierarchy")
+    target = StatisticsArea(
+        id=uuid.UUID(target_value.id),
+        slug=target_value.slug,
+        name=target_value.name,
+        area_type=target_value.area_type,
+    )
+    municipality = StatisticsArea(
+        id=uuid.UUID(municipality_value.id),
+        slug=municipality_value.slug,
+        name=municipality_value.name,
+        area_type=municipality_value.area_type,
+    )
+    return StatisticsSelection(
+        requested=requested,
+        target=target,
+        municipality=municipality,
+        inherited=requested.id != target.id,
+    )
 
 
 POI_TAG_PREDICATE_SQL = """

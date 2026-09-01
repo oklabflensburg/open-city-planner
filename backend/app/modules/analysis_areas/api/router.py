@@ -17,6 +17,7 @@ from ..application.legacy_queries import (
     area_uuid_by_slug,
     areas_geojson,
     list_areas,
+    statistics_selection,
 )
 from ..integrations.legacy import (
     AreaStatisticSeriesRead,
@@ -171,7 +172,10 @@ async def get_area_statistics(
     slug: str, session: SessionDep, request: Request
 ) -> AreaStatisticsRead:
     await guard_public_query(request, session, "area-statistics")
-    result = await area_statistics(session, slug)
+    area = await area_detail_by_slug(session, slug)
+    if area is None:
+        raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
+    result = await area_statistics(session, statistics_selection(area))
     if result is None:
         raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
     return result
@@ -187,7 +191,12 @@ async def get_area_statistic_series(
     slug: str, metric_key: str, session: SessionDep, request: Request
 ) -> AreaStatisticSeriesRead:
     await guard_public_query(request, session, "area-statistic-series")
-    result = await area_statistic_series(session, slug, metric_key)
+    area = await area_detail_by_slug(session, slug)
+    if area is None:
+        raise HTTPException(404, "Das Gebiet wurde nicht gefunden.")
+    result = await area_statistic_series(
+        session, statistics_selection(area), metric_key
+    )
     if result is None:
         raise HTTPException(404, "Die Gebietsstatistik wurde nicht gefunden.")
     return result

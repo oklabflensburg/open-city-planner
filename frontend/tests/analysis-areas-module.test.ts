@@ -28,6 +28,13 @@ describe('Analysis Areas frontend module', () => {
       '/gebiete',
       '/gebiete/:slug'
     ])
+    expect(modules[0]?.publicContributions.sitemap).toEqual({
+      staticRoutes: ['/gebiete'],
+      dynamicRoutes: [{
+        route: '/gebiete/:slug',
+        endpoint: '/analysis-areas/sitemap'
+      }]
+    })
     expect(createFrontendContributionRegistry(modules, []).all()).toContainEqual(
       expect.objectContaining({
         id: 'analysis-areas.primary-navigation',

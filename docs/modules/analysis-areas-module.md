@@ -17,6 +17,19 @@ Modulvertrag im [Backend-README](../../backend/app/modules/analysis_areas/README
   Statistics (#128), Polygons (#129) und Host-Primitives bleiben hinter einem
   engen, dokumentierten Strangler-Adapter.
 
+## Finale Statistics- und Sitemap-Grenze
+
+Seit SDK 1.14 löst das Analysis-Areas-Modul Requested Area, tatsächliches
+Statistikziel und Municipality-Vergleich selbst auf. Der Host erhält nur eine
+`StatisticsSelection`; Quartier-, Parent- und Slug-Semantik liegen nicht mehr in
+der Statistikdomäne. Deren Beobachtungen referenzieren eine eigene
+`external_area_mappings`-Zeile statt `analysis_areas`.
+
+Seit Frontend-SDK 1.5 deklariert das Modul `/gebiete` und seinen dynamischen
+Sitemap-Provider im Manifest. Der Host verarbeitet diese Contribution generisch
+und kennt weder Gebietsroute noch Analysis-Areas-Endpunkt. Die Navigation von
+Gebiets-POIs zur Karte wird ebenfalls als module-owned Helper ausgeliefert.
+
 ## Lessons learned für #108
 
 Einfach waren Manifest, Router-Contribution, build-time Nuxt-Routen, Navigation

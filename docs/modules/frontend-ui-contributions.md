@@ -9,10 +9,17 @@ bereitstellen. Die Architekturentscheidung steht im
 Das öffentliche SDK wird über `#frontend-module-sdk` exportiert. Die wichtigsten
 Typen sind `UiSlotId`, `FrontendModuleUiContribution`, `NavigationContribution`,
 `HeaderActionContribution`, `UiVisibilityRule` und `UiVisibilityContext`.
-`FRONTEND_MODULE_SDK_VERSION` ist additiv `1.4.0`; die UI-Verträge aus
+`FRONTEND_MODULE_SDK_VERSION` ist additiv `1.5.0`; die UI-Verträge aus
 Versionen `1.1.0` bis `1.3.0` bleiben unverändert kompatibel. Die zusätzlichen
 Platform-Ports sind separat unter
 [Frontend-Platform-Ports](frontend-platform-ports.md) beschrieben.
+
+SDK 1.5 ergänzt eine optionale Sitemap-Contribution. `staticRoutes` enthält
+explizit indexierbare, bereits deklarierte Modulrouten. `dynamicRoutes` verbindet
+eine deklarierte Route mit genau einem `:slug`-Parameter mit einem sicheren,
+relativen Backend-Endpunkt. Dieser liefert ausschließlich `slug` und optional
+`updated_at`. Nur aktivierte Module gelangen in die Build-Time-Registry; der Host
+kennt weder fachliche Pfade noch Tabellen oder Endpunkte.
 
 Unterstützte Slots:
 
@@ -44,6 +51,10 @@ neue Host-Layout- oder Map-Runtime.
       {
         "path": "/module-example",
         "source": "layer/app/pages/module-example.vue"
+      },
+      {
+        "path": "/module-example/:slug",
+        "source": "layer/app/pages/module-example/[slug].vue"
       }
     ],
     "ui": [
@@ -62,7 +73,16 @@ neue Host-Layout- oder Map-Runtime.
         "source": "layer/app/components/ExampleModuleAction.vue",
         "accessibleLabel": "Frontend-Modulbeispiel öffnen"
       }
-    ]
+    ],
+    "sitemap": {
+      "staticRoutes": ["/module-example"],
+      "dynamicRoutes": [
+        {
+          "route": "/module-example/:slug",
+          "endpoint": "/module-example/sitemap"
+        }
+      ]
+    }
   }
 }
 ```

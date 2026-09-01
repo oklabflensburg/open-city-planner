@@ -11,6 +11,7 @@ from app.modules.analysis_areas.application.legacy_queries import (
     area_polygons_by_slug,
     area_uuid_by_slug,
     list_areas,
+    statistics_selection,
 )
 from app.schemas.analytics import AreaCompareFilters, AreaCompareRequest
 from app.schemas.assistant import (
@@ -156,7 +157,8 @@ async def _area_analytics(session: AsyncSession, raw: BaseModel) -> AreaAnalytic
 
 async def _area_statistics(session: AsyncSession, raw: BaseModel) -> AreaStatisticsToolResult:
     args = AreaSlugInput.model_validate(raw)
-    result = await area_statistics(session, args.slug)
+    area = await area_detail_by_slug(session, args.slug)
+    result = await area_statistics(session, statistics_selection(area)) if area else None
     if result is None:
         raise AssistantToolError("STATISTICS_NOT_FOUND", "Für das Gebiet liegen keine Statistiken vor.", 404)
     return AreaStatisticsToolResult(data=result)
@@ -164,7 +166,12 @@ async def _area_statistics(session: AsyncSession, raw: BaseModel) -> AreaStatist
 
 async def _statistic_series(session: AsyncSession, raw: BaseModel) -> StatisticSeriesToolResult:
     args = StatisticSeriesInput.model_validate(raw)
-    result = await area_statistic_series(session, args.slug, args.metric_key)
+    area = await area_detail_by_slug(session, args.slug)
+    result = (
+        await area_statistic_series(session, statistics_selection(area), args.metric_key)
+        if area
+        else None
+    )
     if result is None:
         raise AssistantToolError("STATISTIC_NOT_FOUND", "Die Statistik-Zeitreihe wurde nicht gefunden.", 404)
     return StatisticSeriesToolResult(data=result)

@@ -45,6 +45,7 @@ from app.platform.modules.sdk import (
     PublicQueryLimits,
     StatisticsArea,
     StatisticSeriesPoint,
+    StatisticsSelection,
     StatisticsSource,
     StatisticValue,
 )
@@ -441,10 +442,12 @@ def _statistics_source(value) -> StatisticsSource | None:
 class HostStatisticsQueries:
     """Public DTO adapter owned by the municipal-statistics domain."""
 
-    async def for_area(self, session: AsyncSession, slug: str) -> AreaStatistics | None:
+    async def for_selection(
+        self, session: AsyncSession, selection: StatisticsSelection
+    ) -> AreaStatistics | None:
         from app.services import area_statistics
 
-        value = await area_statistics.area_statistics(session, slug)
+        value = await area_statistics.area_statistics(session, selection)
         if value is None:
             return None
         return AreaStatistics(
@@ -455,12 +458,17 @@ class HostStatisticsQueries:
             latest=tuple(StatisticValue(**item.model_dump()) for item in value.latest),
         )
 
-    async def series_for_area(
-        self, session: AsyncSession, slug: str, metric_key: str
+    async def series_for_selection(
+        self,
+        session: AsyncSession,
+        selection: StatisticsSelection,
+        metric_key: str,
     ) -> AreaStatisticSeries | None:
         from app.services import area_statistics
 
-        value = await area_statistics.area_statistic_series(session, slug, metric_key)
+        value = await area_statistics.area_statistic_series(
+            session, selection, metric_key
+        )
         if value is None:
             return None
         return AreaStatisticSeries(

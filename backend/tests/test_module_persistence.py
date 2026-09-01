@@ -468,7 +468,7 @@ def test_interleaved_adopted_history_has_one_host_head_and_alternating_steps(
         ).splitlines()
     )
 
-    assert scripts.get_heads() == ["20260825_0034"]
+    assert scripts.get_heads() == ["20260901_0035"]
     for revision_id in ("20260814_0014", "20260817_0023", "20260818_0025", "20260819_0032"):
         revision_path = Path(scripts.get_revision(revision_id).path).resolve()
         assert revision_path.is_relative_to(module_versions.resolve())
@@ -476,6 +476,7 @@ def test_interleaved_adopted_history_has_one_host_head_and_alternating_steps(
     assert scripts.get_revision("20260819_0032").down_revision == "20260819_0031"
     assert scripts.get_revision("20260822_0033").down_revision == "20260819_0032"
     assert scripts.get_revision("20260825_0034").down_revision == "20260822_0033"
+    assert scripts.get_revision("20260901_0035").down_revision == "20260825_0034"
     assert [(step.module_id, step.revision) for step in plan] == [
         ("host", "20260814_0013"),
         ("example-adopted-module", "20260814_0014"),
@@ -485,7 +486,7 @@ def test_interleaved_adopted_history_has_one_host_head_and_alternating_steps(
         ("example-adopted-module", "20260818_0025"),
         ("host", "20260819_0031"),
         ("example-adopted-module", "20260819_0032"),
-        ("host", "20260825_0034"),
+        ("host", "20260901_0035"),
     ]
 
 
@@ -493,7 +494,7 @@ def test_future_module_revision_must_extend_current_global_head(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     coordinator = interleaved_coordinator(
-        tmp_path, monkeypatch, future_parent="20260825_0034"
+        tmp_path, monkeypatch, future_parent="20260901_0035"
     )
 
     plan = coordinator.preflight()
@@ -502,7 +503,7 @@ def test_future_module_revision_must_extend_current_global_head(
     assert scripts.get_heads() == ["mod_example_adopted_module_0001"]
     assert (
         scripts.get_revision("mod_example_adopted_module_0001").down_revision
-        == "20260825_0034"
+        == "20260901_0035"
     )
     assert [
         revision.revision
@@ -511,6 +512,7 @@ def test_future_module_revision_must_extend_current_global_head(
         )
     ] == [
         "mod_example_adopted_module_0001",
+        "20260901_0035",
         "20260825_0034",
         "20260822_0033",
     ]
@@ -675,7 +677,7 @@ def test_migration_preflight_combines_host_and_modules_in_dependency_order() -> 
     plan = MigrationCoordinator(config, registry).preflight()
 
     assert [(step.module_id, step.revision) for step in plan[-3:]] == [
-        ("host", "20260825_0034"),
+        ("host", "20260901_0035"),
         ("example-a", "mod_example_a_20260825_0001"),
         ("example-b", "mod_example_b_20260825_0001"),
     ]
@@ -796,11 +798,11 @@ async def test_existing_database_at_host_head_only_runs_future_module_revision(
         historical_revision = await connection.scalar(
             text("SELECT version_num FROM alembic_version")
         )
-    assert historical_revision == "20260825_0034"
+    assert historical_revision == "20260901_0035"
 
     write_future_revision(
         Path(historical._config.get_main_option("version_locations").splitlines()[1]),
-        down_revision="20260825_0034",
+        down_revision="20260901_0035",
     )
     upgrade_targets: list[str] = []
     real_upgrade = module_migrations.command.upgrade
@@ -822,6 +824,95 @@ async def test_existing_database_at_host_head_only_runs_future_module_revision(
     assert final_revision == "mod_example_adopted_module_0001"
     assert final_marker == "mod_example_adopted_module_0001"
     assert upgrade_targets == ["mod_example_adopted_module_0001"]
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_statistics_area_migration_preserves_existing_rows_and_round_trips(
+    fresh_database_url: str,
+) -> None:
+    config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    config.attributes["database_url"] = fresh_database_url
+    await asyncio.to_thread(module_migrations.command.upgrade, config, "20260825_0034")
+
+    engine = create_async_engine(fresh_database_url)
+    async with engine.begin() as connection:
+        await connection.execute(
+            text("""
+                INSERT INTO analysis_areas
+                  (id, uuid, slug, name, area_type, geometry, centroid, area_m2)
+                VALUES
+                  (41, '11111111-1111-4111-8111-111111111111', 'altstadt-15630273',
+                   'Altstadt', 'DISTRICT',
+                   ST_Multi(ST_GeomFromText('POLYGON((9 54,10 54,10 55,9 55,9 54))', 4326)),
+                   ST_GeomFromText('POINT(9.5 54.5)', 4326), 1000)
+            """)
+        )
+        await connection.execute(
+            text("""
+                INSERT INTO external_area_mappings
+                  (id, source, external_area_id, external_area_name, analysis_area_id)
+                VALUES (7, 'FLENSBURG_STATISTICS', '01', 'Altstadt', 41)
+            """)
+        )
+        await connection.execute(
+            text("""
+                INSERT INTO statistical_datasets
+                  (id, source, external_dataset_id, name, source_url, license,
+                   update_frequency)
+                VALUES (3, 'FLENSBURG_STATISTICS', '6', 'Bevölkerung',
+                        'https://example.test', 'DL-DE-Zero-2.0', 'annual')
+            """)
+        )
+        await connection.execute(
+            text("""
+                INSERT INTO statistical_metrics
+                  (id, dataset_id, key, name, unit, category)
+                VALUES (5, 3, 'population', 'Bevölkerung', 'persons', 'Bevölkerung')
+            """)
+        )
+        await connection.execute(
+            text("""
+                INSERT INTO statistical_observations
+                  (id, metric_id, analysis_area_id, period_start, period_end,
+                   value_numeric, source_area_id, source_row_hash)
+                VALUES (9, 5, 41, '2025-01-01', '2025-12-31', 3657, '01',
+                        repeat('a', 64))
+            """)
+        )
+
+    await asyncio.to_thread(module_migrations.command.upgrade, config, "20260901_0035")
+    async with engine.connect() as connection:
+        migrated = (
+            await connection.execute(
+                text("""
+                    SELECT observation.value_numeric, mapping.external_area_id,
+                           mapping.level
+                    FROM statistical_observations observation
+                    JOIN external_area_mappings mapping
+                      ON mapping.id = observation.statistical_area_id
+                    WHERE observation.id = 9
+                """)
+            )
+        ).one()
+    assert tuple(migrated) == (3657, "01", "DISTRICT")
+
+    await asyncio.to_thread(module_migrations.command.downgrade, config, "20260825_0034")
+    async with engine.connect() as connection:
+        restored = (
+            await connection.execute(
+                text("""
+                    SELECT observation.value_numeric, observation.analysis_area_id,
+                           mapping.analysis_area_id
+                    FROM statistical_observations observation
+                    JOIN external_area_mappings mapping
+                      ON mapping.id = 7
+                    WHERE observation.id = 9
+                """)
+            )
+        ).one()
+    assert tuple(restored) == (3657, 41, 41)
+
     await engine.dispose()
 
 
@@ -884,7 +975,7 @@ async def test_reference_module_migration_up_down_and_seed_data(
         count = await connection.scalar(text("SELECT count(*) FROM reference.items"))
         revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
     assert count == 2
-    assert revision == "mod_reference_20260826_0001"
+    assert revision == "mod_reference_20260901_0002"
 
     await asyncio.to_thread(coordinator.downgrade, "20260825_0034")
     async with engine.connect() as connection:
@@ -899,7 +990,7 @@ async def test_reference_module_migration_up_down_and_seed_data(
     await asyncio.to_thread(coordinator.upgrade)
     async with engine.connect() as connection:
         revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
-    assert revision == "mod_reference_20260826_0001"
+    assert revision == "mod_reference_20260901_0002"
     await engine.dispose()
 
 
@@ -953,7 +1044,7 @@ async def test_reference_module_disable_and_reenable_keep_graph_revision_and_dat
 
     assert (disabled_plan[-1].module_id, disabled_plan[-1].revision) == (
         "reference",
-        "mod_reference_20260826_0001",
+        "mod_reference_20260901_0002",
     )
     assert enabled_revision == disabled_revision == reenabled_revision
     assert (before_disable, while_disabled, after_reenable) == (2, 2, 2)
@@ -992,7 +1083,7 @@ async def test_successful_migration_then_startup_failure_does_not_downgrade(
     async with engine.connect() as connection:
         revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
         count = await connection.scalar(text("SELECT count(*) FROM reference.items"))
-    assert revision == "mod_reference_20260826_0001"
+    assert revision == "mod_reference_20260901_0002"
     assert count == 2
     await engine.dispose()
 

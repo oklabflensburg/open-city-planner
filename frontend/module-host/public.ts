@@ -2,7 +2,9 @@ export {
   FRONTEND_HOST_VERSION,
   FRONTEND_MODULE_SDK_VERSION,
   type FrontendModuleCompatibility,
-  type FrontendModuleDefinition
+  type FrontendModuleDefinition,
+  type FrontendModuleSitemapContributions,
+  type FrontendModuleSitemapDynamicRoute
 } from './contract.ts'
 export {
   DEFAULT_UI_CONTRIBUTION_PRIORITY,
@@ -94,4 +96,4 @@ export {
   toMetaDescription
 } from '../app/utils/seo'
 export { getIndustryColor, getIndustryLabel } from '../app/utils/industries'
-export { areaPoiMapLink, getPoiCategoryLabel } from '../app/utils/poiCategories'
+export { getPoiCategoryLabel } from '../app/utils/poiCategories'

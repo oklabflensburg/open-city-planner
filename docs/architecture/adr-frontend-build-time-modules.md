@@ -76,7 +76,9 @@ enthält nur:
 - Compatibility-Ranges für Host, Frontend-SDK und optionales Backend-Modul;
 - lokalen Layer-Pfad;
 - kleine Modulabhängigkeitsmenge;
-- öffentliche Routenmetadaten.
+- öffentliche Routenmetadaten;
+- optionale statische und dynamische Sitemap-Contributions für bereits deklarierte
+  Routen.
 
 IDs spiegeln die Backend-Regel aus #93: lowercase kebab-case, maximal 63 Zeichen.
 Ein Fullstack-Modul verwendet auf beiden Seiten dieselbe ID. Versionen und Ranges
