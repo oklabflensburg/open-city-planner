@@ -1122,7 +1122,7 @@
       ansible.builtin.wait_for:
         host: 127.0.0.1
         port: "{{ stadtplaner_backend_port }}"
-        timeout: 30
+        timeout: 90
 
     - name: Wait for native map renderer readiness
       ansible.builtin.uri:
@@ -1304,7 +1304,7 @@
           ansible.builtin.wait_for:
             host: 127.0.0.1
             port: "{{ stadtplaner_backend_port }}"
-            timeout: 30
+            timeout: 90
 
         - name: Verify API readiness after rollback
           ansible.builtin.uri:
