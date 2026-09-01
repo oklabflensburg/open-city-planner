@@ -45,7 +45,7 @@ async def run(limit: int) -> dict[str, int]:
         context_factory=ModuleContextFactory(
             ModuleHostServices(
                 database=HostDatabaseSessionProvider(),
-                http=HostModuleHttpClientFactory(),
+                http=HostModuleHttpClientFactory(settings=settings),
                 osm_snapshots=HostOsmSnapshotQueries(),
                 polygon_spatial_matches=HostPolygonSpatialMatches(),
             ),

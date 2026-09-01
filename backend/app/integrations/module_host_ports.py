@@ -58,9 +58,13 @@ from app.services.public_query_security import (
 _MODULE_HTTP_SERVICE_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 _MODULE_HTTP_METHODS = frozenset({"DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"})
 _MODULE_HTTP_TIMEOUT_SECONDS = 10.0
-_MODULE_HTTP_USER_AGENT = (
-    "Stadtplaner/1.0 (module-http; https://stadtplaner.oklabflensburg.de)"
-)
+
+
+def _module_http_user_agent(settings: Settings) -> str:
+    return (
+        f"Stadtplaner/{settings.api_version} "
+        "(module-http; https://stadtplaner.oklabflensburg.de)"
+    )
 
 
 def _validate_module_http_url(value: str, *, allow_relative: bool) -> None:
@@ -122,7 +126,13 @@ class _HostModuleHttpClient:
 class HostModuleHttpClientFactory:
     """Bounded, observable HTTP clients for trusted in-process modules."""
 
-    def __init__(self, *, transport: httpx.AsyncBaseTransport | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        settings: Settings | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
+        self._user_agent = _module_http_user_agent(settings or get_settings())
         self._transport = transport
 
     @asynccontextmanager
@@ -143,7 +153,7 @@ class HostModuleHttpClientFactory:
             base_url=base_url or "",
             timeout=httpx.Timeout(_MODULE_HTTP_TIMEOUT_SECONDS),
             limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
-            headers={"User-Agent": _MODULE_HTTP_USER_AGENT},
+            headers={"User-Agent": self._user_agent},
             follow_redirects=False,
             trust_env=False,
             transport=self._transport,

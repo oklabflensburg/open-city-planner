@@ -110,7 +110,7 @@ module_runtime = create_module_runtime(
             cache_generations=HostCacheGenerations(),
             public_queries=HostPublicQueries(settings),
             map_previews=HostMapPreviews(),
-            http=HostModuleHttpClientFactory(),
+            http=HostModuleHttpClientFactory(settings=settings),
             polygons=HostPolygonQueries(),
             polygon_analytics=HostPolygonAnalytics(),
             statistics=HostStatisticsQueries(),

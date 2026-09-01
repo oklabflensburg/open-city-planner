@@ -6,6 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from app.core.config import Settings
 from app.integrations import module_host_ports
 from app.integrations.module_host_ports import HostModuleHttpClientFactory
 from app.platform.modules.context import ModuleContextFactory, ModuleHostServices
@@ -51,7 +52,8 @@ async def test_external_module_uses_production_http_port_without_network() -> No
         return httpx.Response(200, json={"entity": "Q481"}, request=request)
 
     transport = TrackingTransport(handler)
-    adapter = HostModuleHttpClientFactory(transport=transport)
+    settings = Settings(_env_file=None, api_version="9.8.7")
+    adapter = HostModuleHttpClientFactory(settings=settings, transport=transport)
     runtime = _runtime_with_http(adapter)
     context = runtime.registry.get(DEFINITION.declared_id).context
 
@@ -63,7 +65,10 @@ async def test_external_module_uses_production_http_port_without_network() -> No
     assert len(transport.requests) == 1
     request = transport.requests[0]
     assert str(request.url) == "https://provider.example/document?format=json"
-    assert request.headers["user-agent"].startswith("Stadtplaner/1.0 (module-http;")
+    assert request.headers["user-agent"] == (
+        "Stadtplaner/9.8.7 (module-http; https://stadtplaner.oklabflensburg.de)"
+    )
+    assert "Stadtplaner/1.0" not in request.headers["user-agent"]
     assert "authorization" not in request.headers
     assert "cookie" not in request.headers
     assert "x-internal-token" not in request.headers
@@ -145,7 +150,7 @@ def test_production_compositions_wire_http_factory() -> None:
         for record in main.module_runtime.registry.records
     )
     worker_source = inspect.getsource(process_domain_event_outbox.run)
-    assert "http=HostModuleHttpClientFactory()" in worker_source
+    assert "http=HostModuleHttpClientFactory(settings=settings)" in worker_source
 
 
 def test_external_fixture_imports_only_public_sdk() -> None:
