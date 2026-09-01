@@ -34,6 +34,9 @@ from app.platform.modules.sdk import (
     OsmFeatureSnapshotPage,
     OsmSnapshotQuery,
     PolygonFilterValues,
+    PolygonIdentity,
+    PolygonIdentityRequest,
+    PolygonIdentityResult,
     PolygonMetrics,
     PolygonScope,
     PolygonSpatialMatchRequest,
@@ -331,6 +334,30 @@ class HostPolygonSpatialMatches:
         return await match_user_polygons(session, request)
 
 
+class HostPolygonIdentities:
+    """Resolves stable public UUIDs without exposing the Host polygon model."""
+
+    async def resolve(
+        self, session: AsyncSession, request: PolygonIdentityRequest
+    ) -> PolygonIdentityResult:
+        if not request.polygon_uuids:
+            return PolygonIdentityResult((), ())
+        rows = (
+            await session.execute(
+                select(UserPolygon.id, UserPolygon.uuid).where(
+                    UserPolygon.uuid == any_(request.polygon_uuids)
+                )
+            )
+        ).all()
+        identities = {row.uuid: PolygonIdentity(id=row.id, uuid=row.uuid) for row in rows}
+        return PolygonIdentityResult(
+            resolved=tuple(
+                identities[value] for value in request.polygon_uuids if value in identities
+            ),
+            missing=tuple(value for value in request.polygon_uuids if value not in identities),
+        )
+
+
 def _count_values(values) -> tuple[CountValue, ...]:
     return tuple(
         CountValue(
@@ -454,6 +481,7 @@ __all__ = [
     "HostModuleCache",
     "HostOsmSnapshotQueries",
     "HostPolygonAnalytics",
+    "HostPolygonIdentities",
     "HostPolygonQueries",
     "HostPolygonSpatialMatches",
     "HostPublicQueries",

@@ -287,6 +287,9 @@ OSM_SNAPSHOT_MAX_PAGE_SIZE = 500
 POLYGON_SPATIAL_MATCH_MAX_AREAS = 5000
 POLYGON_SPATIAL_MATCH_SERVICE_ID = "platform.polygon-spatial-match"
 POLYGON_SPATIAL_MATCH_SERVICE_VERSION = 1
+POLYGON_IDENTITY_MAX_UUIDS = 5000
+POLYGON_IDENTITY_SERVICE_ID = "platform.polygon-identity"
+POLYGON_IDENTITY_SERVICE_VERSION = 1
 
 type OsmType = Literal["node", "way", "relation"]
 type OsmGeometryKind = Literal["point", "area"]
@@ -541,6 +544,69 @@ class PolygonSpatialMatchPort(Protocol):
     async def match_polygons(
         self, session: AsyncSession, request: PolygonSpatialMatchRequest
     ) -> PolygonSpatialMatchResult: ...
+
+
+@dataclass(frozen=True, slots=True)
+class PolygonIdentity:
+    """Host-interne Polygon-ID zu ihrer stabilen öffentlichen UUID."""
+
+    id: int
+    uuid: UUID
+
+    def __post_init__(self) -> None:
+        if type(self.id) is not int or self.id < 1:
+            raise ValueError("Polygon identity IDs must be positive integers.")
+        if not isinstance(self.uuid, UUID):
+            raise TypeError("Polygon identity UUIDs must be UUID values.")
+
+
+@dataclass(frozen=True, slots=True)
+class PolygonIdentityRequest:
+    """Begrenzte stabile Polygon-UUIDs in eindeutiger Eingabereihenfolge."""
+
+    polygon_uuids: tuple[UUID, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.polygon_uuids, tuple):
+            raise TypeError("Polygon identity requests require an immutable tuple.")
+        if not all(isinstance(value, UUID) for value in self.polygon_uuids):
+            raise TypeError("Polygon identity requests require UUID values.")
+        if len(self.polygon_uuids) > POLYGON_IDENTITY_MAX_UUIDS:
+            raise ValueError(
+                f"Polygon identity requests allow at most {POLYGON_IDENTITY_MAX_UUIDS} UUIDs."
+            )
+        object.__setattr__(self, "polygon_uuids", tuple(dict.fromkeys(self.polygon_uuids)))
+
+
+@dataclass(frozen=True, slots=True)
+class PolygonIdentityResult:
+    """Aufgelöste Identitäten und explizit nicht gefundene UUIDs."""
+
+    resolved: tuple[PolygonIdentity, ...]
+    missing: tuple[UUID, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.resolved, tuple) or not all(
+            isinstance(value, PolygonIdentity) for value in self.resolved
+        ):
+            raise TypeError("Resolved polygon identities must be an immutable tuple.")
+        if not isinstance(self.missing, tuple) or not all(
+            isinstance(value, UUID) for value in self.missing
+        ):
+            raise TypeError("Missing polygon identities must be an immutable UUID tuple.")
+        resolved_uuids = tuple(value.uuid for value in self.resolved)
+        if len(set(resolved_uuids)) != len(resolved_uuids):
+            raise ValueError("Resolved polygon identity UUIDs must be unique.")
+        if len(set(self.missing)) != len(self.missing):
+            raise ValueError("Missing polygon identity UUIDs must be unique.")
+        if set(resolved_uuids) & set(self.missing):
+            raise ValueError("Resolved and missing polygon identity UUIDs must be disjoint.")
+
+
+class PolygonIdentityPort(Protocol):
+    async def resolve(
+        self, session: AsyncSession, request: PolygonIdentityRequest
+    ) -> PolygonIdentityResult: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -1171,6 +1237,9 @@ __all__ = [
     "OSM_SNAPSHOT_MAX_PAGE_SIZE",
     "OSM_SNAPSHOT_QUERY_SERVICE_ID",
     "OSM_SNAPSHOT_QUERY_SERVICE_VERSION",
+    "POLYGON_IDENTITY_MAX_UUIDS",
+    "POLYGON_IDENTITY_SERVICE_ID",
+    "POLYGON_IDENTITY_SERVICE_VERSION",
     "POLYGON_SPATIAL_MATCH_MAX_AREAS",
     "POLYGON_SPATIAL_MATCH_SERVICE_ID",
     "POLYGON_SPATIAL_MATCH_SERVICE_VERSION",
@@ -1227,6 +1296,10 @@ __all__ = [
     "PermissionPort",
     "PolygonAnalyticsPort",
     "PolygonFilterValues",
+    "PolygonIdentity",
+    "PolygonIdentityPort",
+    "PolygonIdentityRequest",
+    "PolygonIdentityResult",
     "PolygonMetrics",
     "PolygonQueryPort",
     "PolygonScope",

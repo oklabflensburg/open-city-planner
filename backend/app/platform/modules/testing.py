@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 from typing import TypeVar, cast
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -16,6 +17,8 @@ from app.platform.modules.runtime import MODULE_SDK_VERSION
 from app.platform.modules.sdk import (
     OSM_SNAPSHOT_QUERY_SERVICE_ID,
     OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
+    POLYGON_IDENTITY_SERVICE_ID,
+    POLYGON_IDENTITY_SERVICE_VERSION,
     POLYGON_SPATIAL_MATCH_SERVICE_ID,
     POLYGON_SPATIAL_MATCH_SERVICE_VERSION,
     BackendModule,
@@ -34,6 +37,10 @@ from app.platform.modules.sdk import (
     OsmFeatureSnapshotPage,
     OsmSnapshotQuery,
     OsmSnapshotQueryPort,
+    PolygonIdentity,
+    PolygonIdentityPort,
+    PolygonIdentityRequest,
+    PolygonIdentityResult,
     PolygonSpatialMatchPort,
     PolygonSpatialMatchRequest,
     PolygonSpatialMatchResult,
@@ -208,6 +215,28 @@ class FakePolygonSpatialMatches:
         del session
         self.calls.append(request)
         return self.result
+
+
+class FakePolygonIdentities:
+    """Deterministic UUID resolver with production-equivalent result semantics."""
+
+    def __init__(self, identities: Sequence[PolygonIdentity] = ()) -> None:
+        if len({value.uuid for value in identities}) != len(identities):
+            raise ValueError("Fake polygon identity UUIDs must be unique.")
+        self.identities: dict[UUID, PolygonIdentity] = {value.uuid: value for value in identities}
+        self.calls: list[PolygonIdentityRequest] = []
+
+    async def resolve(self, session, request: PolygonIdentityRequest) -> PolygonIdentityResult:
+        del session
+        self.calls.append(request)
+        return PolygonIdentityResult(
+            resolved=tuple(
+                self.identities[value]
+                for value in request.polygon_uuids
+                if value in self.identities
+            ),
+            missing=tuple(value for value in request.polygon_uuids if value not in self.identities),
+        )
 
 
 class FakePermissions:
@@ -539,6 +568,12 @@ def create_test_module_context(
         service_id=POLYGON_SPATIAL_MATCH_SERVICE_ID,
         version=POLYGON_SPATIAL_MATCH_SERVICE_VERSION,
     )
+    service_registry.register(
+        PolygonIdentityPort,
+        FakePolygonIdentities(),
+        service_id=POLYGON_IDENTITY_SERVICE_ID,
+        version=POLYGON_IDENTITY_SERVICE_VERSION,
+    )
     return ModuleContext(
         module_id=module_id,
         module_version=module_version,
@@ -572,6 +607,7 @@ __all__ = [
     "FakeOsmSnapshotQueries",
     "FakePermissionDependencies",
     "FakePermissions",
+    "FakePolygonIdentities",
     "FakePolygonSpatialMatches",
     "FakeScheduler",
     "FakeServiceRegistry",
