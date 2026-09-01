@@ -16,11 +16,11 @@ const securityHeaders = {
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self'",
-    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://plausible.oklabflensburg.de",
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https: ${apiOrigin}`.trim(),
     // ws:/wss: are needed by Nuxt HMR and deployments that expose realtime transports.
-    `connect-src 'self' ws: wss: ${apiOrigin} ${mapOrigin}`.trim(),
+    `connect-src 'self' ws: wss: ${apiOrigin} ${mapOrigin} https://plausible.oklabflensburg.de`.trim(),
     `font-src 'self' data: ${mapOrigin}`.trim(),
     "worker-src 'self' blob:",
     "frame-src https://challenges.cloudflare.com"
@@ -105,6 +105,15 @@ export default defineNuxtConfig({
         { rel: 'icon', type: 'image/png', sizes: '96x96', href: '/favicon-96x96.png' },
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
         { rel: 'manifest', href: '/site.webmanifest' }
+      ],
+      script: [
+        {
+          async: true,
+          src: 'https://plausible.oklabflensburg.de/js/pa-Eke2bW8oyDVoFdCqvfZ7f.js'
+        },
+        {
+          innerHTML: 'window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}}; plausible.init()'
+        }
       ]
     }
   },
