@@ -18,6 +18,8 @@ from app.platform.modules.permissions import (
 from app.platform.modules.sdk import (
     OSM_SNAPSHOT_QUERY_SERVICE_ID,
     OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
+    POLYGON_ASSIGNMENT_SERVICE_ID,
+    POLYGON_ASSIGNMENT_SERVICE_VERSION,
     CacheGenerationPort,
     CachePort,
     DatabaseSessionProvider,
@@ -32,6 +34,7 @@ from app.platform.modules.sdk import (
     PermissionDependencyFactory,
     PermissionPort,
     PolygonAnalyticsPort,
+    PolygonAssignmentPort,
     PolygonQueryPort,
     PublicQueryPort,
     SchedulerPort,
@@ -111,6 +114,7 @@ class ModuleHostServices:
     map_previews: MapPreviewPort | None = None
     polygons: PolygonQueryPort | None = None
     polygon_analytics: PolygonAnalyticsPort | None = None
+    polygon_assignments: PolygonAssignmentPort | None = None
     statistics: StatisticsQueryPort | None = None
     osm_snapshots: OsmSnapshotQueryPort | None = None
     storage: StoragePort | None = None
@@ -149,6 +153,14 @@ class ModuleContextFactory:
                     implementation=self._services.osm_snapshots,
                     service_id=OSM_SNAPSHOT_QUERY_SERVICE_ID,
                     version=OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
+                )
+            if self._services.polygon_assignments is not None:
+                self._service_registry.register(
+                    provider_module="platform",
+                    contract=PolygonAssignmentPort,
+                    implementation=self._services.polygon_assignments,
+                    service_id=POLYGON_ASSIGNMENT_SERVICE_ID,
+                    version=POLYGON_ASSIGNMENT_SERVICE_VERSION,
                 )
         self._settings_registry: ModuleSettingsRegistry | None = None
         if self._services.settings is None:

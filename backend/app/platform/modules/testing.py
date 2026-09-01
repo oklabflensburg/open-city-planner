@@ -16,6 +16,8 @@ from app.platform.modules.runtime import MODULE_SDK_VERSION
 from app.platform.modules.sdk import (
     OSM_SNAPSHOT_QUERY_SERVICE_ID,
     OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
+    POLYGON_ASSIGNMENT_SERVICE_ID,
+    POLYGON_ASSIGNMENT_SERVICE_VERSION,
     BackendModule,
     DomainEvent,
     EventEnvelope,
@@ -32,6 +34,9 @@ from app.platform.modules.sdk import (
     OsmFeatureSnapshotPage,
     OsmSnapshotQuery,
     OsmSnapshotQueryPort,
+    PolygonAssignmentPort,
+    PolygonAssignmentRequest,
+    PolygonAssignmentResult,
     SerializableDomainEvent,
     SpanPort,
     event_envelope,
@@ -188,6 +193,21 @@ class FakeOsmSnapshotQueries:
         if self.pages:
             return self.pages.pop(0)
         return OsmFeatureSnapshotPage(items=())
+
+
+class FakePolygonAssignments:
+    """Deterministic assignment fake recording immutable requests."""
+
+    def __init__(self, result: PolygonAssignmentResult | None = None) -> None:
+        self.result = result or PolygonAssignmentResult(0, 0, 0, 0, 0)
+        self.calls: list[PolygonAssignmentRequest] = []
+
+    async def refresh_assignments(
+        self, session, request: PolygonAssignmentRequest
+    ) -> PolygonAssignmentResult:
+        del session
+        self.calls.append(request)
+        return self.result
 
 
 class FakePermissions:
@@ -513,6 +533,12 @@ def create_test_module_context(
         service_id=OSM_SNAPSHOT_QUERY_SERVICE_ID,
         version=OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
     )
+    service_registry.register(
+        PolygonAssignmentPort,
+        FakePolygonAssignments(),
+        service_id=POLYGON_ASSIGNMENT_SERVICE_ID,
+        version=POLYGON_ASSIGNMENT_SERVICE_VERSION,
+    )
     return ModuleContext(
         module_id=module_id,
         module_version=module_version,
@@ -546,6 +572,7 @@ __all__ = [
     "FakeOsmSnapshotQueries",
     "FakePermissionDependencies",
     "FakePermissions",
+    "FakePolygonAssignments",
     "FakeScheduler",
     "FakeServiceRegistry",
     "FakeSpan",

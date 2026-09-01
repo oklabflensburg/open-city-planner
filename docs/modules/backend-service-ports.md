@@ -29,6 +29,7 @@ DB-Treiberfehler zum Modulvertrag zu machen.
 | `PolygonAnalyticsPort` | Polygon-/Analytics-Domäne | Session, `PolygonScope`, primitive Filter | `PolygonMetrics` und `CountValue`; niemals SQL-Ausdrücke/ORM |
 | `StatisticsQueryPort` | Kommunalstatistik-Domäne | Session, Slug, optionaler Metrik-Key | immutable Statistik-DTOs oder `None` |
 | `OsmSnapshotQueryPort` | Plattform-eigener OSM-Snapshot | Session, immutable und begrenzte `OsmSnapshotQuery` | cursor-paginierte, ORM-freie `OsmFeatureSnapshot`-DTOs; Details im [OSM-Vertrag](osm-public-contract.md) |
+| `PolygonAssignmentPort` | Polygon-Domäne | Session, vollständiger immutable Area-Snapshot mit EWKB | generische Änderungszähler; Details im [Polygon-Assignment-Vertrag](polygon-assignment-contract.md) |
 
 ## Legacy-Import-Inventar und Ownership
 
@@ -77,26 +78,16 @@ die passende Transaktionsgrenze besitzt.
 
 ## Area→Polygon-Ownership und Consumer-Flow
 
-Der erste Entwurf nahm eine Gebiet-UUID entgegen und löste sie im Host über die
-Built-in-Modelle `AnalysisArea` und `PolygonAnalysisArea` auf. Das war ein
-Ownership Leak: Nach dem Cutover soll dieses Built-in-Package entfernt werden,
-und die Relation gehört fachlich zum externen Modul.
+Das Area-owning Modul verwaltet Gebietszustand und -geometrie. Die Polygon-Domäne
+verwaltet `user_polygons` sowie die Mutation der bestehenden Zuordnungsrelation.
+Ein Modul übergibt deshalb seinen vollständigen Area-Snapshot an den
+`PolygonAssignmentPort`; es liest weder Polygon- noch Assignment-Tabellen selbst.
+Die stabile UUID wird intern auf die bereits vorhandene Relation abgebildet, ohne
+eine zweite Tabelle oder eine Persistenz-ID im öffentlichen Vertrag einzuführen.
 
-Das externe Modul löst künftig innerhalb einer vom vorhandenen
-`DatabaseSessionProvider` gelieferten Session zunächst seine eigene
-`AnalysisArea` auf. Danach liest es aus seinem eigenen
-`PolygonAnalysisArea`-Modell die primitiven Integer-IDs und erzeugt einen
-unveränderlichen `PolygonScope`. Nur dieser neutrale Scope wird an
-`PolygonQueryPort.list_by_scope`, `PolygonAnalyticsPort.metrics` oder
-`PolygonAnalyticsPort.category_counts` übergeben. Ein nicht vorhandenes Gebiet
-behandelt das Modul vor dem Port-Aufruf selbst.
-
-Der Host kennt dadurch weder Gebiet-UUID noch Relationstabelle. `UserPolygon` und
-die Analytics-Implementierung bleiben vollständig intern. Für größere Scopes
-bindet der Host alle IDs als einen PostgreSQL-Arrayparameter mit `ANY`; er erzeugt
-keine expandierte `IN (...)`-Parameterliste. Die Relation wird in genau einer
-module-owned Query gelesen, das Aggregat anschließend in genau einer Host-Query
-berechnet.
+Für Polygon-Lese- und Analytics-Flows bleibt `PolygonScope` der neutrale Scope.
+`UserPolygon`, Assignment-Persistenz und räumliche Berechnung bleiben in beiden
+Fällen vollständig Host-intern.
 
 ## Lifecycle und Datenschutz
 

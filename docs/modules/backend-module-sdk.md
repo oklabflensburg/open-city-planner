@@ -202,6 +202,10 @@ Der additive, über die Service-Registry aufgelöste
 [`OsmSnapshotQueryPort`](osm-public-contract.md) und der öffentliche
 `osm.postprocessing-completed`-Eventvertrag erhöhen die SDK-Version auf `1.11.0`.
 Beide Verträge geben weder Host-ORM-Modelle noch modulbezogene Fachableitungen aus.
+Der additive [`PolygonAssignmentPort`](polygon-assignment-contract.md) erhöht die
+SDK-Version auf `1.12.0`. Er übergibt einen vollständigen, immutable
+Area-Geometriesnapshot an die Polygon-Domäne und nimmt an der Caller-Transaktion
+teil, ohne Polygon- oder Assignment-Persistenz offenzulegen.
 Alle Ports sind optional; bestehende Module und ihre Context-Konstruktion bleiben
 damit rückwärtskompatibel.
 

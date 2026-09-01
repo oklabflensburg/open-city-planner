@@ -284,6 +284,9 @@ OSM_SNAPSHOT_QUERY_SERVICE_VERSION = 1
 OSM_POSTPROCESSING_COMPLETED_EVENT = "osm.postprocessing-completed"
 OSM_POSTPROCESSING_COMPLETED_EVENT_VERSION = 1
 OSM_SNAPSHOT_MAX_PAGE_SIZE = 500
+POLYGON_ASSIGNMENT_MAX_AREAS = 5000
+POLYGON_ASSIGNMENT_SERVICE_ID = "platform.polygon-assignment"
+POLYGON_ASSIGNMENT_SERVICE_VERSION = 1
 
 type OsmType = Literal["node", "way", "relation"]
 type OsmGeometryKind = Literal["point", "area"]
@@ -443,6 +446,83 @@ class OsmSnapshotQueryPort(Protocol):
     async def list_features(
         self, session: AsyncSession, query: OsmSnapshotQuery
     ) -> OsmFeatureSnapshotPage: ...
+
+
+@dataclass(frozen=True, slots=True)
+class PolygonAssignmentArea:
+    """Gebietsreferenz mit EWKB-Geometrie in EPSG:4326."""
+
+    external_id: str
+    selection_group: str
+    geometry_wkb: bytes
+
+    def __post_init__(self) -> None:
+        try:
+            parsed_id = UUID(self.external_id)
+        except (TypeError, ValueError, AttributeError) as exc:
+            raise ValueError("Polygon assignment area IDs must be UUID strings.") from exc
+        if str(parsed_id) != self.external_id:
+            raise ValueError("Polygon assignment area IDs must be canonical UUID strings.")
+        if (
+            not isinstance(self.selection_group, str)
+            or not self.selection_group
+            or self.selection_group != self.selection_group.strip()
+            or "\x00" in self.selection_group
+            or len(self.selection_group) > 100
+        ):
+            raise ValueError(
+                "Polygon assignment selection groups must be non-empty normalized text."
+            )
+        if not isinstance(self.geometry_wkb, bytes) or not self.geometry_wkb:
+            raise ValueError("Polygon assignment geometries must be non-empty EWKB bytes.")
+
+
+@dataclass(frozen=True, slots=True)
+class PolygonAssignmentRequest:
+    """Vollständiger Gebietssnapshot für eine Polygon-Zuordnungsaktualisierung."""
+
+    areas: tuple[PolygonAssignmentArea, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.areas, tuple) or not all(
+            isinstance(area, PolygonAssignmentArea) for area in self.areas
+        ):
+            raise TypeError("Polygon assignment requests require an immutable tuple of areas.")
+        if len(self.areas) > POLYGON_ASSIGNMENT_MAX_AREAS:
+            raise ValueError(
+                f"Polygon assignment requests allow at most {POLYGON_ASSIGNMENT_MAX_AREAS} areas."
+            )
+        external_ids = tuple(area.external_id for area in self.areas)
+        if len(set(external_ids)) != len(external_ids):
+            raise ValueError("Polygon assignment area IDs must be unique per snapshot.")
+
+
+@dataclass(frozen=True, slots=True)
+class PolygonAssignmentResult:
+    processed_polygons: int
+    created_assignments: int
+    updated_assignments: int
+    removed_assignments: int
+    unchanged_assignments: int
+
+    def __post_init__(self) -> None:
+        if any(
+            type(value) is not int or value < 0
+            for value in (
+                self.processed_polygons,
+                self.created_assignments,
+                self.updated_assignments,
+                self.removed_assignments,
+                self.unchanged_assignments,
+            )
+        ):
+            raise ValueError("Polygon assignment result counts must be non-negative integers.")
+
+
+class PolygonAssignmentPort(Protocol):
+    async def refresh_assignments(
+        self, session: AsyncSession, request: PolygonAssignmentRequest
+    ) -> PolygonAssignmentResult: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -1073,6 +1153,9 @@ __all__ = [
     "OSM_SNAPSHOT_MAX_PAGE_SIZE",
     "OSM_SNAPSHOT_QUERY_SERVICE_ID",
     "OSM_SNAPSHOT_QUERY_SERVICE_VERSION",
+    "POLYGON_ASSIGNMENT_MAX_AREAS",
+    "POLYGON_ASSIGNMENT_SERVICE_ID",
+    "POLYGON_ASSIGNMENT_SERVICE_VERSION",
     "ApiRegistrar",
     "AreaStatisticSeries",
     "AreaStatistics",
@@ -1125,6 +1208,10 @@ __all__ = [
     "PermissionDependencyFactory",
     "PermissionPort",
     "PolygonAnalyticsPort",
+    "PolygonAssignmentArea",
+    "PolygonAssignmentPort",
+    "PolygonAssignmentRequest",
+    "PolygonAssignmentResult",
     "PolygonFilterValues",
     "PolygonMetrics",
     "PolygonQueryPort",
