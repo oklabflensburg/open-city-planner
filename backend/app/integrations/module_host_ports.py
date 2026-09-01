@@ -29,6 +29,8 @@ from app.platform.modules.sdk import (
     PolygonFilterValues,
     PolygonMetrics,
     PolygonScope,
+    PolygonSpatialMatchRequest,
+    PolygonSpatialMatchResult,
     PublicPolygonSummary,
     PublicQueryLimits,
     StatisticsArea,
@@ -40,6 +42,7 @@ from app.services import polygon_analytics
 from app.services.cache_versions import bump_cache_versions, cache_version
 from app.services.map_previews import MapPreviewError, map_preview_service
 from app.services.osm_snapshots import list_osm_feature_snapshots
+from app.services.polygon_spatial_matches import match_user_polygons
 from app.services.public_query_security import (
     guard_public_query,
     is_statement_timeout_error,
@@ -203,6 +206,15 @@ class HostPolygonQueries:
         )
 
 
+class HostPolygonSpatialMatches:
+    """Delegates read-only spatial matching to the polygon-owned query service."""
+
+    async def match_polygons(
+        self, session: AsyncSession, request: PolygonSpatialMatchRequest
+    ) -> PolygonSpatialMatchResult:
+        return await match_user_polygons(session, request)
+
+
 def _count_values(values) -> tuple[CountValue, ...]:
     return tuple(
         CountValue(
@@ -327,6 +339,7 @@ __all__ = [
     "HostOsmSnapshotQueries",
     "HostPolygonAnalytics",
     "HostPolygonQueries",
+    "HostPolygonSpatialMatches",
     "HostPublicQueries",
     "HostStatisticsQueries",
 ]

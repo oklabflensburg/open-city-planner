@@ -16,6 +16,8 @@ from app.platform.modules.runtime import MODULE_SDK_VERSION
 from app.platform.modules.sdk import (
     OSM_SNAPSHOT_QUERY_SERVICE_ID,
     OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
+    POLYGON_SPATIAL_MATCH_SERVICE_ID,
+    POLYGON_SPATIAL_MATCH_SERVICE_VERSION,
     BackendModule,
     DomainEvent,
     EventEnvelope,
@@ -32,6 +34,9 @@ from app.platform.modules.sdk import (
     OsmFeatureSnapshotPage,
     OsmSnapshotQuery,
     OsmSnapshotQueryPort,
+    PolygonSpatialMatchPort,
+    PolygonSpatialMatchRequest,
+    PolygonSpatialMatchResult,
     SerializableDomainEvent,
     SpanPort,
     event_envelope,
@@ -188,6 +193,21 @@ class FakeOsmSnapshotQueries:
         if self.pages:
             return self.pages.pop(0)
         return OsmFeatureSnapshotPage(items=())
+
+
+class FakePolygonSpatialMatches:
+    """Deterministic spatial-match fake recording immutable requests."""
+
+    def __init__(self, result: PolygonSpatialMatchResult | None = None) -> None:
+        self.result = result or PolygonSpatialMatchResult(())
+        self.calls: list[PolygonSpatialMatchRequest] = []
+
+    async def match_polygons(
+        self, session, request: PolygonSpatialMatchRequest
+    ) -> PolygonSpatialMatchResult:
+        del session
+        self.calls.append(request)
+        return self.result
 
 
 class FakePermissions:
@@ -513,6 +533,12 @@ def create_test_module_context(
         service_id=OSM_SNAPSHOT_QUERY_SERVICE_ID,
         version=OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
     )
+    service_registry.register(
+        PolygonSpatialMatchPort,
+        FakePolygonSpatialMatches(),
+        service_id=POLYGON_SPATIAL_MATCH_SERVICE_ID,
+        version=POLYGON_SPATIAL_MATCH_SERVICE_VERSION,
+    )
     return ModuleContext(
         module_id=module_id,
         module_version=module_version,
@@ -546,6 +572,7 @@ __all__ = [
     "FakeOsmSnapshotQueries",
     "FakePermissionDependencies",
     "FakePermissions",
+    "FakePolygonSpatialMatches",
     "FakeScheduler",
     "FakeServiceRegistry",
     "FakeSpan",
