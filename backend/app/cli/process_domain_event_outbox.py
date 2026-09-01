@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from app.core.config import BACKEND_ENV_FILE, get_settings
 from app.db.session import AsyncSessionLocal
 from app.integrations.module_host_ports import (
+    HostModuleHttpClientFactory,
     HostOsmSnapshotQueries,
     HostPolygonSpatialMatches,
 )
@@ -44,6 +45,7 @@ async def run(limit: int) -> dict[str, int]:
         context_factory=ModuleContextFactory(
             ModuleHostServices(
                 database=HostDatabaseSessionProvider(),
+                http=HostModuleHttpClientFactory(),
                 osm_snapshots=HostOsmSnapshotQueries(),
                 polygon_spatial_matches=HostPolygonSpatialMatches(),
             ),
