@@ -9,6 +9,8 @@ from app.platform.modules.sdk import (
     ModuleContext,
     ModuleDefinition,
     ModuleManifestV1,
+    OsmFeatureSnapshotPage,
+    OsmSnapshotQuery,
     OsmSnapshotQueryPort,
     parse_manifest,
 )
@@ -45,6 +47,13 @@ class OsmContractConsumerModule:
 
     async def handle(self, _event: EventEnvelope) -> None:
         return None
+
+    async def list_snapshots(
+        self, session, query: OsmSnapshotQuery
+    ) -> OsmFeatureSnapshotPage:
+        """Read snapshots solely through the public service resolved at registration."""
+
+        return await self.snapshots.list_features(session, query)
 
 
 DEFINITION = ModuleDefinition(

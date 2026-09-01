@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
 from types import MappingProxyType
+from typing import get_type_hints
 
 import pytest
 import pytest_asyncio
@@ -22,12 +23,13 @@ from app.platform.modules.sdk import (
     OSM_SNAPSHOT_QUERY_SERVICE_ID,
     OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
     OsmFeatureSnapshot,
+    OsmFeatureSnapshotPage,
     OsmSnapshotQuery,
     OsmSnapshotQueryPort,
     OsmTagFilter,
 )
 from app.platform.modules.testing import create_test_module_context
-from tests.fixtures.osm_contract_module import DEFINITION
+from tests.fixtures.osm_contract_module import DEFINITION, OsmContractConsumerModule
 from tests.test_module_runtime import FakeDiscovery
 
 
@@ -54,6 +56,14 @@ def test_osm_snapshot_dtos_are_immutable_validated_copies() -> None:
         OsmTagFilter("place", tuple(str(value) for value in range(51)))
     with pytest.raises(ValueError, match="at most 20 unique tag filters"):
         OsmSnapshotQuery(tag_filters=tuple(OsmTagFilter(f"key-{value}") for value in range(21)))
+
+
+def test_osm_snapshot_dto_type_hints_are_orm_free() -> None:
+    rendered_hints = repr(get_type_hints(OsmFeatureSnapshot)).lower()
+
+    assert "sqlalchemy" not in rendered_hints
+    assert "app.models" not in rendered_hints
+    assert "app.db" not in rendered_hints
 
 
 def test_test_context_exposes_versioned_osm_fake() -> None:
@@ -88,6 +98,50 @@ def test_external_fixture_uses_only_sdk_and_platform_dependency() -> None:
         context_factory=factory,
     )
     runtime.register(FastAPI())
+
+
+@pytest.mark.asyncio
+async def test_external_fixture_queries_real_host_postgis_adapter(osm_sessions) -> None:
+    factory = ModuleContextFactory(
+        ModuleHostServices(osm_snapshots=HostOsmSnapshotQueries()),
+        event_bus=InProcessEventBus(),
+    )
+    runtime = create_module_runtime(
+        enabled_module_ids=(DEFINITION.declared_id,),
+        discovery_providers=(FakeDiscovery([DEFINITION]),),
+        host_version="0.2.0",
+        context_factory=factory,
+    )
+    runtime.register(FastAPI())
+    consumer = runtime.registry.get(DEFINITION.declared_id).module
+    assert isinstance(consumer, OsmContractConsumerModule)
+
+    async with osm_sessions() as session:
+        await session.execute(
+            text("""
+INSERT INTO osm_features VALUES
+ ('relation', 77,
+  ST_GeomFromText('POLYGON((9.4 54.7,9.6 54.7,9.6 54.9,9.4 54.9,9.4 54.7))', 4326),
+  '{"boundary":"administrative","name":"Contract fixture"}', :imported_at)
+"""),
+            {"imported_at": datetime(2026, 9, 1, 8, tzinfo=UTC)},
+        )
+        await session.commit()
+        page = await consumer.list_snapshots(
+            session,
+            OsmSnapshotQuery(
+                osm_types=("relation",),
+                tag_filters=(OsmTagFilter("boundary", ("administrative",)),),
+            ),
+        )
+
+    assert isinstance(page, OsmFeatureSnapshotPage)
+    assert len(page.items) == 1
+    snapshot = page.items[0]
+    assert (snapshot.osm_type, snapshot.osm_id) == ("relation", 77)
+    assert snapshot.tags["name"] == "Contract fixture"
+    assert snapshot.geometry_wkb
+    assert snapshot.bbox == (9.4, 54.7, 9.6, 54.9)
 
 
 def test_host_adapter_is_consumer_neutral_and_event_is_enqueued_before_commit() -> None:
