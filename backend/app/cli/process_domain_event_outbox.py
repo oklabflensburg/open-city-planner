@@ -10,6 +10,7 @@ from app.db.session import AsyncSessionLocal
 from app.integrations.module_host_ports import (
     HostModuleHttpClientFactory,
     HostOsmSnapshotQueries,
+    HostPolygonIdentities,
     HostPolygonSpatialMatches,
 )
 from app.observability.jobs import observed_job
@@ -48,6 +49,7 @@ async def run(limit: int) -> dict[str, int]:
                 http=HostModuleHttpClientFactory(settings=settings),
                 osm_snapshots=HostOsmSnapshotQueries(),
                 polygon_spatial_matches=HostPolygonSpatialMatches(),
+                polygon_identities=HostPolygonIdentities(),
             ),
             event_bus=bus,
             module_env_file=BACKEND_ENV_FILE,

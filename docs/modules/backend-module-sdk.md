@@ -119,6 +119,23 @@ diese als unveränderlichen `PolygonScope`. Die Host-Ports kennen weder
 `AnalysisArea` noch `PolygonAnalysisArea`; Host-ORM-Modelle werden nicht über die
 SDK-Grenze gereicht.
 
+Ein Modul, das zunächst stabile öffentliche Polygon-UUIDs erhält, löst diese über
+den versionierten Registry-Service `platform.polygon-identity@1` auf. Dazu fordert
+es `PolygonIdentityPort` aus `context.services` an und übergibt einen
+`PolygonIdentityRequest`. Der Request akzeptiert höchstens 5.000 echte `UUID`-Werte
+und dedupliziert sie stabil in der Reihenfolge ihres ersten Auftretens. Das
+`PolygonIdentityResult` liefert erfolgreiche Zuordnungen als immutable
+`PolygonIdentity(id, uuid)` in derselben Reihenfolge und unbekannte UUIDs separat in
+`missing`; dadurch ist ein Reconcile niemals durch still ausgelassene Werte
+mehrdeutig.
+
+Der Host liest dafür ausschließlich seine `user_polygons` und besitzt die Abbildung
+von stabiler UUID auf interne ID. Der Consumer besitzt seine Relation, deren
+Reconcile und stale cleanup und persistiert diese in seiner caller-owned
+Transaktion. Der Resolver ist read-only und führt weder Commit, Rollback noch Flush
+aus. Weder ORM-Instanzen noch ein allgemeiner Zugriff auf das Polygon-Repository
+werden öffentlich.
+
 ### Events, Services, Permissions und Jobs
 
 Der Event-Port ist durch die [Domain-Event- und Outbox-Infrastruktur](domain-events.md)
@@ -236,7 +253,11 @@ Host-eigenen Polygonen ab und liefert stabile Polygon-UUIDs sowie räumliche
 Match-Metriken. Domänenspezifische Relation und Persistenz bleiben beim Consumer.
 Die Production-Verdrahtung des bereits seit SDK 1.9 vorhandenen
 `HttpClientFactoryPort` ändert den öffentlichen Contract nicht; die SDK-Version
-bleibt deshalb `1.12.0`.
+bleibt deshalb zunächst `1.12.0`.
+Der additive, über die Service-Registry aufgelöste `PolygonIdentityPort` erhöht die
+SDK-Version auf `1.13.0`. Er löst stabile öffentliche Polygon-UUIDs begrenzt und
+deterministisch in die bereits von `PolygonScope` und bestehenden Relationsschemas
+benötigte Host-Identität auf, ohne ORM-Typen oder Transaktionsownership offenzulegen.
 Alle Ports sind optional; bestehende Module und ihre Context-Konstruktion bleiben
 damit rückwärtskompatibel.
 

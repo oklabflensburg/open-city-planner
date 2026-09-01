@@ -18,6 +18,8 @@ from app.platform.modules.permissions import (
 from app.platform.modules.sdk import (
     OSM_SNAPSHOT_QUERY_SERVICE_ID,
     OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
+    POLYGON_IDENTITY_SERVICE_ID,
+    POLYGON_IDENTITY_SERVICE_VERSION,
     POLYGON_SPATIAL_MATCH_SERVICE_ID,
     POLYGON_SPATIAL_MATCH_SERVICE_VERSION,
     CacheGenerationPort,
@@ -34,6 +36,7 @@ from app.platform.modules.sdk import (
     PermissionDependencyFactory,
     PermissionPort,
     PolygonAnalyticsPort,
+    PolygonIdentityPort,
     PolygonQueryPort,
     PolygonSpatialMatchPort,
     PublicQueryPort,
@@ -115,6 +118,7 @@ class ModuleHostServices:
     polygons: PolygonQueryPort | None = None
     polygon_analytics: PolygonAnalyticsPort | None = None
     polygon_spatial_matches: PolygonSpatialMatchPort | None = None
+    polygon_identities: PolygonIdentityPort | None = None
     statistics: StatisticsQueryPort | None = None
     osm_snapshots: OsmSnapshotQueryPort | None = None
     storage: StoragePort | None = None
@@ -161,6 +165,14 @@ class ModuleContextFactory:
                     implementation=self._services.polygon_spatial_matches,
                     service_id=POLYGON_SPATIAL_MATCH_SERVICE_ID,
                     version=POLYGON_SPATIAL_MATCH_SERVICE_VERSION,
+                )
+            if self._services.polygon_identities is not None:
+                self._service_registry.register(
+                    provider_module="platform",
+                    contract=PolygonIdentityPort,
+                    implementation=self._services.polygon_identities,
+                    service_id=POLYGON_IDENTITY_SERVICE_ID,
+                    version=POLYGON_IDENTITY_SERVICE_VERSION,
                 )
         self._settings_registry: ModuleSettingsRegistry | None = None
         if self._services.settings is None:

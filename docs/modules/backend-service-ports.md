@@ -30,6 +30,7 @@ DB-Treiberfehler zum Modulvertrag zu machen.
 | `StatisticsQueryPort` | Kommunalstatistik-Domäne | Session, Slug, optionaler Metrik-Key | immutable Statistik-DTOs oder `None` |
 | `OsmSnapshotQueryPort` | Plattform-eigener OSM-Snapshot | Session, immutable und begrenzte `OsmSnapshotQuery` | cursor-paginierte, ORM-freie `OsmFeatureSnapshot`-DTOs; Details im [OSM-Vertrag](osm-public-contract.md) |
 | `PolygonSpatialMatchPort` | Polygon-Domäne | Session, immutable Area-Geometrien mit EWKB | stabile Polygon-UUIDs und räumliche Match-Metriken; Details im [Polygon-Spatial-Match-Vertrag](polygon-assignment-contract.md) |
+| `PolygonIdentityPort` (`platform.polygon-identity@1`) | Polygon-Domäne | Caller-Session, höchstens 5.000 stabile Polygon-UUIDs | immutable UUID↔interne-ID-Zuordnungen und explizite unbekannte UUIDs; niemals ORM |
 | `HttpClientFactoryPort` | Plattform-eigener HTTP-Egress | validierter Service-Name, optionale HTTP(S)-Base-URL; danach Methode, Pfad, Header, Parameter und Bytes | begrenzte Response-Projektion oder unveränderte `httpx`-Transport-/Timeout-Exception; keine impliziten Retries |
 
 ## Legacy-Import-Inventar und Ownership
@@ -51,6 +52,7 @@ Fachdomäne, C = Analysis-Areas-owned, D = obsolete Legacy-Kopplung.
 | `app.services.map_previews.map_preview_service` | A | `MapPreviewPort.render` | Map Preview |
 | `app.services.map_previews.MapPreviewError` | A | `MapPreviewUnavailableError` | Map Preview |
 | `app.models.user_polygon.UserPolygon` | B | `PolygonQueryPort` / `PolygonAnalyticsPort` und DTOs | Polygons |
+| direkte UUID→ID-Abfrage auf `app.models.user_polygon.UserPolygon` | B | `PolygonIdentityPort` über `platform.polygon-identity@1` | Polygons |
 | `app.services.analytics._base_filters` | B | primitive `PolygonFilterValues` am `PolygonAnalyticsPort` | Polygon Analytics |
 | `app.services.analytics._benchmark_metrics` | B | `PolygonAnalyticsPort.metrics` | Polygon Analytics |
 | `app.services.analytics._counts` | B | `PolygonAnalyticsPort.category_counts` | Polygon Analytics |
@@ -83,8 +85,13 @@ Das Area-owning Modul verwaltet Gebietszustand, -geometrie und seine konkrete
 Polygon↔Gebiet-Relation. Die Polygon-Domäne verwaltet `user_polygons` und stellt mit
 dem `PolygonSpatialMatchPort` ausschließlich eine generische räumliche Leseoperation
 bereit. Ein Modul übergibt opaque Area-Referenzen und Geometrien, erhält stabile
-Polygon-UUIDs sowie Match-Metriken zurück und gleicht seine eigene Relation in
-seiner eigenen Transaktion ab.
+Polygon-UUIDs sowie Match-Metriken zurück und löst benötigte Relationsschlüssel über
+`platform.polygon-identity@1` auf. Der begrenzte Resolver dedupliziert Eingaben
+stabil, liefert aufgelöste Werte in eindeutiger Eingabereihenfolge und führt
+unbekannte UUIDs explizit unter `missing`. Er verwendet genau eine mengenbasierte
+Abfrage gegen Host-owned `user_polygons` und übernimmt weder Commit noch Rollback.
+Das Modul gleicht seine eigene Relation anschließend in seiner eigenen Transaktion
+ab; der Host liest oder schreibt diese fremde Relation nie.
 
 Für Polygon-Lese- und Analytics-Flows bleibt `PolygonScope` der neutrale Scope.
 `UserPolygon` und räumliche Berechnung bleiben Host-intern; domänenspezifische
