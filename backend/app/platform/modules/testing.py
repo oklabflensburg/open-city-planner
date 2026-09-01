@@ -14,6 +14,8 @@ from app.platform.modules.contracts import LifecycleContribution, ModuleRegistra
 from app.platform.modules.manifest import validate_manifest
 from app.platform.modules.runtime import MODULE_SDK_VERSION
 from app.platform.modules.sdk import (
+    OSM_SNAPSHOT_QUERY_SERVICE_ID,
+    OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
     BackendModule,
     DomainEvent,
     EventEnvelope,
@@ -27,6 +29,9 @@ from app.platform.modules.sdk import (
     ModuleManifestV1,
     ModulePrincipal,
     ObservabilityPort,
+    OsmFeatureSnapshotPage,
+    OsmSnapshotQuery,
+    OsmSnapshotQueryPort,
     SerializableDomainEvent,
     SpanPort,
     event_envelope,
@@ -168,6 +173,21 @@ class FakeServiceRegistry:
 
     def seal(self) -> None:
         self.sealed = True
+
+
+class FakeOsmSnapshotQueries:
+    """Scriptable public OSM snapshot fake for external module tests."""
+
+    def __init__(self, pages: Sequence[OsmFeatureSnapshotPage] = ()) -> None:
+        self.pages = list(pages)
+        self.calls: list[OsmSnapshotQuery] = []
+
+    async def list_features(self, session, query: OsmSnapshotQuery) -> OsmFeatureSnapshotPage:
+        del session
+        self.calls.append(query)
+        if self.pages:
+            return self.pages.pop(0)
+        return OsmFeatureSnapshotPage(items=())
 
 
 class FakePermissions:
@@ -486,6 +506,13 @@ def create_test_module_context(
         metrics=FakeMetrics(),
         tracer=FakeTracer(),
     )
+    service_registry = FakeServiceRegistry()
+    service_registry.register(
+        OsmSnapshotQueryPort,
+        FakeOsmSnapshotQueries(),
+        service_id=OSM_SNAPSHOT_QUERY_SERVICE_ID,
+        version=OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
+    )
     return ModuleContext(
         module_id=module_id,
         module_version=module_version,
@@ -493,7 +520,7 @@ def create_test_module_context(
         lifecycle=registration,
         observability=observability,
         events=FakeEventBus(),
-        services=FakeServiceRegistry(),
+        services=service_registry,
         permissions=FakePermissions(),
         permission_dependencies=FakePermissionDependencies(),
         cache=FakeCache(module_id),
@@ -516,6 +543,7 @@ __all__ = [
     "FakeMetrics",
     "FakeModuleSettings",
     "FakeObservability",
+    "FakeOsmSnapshotQueries",
     "FakePermissionDependencies",
     "FakePermissions",
     "FakeScheduler",

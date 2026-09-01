@@ -198,6 +198,10 @@ Kommunalstatistik erhöhen die SDK-Version auf `1.9.0`.
 Die additive transaktionale `CacheGenerationPort.bump()`-Methode erhöht die
 SDK-Version auf `1.10.0`. `current()` bleibt unverändert; `bump()` verwendet die
 Caller-Session, öffnet keine zweite Transaktion und committet nicht selbst.
+Der additive, über die Service-Registry aufgelöste
+[`OsmSnapshotQueryPort`](osm-public-contract.md) und der öffentliche
+`osm.postprocessing-completed`-Eventvertrag erhöhen die SDK-Version auf `1.11.0`.
+Beide Verträge geben weder Host-ORM-Modelle noch modulbezogene Fachableitungen aus.
 Alle Ports sind optional; bestehende Module und ihre Context-Konstruktion bleiben
 damit rückwärtskompatibel.
 

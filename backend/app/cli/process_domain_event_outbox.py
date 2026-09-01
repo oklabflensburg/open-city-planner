@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from app.core.config import BACKEND_ENV_FILE, get_settings
 from app.db.session import AsyncSessionLocal
+from app.integrations.module_host_ports import HostOsmSnapshotQueries
 from app.observability.jobs import observed_job
 from app.platform.events import InProcessEventBus
 from app.platform.events.jobs import domain_event_outbox_handler
@@ -38,7 +39,10 @@ async def run(limit: int) -> dict[str, int]:
         ),
         host_version=settings.api_version,
         context_factory=ModuleContextFactory(
-            ModuleHostServices(database=HostDatabaseSessionProvider()),
+            ModuleHostServices(
+                database=HostDatabaseSessionProvider(),
+                osm_snapshots=HostOsmSnapshotQueries(),
+            ),
             event_bus=bus,
             module_env_file=BACKEND_ENV_FILE,
         ),

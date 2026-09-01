@@ -10,7 +10,9 @@ from app.db.session import AsyncSessionLocal
 from app.modules.analysis_areas.application.legacy_sync import sync_osm_analysis_areas
 from app.observability.jobs import observed_job
 from app.observability.metrics import OSM_REPLICATION_LAG
+from app.platform.modules.sdk import OsmPostprocessingCompleted
 from app.services.cache_versions import bump_cache_versions
+from app.services.osm_event_publisher import enqueue_osm_postprocessing_completed
 from app.services.wikidata_enrichment import WikidataEnrichmentService
 
 REGION_SQL = """
@@ -166,6 +168,16 @@ async def run(
                 "updated": counts.updated,
                 "deleted": counts.deleted,
             },
+        )
+        await enqueue_osm_postprocessing_completed(
+            session,
+            OsmPostprocessingCompleted(
+                sequence=sequence,
+                osm_timestamp=osm_timestamp,
+                inserted=counts.inserted,
+                updated=counts.updated,
+                deleted=counts.deleted,
+            ),
         )
         progress(verbose, started_at, "commit")
         await session.commit()

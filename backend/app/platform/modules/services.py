@@ -228,7 +228,7 @@ class ModuleServiceRegistryAdapter:
 
     def _validate_dependency(self, service_id: str, *, required: bool) -> None:
         provider_module = service_id.partition(".")[0]
-        if provider_module == self._manifest.id:
+        if provider_module in {self._manifest.id, "platform"}:
             return
         declared_required = provider_module in self._manifest.requires.modules
         declared_optional = provider_module in self._manifest.optional.modules

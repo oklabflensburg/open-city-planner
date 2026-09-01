@@ -16,6 +16,8 @@ from app.platform.modules.permissions import (
     RegistryPermissionPort,
 )
 from app.platform.modules.sdk import (
+    OSM_SNAPSHOT_QUERY_SERVICE_ID,
+    OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
     CacheGenerationPort,
     CachePort,
     DatabaseSessionProvider,
@@ -26,6 +28,7 @@ from app.platform.modules.sdk import (
     ModuleContext,
     ModuleSettingsPort,
     ObservabilityPort,
+    OsmSnapshotQueryPort,
     PermissionDependencyFactory,
     PermissionPort,
     PolygonAnalyticsPort,
@@ -109,6 +112,7 @@ class ModuleHostServices:
     polygons: PolygonQueryPort | None = None
     polygon_analytics: PolygonAnalyticsPort | None = None
     statistics: StatisticsQueryPort | None = None
+    osm_snapshots: OsmSnapshotQueryPort | None = None
     storage: StoragePort | None = None
     http: HttpClientFactoryPort | None = None
     scheduler: SchedulerPort | None = None
@@ -138,6 +142,14 @@ class ModuleContextFactory:
         self._service_registry: ServiceRegistry | None = None
         if self._services.services is None:
             self._service_registry = ServiceRegistry()
+            if self._services.osm_snapshots is not None:
+                self._service_registry.register(
+                    provider_module="platform",
+                    contract=OsmSnapshotQueryPort,
+                    implementation=self._services.osm_snapshots,
+                    service_id=OSM_SNAPSHOT_QUERY_SERVICE_ID,
+                    version=OSM_SNAPSHOT_QUERY_SERVICE_VERSION,
+                )
         self._settings_registry: ModuleSettingsRegistry | None = None
         if self._services.settings is None:
             self._settings_registry = settings_registry or ModuleSettingsRegistry(
