@@ -1,7 +1,7 @@
 [Unit]
 Description=Open City Planner FastAPI API
-After=network-online.target postgresql.service redis-server.service{% if stadtplaner_map_renderer_enabled | bool %} stadtplaner-map-renderer.service{% endif %}{% if stadtplaner_manage_otel_collector | default(false) | bool %} stadtplaner-otel-collector.service{% endif %}
-Wants=network-online.target{% if stadtplaner_map_renderer_enabled | bool %} stadtplaner-map-renderer.service{% endif %}{% if stadtplaner_manage_otel_collector | default(false) | bool %} stadtplaner-otel-collector.service{% endif %}
+After=network-online.target postgresql.service redis-server.service{{ ' stadtplaner-map-renderer.service' if stadtplaner_map_renderer_enabled | bool else '' }}{{ ' stadtplaner-otel-collector.service' if stadtplaner_manage_otel_collector | default(false) | bool else '' }}
+Wants=network-online.target{{ ' stadtplaner-map-renderer.service' if stadtplaner_map_renderer_enabled | bool else '' }}{{ ' stadtplaner-otel-collector.service' if stadtplaner_manage_otel_collector | default(false) | bool else '' }}
 
 [Service]
 Type=simple
