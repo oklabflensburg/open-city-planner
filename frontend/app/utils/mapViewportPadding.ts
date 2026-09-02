@@ -3,7 +3,7 @@ export type MapViewportPadding = { top: number, right: number, bottom: number, l
 type MapViewportLayout = {
   viewportWidth: number
   viewportHeight: number
-  assistantOpen: boolean
+  leftPanelExpanded: boolean
   bottomSheetOpen: boolean
   compactPanelOpen: boolean
   analysisPanelVisible: boolean
@@ -33,6 +33,6 @@ export function getMapViewportPadding(layout: MapViewportLayout): MapViewportPad
     top: 48,
     right: layout.analysisPanelVisible ? 48 : 36,
     bottom: 48,
-    left: layout.assistantOpen ? 56 : 48
+    left: layout.leftPanelExpanded ? 56 : 48
   }
 }

@@ -14,9 +14,9 @@ bei reinen Dokumentationsänderungen nicht.
 | Backend CI | `backend-migrations` | genau ein Alembic-Head, Upgrade einer frischen PostGIS-Datenbank sowie Modul-Persistence-, Schema- und Migrationscontracts |
 | Frontend CI | `frontend-tests` | vollständige Vitest-Suite sowie explizite Frontend-Modul-, UI-Contribution- und SSR-Smoke-Tests |
 | Frontend CI | `frontend-typecheck` | Nuxt-/Vue-Typecheck ohne optionale Module und mit dem Example-Modul |
-| Frontend CI | `frontend-build` | Produktiver Modul-Preflight, getrennte Nuxt-Builds für Example-Modul, produktive Analysis Areas und deaktivierten Host sowie SSR-/SEO-Audit des produktiven Analysis-Areas-Artefakts |
+| Frontend CI | `frontend-build` | Produktiver Modul-Preflight, Nuxt-Build mit Example-Modul sowie Build und SSR-/SEO-Audit des Slim Hosts ohne Fachmodule |
 | Frontend CI | `frontend-language-audit` | Audit der sichtbaren Sprache |
-| E2E Tests | `e2e` | vollständige Playwright-Suite mit echtem Frontend, Backend, produktiver `analysis-areas`-Modulkonfiguration und frischer PostGIS-Datenbank |
+| E2E Tests | `e2e` | vollständige Host-Playwright-Suite mit echtem Frontend, Backend, leerem Modul-Inventar und frischer PostGIS-Datenbank |
 | Security | `security-policy-validation` | Format, Vollständigkeit und Ablauf befristeter Security-Ausnahmen sowie negative Policy-Tests |
 | Security | `backend-audit` | `pip-audit 2.10.1` gegen den eingefrorenen Python-Produktionssatz |
 | Security | `frontend-audit` | `pnpm audit --prod` gegen das eingefrorene Frontend-Lockfile |
@@ -27,8 +27,9 @@ bei reinen Dokumentationsänderungen nicht.
 | Module Contract Gate | `Module contract gate` | Backend-/Frontend-Importgrenzen, Manifest-, Dependency-, Registry-, Map- und SSR-Verträge ohne Playwright |
 
 Der Cross-Repo-Teil des Module Contract Gate baut `ocp-module-analysis-areas`
-reproduzierbar vom vollständigen PR-#9-Commit
-`fe6d11cb53575e0cbc383d8de714d5f9711f77c0`, prüft Bundle, deaktivierte
+reproduzierbar vom aktuellen `main`-Commit
+`8951b36ce9334fc76fea502627b95e8a16b2e0bf` (einschließlich PR #9 und dessen
+Staging-Pin aus PR #10), prüft Bundle, deaktivierte
 Installation, Migration Ownership, Enable/Disable/Re-enable und die bestehenden
 API-Characterization-Tests. Eine zusätzliche Consumer-Probe liest die
 Area→Polygon-Relation ausschließlich über die Persistenzmodelle des externen
@@ -46,9 +47,8 @@ aus `.node-version`, uv 0.12.5 und die in `frontend/package.json` festgelegte
 pnpm-Version 11.22.0. Backend-Abhängigkeiten stammen ausschließlich aus
 `backend/uv.lock`; Frontend-Abhängigkeiten werden ausschließlich mit
 `--frozen-lockfile` installiert. Redis wird nicht gestartet, weil die Tests den optionalen
-Cache nicht benötigen. Netzwerkzugriffe zu Mastodon, OSM, Wikidata, Wikipedia,
-Nominatim oder Superset sind in der E2E-Umgebung deaktiviert beziehungsweise in
-den betroffenen Tests gemockt.
+Cache nicht benötigen. Externe Netzwerkzugriffe sind in der E2E-Umgebung
+deaktiviert beziehungsweise in den betroffenen Tests gemockt.
 
 Playwright installiert sein eigenes Chromium. Fehlgeschlagene Läufe laden Traces,
 Screenshots und den HTML-Bericht für sieben Tage als Artefakt hoch. Retries bleiben
@@ -57,11 +57,10 @@ weil mehrere Tests denselben Nuxt-Entwicklungsserver verwenden und parallele
 Reloads dessen Hydration und gemockte Browseranfragen gegenseitig beeinflussen.
 Die Testdaten erzeugt
 `backend/tests/e2e_seed.py` nach dem vollständigen Alembic-Upgrade ausschließlich
-für die frische CI-Datenbank. Das E2E-Gate setzt `ENABLED_MODULES=analysis-areas`,
-erzeugt daraus nach der eingefrorenen Backend-Installation das versionierte
-Inventar und setzt `OCP_FRONTEND_MODULES=analysis-areas`. Playwright vererbt diese
-Workflow-Umgebung einschließlich des generierten internen
-`OCP_BACKEND_MODULES`-Transports an den Uvicorn- und Nuxt-Webserver.
+für die frische CI-Datenbank. Das E2E-Gate setzt `ENABLED_MODULES` und
+`OCP_FRONTEND_MODULES` explizit leer und erzeugt das leere Backend-Inventar.
+Playwright vererbt diese Workflow-Umgebung einschließlich des generierten
+internen `OCP_BACKEND_MODULES`-Transports an den Uvicorn- und Nuxt-Webserver.
 Frontend-Modul- und Backend-Migrations-Preflight validieren die Konfiguration vor
 dem Browserlauf.
 
@@ -91,7 +90,7 @@ uv run alembic upgrade head
 Frontend:
 
 ```bash
-export ENABLED_MODULES=analysis-areas
+export ENABLED_MODULES=
 export OCP_BACKEND_MODULES="$(scripts/backend-module-inventory --format env)"
 cd frontend
 pnpm install --frozen-lockfile
@@ -102,29 +101,28 @@ pnpm test:modules:ssr
 pnpm typecheck
 OCP_FRONTEND_MODULES=example-module pnpm typecheck
 OCP_FRONTEND_MODULES=example-module pnpm build
-OCP_FRONTEND_MODULES=analysis-areas pnpm modules:check
-OCP_FRONTEND_MODULES=analysis-areas pnpm build
+OCP_FRONTEND_MODULES= pnpm modules:check
+OCP_FRONTEND_MODULES= pnpm build
 pnpm audit:seo
 OCP_FRONTEND_MODULES= pnpm build
 pnpm audit:language
 ```
 
-`pnpm audit:seo` startet den zuvor erzeugten Nitro-Production-Server und eine
+`pnpm audit:seo` startet den zuvor erzeugten Slim-Host-Nitro-Server und eine
 lokale Fixture-API auf freien Loopback-Ports. SSR-Aufrufe verwenden dabei die
 private `NUXT_API_INTERNAL_BASE_URL`; alle geprüften Canonical-, OpenGraph-,
 Twitter-, Sitemap- und JSON-LD-URLs verwenden weiterhin ausschließlich die
 production-artigen öffentlichen HTTPS-Origins. Der Audit crawlt alle
 Sitemap-Ziele sowie eine kompakte Matrix aus Noindex-, Auth-, Admin-,
-Social-Preview-, Redirect- und 404-Routen. Zusätzlich prüft er das globale
-Favicon-/Manifest-Set, die tatsächlichen PNG-Abmessungen und den 1200×630-
-Social-Image-Fallback aller indexierbaren Seiten.
+Preview-, Redirect- und 404-Routen. Zusätzlich prüft er das globale
+Favicon-/Manifest-Set, die tatsächlichen PNG-Abmessungen und das Social-Image-
+Fallback aller indexierbaren Seiten.
 
 Der Frontend-Modul-Preflight läuft zusätzlich beim Laden von `nuxt.config.ts` und
 kann daher nicht durch einen direkten Nuxt-Aufruf umgangen werden. CI baut zuerst
-den generischen Host mit dem lokal entdeckten `example-module`, danach die
-produktive Konfiguration mit `analysis-areas`. Der SEO-Audit läuft unmittelbar auf
-diesem produktiven Artefakt. Erst anschließend belegt ein eigener Build, dass der
-Host mit explizit deaktivierten optionalen Modulen weiterhin funktioniert.
+den generischen Host mit dem lokal entdeckten `example-module`, danach den Slim
+Host mit explizit leerem produktiven Modulinventar. Der SEO-Audit läuft auf diesem
+Slim-Host-Artefakt.
 Duplicate IDs, fehlende Module, inkompatible Versionen, Routenkollisionen,
 Contribution-Ownership, Visibility und versiegelte Registry-Lifecycles werden
 durch gezielte negative Tests abgedeckt.
@@ -135,14 +133,14 @@ Testdatenbank zeigen:
 ```bash
 cd backend
 uv sync --frozen --extra dev --no-editable
-export ENABLED_MODULES=analysis-areas
+export ENABLED_MODULES=
 uv run alembic upgrade head
 uv run python tests/e2e_seed.py
 uv run python -m app.cli.module_migrations preflight
 export OCP_BACKEND_MODULES="$(../scripts/backend-module-inventory --format env)"
 cd ../frontend
 pnpm exec playwright install chromium
-export OCP_FRONTEND_MODULES=analysis-areas
+export OCP_FRONTEND_MODULES=
 pnpm modules:check
 pnpm test:e2e
 ```

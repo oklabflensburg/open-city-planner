@@ -6,8 +6,6 @@
       <button class="min-h-11 cursor-pointer rounded-xl bg-[#154d73] px-3 text-sm font-bold text-white hover:bg-[#0f3f61]" type="button" @click="$emit('close')">{{ resultLabel }}</button>
     </div>
   </template>
-  <IntelligentSearch v-else-if="mapStore.activeGisPanel === 'assistant'" embedded />
-  <LazyRightSidebar v-else-if="mapStore.activeGisPanel === 'analytics'" embedded />
   <div v-else-if="mapStore.activeGisPanel === 'selection'" :class="compact ? 'min-h-full' : '-m-3 min-h-full bg-white p-4'">
     <MapSelectionContent embedded />
   </div>

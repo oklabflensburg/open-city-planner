@@ -11,7 +11,6 @@ stadtplaner_config_dir: /etc/stadtplaner
 stadtplaner_env_releases_dir: "{{ stadtplaner_config_dir }}/releases"
 stadtplaner_data_dir: /data/stadtplaner
 stadtplaner_module_install_root: /var/lib/stadtplaner/modules
-stadtplaner_social_dir: /data/stadtplaner-social
 stadtplaner_avatar_upload_dir: /data/uploads
 stadtplaner_observability_dir: /data/stadtplaner/observability
 stadtplaner_metrics_allowed_cidrs: []
@@ -47,10 +46,8 @@ stadtplaner_osm_env_file: /etc/stadtplaner/osm-sync.env
 stadtplaner_manage_nginx: true
 stadtplaner_manage_background_timers: true
 stadtplaner_enable_osm_timer: true
-stadtplaner_enable_statistics_timer: true
 stadtplaner_enable_email_outbox_timer: true
 stadtplaner_enable_domain_event_outbox_timer: true
-stadtplaner_enable_social_publisher_timer: false
 
 stadtplaner_public_host: stadtplaner.oklabflensburg.de
 stadtplaner_api_host: api.stadtplaner.oklabflensburg.de

@@ -143,12 +143,18 @@ class MigrationCoordinator:
             raise ModulePersistenceError(
                 "Migration source contains no revisions.", module_id=missing[0]
             )
-        if first_module_order != expected_order:
-            misplaced = next(
+        positions = {
+            module_id: index for index, module_id in enumerate(first_module_order)
+        }
+        misplaced = next(
+            (
                 module_id
-                for index, module_id in enumerate(first_module_order)
-                if index >= len(expected_order) or module_id != expected_order[index]
-            )
+                for module_id, dependencies in self._registry.migration_dependencies.items()
+                if any(positions[dependency] > positions[module_id] for dependency in dependencies)
+            ),
+            None,
+        )
+        if misplaced is not None:
             raise ModulePersistenceError(
                 "Initial module revisions do not follow the resolved dependency order.",
                 module_id=misplaced,

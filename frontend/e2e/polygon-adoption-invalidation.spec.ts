@@ -7,7 +7,7 @@ const polygon = {
   id: polygonId, slug: 'osm-mode-adoptiert', name: 'OSM Mode', description: null, floor: 'EG', area_size: 'S', address_display_name: 'Holm 1, Flensburg',
   address_street: 'Holm', address_house_number: '1', address_postal_code: '24937', address_city: 'Flensburg', address_country: 'Deutschland', address_lookup_status: 'resolved',
   category: 'fashion', occupancy_status: 'UNKNOWN', occupancy_source: 'UNKNOWN', business_structure: 'UNKNOWN', geometry,
-  external_links: { wikidata: null, wikipedia: null },
+  external_links: { wikipedia: null },
   osm_sources: [{ osm_type: 'node', osm_id: 123, is_primary: true, imported_at: '2026-08-17T08:00:00Z' }],
   area_m2: 120, perimeter_m: 48, centroid: [9.435, 54.783], bbox: [9.4348, 54.7828, 9.4352, 54.7832],
   properties: {}, created_at: '2026-08-17T08:00:00Z', updated_at: '2026-08-17T08:00:00Z'
@@ -17,20 +17,6 @@ const osmFeature = {
   properties: {
     feature_id: 'node/123', osm_type: 'node', osm_id: 123, category: 'retail', canonical_category: 'fashion', name: 'OSM Mode', primary_type: 'clothes', natural: null,
     feature_type: 'point', source: 'OSM', canonical_floor: 'EG', mapped_area_m2: null, occupancy_status: 'UNKNOWN', occupancy_source: null, stadtplaner: []
-  }
-}
-
-function analytics(adopted: boolean) {
-  return {
-    fast_facts: {
-      shops: 1, polygon_count: adopted ? 1 : 0, total_area_m2: adopted ? 120 : null, average_area_m2: adopted ? 120 : null, median_area_m2: adopted ? 120 : null,
-      vacant_area_m2: null, vacancy_area_rate: null, calculated_vacancy_rate: null, calculated_chain_store_rate: null,
-      known_occupancy_count: 0, known_business_structure_count: 0, data_updated_at: '2026-08-17T08:00:00Z',
-      vacancy_rate: null, chain_store_rate: null, centrality_index: null, purchasing_power_index: null, reference_date: null, source: null, updated_at: null
-    },
-    industry_distribution: adopted ? [{ category: 'fashion', count: 1 }] : [],
-    category_counts: [{ category: 'fashion', count: 1 }], size_distribution: [], floor_distribution: [], status_distribution: [], business_structure_distribution: [], data_completeness: [],
-    prime_rents: { unit: 'EUR_PER_SQM', period: null, rows: [] }
   }
 }
 
@@ -48,11 +34,10 @@ test('OSM adoption invalidates the same viewport and shows the persisted polygon
   await page.route('**/api/v1/notifications/unread-count', route => route.fulfill({ json: { unread_count: 0 } }))
   await page.route('**/api/v1/notifications/subscriptions', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/notifications?*', route => route.fulfill({ json: { items: [], total: 0, page: 1, pages: 1, unread_count: 0 } }))
-  await page.route('**/api/v1/analysis-areas**', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/osm/features/node/123', route => route.fulfill({ json: {
     osm_id: 123, osm_type: 'node', name: 'OSM Mode', category: 'retail', shop: 'clothes', level: '0', tags: { shop: 'clothes', level: '0' },
     centroid: { longitude: 9.435, latitude: 54.783 }, occupancy_status: 'UNKNOWN', occupancy_source: null,
-    external_links: { wikidata: null, wikipedia: null }
+    external_links: { wikipedia: null }
   } }))
   await page.route('**/api/v1/polygons/from-osm', async (route) => {
     adoptionRequests += 1
@@ -83,7 +68,6 @@ test('OSM adoption invalidates the same viewport and shows the persisted polygon
         context_count: 0, deduplicated_linked_count: adopted ? 1 : 0, truncated: false, zoom: 17, osm_data_updated_at: '2026-08-17T08:00:00Z' }
     } })
   })
-  await page.route('**/api/v1/analytics/overview**', route => route.fulfill({ json: analytics(adopted) }))
 
   let before!: { x: number, y: number, center: number[], zoom: number }
   const viewports = [{ width: 1024, height: 768 }, { width: 390, height: 844 }, { width: 1440, height: 900 }]
@@ -142,8 +126,6 @@ test('OSM adoption invalidates the same viewport and shows the persisted polygon
   await page.goBack()
 
   await expect(page).toHaveURL(/categories=fashion.*floors=EG|floors=EG.*categories=fashion/)
-  await expect(page.getByText(/1 gepflegte Fläche/)).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByText(/0 passende OSM-Objekte im Ausschnitt/)).toBeVisible()
   await expect.poll(() => page.evaluate((id) => {
     const map = window.__stadtplanerMapPerformance?.map
     return map?.querySourceFeatures('overview-polygons').some(feature => feature.id === id || feature.properties.id === id) || false
@@ -159,7 +141,6 @@ test('OSM adoption invalidates the same viewport and shows the persisted polygon
   expect(osmRequestsAfterAdoption).toBe(1)
 
   await page.reload()
-  await expect(page.getByText(/1 gepflegte Fläche/)).toBeVisible({ timeout: 30_000 })
   await expect.poll(() => page.evaluate((id) => {
     const map = window.__stadtplanerMapPerformance?.map
     return map?.querySourceFeatures('overview-polygons').some(feature => feature.id === id || feature.properties.id === id) || false

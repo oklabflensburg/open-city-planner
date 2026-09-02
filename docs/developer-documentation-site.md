@@ -7,7 +7,7 @@ Die technische Dokumentation wird auf zwei Ebenen gepflegt:
 
 ## Warum eine eigene Subdomain?
 
-Die öffentliche Hilfe unter `stadtplaner.oklabflensburg.de/dokumentation` richtet sich an Nutzer des GIS. Technische Inhalte zu PostGIS, OSM-Synchronisation, Groq, CI, Performance und Deployment würden diese Navigation unnötig überladen. Die Subdomain trennt Zielgruppen, verwendet aber weiterhin dieselbe Nuxt-Anwendung und dasselbe Designsystem.
+Die öffentliche Hilfe unter `stadtplaner.oklabflensburg.de/dokumentation` richtet sich an Nutzer des GIS. Technische Inhalte zu PostGIS, OSM-Synchronisation, Modulverträgen, CI, Performance und Deployment würden diese Navigation unnötig überladen. Die Subdomain trennt Zielgruppen, verwendet aber weiterhin dieselbe Nuxt-Anwendung und dasselbe Designsystem.
 
 ## Routing
 
@@ -43,8 +43,8 @@ Die Entwicklerseite enthält kuratierte Einstiege zu:
 - Architektur
 - API und Backend
 - OpenStreetMap und GIS
-- kommunaler Statistik
-- intelligenter Suche und Assistant
+- Modul-SDK, Contributions und installierbaren Fachmodulen
+- generischen Polygon-, Karten- und OSM-Verträgen
 - CI und Tests
 - Deployment und Betrieb
 

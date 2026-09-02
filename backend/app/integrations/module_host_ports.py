@@ -8,7 +8,6 @@ import re
 from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import fields
-from typing import cast
 from urllib.parse import urlsplit
 
 import httpx
@@ -21,8 +20,6 @@ from app.core.config import Settings, get_settings
 from app.models.user_polygon import UserPolygon
 from app.observability.external import instrumented_httpx_request
 from app.platform.modules.sdk import (
-    AreaStatistics,
-    AreaStatisticSeries,
     CachePort,
     CompletenessValue,
     CountValue,
@@ -43,11 +40,6 @@ from app.platform.modules.sdk import (
     PolygonSpatialMatchResult,
     PublicPolygonSummary,
     PublicQueryLimits,
-    StatisticsArea,
-    StatisticSeriesPoint,
-    StatisticsSelection,
-    StatisticsSource,
-    StatisticValue,
 )
 from app.services import polygon_analytics
 from app.services.cache_versions import bump_cache_versions, cache_version
@@ -418,71 +410,6 @@ class HostPolygonAnalytics:
         return _count_values(values)
 
 
-def _statistics_area(value) -> StatisticsArea:
-    return StatisticsArea(
-        id=value.id,
-        slug=value.slug,
-        name=value.name,
-        area_type=value.area_type,
-    )
-
-
-def _statistics_source(value) -> StatisticsSource | None:
-    if value is None:
-        return None
-    return StatisticsSource(
-        name=value.name,
-        url=value.url,
-        license=value.license,
-        source_updated_at=value.source_updated_at,
-        last_import_at=value.last_import_at,
-    )
-
-
-class HostStatisticsQueries:
-    """Public DTO adapter owned by the municipal-statistics domain."""
-
-    async def for_selection(
-        self, session: AsyncSession, selection: StatisticsSelection
-    ) -> AreaStatistics | None:
-        from app.services import area_statistics
-
-        value = await area_statistics.area_statistics(session, selection)
-        if value is None:
-            return None
-        return AreaStatistics(
-            area=_statistics_area(value.area),
-            statistics_area=_statistics_area(value.statistics_area),
-            inherited_from_parent=value.inherited_from_parent,
-            source=_statistics_source(value.source),
-            latest=tuple(StatisticValue(**item.model_dump()) for item in value.latest),
-        )
-
-    async def series_for_selection(
-        self,
-        session: AsyncSession,
-        selection: StatisticsSelection,
-        metric_key: str,
-    ) -> AreaStatisticSeries | None:
-        from app.services import area_statistics
-
-        value = await area_statistics.area_statistic_series(
-            session, selection, metric_key
-        )
-        if value is None:
-            return None
-        return AreaStatisticSeries(
-            area=_statistics_area(value.area),
-            statistics_area=_statistics_area(value.statistics_area),
-            inherited_from_parent=value.inherited_from_parent,
-            source=_statistics_source(value.source),
-            metric=cast(dict[str, str], value.metric),
-            series=tuple(
-                StatisticSeriesPoint(**item.model_dump()) for item in value.series
-            ),
-        )
-
-
 __all__ = [
     "HostCacheGenerations",
     "HostMapPreviews",
@@ -493,5 +420,4 @@ __all__ = [
     "HostPolygonQueries",
     "HostPolygonSpatialMatches",
     "HostPublicQueries",
-    "HostStatisticsQueries",
 ]

@@ -140,15 +140,12 @@ async def test_http_observability_uses_service_and_method_not_url(
     assert "/document" not in observed["operation"]
 
 
-def test_production_compositions_wire_http_factory() -> None:
+def test_production_compositions_wire_http_factory_without_builtin_modules() -> None:
     from app import main
     from app.cli import process_domain_event_outbox
 
-    assert main.module_runtime.registry.records
-    assert all(
-        isinstance(record.context.http, HostModuleHttpClientFactory)
-        for record in main.module_runtime.registry.records
-    )
+    assert main.module_runtime.registry.records == ()
+    assert "http=HostModuleHttpClientFactory(settings=settings)" in inspect.getsource(main)
     worker_source = inspect.getsource(process_domain_event_outbox.run)
     assert "http=HostModuleHttpClientFactory(settings=settings)" in worker_source
 

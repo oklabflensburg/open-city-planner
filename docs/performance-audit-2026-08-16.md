@@ -1,5 +1,8 @@
 # Lighthouse-/Performance-Audit vom 16.08.2026
 
+> Historische Messung des damaligen Funktionsstands. Die genannten Gebiets-,
+> Analytics- und Suchrouten sind keine Verträge des späteren Slim Hosts.
+
 ## Messbedingungen
 
 - Lighthouse 13.4.1, Mobile-Standardprofil, Headless Chromium 150

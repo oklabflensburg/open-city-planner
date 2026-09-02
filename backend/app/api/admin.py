@@ -7,12 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from app.auth.dependencies import (
     SessionDep,
     require_csrf_superuser,
-    require_permission,
     require_superuser,
 )
 from app.cache.service import cache_service
-from app.core.config import get_settings
-from app.models.social_publication import SocialPublicationOutbox
 from app.models.user import User
 from app.platform.modules import ModuleOperationalStatusResponse, ModuleRuntime
 from app.schemas.admin import (
@@ -31,16 +28,6 @@ from app.schemas.admin import (
     EmailTemplateReset,
     EmailTemplateTestSendRead,
     EmailTemplateUpdate,
-)
-from app.schemas.social import (
-    MastodonAdminStatusRead,
-    SocialPublicationApprovalUpdate,
-    SocialPublicationApproveAndPublishUpdate,
-    SocialPublicationItemRead,
-    SocialPublicationListRead,
-    SocialPublicationPreviewRead,
-    SocialPublishingSettingsRead,
-    SocialPublishingSettingsUpdate,
 )
 from app.services.admin_email_campaigns import (
     CampaignConflict,
@@ -63,17 +50,6 @@ from app.services.admin_email_templates import (
     send_test_email,
     update_email_template,
 )
-from app.services.admin_social import (
-    approve_social_publication,
-    cancel_social_publication,
-    get_social_publication,
-    list_social_publications,
-    mastodon_admin_status,
-    retry_social_publication,
-    social_publication_preview,
-    social_settings_read,
-    update_social_settings,
-)
 from app.services.admin_users import (
     assign_role,
     get_admin_user,
@@ -88,17 +64,9 @@ from app.services.cache_versions import bump_cache_versions
 from app.services.email_service import EmailTemplateValidationError
 from app.services.mfa_service import require_recent_auth
 from app.services.rate_limit import check_rate_limit, rate_limit_key
-from app.services.social_permissions import SOCIAL_PUBLISH
-from app.services.social_screenshots import ScreenshotService
 
 router = APIRouter(prefix="/admin", tags=["Administration"])
-require_social_publish = require_permission(
-    SOCIAL_PUBLISH, strong_admin_auth=True
-)
-require_csrf_social_publish = require_permission(
-    SOCIAL_PUBLISH, csrf=True, strong_admin_auth=True
-)
-CACHE_NAMESPACES = {"osm", "analytics", "analysis-areas", "polygons"}
+CACHE_NAMESPACES = {"osm", "polygons"}
 
 
 def email_template_error(exc: EmailTemplateValidationError) -> HTTPException:
@@ -415,185 +383,6 @@ async def cancel_email_campaign_admin(
         raise HTTPException(409, str(exc)) from exc
 
 
-@router.get("/social/mastodon/status", response_model=MastodonAdminStatusRead)
-async def get_mastodon_status(
-    response: Response,
-    session: SessionDep,
-    _actor: Annotated[User, Depends(require_social_publish)],
-) -> MastodonAdminStatusRead:
-    private_no_store(response)
-    return await mastodon_admin_status(session)
-
-
-@router.get("/social/publications", response_model=SocialPublicationListRead)
-async def get_social_publications(
-    response: Response,
-    session: SessionDep,
-    _actor: Annotated[User, Depends(require_social_publish)],
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=25, ge=1, le=100),
-    publication_status: str | None = Query(
-        default=None,
-        alias="status",
-        pattern="^(PENDING_APPROVAL|PENDING|PROCESSING|PUBLISHED|FAILED|CANCELLED|DRY_RUN)$",
-    ),
-) -> SocialPublicationListRead:
-    private_no_store(response)
-    return await list_social_publications(
-        session, page=page, page_size=page_size, status=publication_status
-    )
-
-
-@router.post("/social/publications/{event_id}/retry", response_model=SocialPublicationItemRead)
-async def retry_failed_social_publication(
-    event_id: uuid.UUID,
-    response: Response,
-    session: SessionDep,
-    actor: Annotated[User, Depends(require_csrf_social_publish)],
-) -> SocialPublicationItemRead:
-    private_no_store(response)
-    try:
-        await retry_social_publication(session, event_id, actor)
-    except LookupError as exc:
-        raise HTTPException(404, str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(409, str(exc)) from exc
-    item = await get_social_publication(session, event_id)
-    if item is None:
-        raise HTTPException(404, "Das Veröffentlichungsereignis wurde nicht gefunden.")
-    return item
-
-
-@router.get("/social/settings", response_model=SocialPublishingSettingsRead)
-async def get_social_settings_admin(
-    response: Response,
-    session: SessionDep,
-    _actor: Annotated[User, Depends(require_social_publish)],
-) -> SocialPublishingSettingsRead:
-    private_no_store(response)
-    return await social_settings_read(session)
-
-
-@router.patch("/social/settings", response_model=SocialPublishingSettingsRead)
-async def patch_social_settings_admin(
-    payload: SocialPublishingSettingsUpdate,
-    response: Response,
-    session: SessionDep,
-    actor: Annotated[User, Depends(require_csrf_social_publish)],
-) -> SocialPublishingSettingsRead:
-    """Partially update social publishing settings. Superuser only."""
-    private_no_store(response)
-    try:
-        return await update_social_settings(session, payload, actor)
-    except ValueError as exc:
-        raise HTTPException(422, str(exc)) from exc
-
-
-@router.get(
-    "/social/publications/{event_id}/preview",
-    response_model=SocialPublicationPreviewRead,
-)
-async def get_social_publication_preview(
-    event_id: uuid.UUID,
-    response: Response,
-    session: SessionDep,
-    _actor: Annotated[User, Depends(require_social_publish)],
-) -> SocialPublicationPreviewRead:
-    private_no_store(response)
-    try:
-        return await social_publication_preview(session, event_id)
-    except LookupError as exc:
-        raise HTTPException(404, str(exc)) from exc
-
-
-@router.get("/social/publications/{event_id}/screenshot")
-async def get_social_publication_screenshot(
-    event_id: uuid.UUID,
-    response: Response,
-    session: SessionDep,
-    _actor: Annotated[User, Depends(require_social_publish)],
-) -> Response:
-    event = await session.get(SocialPublicationOutbox, event_id)
-    if event is None or not event.screenshot_path:
-        raise HTTPException(404, "Die Screenshot-Vorschau ist noch nicht bereit.")
-    try:
-        content = ScreenshotService(get_settings()).read(event.screenshot_path)
-    except FileNotFoundError as exc:
-        raise HTTPException(404, "Die Screenshot-Vorschau ist nicht verfügbar.") from exc
-    return Response(
-        content=content,
-        media_type="image/jpeg",
-        headers={"Cache-Control": "private, no-store", "Content-Disposition": "inline"},
-    )
-
-
-async def _publication_action_result(
-    session: SessionDep,
-    event_id: uuid.UUID,
-) -> SocialPublicationItemRead:
-    item = await get_social_publication(session, event_id)
-    if item is None:
-        raise HTTPException(404, "Das Veröffentlichungsereignis wurde nicht gefunden.")
-    return item
-
-
-@router.post("/social/publications/{event_id}/approve", response_model=SocialPublicationItemRead)
-async def approve_social_publication_admin(
-    event_id: uuid.UUID,
-    payload: SocialPublicationApprovalUpdate,
-    response: Response,
-    session: SessionDep,
-    actor: Annotated[User, Depends(require_csrf_social_publish)],
-) -> SocialPublicationItemRead:
-    private_no_store(response)
-    try:
-        await approve_social_publication(session, event_id, actor, alt_text=payload.alt_text)
-    except LookupError as exc:
-        raise HTTPException(404, str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(409, str(exc)) from exc
-    return await _publication_action_result(session, event_id)
-
-
-@router.post(
-    "/social/publications/{event_id}/approve-and-publish",
-    response_model=SocialPublicationItemRead,
-)
-async def approve_and_publish_social_publication_admin(
-    event_id: uuid.UUID,
-    payload: SocialPublicationApproveAndPublishUpdate,
-    response: Response,
-    session: SessionDep,
-    actor: Annotated[User, Depends(require_csrf_social_publish)],
-) -> SocialPublicationItemRead:
-    """Approve one publication and enqueue screenshot generation and delivery."""
-    private_no_store(response)
-    try:
-        await approve_social_publication(session, event_id, actor, alt_text=payload.alt_text)
-    except LookupError as exc:
-        raise HTTPException(404, str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(409, str(exc)) from exc
-    return await _publication_action_result(session, event_id)
-
-
-@router.post("/social/publications/{event_id}/cancel", response_model=SocialPublicationItemRead)
-async def cancel_social_publication_admin(
-    event_id: uuid.UUID,
-    response: Response,
-    session: SessionDep,
-    actor: Annotated[User, Depends(require_csrf_social_publish)],
-) -> SocialPublicationItemRead:
-    private_no_store(response)
-    try:
-        await cancel_social_publication(session, event_id, actor)
-    except LookupError as exc:
-        raise HTTPException(404, str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(409, str(exc)) from exc
-    return await _publication_action_result(session, event_id)
-
-
 @router.get("/cache/stats")
 async def get_cache_stats(
     response: Response,
@@ -627,7 +416,7 @@ async def invalidate_cache(
     response: Response,
     session: SessionDep,
     _actor: Annotated[User, Depends(require_csrf_superuser)],
-    namespaces: str = Query(default="analytics,analysis-areas,polygons"),
+    namespaces: str = Query(default="osm,polygons"),
 ) -> dict:
     private_no_store(response)
     selected = tuple(dict.fromkeys(item.strip() for item in namespaces.split(",") if item.strip()))
@@ -664,7 +453,7 @@ async def get_audit_logs(
     page_size: int = Query(default=50, ge=1, le=100),
     action: str | None = Query(default=None, max_length=80),
     user_id: uuid.UUID | None = None,
-    resource_type: str | None = Query(default=None, pattern="^(USER|SYSTEM|ANALYSIS_AREA)$"),
+    resource_type: str | None = Query(default=None, pattern="^(USER|SYSTEM|POLYGON)$"),
     resource_id: uuid.UUID | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,

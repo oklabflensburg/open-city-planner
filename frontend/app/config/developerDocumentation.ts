@@ -9,7 +9,7 @@ export const developerDocumentationPages: DocumentationPage[] = [
     slug: '',
     title: 'Entwicklerdokumentation',
     navTitle: 'Übersicht',
-    description: 'Technischer Einstieg in Architektur, APIs, GIS-Daten, Suche, Tests und Betrieb des Open City Planner.',
+    description: 'Technischer Einstieg in Architektur, APIs, GIS-Daten, Module, Tests und Betrieb des Open City Planner.',
     group: 'Entwicklung',
     keywords: ['Entwickler', 'Architektur', 'Open Source', 'Nuxt', 'FastAPI', 'PostGIS'],
     audience: 'public',
@@ -18,13 +18,11 @@ export const developerDocumentationPages: DocumentationPage[] = [
         id: 'architektur',
         title: 'Technischer Überblick',
         blocks: [
-          { type: 'paragraph', text: 'Der Open City Planner besteht aus einem Nuxt-Frontend, einem FastAPI-Backend und PostgreSQL/PostGIS als fachlicher Datenbank. Redis kann öffentliche Lesezugriffe cachen. OpenStreetMap-, Statistik- und Stadtplaner-Daten werden über klar getrennte Services und öffentliche API-Verträge zusammengeführt.' },
+          { type: 'paragraph', text: 'Der Open City Planner besteht aus einem schlanken Nuxt-/FastAPI-Host und PostgreSQL/PostGIS. Redis kann öffentliche Lesezugriffe cachen. Fachfunktionen werden über stabile Modulverträge ergänzt.' },
           { type: 'links', items: [
             { label: 'Architektur', to: '/dokumentation/entwickler/architektur', description: 'Frontend, Backend, Datenbank und Datenflüsse.' },
             { label: 'API', to: '/dokumentation/entwickler/api', description: 'Öffentliche Ressourcen und OpenAPI.' },
             { label: 'OpenStreetMap', to: '/dokumentation/entwickler/osm', description: 'Import, Mapping, Gebäude, POIs und Synchronisation.' },
-            { label: 'Kommunale Statistik', to: '/dokumentation/entwickler/statistik', description: 'Import, Gebietsbezug und Zeitreihen.' },
-            { label: 'Intelligente Suche', to: '/dokumentation/entwickler/assistant', description: 'SearchPlan, Assistant, Groq und read-only Tools.' },
             { label: 'CI und Tests', to: '/dokumentation/entwickler/ci', description: 'Qualitätschecks und E2E-Tests.' },
             { label: 'Deployment und Betrieb', to: '/dokumentation/entwickler/deployment', description: 'Produktionsbetrieb und zentrale Betriebsreferenz.' }
           ] }
@@ -55,8 +53,8 @@ export const developerDocumentationPages: DocumentationPage[] = [
     sections: [
       { id: 'komponenten', title: 'Kernkomponenten', blocks: [
         { type: 'table', headers: ['Komponente', 'Aufgabe'], rows: [
-          ['Nuxt-Frontend', 'Karte, Filter, Analyse, Dokumentation und Assistant-Oberfläche'],
-          ['FastAPI-Backend', 'Öffentliche API, Authentifizierung, Fachservices, Imports und Assistant-Orchestrierung'],
+          ['Nuxt-Frontend', 'Karte, Filter, Auswahl, Modulbeiträge und Dokumentation'],
+          ['FastAPI-Backend', 'Öffentliche API, Authentifizierung, Fachservices und Imports'],
           ['PostgreSQL/PostGIS', 'Fachliche Hauptdatenbank und räumliche Abfragen'],
           ['MapLibre', 'Interaktive GIS-Darstellung im Browser'],
           ['Redis', 'Optionaler Read-Cache; nicht fachliche Source of Truth']
@@ -67,8 +65,8 @@ export const developerDocumentationPages: DocumentationPage[] = [
           { label: 'Map Performance', to: doc('docs/map-performance.md'), provider: 'github' }
         ] }
       ] },
-      { id: 'datenfluss', title: 'Daten- und Sprachschicht', blocks: [
-        { type: 'paragraph', text: 'GIS-Ergebnisse werden in PostGIS und den vorhandenen Stadtplaner-Services erzeugt. Das Sprachmodell ist keine Datenquelle und erhält keinen freien SQL-Zugriff. Große GeoJSON-Ergebnisse sollen direkt vom Backend an die Karte gelangen und nicht durch das Sprachmodell geleitet werden.' }
+      { id: 'datenfluss', title: 'Datenfluss', blocks: [
+        { type: 'paragraph', text: 'GIS-Ergebnisse werden in PostGIS und den vorhandenen Stadtplaner-Services erzeugt. Große GeoJSON-Ergebnisse gelangen direkt vom Backend an die Karte.' }
       ] }
     ]
   },
@@ -82,11 +80,11 @@ export const developerDocumentationPages: DocumentationPage[] = [
     audience: 'public',
     sections: [
       { id: 'ressourcen', title: 'Öffentliche Ressourcen', blocks: [
-        { type: 'list', items: ['Analysegebiete und GeoJSON', 'Analytics und Gebietsvergleiche', 'Kommunale Statistik und Zeitreihen', 'Öffentliche Stadtplaner-Flächen', 'OpenStreetMap-Features und Details', 'Read-only Assistant und intelligente Suche'] },
+        { type: 'list', items: ['Authentifizierung und Berechtigungen', 'Öffentliche Polygone', 'Benachrichtigungen', 'Modulbeiträge', 'Lokale OpenStreetMap-Snapshots'] },
         { type: 'paragraph', text: 'Die aktuelle OpenAPI des laufenden Backends ist die maßgebliche Endpoint-Referenz. Entwicklerdokumentation sollte deshalb fachliche Ressourcen erklären, aber keine zweite vollständige manuell gepflegte Endpoint-Liste erzeugen.' }
       ] },
       { id: 'sicherheit', title: 'Sicherheitsgrenzen', blocks: [
-        { type: 'paragraph', text: 'Öffentliche Assistant-Funktionen sind read-only. Admin-, Auth-, User- und schreibende Fachoperationen gehören nicht zur Tool-Allowlist des Sprachassistenten.' }
+        { type: 'paragraph', text: 'Admin-, Auth-, User- und schreibende Fachoperationen sind serverseitig geschützt und von öffentlichen Lese-Endpunkten getrennt.' }
       ] }
     ]
   },
@@ -107,48 +105,7 @@ export const developerDocumentationPages: DocumentationPage[] = [
         ] }
       ] },
       { id: 'geometrie', title: 'Räumliche Abfragen', blocks: [
-        { type: 'paragraph', text: 'PostGIS bleibt die Suchmaschine für Geometrien, Gebietszuordnung, BBOX-Vorfilter, Entfernungen und exakte räumliche Einschränkungen. Ein Sprachmodell interpretiert die Anfrage, berechnet aber keine GIS-Geometrien.' }
-      ] }
-    ]
-  },
-  {
-    slug: 'statistik',
-    title: 'Kommunale Statistik',
-    navTitle: 'Statistik',
-    description: 'Technischer Überblick über Statistikimport, Kennzahlen, Zeitreihen und Gebietsvererbung.',
-    group: 'Daten',
-    keywords: ['Statistik', 'Bevölkerung', 'metric_key', 'Zeitreihe', 'Import'],
-    audience: 'public',
-    sections: [
-      { id: 'datenmodell', title: 'Statistikmodell', blocks: [
-        { type: 'paragraph', text: 'Kommunale Statistik wird getrennt von den aus Stadtplaner- und OSM-Daten berechneten Analytics geführt. Die API stellt Gebietsstatistiken und Kennzahl-Zeitreihen bereit und trägt Quelle, Periode und gegebenenfalls die Vererbung eines Werts vom übergeordneten Gebiet.' },
-        { type: 'links', items: [{ label: 'Vollständige Statistik-Referenz', to: doc('docs/flensburg-statistics.md'), provider: 'github' }] }
-      ] }
-    ]
-  },
-  {
-    slug: 'assistant',
-    title: 'Intelligente Suche und Assistant',
-    navTitle: 'Suche & Assistant',
-    description: 'SearchPlan, deterministischer Fast Path, Groq, Tool Registry und kontrollierte Knowledge-Abfragen.',
-    group: 'Entwicklung',
-    keywords: ['Assistant', 'Groq', 'LLM', 'SearchPlan', 'Tool Registry', 'Knowledge'],
-    audience: 'public',
-    sections: [
-      { id: 'pipeline', title: 'Verarbeitung', blocks: [
-        { type: 'steps', items: [
-          { title: 'Eindeutige Kommandos', text: 'Ein kleiner deterministischer Fast Path verarbeitet triviale und sichere Karten- oder Filterbefehle ohne Modellaufruf.' },
-          { title: 'Sprachinterpretation', text: 'Komplexere Formulierungen können über den konfigurierten LLM-Provider in einen validierten Plan übersetzt werden.' },
-          { title: 'Read-only Tools', text: 'Nur explizit freigegebene, Pydantic-validierte Werkzeuge dürfen vorhandene Stadtplaner-Services aufrufen.' },
-          { title: 'Fachliche Antwort', text: 'Zahlen und GIS-Ergebnisse stammen aus PostGIS und den Fachservices; Knowledge liefert kontrollierte Erklärungen.' }
-        ] },
-        { type: 'links', items: [
-          { label: 'Intelligente Suche', to: doc('docs/intelligent-search.md'), provider: 'github' },
-          { label: 'Stadtplaner Assistant', to: doc('docs/stadtplaner-assistant.md'), provider: 'github' }
-        ] }
-      ] },
-      { id: 'groq', title: 'Groq', blocks: [
-        { type: 'paragraph', text: 'Groq ist eine austauschbare Sprach- und Orchestrierungsschicht. API-Schlüssel bleiben ausschließlich im Backend. Das Modell erhält keinen direkten Datenbankzugang und keine vollständige OpenAPI als frei ausführbare Tool-Liste.' }
+        { type: 'paragraph', text: 'PostGIS bleibt die Suchmaschine für Geometrien, BBOX-Vorfilter, Entfernungen und exakte räumliche Einschränkungen.' }
       ] }
     ]
   },
@@ -171,7 +128,7 @@ export const developerDocumentationPages: DocumentationPage[] = [
     slug: 'deployment',
     title: 'Deployment und Betrieb',
     navTitle: 'Deployment',
-    description: 'Produktionsbetrieb von Frontend, Backend, PostGIS, Redis, Imports, Assistant und systemd-Workern.',
+    description: 'Produktionsbetrieb von Frontend, Backend, PostGIS, Redis, Modulen und systemd-Workern.',
     group: 'Betrieb',
     keywords: ['Deployment', 'Produktion', 'systemd', 'Nginx', 'PostGIS', 'Redis', 'Backup'],
     audience: 'public',
@@ -181,7 +138,7 @@ export const developerDocumentationPages: DocumentationPage[] = [
         { type: 'links', items: [{ label: 'Deployment-Referenz', to: doc('docs/deployment.md'), provider: 'github' }] }
       ] },
       { id: 'checkliste', title: 'Vor einem produktiven Update', blocks: [
-        { type: 'list', items: ['Aktuellen Branch und CI-Status prüfen.', 'Vor Schemaänderungen ein Datenbank-Backup sicherstellen.', 'Alembic-Migrationen und Frontend-Build ausführen.', 'Services und Timer nach dem Update prüfen.', 'Read-only Smoke Tests für API, Karte, Statistik und Assistant durchführen.', 'Logs nach dem Restart kontrollieren.'] }
+        { type: 'list', items: ['Aktuellen Branch und CI-Status prüfen.', 'Vor Schemaänderungen ein Datenbank-Backup sicherstellen.', 'Alembic-Migrationen und Frontend-Build ausführen.', 'Services und Timer nach dem Update prüfen.', 'Read-only Smoke Tests für API, Karte, Benachrichtigungen und installierte Module durchführen.', 'Logs nach dem Restart kontrollieren.'] }
       ] }
     ]
   }

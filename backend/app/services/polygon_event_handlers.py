@@ -19,7 +19,6 @@ from app.services.polygons import (
     generate_unique_polygon_slug,
     polygon_slug_source,
 )
-from app.services.social_publishing import cancel_pending_polygon_publications
 
 
 def register_polygon_event_handlers(bus: InProcessEventBus) -> None:
@@ -27,7 +26,6 @@ def register_polygon_event_handlers(bus: InProcessEventBus) -> None:
 
     polygons = HostEventBusAdapter(bus, module_id="polygons")
     notifications = HostEventBusAdapter(bus, module_id="notifications")
-    social = HostEventBusAdapter(bus, module_id="social")
     polygons.subscribe(
         "polygons.created",
         handler_id="polygons.enrich-created-address",
@@ -51,12 +49,6 @@ def register_polygon_event_handlers(bus: InProcessEventBus) -> None:
         handler_id="notifications.polygon-deleted",
         versions=frozenset({1}),
         handler=_notify_polygon_deleted,
-    )
-    social.subscribe(
-        "polygons.deleted",
-        handler_id="social.cancel-deleted-polygon",
-        versions=frozenset({1}),
-        handler=_cancel_deleted_polygon_publications,
     )
 
 
@@ -148,12 +140,6 @@ async def _notify_polygon_deleted(envelope: EventEnvelope) -> None:
         )
         await session.commit()
         publish_notifications(notifications)
-
-
-async def _cancel_deleted_polygon_publications(envelope: EventEnvelope) -> None:
-    async with AsyncSessionLocal() as session:
-        await cancel_pending_polygon_publications(session, _uuid(envelope, "polygon_id"))
-        await session.commit()
 
 
 def _uuid(envelope: EventEnvelope, key: str) -> uuid.UUID:

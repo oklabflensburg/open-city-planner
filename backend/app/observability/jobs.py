@@ -69,7 +69,6 @@ def _persist_job_state(
         outbox_type = {
             "email_outbox": "email",
             "polygon_outbox": "polygon",
-            "social_publisher": "social",
         }.get(job_name)
         if outbox_type and isinstance(result, dict):
             processed = int(

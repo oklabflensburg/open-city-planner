@@ -93,18 +93,10 @@ Die zentrale Leerstandserkennung übernimmt `shop=vacant` und `disused:shop=*` a
 
 Stadtplaner enthält weder OSM-Schreibzugriff noch OSM-OAuth-Schreibrechte oder einen eingebetteten Editor. Nach einem bewussten Klick können öffentliche Nutzer die offizielle StreetComplete-Webseite oder den iD-Editor auf `openstreetmap.org` öffnen. Der iD-Link wird nach Möglichkeit auf den repräsentativen Punkt des gewählten Objekts zentriert. Vor dem Klick entstehen keine zusätzlichen Drittanbieteranfragen.
 
-## Administrative Analysegebiete
+## Domänenspezifische OSM-Verarbeitung
 
-Die Migration `20260814_0014` führt `analysis_areas` und `polygon_analysis_areas` ein. Der Import wird ausschließlich administrativ ausgeführt:
-
-```bash
-cd backend
-.venv/bin/alembic upgrade head
-.venv/bin/python -m app.cli.sync_analysis_areas --municipality Flensburg
-```
-
-Der Dienst sucht die Gemeinde anhand einer realen polygonalen `boundary=administrative`-Relation und leitet die nächsten zwei vorhandenen administrativen Ebenen aus dem lokalen Bestand ab. Geometrien werden mit `ST_MakeValid`, `ST_CollectionExtract(..., 3)` und `ST_Multi` normalisiert. Polygonale `place=borough/suburb/quarter/neighbourhood`-Objekte sind nur ein Fallback; Punkte werden nie gepuffert. Der Upsert ist über OSM-Typ und OSM-ID idempotent.
-
-Im lokalen Flensburger Bestand vom 14. August 2026 wurden Relation 27020 als Gemeinde (`admin_level=6`), 13 Stadtteile (`admin_level=9`) und 37 Quartiere (`admin_level=10`) erkannt. Tarup besitzt in diesem Bestand kein administratives Level-10-Quartier. Punktförmige Ortsobjekte – darunter `place=city`, `place=suburb`, `place=neighbourhood` und das punktförmige `place=quarter` Kattloch – werden nicht als Analysefläche übernommen.
-
-Stadtteile erhalten die Gemeinde als Parent; Quartiere werden über `ST_Covers` und die größte Schnittfläche ihrem Stadtteil zugeordnet. Stadtplaner-Polygone werden anhand von `ST_PointOnSurface` genau einem Gebiet je vorhandener Ebene zugeordnet. Diese Zuordnung wird nach Import sowie nach Erstellung oder Geometrieänderung einer Stadtplaner-Fläche aktualisiert. POIs werden nicht dupliziert, sondern für Gebietsanalysen direkt aus `osm_features` räumlich aggregiert.
+Der Slim Host stellt lokale OSM-Snapshots, generischen Feature-Zugriff und die
+Import-Infrastruktur bereit. Administrative Analysegebiete, Kategorisierung für
+Fachauswertungen und daraus abgeleitete Zuordnungen gehören installierbaren
+Modulen. Ohne ein solches Modul werden diese Funktionen nicht ersatzweise im Host
+ausgeführt.

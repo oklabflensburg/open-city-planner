@@ -11,15 +11,7 @@ const detail = {
   created_at: '2026-08-17T08:00:00Z', updated_at: '2026-08-17T08:00:00Z',
 }
 
-const analytics = {
-  fast_facts: { shops: 0, polygon_count: 0, total_area_m2: null, average_area_m2: null, median_area_m2: null, vacant_area_m2: null, vacancy_area_rate: null,
-    calculated_vacancy_rate: null, calculated_chain_store_rate: null, known_occupancy_count: 0, known_business_structure_count: 0, data_updated_at: null,
-    vacancy_rate: null, chain_store_rate: null, centrality_index: null, purchasing_power_index: null, reference_date: null, source: null, updated_at: null },
-  industry_distribution: [], category_counts: [], size_distribution: [], floor_distribution: [], status_distribution: [], business_structure_distribution: [], data_completeness: [],
-  prime_rents: { unit: 'EUR_PER_SQM', period: null, rows: [] },
-}
-
-test('successful delete invalidates map, analytics and linked OSM suppression without reload', async ({ page }) => {
+test('successful delete invalidates map and linked OSM suppression without reload', async ({ page }) => {
   test.setTimeout(60_000)
   let deleted = false
   await loginAs(page)
@@ -34,8 +26,6 @@ test('successful delete invalidates map, analytics and linked OSM suppression wi
     return route.fulfill({ status: 204, body: '' })
   })
   await page.route('**/api/v1/polygons/overview**', route => route.fulfill({ json: deleted ? [] : [detail] }))
-  await page.route('**/api/v1/analytics/overview**', route => route.fulfill({ json: analytics }))
-  await page.route('**/api/v1/analysis-areas**', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/osm/features?**', route => route.fulfill({ json: {
     type: 'FeatureCollection',
     features: deleted ? [{ type: 'Feature', id: 'way/123', geometry: detail.geometry, properties: { feature_id: 'way/123', osm_type: 'way', osm_id: 123, category: 'retail', canonical_category: 'fashion', name: 'OSM Ursprung', primary_type: 'clothes', natural: null, feature_type: 'polygon', source: 'OSM', canonical_floor: 'EG', mapped_area_m2: 120, occupancy_status: 'UNKNOWN', occupancy_source: null, stadtplaner: [] } }] : [],
@@ -54,13 +44,16 @@ test('successful delete invalidates map, analytics and linked OSM suppression wi
 
   await expect(page).toHaveURL('/karte')
   await expect(page.getByRole('status').filter({ hasText: 'Fläche wurde gelöscht.' })).toBeVisible()
-  await expect(page.getByText(/0 gepflegte Flächen/)).toBeVisible({ timeout: 20_000 })
-  await expect(page.getByText(/1 passende OSM-Objekte im Ausschnitt/)).toBeVisible()
+  await expect.poll(() => page.evaluate(() => {
+    const map = window.__stadtplanerMapPerformance?.map
+    return {
+      polygons: map?.querySourceFeatures('overview-polygons').length ?? -1,
+      osm: map?.querySourceFeatures('osm-polygons').some(feature => feature.properties.feature_id === 'way/123') ?? false
+    }
+  })).toEqual({ polygons: 0, osm: true })
 
   await page.reload()
-  await expect(page.getByText(/0 gepflegte Flächen/)).toBeVisible({ timeout: 20_000 })
-  const deletedDetailResponse = page.waitForResponse(response => response.url().endsWith('/polygons/by-slug/delete-test'))
-  await page.goBack()
+  await page.goto('/flaechen/delete-test')
   await expect(page).toHaveURL('/flaechen/delete-test')
-  expect((await deletedDetailResponse).status()).toBe(404)
+  await expect(page.getByRole('heading', { name: 'Seite nicht gefunden' })).toBeVisible()
 })

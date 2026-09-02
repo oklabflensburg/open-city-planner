@@ -4,7 +4,7 @@ import type { Map, MapGeoJSONFeature, PointLike } from 'maplibre-gl'
 export type InteractivePolygonTarget =
   | { type: 'polygon', id: string }
   | { type: 'osm', id: string }
-  | { type: 'analysis-area', id: string }
+  | { type: 'module', id: string }
 
 export type InteractivePolygonFeature = {
   id: string

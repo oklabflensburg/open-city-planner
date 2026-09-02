@@ -13,4 +13,4 @@ async def test_gis_mutation_versions_every_dependent_cache(monkeypatch: pytest.M
 
     await gis_mutations.invalidate_gis_after_mutation(session)  # type: ignore[arg-type]
 
-    bump.assert_awaited_once_with(session, ("polygons", "analytics", "osm"))
+    bump.assert_awaited_once_with(session, ("polygons", "osm"))

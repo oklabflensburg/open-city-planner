@@ -83,12 +83,6 @@ async function mockDetail(page: Page, authenticated: boolean, initiallyFollowing
   })
   await page.route('**/api/v1/notifications?*', route => route.fulfill({ json: { items: [], total: 0, unread_count: 0, page: 1, page_size: 30, pages: 1 } }))
   await page.route('**/api/v1/polygons/overview**', route => route.fulfill({ json: [] }))
-  await page.route('**/api/v1/analytics/overview**', route => route.fulfill({ json: {
-    fast_facts: { shops: 0, polygon_count: 0, total_area_m2: null, average_area_m2: null, median_area_m2: null, vacant_area_m2: null, vacancy_area_rate: null, calculated_vacancy_rate: null, calculated_chain_store_rate: null, known_occupancy_count: 0, known_business_structure_count: 0, data_updated_at: null, vacancy_rate: null, chain_store_rate: null, centrality_index: null, purchasing_power_index: null, reference_date: null, source: null, updated_at: null },
-    industry_distribution: [], category_counts: [], size_distribution: [], floor_distribution: [], status_distribution: [], business_structure_distribution: [], data_completeness: [],
-    prime_rents: { unit: 'EUR_PER_SQM', period: null, rows: [] }
-  } }))
-  await page.route('**/api/v1/analysis-areas**', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/osm/features?**', route => route.fulfill({ json: {
     type: 'FeatureCollection', features: [], meta: { count: 0, summary: {}, canonical_summary: {}, canonical_facets: {}, business_count: 0, context_count: 0, deduplicated_linked_count: 0, truncated: false, zoom: 17, osm_data_updated_at: null }
   } }))

@@ -683,6 +683,45 @@ def test_migration_preflight_combines_host_and_modules_in_dependency_order() -> 
     ]
 
 
+def test_migration_dependencies_ignore_unrelated_and_migrationless_modules() -> None:
+    provider = module_manifest("statistics", "statistics", migrations=False)
+    consumer = module_manifest(
+        "analysis-areas",
+        "analysis_areas",
+        dependencies={"statistics": ">=1.0.0,<2.0.0"},
+        migrations=True,
+    )
+    unrelated = module_manifest("reference", "reference", migrations=True)
+    resolved = resolve_module_definitions(
+        enabled_module_ids=("analysis-areas", "statistics", "reference"),
+        discovery_providers=(
+            FakeDiscovery(
+                (
+                    module_definition(
+                        consumer,
+                        module_metadata("analysis_areas"),
+                        migration_resource="module_migrations/example_a",
+                    ),
+                    module_definition(provider, module_metadata("statistics")),
+                    module_definition(
+                        unrelated,
+                        module_metadata("reference"),
+                        migration_resource="module_migrations/example_b",
+                    ),
+                )
+            ),
+        ),
+        host_version="0.2.0",
+    )
+
+    registry = build_persistence_registry(resolved, include_legacy=False)
+
+    assert registry.migration_dependencies == {
+        "analysis-areas": frozenset(),
+        "reference": frozenset(),
+    }
+
+
 def migration_registry(*, module_b_resource: str) -> PersistenceRegistry:
     manifest_a = module_manifest("example-a", "example_a", migrations=True)
     manifest_b = module_manifest(

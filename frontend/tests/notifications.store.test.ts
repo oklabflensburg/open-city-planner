@@ -59,7 +59,7 @@ describe('notifications store', () => {
 
   it('formats relative times and rejects external action URLs', () => {
     expect(formatNotificationTime('2026-08-17T09:55:00Z', new Date('2026-08-17T10:00:00Z'))).toBe('vor 5 Min.')
-    expect(safeNotificationTarget('/admin/social')).toBe('/admin/social')
+    expect(safeNotificationTarget('/verwaltung')).toBe('/verwaltung')
     expect(safeNotificationTarget('https://evil.example')).toBeNull()
     expect(safeNotificationTarget('//evil.example')).toBeNull()
   })

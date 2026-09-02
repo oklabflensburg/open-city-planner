@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.polygon_osm_source import PolygonOsmSource
 from app.models.user_polygon import UserPolygon
-from app.modules.analysis_areas.application.legacy_sync import refresh_polygon_area_assignments
 from app.schemas.geojson import AreaGeometry
 from app.schemas.osm import OsmPolygonImportRead, OsmPolygonImportRequest
 from app.services.geometry import to_wkb_element
@@ -27,7 +26,6 @@ from app.services.polygons import (
     generate_unique_polygon_slug,
     polygon_slug_source,
 )
-from app.services.social_publishing import enqueue_polygon_adoption
 
 logger = logging.getLogger(__name__)
 _area_adapter = TypeAdapter(AreaGeometry)
@@ -94,7 +92,6 @@ SNAPSHOT_TAGS = (
     "disused:shop",
     "abandoned",
     "abandoned:shop",
-    "wikidata",
     "wikipedia",
 )
 
@@ -270,19 +267,12 @@ async def create_polygon_from_osm(
                 source_updated_at=geometry_source_row["imported_at"],
             )
         )
-    await enqueue_polygon_adoption(
-        session,
-        polygon,
-        osm_type=payload.osm_type,
-        osm_id=payload.osm_id,
-    )
     await session.commit()
     await session.refresh(polygon)
     if display_address is None and await enrich_polygon_address(session, polygon):
         polygon.slug = await generate_unique_polygon_slug(session, polygon_slug_source(polygon))
         await session.commit()
         await session.refresh(polygon)
-    await refresh_polygon_area_assignments(session, polygon.id)
     await invalidate_gis_after_mutation(session)
     notifications = await notify_users(
         session,

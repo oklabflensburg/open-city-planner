@@ -10,7 +10,6 @@ export type OsmGeometry =
   | { type: 'MultiPolygon', coordinates: number[][][][] }
 
 export type ExternalLinks = {
-  wikidata: { id: string, url: string } | null
   wikipedia: { title: string, url: string } | null
 }
 

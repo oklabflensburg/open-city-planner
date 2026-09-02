@@ -18,19 +18,15 @@ describe('frontend bundle boundaries', () => {
     expect(source('app/components/layout/AppShell.vue')).toContain('useGisFilterHistory()')
   })
 
-  it('keeps authenticated notification UI and charts lazy', () => {
+  it('keeps authenticated notification UI lazy', () => {
     const header = source('app/components/layout/AppHeader.vue')
-    const sidebar = source('app/components/layout/RightSidebar.vue')
     expect(header).toContain('<LazyNotificationBell')
-    expect(sidebar).toContain('<LazyIndustryChart')
-    expect(sidebar).toContain("() => import('~/components/analysis/DistributionCharts.vue')")
   })
 
   it('loads MapLibre from map components rather than the app entry', () => {
     for (const componentSource of [
       source('app/composables/useMapCanvasHost.ts'),
       source('app/components/polygon/PolygonDetailMap.vue'),
-      source('app/components/analysis/AnalysisAreaDetailMap.vue'),
       source('app/components/polygon/PolygonCreateMap.vue')
     ]) {
       expect(componentSource).toContain("import('maplibre-gl')")

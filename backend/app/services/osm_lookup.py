@@ -76,7 +76,6 @@ RELEVANT_TAGS = (
     "disused:shop",
     "abandoned",
     "abandoned:shop",
-    "wikidata",
     "wikipedia",
 )
 CATEGORY_TAGS = (

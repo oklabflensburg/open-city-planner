@@ -25,10 +25,10 @@ describe('map information architecture', () => {
     expect(legend).toContain('whitespace-normal')
   })
 
-  it('prioritizes OSM and polygon selections before analytics in the right sidebar', () => {
+  it('renders OSM and polygon selections in the right sidebar', () => {
     const sidebar = appFile('components/layout/RightSidebar.vue')
     const selection = appFile('components/map/MapSelectionContent.vue')
-    expect(sidebar.indexOf('<MapSelectionContent')).toBeLessThan(sidebar.indexOf('<FastFacts'))
+    expect(sidebar).toContain('<MapSelectionContent')
     expect(selection).toContain('<OsmFeatureSidebar')
     expect(selection).toContain('<PolygonStatistics')
   })
@@ -61,7 +61,7 @@ describe('map information architecture', () => {
     expect(shell).toContain('<GisPanelContent compact')
     expect(shell).toContain('<GisPanelContent :result-label')
     expect(content).toContain("mapStore.activeGisPanel === 'filter'")
-    expect(content).toContain("mapStore.activeGisPanel === 'analytics'")
+    expect(content).not.toContain("mapStore.activeGisPanel === 'analytics'")
     expect(content).toContain("mapStore.activeGisPanel === 'selection'")
     expect(content).toContain('<LazyLeftSidebar embedded')
     expect(content).toContain('<MapSelectionContent embedded')

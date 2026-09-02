@@ -15,7 +15,6 @@ from app.db.session import AsyncSessionLocal
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.polygon_osm_source import PolygonOsmSource
 from app.models.user_polygon import UserPolygon, utcnow
-from app.modules.analysis_areas.application.legacy_sync import refresh_polygon_area_assignments
 from app.schemas.geojson import (
     Feature,
     FeatureCollection,
@@ -315,7 +314,6 @@ async def create_polygon(
                 return serialize_polygon(existing)
         raise
 
-    await refresh_polygon_area_assignments(session, polygon.id)
     await enqueue_polygon_event(session, PolygonCreated(polygon.uuid))
     await invalidate_gis_after_mutation(session)
     await session.commit()
@@ -464,9 +462,6 @@ async def update_polygon(
     polygon.updated_by_user_id = user_id
     polygon.updated_at = utcnow()
     await session.flush()
-    if geometry_changed:
-        await refresh_polygon_area_assignments(session, polygon.id)
-    
     from app.services.polygon_event_publisher import enqueue_polygon_event
     from app.services.polygon_events import PolygonUpdated
 

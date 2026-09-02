@@ -12,7 +12,7 @@ def test_unknown_environment_setting_remains_forbidden(tmp_path) -> None:
 
 
 def test_enabled_modules_are_optional_and_comma_separated() -> None:
-    assert Settings(_env_file=None).enabled_module_list == ["analysis-areas"]
+    assert Settings(_env_file=None).enabled_module_list == []
     assert Settings(_env_file=None, enabled_modules="").enabled_module_list == []
     settings = Settings(_env_file=None, enabled_modules="module-b, module-a")
     assert settings.enabled_module_list == ["module-b", "module-a"]

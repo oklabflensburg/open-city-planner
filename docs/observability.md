@@ -12,7 +12,7 @@ FastAPI stores request ID and route template in `ContextVar`s. OpenTelemetry ind
 
 Production emits one JSON `http_request_completed` event per request. It contains timestamp, level, service, environment, release SHA, logger, request ID, trace/span IDs when active, method, route template, status and duration. 5xx is error-level; 4xx remains info-level. Background jobs emit `job_completed` or `job_failed` with the same deployment metadata. Nginx access logs are JSON and omit headers and bodies.
 
-The formatter recursively redacts keys containing password, token, secret, authorization, cookie, API key, CSRF, recovery code, OTP/TOTP, email or prompt. It also removes emails, bearer values and JWT-shaped strings from messages. Request/response bodies, query strings, SQL bind values and recipient addresses are never observability fields. Assistant provider responses and raw prompts are redacted unless the explicit `ASSISTANT_QUERY_LOGGING` diagnostic switch is enabled; production defaults it to false.
+The formatter recursively redacts keys containing password, token, secret, authorization, cookie, API key, CSRF, recovery code, OTP/TOTP, email or prompt. It also removes emails, bearer values and JWT-shaped strings from messages. Request/response bodies, query strings, SQL bind values and recipient addresses are never observability fields. The same redaction boundary applies to data emitted by installed modules.
 
 ```bash
 journalctl -u stadtplaner-api -o cat

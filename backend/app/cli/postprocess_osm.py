@@ -7,13 +7,11 @@ from time import monotonic
 from sqlalchemy import text
 
 from app.db.session import AsyncSessionLocal
-from app.modules.analysis_areas.application.legacy_sync import sync_osm_analysis_areas
 from app.observability.jobs import observed_job
 from app.observability.metrics import OSM_REPLICATION_LAG
 from app.platform.modules.sdk import OsmPostprocessingCompleted
 from app.services.cache_versions import bump_cache_versions
 from app.services.osm_event_publisher import enqueue_osm_postprocessing_completed
-from app.services.wikidata_enrichment import WikidataEnrichmentService
 
 REGION_SQL = """
 SELECT geometry
@@ -119,7 +117,6 @@ def progress(enabled: bool, started_at: float, phase: str, **values: object) -> 
 async def run(
     sequence: int | None,
     osm_timestamp: datetime,
-    municipality: str,
     *,
     verbose: bool = False,
 ) -> None:
@@ -149,16 +146,11 @@ async def run(
         )
         progress(verbose, started_at, "delete_missing_features_done", deleted=counts.deleted)
 
-        progress(verbose, started_at, "sync_analysis_areas", municipality=municipality)
-        report = await sync_osm_analysis_areas(
-            session, municipality, publish_relevant_updates=False, commit=False
-        )
-        progress(verbose, started_at, "sync_analysis_areas_done", areas=sum(report.counts.values()))
         progress(verbose, started_at, "refresh_polygon_osm_sources")
         refreshed_sources = (await session.execute(REFRESH_POLYGON_OSM_SOURCES_SQL)).rowcount or 0
         progress(verbose, started_at, "refresh_polygon_osm_sources_done", sources=refreshed_sources)
         progress(verbose, started_at, "update_cache_and_state")
-        await bump_cache_versions(session, ("osm", "analytics", "polygons"))
+        await bump_cache_versions(session, ("osm", "polygons"))
         await session.execute(
             STATE_SQL,
             {
@@ -183,35 +175,17 @@ async def run(
         await session.commit()
         progress(verbose, started_at, "commit_done")
 
-        progress(verbose, started_at, "sync_wikidata")
-        wikidata_report = await WikidataEnrichmentService().sync(session)
-        progress(
-            verbose,
-            started_at,
-            "sync_wikidata_done",
-            checked=wikidata_report.checked,
-            osm_wikidata=wikidata_report.osm_wikidata,
-            osm_wikipedia=wikidata_report.osm_wikipedia,
-            invalid=wikidata_report.invalid,
-            conflicts=wikidata_report.conflicts,
-            errors=len(wikidata_report.errors),
-        )
-
     print(
         f"OSM_POSTPROCESS sequence={sequence if sequence is not None else 'initial'} "
         f"timestamp={osm_timestamp.isoformat()} inserted={counts.inserted} "
-        f"updated={counts.updated} deleted={counts.deleted} "
-        f"areas={sum(report.counts.values())}"
+        f"updated={counts.updated} deleted={counts.deleted}"
     )
-    for warning in report.warnings:
-        print(f"OSM_POSTPROCESS_WARNING {warning}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="osm2pgsql staging data atomically publish")
     parser.add_argument("--sequence", type=int)
     parser.add_argument("--timestamp", required=True, type=parse_timestamp)
-    parser.add_argument("--municipality", default="Flensburg")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
-    asyncio.run(run(args.sequence, args.timestamp, args.municipality, verbose=args.verbose))
+    asyncio.run(run(args.sequence, args.timestamp, verbose=args.verbose))

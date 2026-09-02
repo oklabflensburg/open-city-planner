@@ -4,7 +4,7 @@ import asyncio
 from app.db.session import AsyncSessionLocal
 from app.services.cache_versions import bump_cache_versions
 
-ALLOWED = {"osm", "analytics", "analysis-areas", "polygons"}
+ALLOWED = {"osm", "polygons"}
 
 
 async def run(namespaces: tuple[str, ...]) -> None:

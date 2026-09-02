@@ -12,6 +12,7 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 
 ## Architektur und Frontend
 
+- [Slim-Host-Extraktionsinventar](modules/slim-host-extraction-inventory.md)
 - [Module Getting Started und Scaffold](modules/getting-started.md)
 - [Distribution Policy für installierbare Module](modules/distribution.md)
 - [Installer und modules.lock](modules/installer.md)
@@ -33,8 +34,6 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 - [Ausführbares End-to-End-Referenzmodul](modules/reference-module.md)
 - [Frontend-Design und Analyse](frontend-design.md)
 - [Reihenfolge der GIS-Layer](map-layer-order.md)
-- [Intelligente Suche](intelligent-search.md)
-- [Stadtplaner-Assistent](stadtplaner-assistant.md)
 - [Benachrichtigungssystem](notifications.md)
 - [E-Mail-Vorlagen und Outbox](email-templates.md)
 - [Externe Anbieter-Icons](provider-icons.md)
@@ -43,15 +42,12 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 
 - [Lokale OpenStreetMap-Daten](osm-data.md)
 - [Stündliche OpenStreetMap-Synchronisierung](osm-hourly-sync.md)
-- [Wikidata-Anreicherung von Gebieten](wikidata-enrichment.md)
 - [Kartenperformance](map-performance.md)
 - [Serverseitige Kartenvorschauen](map-previews.md)
 - [Öffentliche Startseite und Kartenlinks](public-homepage.md)
-- [Analytics-Query-Plan prüfen](analysis-area-analytics-performance.md)
 
 ## Statistik und Daten
 
-- [Kommunale Statistik aus dem Flensburger Zahlenspiegel](flensburg-statistics.md)
 - [Redis-Read-Cache und Invalidierung](redis-cache.md)
 
 ## Betrieb und Integrationen
@@ -61,14 +57,12 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 - [Prometheus und Grafana mit Ansible betreiben](monitoring-deployment.md)
 - [Wiederholbares Ansible-Deployment](../deploy/ansible/README.md)
 - [Nginx-Hardening und Rate Limits](../deploy/nginx/README.md)
-- [Social Publishing mit Mastodon](social-publishing.md)
 - [Produktions-Sicherheitscheckliste](security/production-checklist.md)
 - [Zwei-Faktor-Authentifizierung](security/mfa.md)
 - [Passkeys und WebAuthn](security/passkeys.md)
 
 ## Qualität und Performance
 
-- [Dokumentationsaudit und Wartungsregeln](documentation-audit.md)
 - [Continuous Integration](ci.md)
 - [Frontend-Build und Bundle-Grenzen](frontend-build-performance.md)
 - [Performance-Audit vom 16. August 2026](performance-audit-2026-08-16.md)

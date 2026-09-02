@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-NotificationCategory = Literal["GIS", "DATA", "OSM", "SOCIAL", "ACCOUNT", "ADMIN", "SYSTEM"]
+NotificationCategory = Literal["GIS", "DATA", "OSM", "ACCOUNT", "ADMIN", "SYSTEM"]
 NotificationPriority = Literal["INFO", "SUCCESS", "WARNING", "ERROR", "ACTION_REQUIRED"]
 
 
@@ -48,14 +48,12 @@ class NotificationPreferencesRead(BaseModel):
     notify_gis: bool = True
     notify_osm: bool = True
     notify_area_updates: bool = True
-    notify_social: bool = True
     notify_account: bool = True
     notify_system: bool = True
     email_enabled: bool = False
     email_notify_gis: bool = False
     email_notify_osm: bool = False
     email_notify_area_updates: bool = False
-    email_notify_social: bool = False
     email_notify_system: bool = False
     newsletter_enabled: bool = False
     updated_at: datetime | None = None
@@ -66,14 +64,12 @@ class NotificationPreferencesUpdate(BaseModel):
     notify_gis: bool | None = None
     notify_osm: bool | None = None
     notify_area_updates: bool | None = None
-    notify_social: bool | None = None
     notify_account: bool | None = None
     notify_system: bool | None = None
     email_enabled: bool | None = None
     email_notify_gis: bool | None = None
     email_notify_osm: bool | None = None
     email_notify_area_updates: bool | None = None
-    email_notify_social: bool | None = None
     email_notify_system: bool | None = None
     newsletter_enabled: bool | None = None
 
@@ -88,6 +84,6 @@ class NotificationSubscriptionRead(BaseModel):
 
 
 class NotificationSubscriptionUpdate(BaseModel):
-    resource_type: Literal["POLYGON", "AREA"]
+    resource_type: str = Field(min_length=1, max_length=64, pattern=r"^[A-Z][A-Z0-9_]*$")
     resource_id: str = Field(min_length=1, max_length=160)
     event_types: list[str] = Field(default_factory=list, max_length=20)

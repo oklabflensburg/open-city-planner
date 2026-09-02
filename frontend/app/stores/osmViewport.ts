@@ -5,7 +5,6 @@ import { osmPoiCategories } from '~/utils/osmCategories'
 import { useMapStore } from '~/stores/map'
 import { useFilterStore } from '~/stores/filter'
 import { gisFilterQuery } from '~/utils/gisFilters'
-import type { GisDataSource } from '~/utils/gisFilters'
 
 const VIEWPORT_BUFFER_RATIO = 0.2
 const VIEWPORT_CACHE_SIZE = 4
@@ -45,7 +44,6 @@ export const useOsmViewportStore = defineStore('osmViewport', {
     showAreas: true,
     showBuildings: false,
     activeCategories: osmPoiCategories.map(item => item.key) as OsmFeatureCategory[],
-    areaPoiFilter: null as { areaSlug: string, category: string, previousSources: GisDataSource[] } | null,
     data: null as OsmViewportResult | null,
     loading: false,
     error: null as string | null,
@@ -96,15 +94,10 @@ export const useOsmViewportStore = defineStore('osmViewport', {
       query.set('osm_categories', categories.join(','))
       query.set('buildings', String(this.showBuildings))
       query.set('limit', String(limit))
-      if (this.areaPoiFilter) {
-        query.set('analysis_area', this.areaPoiFilter.areaSlug)
-        query.set('poi_category', this.areaPoiFilter.category)
-      }
       return query.toString()
     },
     viewportFilterKey() {
-      const areaPoi = this.areaPoiFilter ? `${this.areaPoiFilter.areaSlug}:${this.areaPoiFilter.category}` : ''
-      return `${this.requestedCategories.slice().sort().join(',')}|${this.showBuildings}|${areaPoi}|${useFilterStore().filterKey}`
+      return `${this.requestedCategories.slice().sort().join(',')}|${this.showBuildings}|${useFilterStore().filterKey}`
     },
     hasCacheFor(bounds: OsmBounds, zoom: number) {
       return Boolean(this.data && this.dataRequestKey === this.viewportRequestKey(bounds, zoom))
@@ -236,27 +229,7 @@ export const useOsmViewportStore = defineStore('osmViewport', {
     setRenderDuration(value: number) {
       this.lastRenderDurationMs = Math.round(value)
     },
-    setAreaPoiFilter(areaSlug: string, category: string) {
-      const filter = useFilterStore()
-      const previousSources = this.areaPoiFilter?.previousSources || [...filter.selectedSources]
-      this.areaPoiFilter = { areaSlug, category, previousSources }
-      this.showPois = true
-      this.showAreas = false
-      this.showBuildings = false
-      this.activeCategories = osmPoiCategories.map(item => item.key)
-      filter.setSources(['OSM'])
-    },
-    clearAreaPoiFilter() {
-      const previousSources = this.areaPoiFilter?.previousSources
-      this.areaPoiFilter = null
-      this.showPois = true
-      this.showAreas = true
-      this.showBuildings = false
-      this.activeCategories = osmPoiCategories.map(item => item.key)
-      if (previousSources) useFilterStore().setSources(previousSources)
-    },
     reset() {
-      this.areaPoiFilter = null
       this.showPois = true
       this.showAreas = true
       this.showBuildings = false

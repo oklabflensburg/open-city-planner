@@ -27,7 +27,6 @@ class NotificationSession:
             notify_gis=True,
             notify_osm=True,
             notify_area_updates=True,
-            notify_social=True,
             notify_system=True,
         )
         self.notification: Notification | None = None
@@ -220,9 +219,9 @@ async def test_follow_policy_returns_only_matching_subscribers() -> None:
 
     recipients = await subscription_recipient_ids(
         SubscriptionSession(),
-        resource_type="AREA",
-        resource_id="area-1",
-        event_type=NotificationEventType.AREA_STATISTICS_UPDATED,
+        resource_type="POLYGON",
+        resource_id="polygon-1",
+        event_type=NotificationEventType.GIS_AREA_UPDATED,
     )
     assert recipients == [matching]
 

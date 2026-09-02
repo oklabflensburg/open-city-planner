@@ -41,7 +41,6 @@ const rows: Array<{ label: string, description: string, inApp: PreferenceKey, em
   { label: 'GIS', description: 'Eigene und beobachtete Flächen', inApp: 'notify_gis', email: 'email_notify_gis' },
   { label: 'OpenStreetMap', description: 'Wesentliche Änderungen an OSM-Quellen', inApp: 'notify_osm', email: 'email_notify_osm' },
   { label: 'Gebiete und Daten', description: 'Neue Statistik- und Gebietsdaten', inApp: 'notify_area_updates', email: 'email_notify_area_updates' },
-  { label: 'Social', description: 'Freigaben und Versandfehler', inApp: 'notify_social', email: 'email_notify_social' },
   { label: 'System', description: 'Geeignete System- und Importmeldungen', inApp: 'notify_system', email: 'email_notify_system' }
 ]
 const queue = createSerialSaveQueue<PreferenceFields, NotificationPreferences>({

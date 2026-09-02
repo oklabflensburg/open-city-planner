@@ -45,7 +45,6 @@ Die Vorlage verwendet absichtlich großzügige Grenzen:
 | --- | ---: | ---: | --- |
 | normale API | 20 Requests/s/IP | 100 | normale Karten- und Datenabrufe nicht behindern |
 | API global | 500 Requests/s/VHost | 500 | Notbremse gegen verteilte Last |
-| Assistant | 60 Requests/min/IP | 20 | LLM-/Tool-Kosten vor offensichtlicher Automation schützen |
 | Auth | 5 Requests/s/IP | 20 | äußerer Schutz; Redis/FastAPI bleibt maßgeblich |
 
 Die Werte sind Startwerte, keine universellen Kapazitätsgrenzen. NAT-Gateways können viele legitime Nutzer hinter einer IP bündeln, deshalb sind niedrige Per-IP-Limits für eine öffentliche GIS-API ungeeignet.
@@ -157,11 +156,11 @@ Wenn legitime Kartenaufrufe regelmäßig am Limit liegen, zuerst Caching/Query-K
 
 ## Wichtige Grenzen
 
-Nginx kann nur IP, Pfad, Methode, Verbindung und Trafficrate sehen. Es weiß nicht, ob ein Request einen teuren PostGIS-Plan, mehrere Assistant-Tools oder einen authentifizierten Benutzer betrifft. Deshalb bleiben folgende Regeln im Backend:
+Nginx kann nur IP, Pfad, Methode, Verbindung und Trafficrate sehen. Es weiß nicht, ob ein Request einen teuren Datenbankplan, Modulaufrufe oder einen authentifizierten Benutzer betrifft. Deshalb bleiben folgende Regeln im Backend:
 
 - Login-/MFA-Schutz;
 - nutzerbezogene Limits;
-- Assistant-/Provider-Limits;
+- Provider- und modulbezogene Limits;
 - Request-Body-Verträge;
 - Datenbank-Statement-Timeouts;
 - Rollen und Berechtigungen.

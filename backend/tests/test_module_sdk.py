@@ -14,6 +14,8 @@ from app.platform.modules.context import ModuleContextFactory, ModuleHostService
 from app.platform.modules.contracts import ModuleRegistrationContext
 from app.platform.modules.runtime import create_module_runtime
 from app.platform.modules.sdk import (
+    STATISTICS_QUERY_SERVICE_ID,
+    STATISTICS_QUERY_SERVICE_VERSION,
     ApiRegistrar,
     CacheGenerationPort,
     CachePort,
@@ -35,7 +37,6 @@ from app.platform.modules.sdk import (
     PublicQueryPort,
     SchedulerPort,
     ServiceRegistryPort,
-    StatisticsQueryPort,
     StoragePort,
 )
 from app.platform.modules.testing import (
@@ -58,6 +59,11 @@ from tests.fixtures.example_backend_module import DEFINITION as EXAMPLE_DEFINITI
 from tests.test_module_runtime import FakeDiscovery, runtime_for
 
 
+def test_statistics_query_service_reference_is_stable() -> None:
+    assert STATISTICS_QUERY_SERVICE_ID == "statistics.query"
+    assert STATISTICS_QUERY_SERVICE_VERSION == 1
+
+
 def test_module_context_has_typed_public_ports() -> None:
     hints = get_type_hints(ModuleContext)
 
@@ -78,7 +84,6 @@ def test_module_context_has_typed_public_ports() -> None:
         "map_previews": MapPreviewPort | None,
         "polygons": PolygonQueryPort | None,
         "polygon_analytics": PolygonAnalyticsPort | None,
-        "statistics": StatisticsQueryPort | None,
         "storage": StoragePort | None,
         "http": HttpClientFactoryPort | None,
         "scheduler": SchedulerPort | None,
@@ -163,7 +168,6 @@ def test_runtime_context_is_bound_to_manifest_and_unimplemented_ports_are_absent
     assert context.map_previews is None
     assert context.polygons is None
     assert context.polygon_analytics is None
-    assert context.statistics is None
     assert context.storage is None
     assert context.http is None
     assert context.scheduler is not None

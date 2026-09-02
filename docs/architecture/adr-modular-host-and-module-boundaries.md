@@ -1,5 +1,9 @@
 # ADR: Modularer Host und Grenzen von Fachmodulen
 
+> Dieses ADR dokumentiert den Ausgangszustand und die Zielgrenzen zum Zeitpunkt
+> der Entscheidung. Den umgesetzten Slim-Host-Stand beschreibt das
+> [Extraktionsinventar](../modules/slim-host-extraction-inventory.md).
+
 - Status: Angenommen
 - Datum: 2026-08-25
 - Entscheidung: [Issue #92](https://github.com/oklabflensburg/open-city-planner/issues/92)

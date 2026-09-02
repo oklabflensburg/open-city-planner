@@ -24,7 +24,6 @@ describe('desktop interaction cursors', () => {
   it('keeps static cards neutral while switches, tabs and notification rows are interactive', () => {
     expect(appFile('components/ui/Card.vue')).not.toContain('cursor-pointer')
     expect(appFile('components/filters/GisFilterToggleRow.vue')).toContain('cursor-pointer')
-    expect(appFile('components/analysis/DistributionCharts.vue')).toContain('cursor-pointer')
     expect(appFile('components/notifications/NotificationCenterContent.vue')).toContain('cursor-pointer')
   })
 

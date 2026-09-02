@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { AlertTriangle, BellOff, Database, MapPin, Settings, Share2, ShieldCheck } from '@lucide/vue'
+import { AlertTriangle, BellOff, Database, MapPin, Settings, ShieldCheck } from '@lucide/vue'
 import type { Component } from 'vue'
 import type { AppNotification, NotificationCategory } from '~/types/notification'
 import { formatNotificationTime, safeNotificationTarget } from '~/utils/notifications'
@@ -80,13 +80,13 @@ async function openNotification(item: AppNotification) {
 }
 
 const icons: Record<NotificationCategory, Component> = {
-  GIS: MapPin, DATA: Database, OSM: MapPin, SOCIAL: Share2,
+  GIS: MapPin, DATA: Database, OSM: MapPin,
   ACCOUNT: ShieldCheck, ADMIN: Settings, SYSTEM: AlertTriangle
 }
 const categoryIcon = (category: NotificationCategory) => icons[category]
 const categoryStyle = (category: NotificationCategory) => ({
   GIS: 'bg-teal-50 text-teal-700', DATA: 'bg-blue-50 text-blue-700', OSM: 'bg-cyan-50 text-cyan-700',
-  SOCIAL: 'bg-violet-50 text-violet-700', ACCOUNT: 'bg-amber-50 text-amber-700',
+  ACCOUNT: 'bg-amber-50 text-amber-700',
   ADMIN: 'bg-slate-100 text-slate-700', SYSTEM: 'bg-rose-50 text-rose-700'
 })[category]
 </script>

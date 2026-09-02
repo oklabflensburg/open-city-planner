@@ -87,15 +87,14 @@ getrimmt, dedupliziert und sortiert. Ein unbekanntes aktiviertes Modul ist immer
 Fehler; es gibt kein Silent Skip.
 
 Für Fullstack-Deployments prüft der Build das aus der Backend-Discovery erzeugte
-Inventar. Nach installiertem Backend kann derselbe Helper lokal, in CI und im
-Target Release verwendet werden:
+Inventar. Nach Installation und Aktivierung eines externen Moduls erzeugt die
+Modul-CLI die drei Build-Variablen gemeinsam. Sie werden nicht von Hand
+auseinandergezogen:
 
 ```bash
 cd backend
-export ENABLED_MODULES=analysis-areas
-export OCP_BACKEND_MODULES="$(../scripts/backend-module-inventory --format env)"
+eval "$(.venv/bin/python -m app.cli.modules env --format shell)"
 cd ../frontend
-export OCP_FRONTEND_MODULES=analysis-areas
 pnpm modules:check
 pnpm dev
 ```

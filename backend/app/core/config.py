@@ -3,7 +3,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from cryptography.fernet import Fernet
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field
 from pydantic_settings import (
     BaseSettings,
     DotEnvSettingsSource,
@@ -30,7 +30,7 @@ class _HostDotEnvSettingsSource(DotEnvSettingsSource):
 
 class Settings(BaseSettings):
     api_version: str = "0.2.0"
-    enabled_modules: str = "analysis-areas"
+    enabled_modules: str = ""
     ocp_excluded_builtin_modules: str = ""
     ocp_enabled_installed_backend_paths: str = ""
     database_url: str = Field(
@@ -138,16 +138,6 @@ class Settings(BaseSettings):
     public_query_timeout_ms: int = Field(default=8_000, ge=1_000, le=30_000)
     public_query_rate_limit_attempts: int = Field(default=120, ge=10, le=10_000)
     public_query_rate_limit_window_seconds: int = Field(default=60, ge=10, le=3_600)
-    ai_search_enabled: bool = False
-    ai_search_provider: str = "groq"
-    ai_search_model: str | None = None
-    openai_api_key: SecretStr | None = None
-    groq_api_key: SecretStr | None = None
-    groq_base_url: str = "https://api.groq.com/openai/v1"
-    groq_timeout_seconds: float = Field(default=8.0, ge=1.0, le=30.0)
-    groq_max_retries: int = Field(default=1, ge=0, le=2)
-    groq_temperature: float = Field(default=0.1, gt=0, le=2)
-    assistant_query_logging: bool = False
     avatar_output_size: int = 512
     avatar_webp_quality: int = 85
     media_base_url: str = ""
@@ -181,21 +171,6 @@ class Settings(BaseSettings):
     cache_debug_headers: bool = False
     cache_lock_ttl_seconds: int = 15
     osm_viewport_cache_ttl: int = 1_800
-    analytics_cache_ttl: int = 600
-    analysis_area_cache_ttl: int = 3_600
-    wikidata_api_url: str = "https://www.wikidata.org/w/api.php"
-    wikidata_user_agent: str = (
-        "Stadtplaner/1.0 (https://stadtplaner.oklabflensburg.de; OK Lab Flensburg)"
-    )
-    wikidata_timeout_seconds: float = 10.0
-    wikidata_cache_ttl_seconds: int = 604_800
-    wikidata_negative_cache_ttl_seconds: int = 86_400
-    wikidata_stale_days: int = 90
-    wikidata_search_limit: int = 8
-    statistics_cache_ttl: int = 3_600
-    flensburg_superset_base_url: str = "https://superset.flensburg.de"
-    flensburg_superset_dashboard_id: str = "3b53ff0b-6e8c-435e-83f6-666f8a7cc158"
-    flensburg_superset_timeout_seconds: float = 60.0
     polygon_cache_ttl: int = 60
     public_polygon_response_limit: int = Field(default=1_000, ge=10, le=10_000)
     map_preview_renderer_url: str = "http://127.0.0.1:3020"
@@ -203,27 +178,11 @@ class Settings(BaseSettings):
     map_preview_cache_dir: str = "data/map-previews"
     map_preview_style_path: str = "../frontend/public/map-styles/stadtplaner-light.json"
     map_preview_style_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
-    comparable_cache_ttl: int = 600
     cache_payload_warning_bytes: int = 2_000_000
     database_pool_size: int = 10
     database_max_overflow: int = 20
     database_pool_timeout_seconds: float = 15.0
     database_health_timeout_seconds: float = Field(default=2.0, ge=0.25, le=10.0)
-    mastodon_enabled: bool = False
-    mastodon_base_url: str = "https://norden.social"
-    mastodon_access_token: str | None = None
-    mastodon_account_url: str = "https://norden.social/@oklabflensburg"
-    mastodon_account_handle: str = "@oklabflensburg@norden.social"
-    mastodon_default_visibility: str = "public"
-    mastodon_area_updates_enabled: bool = True
-    mastodon_area_update_debounce_seconds: int = 300
-    mastodon_dry_run: bool = False
-    mastodon_timeout_seconds: float = 10.0
-    mastodon_hashtags: str = "Flensburg,OpenData,Stadtplaner"
-    mastodon_max_attempts: int = 5
-    mastodon_boundary_change_min_ratio: float = 0.01
-    mastodon_screenshot_directory: str = "/data/stadtplaner-social"
-    mastodon_screenshot_timeout_seconds: float = 30.0
 
     # Resolve the backend environment independently of the process working directory.
     model_config = SettingsConfigDict(
@@ -350,18 +309,6 @@ class Settings(BaseSettings):
             raise RuntimeError("REFRESH_REQUIRE_ORIGIN must be true in production")
         if self.auth_rate_limit_backend not in {"memory", "redis"}:
             raise RuntimeError("AUTH_RATE_LIMIT_BACKEND must be memory or redis")
-        if self.ai_search_provider not in {"groq", "openai"}:
-            raise RuntimeError("AI_SEARCH_PROVIDER must be groq or openai")
-        groq_origin = urlsplit(self.groq_base_url)
-        if (
-            groq_origin.scheme != "https"
-            or not groq_origin.hostname
-            or groq_origin.username
-            or groq_origin.password
-            or groq_origin.query
-            or groq_origin.fragment
-        ):
-            raise RuntimeError("GROQ_BASE_URL must be an HTTPS URL without credentials")
         if self.production and self.auth_rate_limit_backend != "redis":
             raise RuntimeError("AUTH_RATE_LIMIT_BACKEND must be redis in production")
         if self.production and not self.redis_enabled:
@@ -372,10 +319,6 @@ class Settings(BaseSettings):
             not self.turnstile_site_key or not self.turnstile_secret_key
         ):
             raise RuntimeError("Turnstile site and secret keys must be configured when enabled")
-        if self.mastodon_default_visibility not in {"public", "unlisted", "private", "direct"}:
-            raise RuntimeError("MASTODON_DEFAULT_VISIBILITY is invalid")
-        if self.mastodon_enabled and not self.mastodon_access_token:
-            raise RuntimeError("MASTODON_ACCESS_TOKEN must be configured when Mastodon is enabled")
         if self.mastodon_sso_enabled and not self.mastodon_sso_encryption_key:
             raise RuntimeError(
                 "MASTODON_SSO_ENCRYPTION_KEY must be configured when Mastodon SSO is enabled"
@@ -440,18 +383,6 @@ class Settings(BaseSettings):
         origin_host = origin.hostname.lower().rstrip(".")
         if origin_host != rp_id and not origin_host.endswith(f".{rp_id}"):
             raise RuntimeError("WEBAUTHN_RP_ID must match the WebAuthn origin hostname")
-        if self.mastodon_area_update_debounce_seconds < 0:
-            raise RuntimeError("MASTODON_AREA_UPDATE_DEBOUNCE_SECONDS must not be negative")
-        if not 0 <= self.mastodon_boundary_change_min_ratio <= 1:
-            raise RuntimeError("MASTODON_BOUNDARY_CHANGE_MIN_RATIO must be between 0 and 1")
-
-    @property
-    def mastodon_hashtag_list(self) -> list[str]:
-        return [
-            value.strip().lstrip("#")
-            for value in self.mastodon_hashtags.split(",")
-            if value.strip()
-        ]
 
     @property
     def configured_oauth_providers(self) -> list[str]:

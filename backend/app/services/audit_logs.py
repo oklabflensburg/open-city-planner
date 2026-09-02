@@ -91,13 +91,6 @@ def _summary(log: AdminAuditLog, target: User | None) -> str:
         "LOGIN_BLOCKED": login_blocked_summary,
         "USER_SUPERUSER_GRANTED_DIRECT": f"Superuser-Status wurde {label} direkt zugewiesen.",
         "REFRESH_TOKEN_REUSE_DETECTED": f"Wiederverwendung eines Refresh-Tokens für {label} wurde erkannt.",
-        "FLENSBURG_STATISTICS_SYNC": "Kommunale Statistik wurde aus dem Flensburger Zahlenspiegel synchronisiert.",
-        "MASTODON_STATUS_PUBLISHED": "Eine öffentliche Gebietsaktualisierung wurde auf Mastodon veröffentlicht.",
-        "MASTODON_PUBLICATION_FAILED": "Eine Mastodon-Veröffentlichung ist endgültig fehlgeschlagen.",
-        "MASTODON_PUBLICATION_RETRY_REQUESTED": "Ein erneuter Mastodon-Veröffentlichungsversuch wurde angefordert.",
-        "MASTODON_PUBLICATION_APPROVED": "Eine vorbereitete Mastodon-Veröffentlichung wurde freigegeben.",
-        "MASTODON_PUBLICATION_CANCELLED": "Eine Mastodon-Veröffentlichung wurde verworfen.",
-        "SOCIAL_PUBLISHING_SETTINGS_UPDATED": "Die Einstellungen für Social Publishing wurden geändert.",
         "OAUTH_LOGIN_SUCCESS": f"Anmeldung über ein externes Konto für {label} war erfolgreich.",
         "OAUTH_LOGIN_FAILED": "Eine externe Anmeldung ist fehlgeschlagen oder wurde abgebrochen.",
         "OAUTH_ACCOUNT_LINKED": f"Ein externes Konto wurde mit {label} verknüpft.",
@@ -151,14 +144,11 @@ def _serialize(log: AdminAuditLog, actor: User | None, target: User | None) -> A
         if actor
         else None
     )
-    is_system_resource = log.action == "FLENSBURG_STATISTICS_SYNC"
-    resource_type = log.resource_type or ("SYSTEM" if is_system_resource else "USER")
-    if resource_type == "ANALYSIS_AREA":
-        resource_label = "Gebietsveröffentlichung"
-    elif resource_type == "POLYGON":
+    resource_type = log.resource_type or "USER"
+    if resource_type == "POLYGON":
         resource_label = str((log.event_metadata or {}).get("title") or "Gelöschte Fläche")
     elif resource_type == "SYSTEM":
-        resource_label = "Flensburg Statistik" if is_system_resource else "Systemereignis"
+        resource_label = "Systemereignis"
     else:
         resource_label = _display_name(target) or "Gelöschtes Benutzerkonto"
     resource = AuditLogResource(
@@ -209,19 +199,11 @@ async def list_audit_logs(
         )
     if resource_type:
         normalized_type = resource_type.upper()
-        if normalized_type == "SYSTEM":
-            filters.append(
-                or_(
-                    AdminAuditLog.resource_type == "SYSTEM",
-                    AdminAuditLog.action == "FLENSBURG_STATISTICS_SYNC",
-                )
-            )
-        elif normalized_type == "USER":
+        if normalized_type == "USER":
             filters.append(
                 or_(
                     AdminAuditLog.resource_type == "USER",
-                    AdminAuditLog.resource_type.is_(None)
-                    & (AdminAuditLog.action != "FLENSBURG_STATISTICS_SYNC"),
+                    AdminAuditLog.resource_type.is_(None),
                 )
             )
         else:

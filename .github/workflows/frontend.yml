@@ -99,36 +99,30 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Resolve backend module inventory
         env:
-          ENABLED_MODULES: analysis-areas
+          ENABLED_MODULES: ''
         run: |
           inventory="$(scripts/backend-module-inventory --format env)"
           printf 'OCP_BACKEND_MODULES=%s\n' "$inventory" >> "$GITHUB_ENV"
       - name: Validate production module configuration
         working-directory: frontend
         env:
-          OCP_FRONTEND_MODULES: analysis-areas
+          OCP_FRONTEND_MODULES: ''
         run: pnpm modules:check
       - name: Build Nuxt application with example module
         working-directory: frontend
         env:
           OCP_FRONTEND_MODULES: example-module
         run: pnpm build
-      - name: Build production Nuxt application with analysis areas
-        working-directory: frontend
-        env:
-          OCP_FRONTEND_MODULES: analysis-areas
-        run: pnpm build
-      - name: Audit production SSR metadata
-        working-directory: frontend
-        env:
-          OCP_FRONTEND_MODULES: analysis-areas
-        run: pnpm audit:seo
-      - name: Build Nuxt application without optional modules
+      - name: Build production Nuxt application without domain modules
         working-directory: frontend
         env:
           OCP_FRONTEND_MODULES: ''
         run: pnpm build
-
+      - name: Audit production SSR metadata
+        working-directory: frontend
+        env:
+          OCP_FRONTEND_MODULES: ''
+        run: pnpm audit:seo
   frontend-language-audit:
     name: Frontend language audit
     runs-on: ubuntu-latest

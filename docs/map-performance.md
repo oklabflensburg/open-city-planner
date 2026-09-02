@@ -8,7 +8,7 @@ Der Redis-Hit war nicht der Engpass beim aktiven Verschieben. Das Profiling zeig
 
 1. Der bisherige VersaTiles-Stil `colorful` brachte 324 Basemap-Layer mit, davon 243 Linien- und 42 Symbol-Layer. Bei Zoom 15 waren 311 Basemap-Layer aktiv.
 2. OSM-POIs wurden bei hohen Zoomstufen gleichzeitig als sichtbarer Kreis und als fast unsichtbare 16-Pixel-Hitbox gezeichnet. Das verdoppelte den Circle-Renderpass.
-3. Gemeinde-, Stadtteil- und Quartiersgeometrien wurden gleichzeitig als Fill, Linie und Label gerendert, obwohl die Ebenen ineinander verschachtelt sind.
+3. Mehrere polygonale Overlays wurden gleichzeitig als Fill, Linie und Label gerendert.
 
 Die Netzwerk- und Vue-Seite war bereits besser als zunächst vermutet: Es gab keinen `move`-, `render`- oder `zoom`-Fetch. Viewportdaten wurden auf `moveend` geladen und der Kartenstand erst dort nach Pinia geschrieben. Der MapLibre-Renderpfad blieb dennoch teuer.
 
@@ -94,7 +94,7 @@ Das Ausblenden nur der Stadtplaner-Flächen brachte dagegen keinen relevanten Ge
 
 ## Nachher-Matrix
 
-Die folgende Messung enthält Basemap, Stadtplaner-Flächen, OSM und Analysegebiete. Die absolute Framerate bleibt durch SwiftShader limitiert; entscheidend sind die Interaktionszähler und die Aufteilung der Main-Thread-Zeit.
+Die folgende historische Messung enthält Basemap, Stadtplaner-Flächen, OSM und damals noch eingebaute Domänen-Overlays. Die absolute Framerate bleibt durch SwiftShader limitiert; entscheidend sind die Interaktionszähler und die Aufteilung der Main-Thread-Zeit. Der Slim Host lädt zusätzliche Layer ausschließlich über Modul-Contributions.
 
 | Zoom | Features | Vertices | FPS | Scripting | Layout | Recalc Style | Requests während Drag | `setData()` während Drag |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -128,7 +128,7 @@ Das Feature gelangt nicht mehr in den MapLibre-Render- oder Picking-Pfad. Die un
 Drag / Touchmove
   -> nur MapLibre-Kamerabewegung
   -> keine Pinia-View-Mutation
-  -> kein Fetch, keine Analytics, kein setData
+  -> kein Fetch, keine Auswertung, kein setData
 
 moveend
   -> Kartenstand einmalig speichern
@@ -153,7 +153,7 @@ Der LRU ist auf vier Viewports begrenzt. Die konservative Obergrenze der Buchhal
 | `mousemove` auf Stadtplaner-Fill | Hover-ID wechseln | höchstens zwei `setFeatureState` bei Featurewechsel | kein `setData`, keine Paint-Neukompilierung |
 | `error`/WebGL-Kontext | Fehlermeldung | nur Fehlerfall | keine reguläre Kosten |
 
-Es existieren keine Listener für `move`, `drag`, `zoom`, `render` oder `idle`, die Netzwerk, Analytics oder Vue-State während der Kamerabewegung aktualisieren. `idle` wird nur einmalig nach einem tatsächlichen Source-Update zur Messung verwendet.
+Es existieren keine Listener für `move`, `drag`, `zoom`, `render` oder `idle`, die Netzwerkzugriffe, Auswertungen oder Vue-State während der Kamerabewegung aktualisieren. `idle` wird nur einmalig nach einem tatsächlichen Source-Update zur Messung verwendet.
 
 ## Source-Strategie
 
@@ -162,14 +162,14 @@ Es existieren keine Listener für `move`, `drag`, `zoom`, `render` oder `idle`, 
 | VersaTiles | MapLibre Vector Tiles | MapLibre Tile-Lifecycle | lokales `stadtplaner-light`, 24 Layer, keine zusätzlichen Handels-/Gastro-POIs |
 | `osm-pois` | gepufferter Viewport, 4er-LRU | `moveend` außerhalb Buffer oder Filterwechsel | 800/1.200/2.000 Gesamtbudget; Cluster bis Zoom 14 |
 | `osm-polygons` | gleicher Viewport-Request | wie POIs | eigene Polygon-/Gebäudequote, Vereinfachung unter Zoom 17 |
-| `analysis-areas` | einmalig statisches GeoJSON | erster Kartenaufbau | Gemeinde 7–10,5; Stadtteil 9,5–13,5; Quartier ab 11,5 |
 | `overview-polygons` | einmalig, danach nur Filteränderung | fachlicher Filter oder CRUD-Reload | aktuell 42 Features |
+| Modul-Sources | durch Map-Contributions definiert | Modul-Lifecycle | keine fest verdrahteten Host-Layer-IDs |
 
 Alle interaktiven Polygone verwenden eine universelle GeoJSON-Auswahlquelle mit höchstens einem Polygon oder MultiPolygon. Ein Auswahlwechsel aktualisiert nur diese kleine Source; die großen fachlichen Sources bleiben unverändert und es gibt weder `setStyle` noch Viewport-Refresh. Drei einmalig angelegte Layer zeichnen moderate Fachfarbe, weißen Außenhalo und petrolfarbene Kontur. Ausgewählte OSM-Punkte verwenden weiterhin `feature-state`; POI- und Label-Layer bleiben über dem Polygon-Overlay. Nur ein Deep-Link rahmt die Auswahl ohne Animation ein, ein direkter Klick verändert die Kamera nicht.
 
 ## Map-Lifecycle und Speicher
 
-Die MapLibre-Instanz liegt in `shallowRef` und wird zusätzlich mit `markRaw` gespeichert. OSM-, Analysegebiets- und Stadtplaner-Geometrien werden bei der Zuweisung ebenfalls `markRaw` behandelt. Vor dem Unmount werden aktive Feature-States entfernt; anschließend wird die Karte mit `map.remove()` zerstört, Timer und AbortController werden beendet und Window-Listener entfernt.
+Die MapLibre-Instanz liegt in `shallowRef` und wird zusätzlich mit `markRaw` gespeichert. OSM-, Modul- und Stadtplaner-Geometrien werden bei der Zuweisung ebenfalls `markRaw` behandelt. Vor dem Unmount werden aktive Feature-States entfernt; anschließend wird die Karte mit `map.remove()` zerstört, Timer und AbortController werden beendet und Window-Listener entfernt.
 
 Nach zehn SPA-Wechseln von der Karte zur Projektseite und zurück blieben genau eine Map und ein MapLibre-Canvas bestehen. Nach erzwungener Garbage Collection blieben Dokumente konstant bei 3, DOM-Nodes sanken von 1.348 auf 1.344. Event-Listener stiegen einmalig von 194 auf 205, aber identisch sowohl nach fünf als auch nach zehn Zyklen; es gab daher kein lineares Listenerwachstum.
 
@@ -190,7 +190,7 @@ MVT ist der nächste Architekturpfad, falls ein Hardware-GPU-Profil nach diesen 
 
 Während aktivem Pan gelten dauerhaft:
 
-- 0 OSM- und Analytics-Requests
+- 0 OSM- und Auswertungs-Requests
 - 0 `setData()`-Aufrufe
 - 0 Viewport-Mutationen in Pinia
 - keine vollständige GeoJSON-Filterung oder Deep Clones

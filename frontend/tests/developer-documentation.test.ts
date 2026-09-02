@@ -12,7 +12,7 @@ describe('developer documentation', () => {
     expect(new Set(slugs).size).toBe(slugs.length)
     expect(developerDocumentationPages.every(page => page.title.trim() && page.description.trim())).toBe(true)
     expect(findDeveloperDocumentationPage('osm')?.title).toContain('OpenStreetMap')
-    expect(findDeveloperDocumentationPage('assistant')?.keywords).toContain('Groq')
+    expect(findDeveloperDocumentationPage('assistant')).toBeUndefined()
     expect(findDeveloperDocumentationPage('deployment')?.title).toContain('Deployment')
   })
 

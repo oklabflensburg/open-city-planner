@@ -1,15 +1,8 @@
-import re
 from collections.abc import Mapping
 from typing import Any
 from urllib.parse import quote, unquote
 
-from app.schemas.external_links import (
-    ExternalLinks,
-    WikidataExternalLink,
-    WikipediaExternalLink,
-)
-
-QID_RE = re.compile(r"^Q[1-9][0-9]*$")
+from app.schemas.external_links import ExternalLinks, WikipediaExternalLink
 
 
 def wikipedia_title(value: str | None) -> str | None:
@@ -27,15 +20,8 @@ def wikipedia_title(value: str | None) -> str | None:
 
 def external_links_from_osm_tags(tags: Mapping[str, Any]) -> ExternalLinks:
     """Build allowlisted URLs only; never render an arbitrary URL from OSM."""
-    raw_qid = str(tags.get("wikidata") or "").strip()
-    qid = raw_qid if QID_RE.fullmatch(raw_qid) else None
     title = wikipedia_title(str(tags.get("wikipedia") or "").strip() or None)
     return ExternalLinks(
-        wikidata=(
-            WikidataExternalLink(id=qid, url=f"https://www.wikidata.org/wiki/{qid}")
-            if qid
-            else None
-        ),
         wikipedia=(
             WikipediaExternalLink(
                 title=title,

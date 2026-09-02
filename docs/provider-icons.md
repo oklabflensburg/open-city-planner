@@ -12,10 +12,10 @@ externen Hosts geladen.
 | --- | --- | --- | --- |
 | Google | Login, Registrierung, Profil/Verknüpfungen | ohne Icon | `ProviderIcon` |
 | GitHub | Login, Registrierung, Profil, Projektlinks, Footer, Open Data, Dokumentation | teilweise Lucide `Github`, teilweise ohne Anbieterkennung | `ProviderIcon` |
-| Mastodon | Login, Registrierung, Instanzdialog, Profil, Footer, Projektseite, Admin Social, Dokumentation | Lucide `MessageCircle` oder ohne Anbieterkennung | `ProviderIcon` |
+| Mastodon | Login, Registrierung, Instanzdialog, Profil, Footer, Projektseite und Dokumentation | Lucide `MessageCircle` oder ohne Anbieterkennung | `ProviderIcon` |
 | OpenStreetMap | Flächendetail, OSM-Objektkarten, OSM-Sidebar, Quellenhinweis und Beitragsdialog | Text oder `ExternalLink` | `ProviderIcon` an expliziten Anbieteraktionen; ruhige GIS-Filter bleiben ohne Markenlogo |
-| Wikipedia | externe Quellen auf Gebietsseiten | nur `ExternalLink` | `ProviderIcon` plus `ExternalLink` |
-| Wikidata | externe Quellen auf Gebietsseiten | nur `ExternalLink` | `ProviderIcon` plus `ExternalLink` |
+| Wikipedia | externe Quellen an OSM-Objekten | nur `ExternalLink` | `ProviderIcon` plus `ExternalLink` |
+| Wikidata | externe Module und deren Quellenlinks | nur `ExternalLink` | generisches `ProviderIcon` plus `ExternalLink` |
 
 StreetComplete und der iD-Editor kommen ebenfalls als externe Werkzeuge vor.
 Sie behalten bewusst das allgemeine External-Link-System: iD ist kein eigener
@@ -50,10 +50,10 @@ Asset kein falsches OpenStreetMap-Logo eingesetzt.
   Marken der Wikimedia Foundation:
   <https://foundation.wikimedia.org/wiki/Trademark_policy>.
 - **Wikidata:** Die drei farbigen Balkengruppen stammen aus dem offiziellen
-  `Wikidata-logo.svg` von Wikimedia Commons. Das einfache Zeichen ist dort als
-  gemeinfrei gekennzeichnet; Markenrechte und Wikimedia-Richtlinien bleiben
-  unberührt: <https://commons.wikimedia.org/wiki/File:Wikidata-logo.svg>.
-
+  `Wikidata-logo.svg` von Wikimedia Commons. Das Host-Primitive enthält keine
+  Wikidata-Abfrage oder Anreicherungslogik; es steht installierten Modulen für
+  ihre eigenen Quellenlinks zur Verfügung:
+  <https://commons.wikimedia.org/wiki/File:Wikidata-logo.svg>.
 Die im Code übernommenen Simple-Icons-Vektordaten stehen unter CC0 1.0. Das
 hebt Markenrechte der jeweiligen Anbieter nicht auf; maßgeblich bleiben deren
 verlinkte Richtlinien und die rein beschreibende Verwendung im Stadtplaner:

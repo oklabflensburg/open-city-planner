@@ -146,8 +146,11 @@ SSR-/SEO-Infrastruktur sowie Discovery und Preflight. Module besitzen ihre
 Fachpages, Komponenten, Composables, Stores, routengebundene Middleware und
 fachlichen SEO-Inhalte.
 
-Das Example-Modul ist ausschließlich ein Architekturbeweis. Bestehende Statistics-,
-Polygon-, Auth-, OSM-, Assistant- und Analysis-Area-Seiten bleiben unverändert.
+Das Example-Modul ist ausschließlich ein Architekturbeweis. Diese ursprüngliche
+Cutover-Entscheidung beschreibt den Stand bei Annahme des ADR. Die spätere
+Slim-Host-Extraktion entfernt fachliche Statistics-, Assistant- und
+Analysis-Area-Seiten aus dem Host; Polygon-, Auth- und generische OSM-Oberflächen
+bleiben Hostfähigkeiten.
 
 ## Folgen und Grenzen
 

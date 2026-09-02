@@ -19,22 +19,14 @@ from app.platform.modules.operations import safe_module_origin
 from tests.test_module_runtime import definition, manifest_data, runtime_for
 
 
-def test_real_enabled_analysis_areas_module_is_visible_with_manifest_capabilities() -> None:
+def test_host_has_no_enabled_builtin_domain_module() -> None:
     runtime = create_module_runtime(
-        enabled_module_ids=("analysis-areas",),
+        enabled_module_ids=(),
         discovery_providers=(FirstPartyModuleDiscovery(),),
         host_version="0.2.0",
     )
 
-    module = runtime.operational_status.modules[0]
-    assert module.id == "analysis-areas"
-    assert module.version == "1.0.0"
-    assert module.origin == "built-in"
-    assert module.capabilities == (
-        "analysis-areas.public-api",
-        "analysis-areas.lookup",
-        "analysis-areas.geojson",
-    )
+    assert runtime.operational_status.modules == ()
 
 
 def test_status_projects_only_enabled_records_and_validated_dependencies() -> None:

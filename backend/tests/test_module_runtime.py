@@ -224,10 +224,7 @@ def test_first_party_available_discovery_is_generic_and_does_not_enable_runtime(
         host_version="0.2.0",
     )
 
-    assert {definition.declared_id for definition in available} >= {
-        "analysis-areas",
-        "reference",
-    }
+    assert {definition.declared_id for definition in available} == {"reference"}
     assert runtime.module_ids == ()
 
 

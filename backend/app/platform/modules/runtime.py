@@ -39,7 +39,7 @@ from app.platform.modules.settings import (
 )
 
 logger = logging.getLogger(__name__)
-MODULE_SDK_VERSION = "1.14.0"
+MODULE_SDK_VERSION = "1.15.0"
 
 
 @dataclass(slots=True)

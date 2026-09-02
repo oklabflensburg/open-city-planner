@@ -1,14 +1,16 @@
 # Öffentliche Backend-Service-Ports
 
-Stand dieser Inventarisierung ist `ocp-module-analysis-areas` PR #9, exakt Commit
-`fe6d11cb53575e0cbc383d8de714d5f9711f77c0`. Installierte In-Process-Module
+Stand dieser Inventarisierung ist `ocp-module-analysis-areas` nach dem Merge von
+PR #9, geprüft auf Commit
+`8951b36ce9334fc76fea502627b95e8a16b2e0bf`. Installierte In-Process-Module
 dürfen stabile öffentliche Host-Capabilities verwenden. Sie dürfen nie von
 privaten Implementierungsdetails einer Host-Fachdomäne abhängen.
 
 Alle Verträge werden ausschließlich aus `app.platform.modules.sdk` importiert
 und optional über den unveränderlichen `ModuleContext` injiziert. Konkrete
-Implementierungen liegen in `app.integrations.module_host_ports`; dort wird zu
-den bestehenden Services komponiert, ohne deren Logik in das SDK zu kopieren.
+Implementierungen liegen in `app.integrations.module_host_ports`; dort werden nur
+generische Host-Services und erhaltene Data-Shell-Tabellen hinter stabilen DTOs
+adaptiert, ohne Fachruntime in das SDK zu kopieren.
 Die Leseverträge sind seit SDK 1.9 additiv und stabil; die transaktionale
 Cache-Generation-Mutation ist seit SDK 1.10 verfügbar. Einen fehlenden optionalen Port
 erkennt das konsumierende Modul bei seiner Registrierung. Validierungsfehler bleiben `ValueError`;
@@ -27,7 +29,7 @@ DB-Treiberfehler zum Modulvertrag zu machen.
 | `MapPreviewPort` | Host Map Rendering | `MapPreviewRequest` mit GeoJSON-Primitiven | Bytes, Content-Type, ETag, Cache-Hit; stabile Preview-Exception |
 | `PolygonQueryPort` | Polygon-Domäne | Session, immutable `PolygonScope` aus primitiven Polygon-IDs, Limit | immutable `PublicPolygonSummary`; niemals ORM |
 | `PolygonAnalyticsPort` | Polygon-/Analytics-Domäne | Session, `PolygonScope`, primitive Filter | `PolygonMetrics` und `CountValue`; niemals SQL-Ausdrücke/ORM |
-| `StatisticsQueryPort` | Kommunalstatistik-Domäne | Session, fachlich aufgelöste `StatisticsSelection`, optionaler Metrik-Key | immutable Statistik-DTOs oder `None` |
+| `StatisticsQueryPort` | versionierter Compatibility-Contract auf der historischen Data Shell | Session, fachlich aufgelöste `StatisticsSelection`, optionaler Metrik-Key | immutable Statistik-DTOs oder `None`; kein Import, Write-Flow oder Scheduler |
 | `OsmSnapshotQueryPort` | Plattform-eigener OSM-Snapshot | Session, immutable und begrenzte `OsmSnapshotQuery` | cursor-paginierte, ORM-freie `OsmFeatureSnapshot`-DTOs; Details im [OSM-Vertrag](osm-public-contract.md) |
 | `PolygonSpatialMatchPort` | Polygon-Domäne | Session, immutable Area-Geometrien mit EWKB | stabile Polygon-UUIDs und räumliche Match-Metriken; Details im [Polygon-Spatial-Match-Vertrag](polygon-assignment-contract.md) |
 | `PolygonIdentityPort` (`platform.polygon-identity@1`) | Polygon-Domäne | Caller-Session, höchstens 5.000 stabile Polygon-UUIDs | immutable UUID↔interne-ID-Zuordnungen und explizite unbekannte UUIDs; niemals ORM |
@@ -97,14 +99,15 @@ Für Polygon-Lese- und Analytics-Flows bleibt `PolygonScope` der neutrale Scope.
 `UserPolygon` und räumliche Berechnung bleiben Host-intern; domänenspezifische
 Assignment-Persistenz bleibt Consumer-intern.
 
-## Kommunalstatistik-Grenze
+## Statistik-Compatibility-Grenze
 
 Die Gebietsdomain bestimmt Requested Area, tatsächliches Statistikziel,
 Municipality-Vergleich und Vererbungsstatus. Sie übergibt diese Entscheidung als
-immutable `StatisticsSelection`. Der Statistics-Owner ordnet das gewählte Ziel
-anschließend seiner eigenen `(source, external_area_id)`-Identität zu. Beobachtungen
-referenzieren die Host-eigene Mapping-Zeile; es gibt weder einen Foreign Key noch
-Runtime-SQL auf einer fremden Gebietstabelle.
+immutable `StatisticsSelection`. Der schreibfreie Host-Adapter ordnet das gewählte
+Ziel der erhaltenen `(source, external_area_id)`-Identität zu. Beobachtungen
+referenzieren die Mapping-Zeile; es gibt weder einen Foreign Key noch Runtime-SQL
+auf einer fremden Gebietstabelle. Dieser Übergangsadapter ist keine aktive
+Statistics-Domäne: API, Import, Cache-Policy, UI und Schedule sind entfernt.
 
 ## Lifecycle und Datenschutz
 

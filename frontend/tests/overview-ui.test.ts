@@ -81,17 +81,4 @@ describe('read-only overview UI', () => {
     expect(config).toContain('devLogs: false')
   })
 
-  it('keeps the overview read-only and places metric editing on its own management page', () => {
-    const facts = appFile('components/analysis/FastFacts.vue')
-    const editor = appFile('components/analysis/FastFactsEditor.vue')
-    const page = appFile('pages/verwaltung/kennzahlen.vue')
-    expect(facts).not.toContain('FastFactsEditor')
-    expect(facts).not.toContain('Bearbeiten')
-    expect(page).toContain("middleware: 'verwaltung'")
-    expect(page).toContain('<FastFactsEditor />')
-    expect(editor).toContain('type="number"')
-    expect(editor).toContain("typeof value === 'number'")
-    expect(editor).toContain("analytics.updateFastFacts(payload)")
-    expect(editor).not.toContain('contenteditable')
-  })
 })

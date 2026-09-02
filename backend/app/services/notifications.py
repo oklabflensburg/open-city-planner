@@ -96,7 +96,6 @@ def should_deliver_in_app(preferences: NotificationPreference, category: str) ->
         "GIS": preferences.notify_gis,
         "OSM": preferences.notify_osm,
         "DATA": preferences.notify_area_updates,
-        "SOCIAL": preferences.notify_social,
         "SYSTEM": preferences.notify_system,
         "ADMIN": preferences.notify_system,
     }.get(category, True)
@@ -111,7 +110,6 @@ def should_deliver_email(
         "GIS": preferences.email_notify_gis,
         "OSM": preferences.email_notify_osm,
         "DATA": preferences.email_notify_area_updates,
-        "SOCIAL": preferences.email_notify_social,
         "SYSTEM": preferences.email_notify_system,
         "ADMIN": preferences.email_notify_system,
     }.get(category, False)

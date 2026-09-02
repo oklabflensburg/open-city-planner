@@ -132,7 +132,7 @@ Lege unter **Environment variables** drei mehrzeilige Konfigurationswerte an:
 - `STADTPLANER_FRONTEND_ENV_CONFIG`: vollständiger Inhalt von `frontend/.env`;
 - `STADTPLANER_OSM_ENV_CONFIG`: vollständiger Inhalt von `deploy/osm-sync.env`.
 
-Die drei Blöcke müssen alle zugehörigen Schlüssel aus `vault.example.yml` enthalten. Aus dem Backend-Block müssen `DATABASE_URL`, `JWT_SECRET_KEY`, `OAUTH_STATE_SECRET`, `MFA_RECOVERY_PEPPER`, `MFA_ENCRYPTION_KEY`, `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `CONTACT_TO_EMAIL`, `CONTACT_TO_NAME`, `REDIS_URL`, `TURNSTILE_SECRET_KEY`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `MASTODON_SSO_ENCRYPTION_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `NOMINATIM_BASE_URL`, `NOMINATIM_EMAIL` und `MASTODON_ACCESS_TOKEN` entfernt werden. Der Workflow lehnt doppelte, fehlende, zusätzliche oder versehentlich offen eingetragene Secret-Schlüssel ab.
+Die drei Blöcke müssen alle zugehörigen Schlüssel aus `vault.example.yml` enthalten. Aus dem Backend-Block müssen `DATABASE_URL`, `JWT_SECRET_KEY`, `OAUTH_STATE_SECRET`, `MFA_RECOVERY_PEPPER`, `MFA_ENCRYPTION_KEY`, `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `CONTACT_TO_EMAIL`, `CONTACT_TO_NAME`, `REDIS_URL`, `TURNSTILE_SECRET_KEY`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`, `MASTODON_SSO_ENCRYPTION_KEY`, `NOMINATIM_BASE_URL` und `NOMINATIM_EMAIL` entfernt werden. Der Workflow lehnt doppelte, fehlende, zusätzliche oder versehentlich offen eingetragene Secret-Schlüssel ab.
 
 `OCP_ENABLED_INSTALLED_BACKEND_PATHS` und `OCP_INSTALLED_FRONTEND_MODULE_ROOTS` bleiben in
 den Eingabeblöcken leer. Die Rolle rendert beide Werte sowie das Enablement separat
@@ -174,7 +174,7 @@ Hinzu kommen die individuellen Applikations-Secrets:
 - `STADTPLANER_SMTP_HOST`, `STADTPLANER_SMTP_USERNAME`, `STADTPLANER_SMTP_PASSWORD`, `STADTPLANER_SMTP_FROM_EMAIL`
 - `STADTPLANER_CONTACT_TO_EMAIL`, `STADTPLANER_CONTACT_TO_NAME`
 - `STADTPLANER_REDIS_URL`
-- optional je nach aktivierter Integration: `STADTPLANER_TURNSTILE_SECRET_KEY`, `STADTPLANER_GITHUB_CLIENT_SECRET`, `STADTPLANER_GOOGLE_CLIENT_SECRET`, `STADTPLANER_MASTODON_SSO_ENCRYPTION_KEY`, `STADTPLANER_OPENAI_API_KEY`, `STADTPLANER_GROQ_API_KEY`, `STADTPLANER_NOMINATIM_BASE_URL`, `STADTPLANER_NOMINATIM_EMAIL`, `STADTPLANER_MASTODON_ACCESS_TOKEN`.
+- optional je nach aktivierter Integration: `STADTPLANER_TURNSTILE_SECRET_KEY`, `STADTPLANER_GITHUB_CLIENT_SECRET`, `STADTPLANER_GOOGLE_CLIENT_SECRET`, `STADTPLANER_MASTODON_SSO_ENCRYPTION_KEY`, `STADTPLANER_NOMINATIM_BASE_URL`, `STADTPLANER_NOMINATIM_EMAIL`.
 
 Secret-Werte können mit `gh secret set NAME --env production` interaktiv gesetzt werden, ohne sie als Kommandozeilenargument in die Shell-History zu schreiben. Für Dateiwerte gilt beispielsweise:
 
@@ -336,16 +336,8 @@ Vorher `docs/osm-hourly-sync.md` und `/etc/stadtplaner/osm-sync.env` prüfen. De
 Standardmäßig:
 
 - `stadtplaner-osm-update.timer`: aktiv
-- `stadtplaner-flensburg-statistics-sync.timer`: aktiv
 - `stadtplaner-email-outbox.timer`: aktiv
 - `stadtplaner-domain-event-outbox.timer`: aktiv
-- `stadtplaner-social-publisher.timer`: aus
-
-Mastodon nur aktivieren, wenn die Backend-Konfiguration vollständig ist:
-
-```bash
--e stadtplaner_enable_social_publisher_timer=true
-```
 
 ## Rollback
 
