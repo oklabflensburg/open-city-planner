@@ -14,6 +14,8 @@ from app.platform.modules.context import ModuleContextFactory, ModuleHostService
 from app.platform.modules.contracts import ModuleRegistrationContext
 from app.platform.modules.runtime import create_module_runtime
 from app.platform.modules.sdk import (
+    STATISTICS_QUERY_SERVICE_ID,
+    STATISTICS_QUERY_SERVICE_VERSION,
     ApiRegistrar,
     CacheGenerationPort,
     CachePort,
@@ -56,6 +58,11 @@ from app.platform.modules.testing import (
 )
 from tests.fixtures.example_backend_module import DEFINITION as EXAMPLE_DEFINITION
 from tests.test_module_runtime import FakeDiscovery, runtime_for
+
+
+def test_statistics_query_service_reference_is_stable() -> None:
+    assert STATISTICS_QUERY_SERVICE_ID == "statistics.query"
+    assert STATISTICS_QUERY_SERVICE_VERSION == 1
 
 
 def test_module_context_has_typed_public_ports() -> None:

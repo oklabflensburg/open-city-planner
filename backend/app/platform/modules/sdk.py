@@ -969,6 +969,10 @@ class StatisticsQueryPort(Protocol):
     ) -> AreaStatisticSeries | None: ...
 
 
+STATISTICS_QUERY_SERVICE_ID = "statistics.query"
+STATISTICS_QUERY_SERVICE_VERSION = 1
+
+
 class MetricsPort(Protocol):
     """Vendor-neutraler Zugriff auf begrenzte Modulmetriken."""
 
@@ -1255,6 +1259,8 @@ __all__ = [
     "POLYGON_SPATIAL_MATCH_MAX_AREAS",
     "POLYGON_SPATIAL_MATCH_SERVICE_ID",
     "POLYGON_SPATIAL_MATCH_SERVICE_VERSION",
+    "STATISTICS_QUERY_SERVICE_ID",
+    "STATISTICS_QUERY_SERVICE_VERSION",
     "ApiRegistrar",
     "AreaStatisticSeries",
     "AreaStatistics",
