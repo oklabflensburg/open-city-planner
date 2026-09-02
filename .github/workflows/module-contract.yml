@@ -120,7 +120,7 @@ jobs:
         run: |
           (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct de7e1bcc02064288392530109776662f5eb36c8b)" uv build --wheel --clear)
           (cd .external-analysis-areas/frontend && pnpm build)
-          (cd .external-statistics/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct 09adbc4c35555450834b2321148781aa713fc300)" uv build --wheel --clear)
+          (cd .external-statistics/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct 09adbc48cbfd2b21f67c4ac72720c460bebd7fc0)" uv build --wheel --clear)
           (cd .external-statistics/frontend && pnpm build)
           (cd backend && .venv/bin/python -m app.cli.modules bundle build \
             --manifest ../.external-statistics/module.yaml \
@@ -128,7 +128,7 @@ jobs:
             --frontend ../.external-statistics/frontend/dist/statistics-0.2.0.tgz \
             --publisher oklabflensburg --source-reference pull/1 \
             --source-repository https://github.com/oklabflensburg/ocp-module-statistics \
-            --source-commit 09adbc4c35555450834b2321148781aa713fc300 \
+            --source-commit 09adbc48cbfd2b21f67c4ac72720c460bebd7fc0 \
             --build-workflow github-actions/module-contract --license AGPL-3.0-only \
             --output "${RUNNER_TEMP}/statistics-0.2.0.ocp")
           (cd backend && .venv/bin/python -m app.cli.modules bundle build \
