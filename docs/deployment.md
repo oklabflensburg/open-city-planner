@@ -45,9 +45,9 @@ Der Vertrag und die Legacy-Migrationsstrategie stehen unter
 In-Process-Module sind nicht sandboxed. Built-ins sind inhärent First-Party.
 Third-Party-Code darf Discovery und Runtime erst nach Prüfung und Installation am
 Deploymentrand erreichen. Der [Installer mit `modules.lock`](modules/installer.md)
-nimmt ausschließlich bereits verifizierte lokale Package-Inputs an; das OCP-Bundle
-folgt in #174. Beliebige URL-/Runtime-Installationen sind kein unterstützter
-Deploymentpfad. Details stehen in der
+nimmt ausschließlich durch den lokalen Bundle-Reader verifizierte Package-Inputs
+an. Der explizite Registry-CLI lädt ein gepinntes Bundle vor diesem bestehenden
+Pfad; beliebige URL- oder Runtime-Installationen bleiben unzulässig. Details stehen in der
 [Modul-Trust-ADR](architecture/adr-module-trust-model.md).
 
 Persistente Verzeichnisse wie Uploads, OSM-Daten und Social-Screenshots dürfen nicht bei jedem Deployment ersetzt werden. Der Service-Benutzer benötigt nur für die tatsächlich verwendeten Pfade Schreibrechte.
@@ -73,6 +73,9 @@ python3 -m pip install 'uv==0.12.5'
 uv python install 3.12.14
 uv sync --frozen --no-dev --no-editable --python 3.12.14 --managed-python
 export OCP_MODULE_INSTALL_ROOT=/var/lib/stadtplaner/modules
+uv run python -m app.cli.modules install-registry analysis-areas \
+  --version 1.0.0 \
+  --expected-sha256 7006f31ea73f40e38f63d2065652c27ad5d3391ddcc8cfad2f149993efef3dcf
 eval "$(uv run python -m app.cli.modules env --format shell)"
 uv run alembic heads
 uv run alembic upgrade head
@@ -102,6 +105,14 @@ Vorabprüfungen ergänzen dagegen `--extra dev` für Pytest und Ruff. Beide Pfad
 verwenden dasselbe `backend/uv.lock`; eine Auflösung auf dem Produktionsserver
 findet nicht statt. Der unterstützte manuelle Produktionsweg bleibt das
 Ansible-Playbook, das auch uv und Python exakt bereitstellt.
+
+Ansible kann denselben reproduzierbaren Schritt vor dem Rendern des Modulzustands
+ausführen. `stadtplaner_module_registry_url` konfiguriert die Registry-Basis-URL;
+`stadtplaner_registry_modules` enthält ausschließlich Einträge mit `id`, exakter
+`version` und `expected_sha256`. Der Default ist eine leere Liste, daher bleiben
+Registry-Installation und Netzwerkzugriff standardmäßig deaktiviert. Die Rolle
+installiert idempotent, ändert aber kein Enablement. Aktivierung bleibt eine bewusste
+separate Änderung in `modules.lock` vor Build, Migration und Prozessneustart.
 
 Der Installer-Output wird ausschließlich aus dem strict validierten
 [`modules.lock`](modules/installer.md) gerendert. Er ergänzt installierte

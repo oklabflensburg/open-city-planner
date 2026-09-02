@@ -133,7 +133,8 @@ noch `modules.lock`.
 
 ## Registry-Übergabe
 
-Eine spätere Registry (#175) kann ID, Version, Publisher, Lizenz, lokale/remote
-Artefaktadresse, vollständigen Bundle-SHA-256 und Compatibility-Zusammenfassung
-indexieren. Version 1 implementiert weder Netzwerkzugriff noch Registry,
-Signatur-PKI, Runtime-Download, Upgrade oder Uninstall.
+Der explizite CLI-Pfad `install-registry` löst Registry-v1-Metadaten auf, lädt das
+vollständige Bundle begrenzt in eine private temporäre Datei und prüft dessen
+SHA-256. Anschließend ruft er genau den hier beschriebenen Reader und den bestehenden
+Installer auf. Das Bundleformat selbst implementiert weiterhin weder Netzwerkzugriff
+noch Registry-Auflösung, Signatur-PKI, Runtime-Download, Upgrade oder Uninstall.

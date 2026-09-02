@@ -27,6 +27,13 @@ from app.platform.modules.installer import (
     ModuleInstallerError,
     ModuleProvenance,
     ModuleSource,
+    read_modules_lock,
+)
+from app.platform.modules.registry import (
+    DEFAULT_REGISTRY_URL,
+    REGISTRY_URL_ENV,
+    ModuleRegistryClient,
+    ModuleRegistryError,
 )
 from app.platform.modules.settings import read_module_environment
 
@@ -60,6 +67,10 @@ def _installer(root: Path) -> ModuleInstaller:
             settings.ocp_excluded_builtin_modules,
         ),
     )
+
+
+def _registry_client(registry_url: str | None) -> ModuleRegistryClient:
+    return ModuleRegistryClient(registry_url)
 
 
 def _frontend_enablement() -> str:
@@ -185,6 +196,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     verify.add_argument("package", type=Path)
     install = commands.add_parser("install", help="Install a verified package as disabled.")
     install.add_argument("package", type=Path)
+    install_registry = commands.add_parser(
+        "install-registry",
+        help="Resolve and securely install an OCP bundle from Registry v1 as disabled.",
+    )
+    install_registry.add_argument("module_id")
+    selection = install_registry.add_mutually_exclusive_group()
+    selection.add_argument("--version", help="Install one exact semantic version.")
+    selection.add_argument(
+        "--channel",
+        choices=("stable", "beta", "nightly"),
+        help='Resolve a Registry channel (default: "stable").',
+    )
+    install_registry.add_argument(
+        "--expected-sha256",
+        help="Require this lowercase SHA-256 deployment pin.",
+    )
+    install_registry.add_argument(
+        "--registry-url",
+        help=(f"Registry base URL (default: ${REGISTRY_URL_ENV} or {DEFAULT_REGISTRY_URL})."),
+    )
     enable = commands.add_parser("enable", help="Enable an installed module after preflight.")
     enable.add_argument("module_id")
     disable = commands.add_parser("disable", help="Disable an installed module without removal.")
@@ -248,6 +279,52 @@ def main(argv: Sequence[str] | None = None) -> int:
                 entry = installer.install(package_root)
             print(entry.model_dump_json())
             print("Module installed as disabled; enable and deploy it explicitly.")
+        elif args.command == "install-registry":
+            previous = next(
+                (
+                    item
+                    for item in read_modules_lock(installer.lock_path).modules
+                    if item.id == args.module_id
+                ),
+                None,
+            )
+            with _registry_client(args.registry_url) as registry:
+                release = registry.resolve(
+                    args.module_id,
+                    version=args.version,
+                    channel=args.channel,
+                    expected_sha256=args.expected_sha256,
+                )
+                with (
+                    registry.download(release) as downloaded,
+                    staged_ocp_bundle(downloaded.path) as (package_root, package),
+                ):
+                    registry.validate_bundle(release, package)
+                    entry = installer.install(package_root)
+            print(
+                json.dumps(
+                    {
+                        "module_id": release.module_id,
+                        "version": release.version,
+                        "channel": release.channel,
+                        "sha256": downloaded.sha256,
+                        "status": (
+                            "already-installed"
+                            if previous is not None
+                            and previous.version == release.version
+                            and previous.artifact.sha256 == release.sha256
+                            else "installed"
+                        ),
+                        "enabled": entry.enabled,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
+            if entry.enabled:
+                print("Module was already installed and remains enabled.")
+            else:
+                print("Module installed as disabled; enable and deploy it explicitly.")
         elif args.command == "enable":
             entry = installer.enable(args.module_id)
             print(entry.model_dump_json())
@@ -269,7 +346,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             else:
                 for key in sorted(values):
                     print(f"export {key}={shlex.quote(values[key])}")
-    except (ModuleInstallerError, ValidationError, subprocess.CalledProcessError) as exc:
+    except (
+        ModuleInstallerError,
+        ModuleRegistryError,
+        ValidationError,
+        subprocess.CalledProcessError,
+    ) as exc:
         parser.exit(1, f"modules: {exc}\n")
     return 0
 

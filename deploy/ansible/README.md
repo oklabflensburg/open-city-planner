@@ -140,6 +140,13 @@ aus dem strict validierten [`modules.lock`](../../docs/modules/installer.md) im
 host-owned `stadtplaner_module_install_root` und bindet sie vor den Modul-
 Preflights an den target Environment-Snapshot.
 
+Optionale Registry-Installationen werden mit `stadtplaner_registry_modules` als
+Liste aus `id`, exakter `version` und `expected_sha256` deklariert. Die Registry-
+Basis setzt `stadtplaner_module_registry_url` (Default: produktive OCP Registry).
+Die leere Liste deaktiviert jeden Netzwerkzugriff. Die Rolle installiert gepinnte
+Bundles nach dem Backend-Sync und vor dem Rendern von `modules.lock`; sie aktiviert
+Module niemals automatisch. Beispielwerte stehen in `vault.example.yml`.
+
 Aktive Module verwenden ausschließlich
 `OCP_MODULE_<MODULE-ID>_<SETTING>`. Hinterlege diese dynamische, potentiell geheime
 Zusatzkonfiguration gesammelt im optionalen Environment Secret

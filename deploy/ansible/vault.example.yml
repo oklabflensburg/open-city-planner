@@ -240,6 +240,13 @@ stadtplaner_service_group: oklab
 stadtplaner_config_dir: /etc/stadtplaner
 stadtplaner_data_dir: /data/stadtplaner
 stadtplaner_module_install_root: /var/lib/stadtplaner/modules
+stadtplaner_module_registry_url: https://packages.stadtplaner.oklabflensburg.de
+# Example:
+# stadtplaner_registry_modules:
+#   - id: analysis-areas
+#     version: 1.0.0
+#     expected_sha256: 7006f31ea73f40e38f63d2065652c27ad5d3391ddcc8cfad2f149993efef3dcf
+stadtplaner_registry_modules: []
 stadtplaner_avatar_upload_dir: /data/uploads
 stadtplaner_observability_dir: /data/stadtplaner/observability
 stadtplaner_metrics_allowed_cidrs: []

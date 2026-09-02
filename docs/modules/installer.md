@@ -1,7 +1,10 @@
 # Installer und `modules.lock`
 
 Der Installer verwaltet separat verteilte, bereits lokal bereitgestellte Module
-zwischen Package-Verifikation und dem bestehenden deploy-time Enablement. Built-ins
+zwischen Package-Verifikation und dem bestehenden deploy-time Enablement. Eine
+optionale Registry-Schicht löst ein Release auf und lädt dessen Bundle vollständig
+und digestgeprüft in eine private temporäre Datei; ab dort bleibt derselbe lokale
+Bundle-/Installer-Pfad maßgeblich. Built-ins
 im Host-Repository bleiben außerhalb dieses Zustands. Das
 [Manifest V1](module-manifest-v1.md) bleibt Source of Truth für fachliche Identität,
 Version, Compatibility und Dependencies; `modules.lock` beschreibt ausschließlich
@@ -10,7 +13,8 @@ den reproduzierbaren Installationszustand. Der
 Runtime.
 
 ```text
-lokale .ocp-Datei
+Registry v1 -> private temporäre .ocp-Datei (HTTPS + SHA-256)
+             \-> oder bereits lokale .ocp-Datei
   -> Bundle-Reader / VerifiedModulePackage
   -> installer
   -> modules.lock
@@ -174,6 +178,13 @@ uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
   install /srv/reviewed/energy-analysis-1.4.0.ocp
 
 uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
+  install-registry analysis-areas --channel stable
+
+uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
+  install-registry analysis-areas --version 1.0.0 \
+  --expected-sha256 7006f31ea73f40e38f63d2065652c27ad5d3391ddcc8cfad2f149993efef3dcf
+
+uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
   enable energy-analysis
 
 uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
@@ -215,6 +226,38 @@ installierten Backend-Pfade direkt aus `modules.lock` und aktiviert sie nur scop
 für passive Discovery, Preflight und Upgrade. Es gibt keine zweite manuell gepflegte
 Migration-Path-Variable. Built-ins werden weiterhin über die bestehende
 Hostkonfiguration ergänzt und niemals in `modules.lock` geschrieben.
+
+### Installation aus Registry v1
+
+`install-registry` ist bewusst nur eine dünne Eingabeschicht vor `install`. Der
+Default ist `https://packages.stadtplaner.oklabflensburg.de`; `--registry-url`
+überschreibt ihn, alternativ setzt `OCP_MODULE_REGISTRY_URL` einen nicht geheimen
+Deploymentwert. Ohne `--version` oder `--channel` wird `stable` aufgelöst. Beide
+Optionen schließen einander aus. Für reproduzierbare Deployments ist immer die
+exakte Version zusammen mit `--expected-sha256` zu verwenden; der Pin muss sowohl
+zum Registry-Index als auch zu den Modulmetadaten und den empfangenen Bytes passen.
+
+Index und Modulmetadaten werden strikt als Schema v1 validiert. Unbekannte Felder,
+IDs, Versionen, Channels und Schema-Versionen sowie widersprüchliche ID-, Publisher-,
+Klassifikations-, Channel-, Bundleformat- oder Digestangaben werden abgelehnt.
+Metadata-Referenzen müssen sichere `/modules/*.json`-Pfade auf demselben Registry-
+Origin sein. Artefakte werden nur von einem kanonischen versionierten Registry-Pfad
+oder einem versionierten GitHub Release akzeptiert.
+
+Alle Netzwerkziele müssen HTTPS ohne eingebettete Zugangsdaten verwenden. Der Client
+setzt getrennte Connect-/Read-Timeouts, folgt höchstens fünf Redirects und prüft nach
+jedem Redirect erneut das Schema. Registry-Dokumente sind auf 1 MiB und Bundles auf
+512 MiB begrenzt. Bundlebytes werden gestreamt, während des Empfangs gehasht und in
+einer privaten temporären Datei gehalten; `Content-Length`, Größenlimit und SHA-256
+werden vor dem Bundle-Reader geprüft. Temporäre Daten werden bei Erfolg und Fehler
+entfernt.
+
+Ein Fehler verändert weder `installed/` noch `modules.lock`. Die Registry wird nur
+durch diesen expliziten CLI-Befehl kontaktiert: API-, Worker-, Migrations- und
+Application-Startup, Builds sowie bereits installierte Module bleiben vollständig
+offlinefähig. Es gibt keine Updateprüfung, transitive Installation oder Ausführung
+von Registry-Metadaten. Eine Erstinstallation bleibt deaktiviert und benötigt
+weiterhin einen separaten `enable`- und Deploy-Schritt.
 
 `OCP_EXCLUDED_BUILTIN_MODULES` ist der gemeinsame Backend-/Frontend-Contract für
 einen kontrollierten Source-Cutover. Details stehen im
@@ -273,7 +316,6 @@ bleibt eine separate, explizite und backupgestützte Operation.
 
 Uninstall und Upgrade bleiben zunächst außerhalb von #173, weil angewandte
 Migrationshistorie und DB-Kompatibilität keine sichere automatische Entfernung oder
-Rücksetzung erlauben. Ebenfalls nicht enthalten sind Registry/HTTP-Client (#175),
-Marketplace, Web-UI, Hot Update,
+Rücksetzung erlauben. Ebenfalls nicht enthalten sind Marketplace, Web-UI, Hot Update,
 Signatur-PKI, Trust State Machine, Dependency Resolver und automatischer
 DB-Downgrade.

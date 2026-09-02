@@ -516,6 +516,61 @@
   become_user: "{{ stadtplaner_service_user }}"
   notify: Restart Stadtplaner API
 
+- name: Install frontend dependencies from lockfile
+  ansible.builtin.command:
+    cmd: corepack pnpm install --frozen-lockfile
+    chdir: "{{ stadtplaner_release_path }}/frontend"
+  become_user: "{{ stadtplaner_service_user }}"
+
+- name: Validate exact Registry module deployment pins
+  ansible.builtin.assert:
+    that:
+      - item.id is defined
+      - item.version is defined
+      - item.expected_sha256 is defined
+      - item.keys() | difference(['id', 'version', 'expected_sha256']) | length == 0
+      - item.expected_sha256 is match('^[0-9a-f]{64}$')
+    fail_msg: >-
+      Registry module deployment entries require exactly id, version, and
+      expected_sha256.
+    quiet: true
+  loop: "{{ stadtplaner_registry_modules }}"
+  loop_control:
+    label: "{{ item.id | default('invalid-module-pin') }}"
+
+- name: Ensure the host-owned module installation root exists
+  ansible.builtin.file:
+    path: "{{ stadtplaner_module_install_root }}"
+    state: directory
+    owner: "{{ stadtplaner_service_user }}"
+    group: "{{ stadtplaner_service_group }}"
+    mode: '0750'
+  when: stadtplaner_registry_modules | length > 0
+
+- name: Install exact Registry module releases for the target deployment
+  ansible.builtin.command:
+    argv:
+      - .venv/bin/python
+      - -m
+      - app.cli.modules
+      - --root
+      - "{{ stadtplaner_module_install_root }}"
+      - install-registry
+      - "{{ item.id }}"
+      - --version
+      - "{{ item.version }}"
+      - --expected-sha256
+      - "{{ item.expected_sha256 }}"
+      - --registry-url
+      - "{{ stadtplaner_module_registry_url }}"
+    chdir: "{{ stadtplaner_release_path }}/backend"
+  become_user: "{{ stadtplaner_service_user }}"
+  register: stadtplaner_registry_module_install
+  changed_when: '"\"status\":\"installed\"" in stadtplaner_registry_module_install.stdout'
+  loop: "{{ stadtplaner_registry_modules }}"
+  loop_control:
+    label: "{{ item.id }}@{{ item.version }}"
+
 - name: Render installed module enablement for the target release
   ansible.builtin.command:
     argv:
@@ -617,12 +672,6 @@
   become_user: "{{ stadtplaner_service_user }}"
   when: stadtplaner_run_backend_tests
   changed_when: false
-
-- name: Install frontend dependencies from lockfile
-  ansible.builtin.command:
-    cmd: corepack pnpm install --frozen-lockfile
-    chdir: "{{ stadtplaner_release_path }}/frontend"
-  become_user: "{{ stadtplaner_service_user }}"
 
 - name: Verify target frontend module compatibility
   ansible.builtin.command:
