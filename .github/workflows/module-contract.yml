@@ -103,6 +103,10 @@ jobs:
           (cd frontend && pnpm install --frozen-lockfile)
           (cd .external-analysis-areas/backend && uv sync --frozen --extra dev)
           (cd .external-analysis-areas/frontend && pnpm install --frozen-lockfile)
+      - name: Run the external module's own contract suites
+        run: |
+          (cd .external-analysis-areas/backend && uv run ruff check src tests && uv run pytest)
+          (cd .external-analysis-areas/frontend && pnpm test && pnpm typecheck)
       - name: Build the pinned real OCP bundle
         run: |
           (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct 8951b36ce9334fc76fea502627b95e8a16b2e0bf)" uv build --wheel)
@@ -117,10 +121,6 @@ jobs:
             --build-workflow github-actions/module-contract --license AGPL-3.0-only \
             --output "${RUNNER_TEMP}/analysis-areas-1.4.0.ocp")
         working-directory: .
-      - name: Run the external module's own contract suites
-        run: |
-          (cd .external-analysis-areas/backend && uv run ruff check src tests && uv run pytest)
-          (cd .external-analysis-areas/frontend && pnpm test && pnpm typecheck)
       - name: Prove the planned public polygon-port consumer flow
         working-directory: backend
         run: |
