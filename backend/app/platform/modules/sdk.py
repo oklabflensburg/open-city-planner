@@ -1198,7 +1198,6 @@ class ModuleContext:
     map_previews: MapPreviewPort | None = None
     polygons: PolygonQueryPort | None = None
     polygon_analytics: PolygonAnalyticsPort | None = None
-    statistics: StatisticsQueryPort | None = None
     storage: StoragePort | None = None
     http: HttpClientFactoryPort | None = None
     scheduler: SchedulerPort | None = None

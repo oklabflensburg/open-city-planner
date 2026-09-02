@@ -29,7 +29,6 @@ from app.integrations.module_host_ports import (
     HostPolygonQueries,
     HostPolygonSpatialMatches,
     HostPublicQueries,
-    HostStatisticsQueries,
 )
 from app.models.user import User
 from app.observability.logging import configure_logging
@@ -111,7 +110,6 @@ module_runtime = create_module_runtime(
             http=HostModuleHttpClientFactory(settings=settings),
             polygons=HostPolygonQueries(),
             polygon_analytics=HostPolygonAnalytics(),
-            statistics=HostStatisticsQueries(),
             osm_snapshots=HostOsmSnapshotQueries(),
             polygon_spatial_matches=HostPolygonSpatialMatches(),
             polygon_identities=HostPolygonIdentities(),

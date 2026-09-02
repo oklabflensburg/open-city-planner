@@ -18,7 +18,6 @@ from app.integrations.module_host_ports import (
     HostPolygonAnalytics,
     HostPolygonQueries,
     HostPublicQueries,
-    HostStatisticsQueries,
 )
 from app.platform.modules.sdk import (
     MapPreviewRequest,
@@ -218,20 +217,21 @@ def test_module_port_adapters_do_not_import_analysis_areas() -> None:
         ), f"{source} must not import app.modules.analysis_areas"
 
 
-@pytest.mark.asyncio
-async def test_statistics_compatibility_port_is_read_only_and_handles_unmapped_selection() -> None:
-    result = SimpleNamespace(mappings=lambda: SimpleNamespace(first=lambda: None))
-    session = SimpleNamespace(execute=AsyncMock(return_value=result))
-    selection = SimpleNamespace(
-        target=SimpleNamespace(name="Nord", area_type="DISTRICT"),
-        municipality=SimpleNamespace(name="Stadt", area_type="MUNICIPALITY"),
-    )
+def test_slim_host_has_no_statistics_runtime_implementation_or_sql() -> None:
+    production = ROOT / "backend/app"
+    sources = sorted(production.rglob("*.py"))
+    combined = "\n".join(source.read_text(encoding="utf-8") for source in sources)
 
-    assert await HostStatisticsQueries().for_selection(session, selection) is None
-
-    statement = str(session.execute.await_args.args[0]).lower()
-    assert "external_area_mappings" in statement
-    assert not any(token in statement for token in ("insert ", "update ", "delete "))
+    assert "HostStatisticsQueries" not in combined
+    assert "class SqlStatisticsQueryService" not in combined
+    for table in (
+        "external_area_mappings",
+        "statistical_datasets",
+        "statistical_metrics",
+        "statistical_observations",
+    ):
+        assert table not in combined
+    assert not (production / "models/statistics.py").exists()
 
 
 def test_module_host_ports_import_without_builtin_analysis_areas() -> None:

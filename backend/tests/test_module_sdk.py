@@ -37,7 +37,6 @@ from app.platform.modules.sdk import (
     PublicQueryPort,
     SchedulerPort,
     ServiceRegistryPort,
-    StatisticsQueryPort,
     StoragePort,
 )
 from app.platform.modules.testing import (
@@ -85,7 +84,6 @@ def test_module_context_has_typed_public_ports() -> None:
         "map_previews": MapPreviewPort | None,
         "polygons": PolygonQueryPort | None,
         "polygon_analytics": PolygonAnalyticsPort | None,
-        "statistics": StatisticsQueryPort | None,
         "storage": StoragePort | None,
         "http": HttpClientFactoryPort | None,
         "scheduler": SchedulerPort | None,
@@ -170,7 +168,6 @@ def test_runtime_context_is_bound_to_manifest_and_unimplemented_ports_are_absent
     assert context.map_previews is None
     assert context.polygons is None
     assert context.polygon_analytics is None
-    assert context.statistics is None
     assert context.storage is None
     assert context.http is None
     assert context.scheduler is not None

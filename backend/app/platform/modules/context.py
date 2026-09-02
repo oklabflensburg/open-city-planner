@@ -43,7 +43,6 @@ from app.platform.modules.sdk import (
     SchedulerPort,
     ServiceRegistryPort,
     SpanPort,
-    StatisticsQueryPort,
     StoragePort,
     TracerPort,
 )
@@ -119,7 +118,6 @@ class ModuleHostServices:
     polygon_analytics: PolygonAnalyticsPort | None = None
     polygon_spatial_matches: PolygonSpatialMatchPort | None = None
     polygon_identities: PolygonIdentityPort | None = None
-    statistics: StatisticsQueryPort | None = None
     osm_snapshots: OsmSnapshotQueryPort | None = None
     storage: StoragePort | None = None
     http: HttpClientFactoryPort | None = None
@@ -256,7 +254,6 @@ class ModuleContextFactory:
             map_previews=self._services.map_previews,
             polygons=self._services.polygons,
             polygon_analytics=self._services.polygon_analytics,
-            statistics=self._services.statistics,
             storage=self._services.storage,
             http=self._services.http,
             scheduler=scheduler_adapter,

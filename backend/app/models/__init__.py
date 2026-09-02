@@ -24,13 +24,6 @@ from app.models.social_publication import (
     SocialPublicationOutbox,
     SocialPublishingSettings,
 )
-from app.models.statistics import (
-    ExternalAreaMapping,
-    StatisticalDataset,
-    StatisticalImportRun,
-    StatisticalMetric,
-    StatisticalObservation,
-)
 from app.models.user import User
 from app.models.user_polygon import UserPolygon
 from app.models.user_session import UserSession
@@ -49,7 +42,6 @@ __all__ = [
     "EmailUnsubscribeToken",
     "EmailVerificationToken",
     "EventDelivery",
-    "ExternalAreaMapping",
     "MastodonOAuthInstance",
     "Notification",
     "NotificationPreference",
@@ -62,10 +54,6 @@ __all__ = [
     "SocialPublication",
     "SocialPublicationOutbox",
     "SocialPublishingSettings",
-    "StatisticalDataset",
-    "StatisticalImportRun",
-    "StatisticalMetric",
-    "StatisticalObservation",
     "User",
     "UserMfaMethod",
     "UserMfaRecoveryCode",

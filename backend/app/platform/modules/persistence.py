@@ -78,6 +78,7 @@ class PersistenceRegistry:
         self._schema_owners: dict[str, str] = {}
         self._adopted_table_owners: dict[str, str] = {}
         self._module_order: tuple[str, ...] = ()
+        self._migration_dependencies: dict[str, frozenset[str]] = {}
 
     def register_legacy(self, provider: LegacyPersistenceProvider) -> None:
         if self._legacy is not None:
@@ -187,6 +188,24 @@ class PersistenceRegistry:
                 + ", ".join(missing)
             )
         self._module_order = order
+        migration_modules = {
+            module_id
+            for module_id, contribution in self._modules.items()
+            if contribution.migration_source is not None
+        }
+        available_modules = set(order)
+        self._migration_dependencies = {
+            manifest.id: frozenset(
+                dependency_id
+                for dependency_id in (
+                    set(manifest.requires.modules)
+                    | (set(manifest.optional.modules) & available_modules)
+                )
+                if dependency_id in migration_modules
+            )
+            for manifest in ordered_manifests
+            if manifest.id in migration_modules
+        }
 
     @property
     def contributions(self) -> tuple[RegisteredPersistence, ...]:
@@ -219,6 +238,10 @@ class PersistenceRegistry:
             for contribution in self.contributions
             if contribution.migration_source is not None
         )
+
+    @property
+    def migration_dependencies(self) -> dict[str, frozenset[str]]:
+        return dict(self._migration_dependencies)
 
 
 def revision_namespace_for(module_id: str) -> str:
