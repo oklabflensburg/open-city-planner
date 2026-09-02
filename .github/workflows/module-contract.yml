@@ -201,6 +201,10 @@ jobs:
           (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm modules:check)
           (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm typecheck)
           (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm build)
+          export ENABLED_MODULES=""
+          export OCP_BACKEND_MODULES=""
+          export OCP_FRONTEND_MODULES=""
+          export OCP_ENABLED_INSTALLED_BACKEND_PATHS=""
           .venv/bin/python -m app.cli.modules disable analysis-areas
           eval "$(.venv/bin/python -m app.cli.modules env --format shell)"
           test "${ENABLED_MODULES}" = "statistics"
