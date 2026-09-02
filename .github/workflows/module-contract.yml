@@ -90,7 +90,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: oklabflensburg/ocp-module-statistics
-          ref: 09adbc4c35555450834b2321148781aa713fc300
+          ref: 09adbc48cbfd2b21f67c4ac72720c460bebd7fc0
           path: .external-statistics
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
