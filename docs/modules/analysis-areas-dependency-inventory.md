@@ -2,6 +2,10 @@
 
 Stand: 2026-08-26 · Pilotmigration [#107](https://github.com/oklabflensburg/open-city-planner/issues/107)
 
+> Historisches Inventar der Pilotmigration. Der aktuelle Slim-Host-Stand steht im
+> [Extraktionsinventar](slim-host-extraction-inventory.md). Die hier genannten
+> Legacy-Consumer und Built-in-Adapter sind keine aktuelle Host-Runtime mehr.
+
 Dieses Inventar hält die vor dem Refactoring ermittelten Produktionsverträge und
 Abhängigkeitsrichtungen fest. Es ist zugleich die Grenze für die temporären
 Legacy-Adapter: Die Pilotmigration ändert weder öffentliche URLs noch die

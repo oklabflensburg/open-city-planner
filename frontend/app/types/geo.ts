@@ -73,10 +73,6 @@ export type PolygonOverview = {
 }
 
 export type PolygonDirectoryItem = Omit<PolygonOverview, 'id' | 'area_size' | 'geometry' | 'created_at'> & {
-  district_slug: string | null
-  district_name: string | null
-  quarter_slug: string | null
-  quarter_name: string | null
 }
 
 export type PolygonDirectoryPage = {

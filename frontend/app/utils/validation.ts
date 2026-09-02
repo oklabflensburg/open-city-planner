@@ -58,9 +58,8 @@ export const polygonOverviewSchema = z.object({
 })
 
 const externalLinksSchema = z.object({
-  wikidata: z.object({ id: z.string(), url: z.string().url() }).nullable(),
   wikipedia: z.object({ title: z.string(), url: z.string().url() }).nullable()
-}).default({ wikidata: null, wikipedia: null })
+}).default({ wikipedia: null })
 
 export const publicPolygonDetailSchema = z.object({
   id: z.string(),

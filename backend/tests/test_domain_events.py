@@ -711,7 +711,6 @@ async def test_polygon_pilot_queues_public_contract_without_importing_consumer()
         "polygons.enrich-updated-address",
         "notifications.polygon-updated",
         "notifications.polygon-deleted",
-        "social.cancel-deleted-polygon",
     ]
 
     producer_path = Path(__file__).resolve().parents[1] / "app/services/polygon_events.py"

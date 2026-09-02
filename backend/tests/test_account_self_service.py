@@ -134,7 +134,6 @@ async def test_delete_removes_personal_dependencies_and_keeps_audit_event() -> N
     sql = "\n".join(str(call.args[0]) for call in session.execute.await_args_list)
     assert "UPDATE user_polygons SET created_by_user_id" in sql
     assert "UPDATE user_polygons SET updated_by_user_id" in sql
-    assert "UPDATE social_publishing_settings SET updated_by_user_id" in sql
     assert "DELETE FROM user_oauth_accounts" in sql
     assert "DELETE FROM user_sessions" in sql
     assert "DELETE FROM password_reset_tokens" in sql

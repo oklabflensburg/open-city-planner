@@ -158,8 +158,6 @@ The public user documentation is available [in the live application](https://sta
 ### Development and architecture
 
 - [Technical documentation](docs/README.md)
-- [Intelligent search](docs/intelligent-search.md)
-- [Open City Planner assistant](docs/stadtplaner-assistant.md)
 - [Reproducible supply chain](docs/supply-chain.md)
 
 ### Operations and security
@@ -173,7 +171,6 @@ The public user documentation is available [in the live application](https://sta
 ### Data
 
 - [OpenStreetMap data](docs/osm-data.md)
-- [Municipal statistics for Flensburg](docs/flensburg-statistics.md)
 
 ## Contributing
 

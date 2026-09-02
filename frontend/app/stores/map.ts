@@ -1,13 +1,11 @@
 import { defineStore } from 'pinia'
 import type { MapTheme } from '~/utils/mapThemes'
 import type { SelectedMapEntity } from '~/types/mapSelection'
-import type { FeatureCollection } from 'geojson'
-import type { AssistantMapActionType, SearchMapActionType } from '~/types/search'
 import { markRaw } from 'vue'
 import type { SelectedMapFeature } from '#frontend-module-sdk'
 
 export type DrawingMode = 'select' | 'polygon' | 'edit' | 'delete'
-export type GisPanel = 'assistant' | 'filter' | 'analytics' | 'selection' | null
+export type GisPanel = 'filter' | 'selection' | null
 
 export const useMapStore = defineStore('map', {
   state: () => ({
@@ -24,18 +22,9 @@ export const useMapStore = defineStore('map', {
     thematicStyle: 'category' as MapTheme,
     gisDataGeneration: 0,
     gisDataDirty: false,
-    searchActionGeneration: 0,
     runtimeSelectionClear: null as (() => void) | null,
     runtimeSelectionSelect: null as ((selection: SelectedMapFeature) => Promise<void>) | null,
-    runtimeSelection: null as SelectedMapFeature | null,
-    searchAction: null as {
-      type: SearchMapActionType | AssistantMapActionType
-      fitBounds: boolean
-      bounds: [number, number, number, number] | null
-      data: FeatureCollection | null
-      areaSlugs: string[]
-      areaType: string | null
-    } | null
+    runtimeSelection: null as SelectedMapFeature | null
   }),
   actions: {
     setView(center: [number, number], zoom: number, bearing: number, pitch: number) {
@@ -92,15 +81,6 @@ export const useMapStore = defineStore('map', {
     },
     markGisDataFresh() {
       this.gisDataDirty = false
-    },
-    applySearchAction(
-      action: { type: SearchMapActionType | AssistantMapActionType, fit_bounds: boolean, bounds: [number, number, number, number] | null, area_slug?: string | null, area_slugs?: string[] },
-      data: FeatureCollection | null
-    ) {
-      const areaSlugs = action.area_slugs?.length ? action.area_slugs : action.area_slug ? [action.area_slug] : []
-      const areaType = 'area_type' in action && typeof action.area_type === 'string' ? action.area_type : null
-      this.searchAction = { type: action.type, fitBounds: action.fit_bounds, bounds: action.bounds, data, areaSlugs, areaType }
-      this.searchActionGeneration += 1
     }
   }
 })

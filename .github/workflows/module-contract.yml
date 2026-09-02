@@ -76,7 +76,6 @@ jobs:
       OCP_FRONTEND_MODULES: ""
       OCP_EXCLUDED_BUILTIN_MODULES: analysis-areas
       REDIS_ENABLED: "false"
-      MASTODON_ENABLED: "false"
       OSM_EXTERNAL_FALLBACK_ENABLED: "false"
     steps:
       - name: Configure cutover environment
@@ -87,7 +86,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: oklabflensburg/ocp-module-analysis-areas
-          ref: fe6d11cb53575e0cbc383d8de714d5f9711f77c0
+          ref: 8951b36ce9334fc76fea502627b95e8a16b2e0bf
           path: .external-analysis-areas
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -107,7 +106,7 @@ jobs:
           (cd .external-analysis-areas/frontend && pnpm install --frozen-lockfile)
       - name: Build the pinned real OCP bundle
         run: |
-          (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct fe6d11cb53575e0cbc383d8de714d5f9711f77c0)" uv build --wheel)
+          (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct 8951b36ce9334fc76fea502627b95e8a16b2e0bf)" uv build --wheel)
           (cd .external-analysis-areas/frontend && pnpm build)
           (cd backend && .venv/bin/python -m app.cli.modules bundle build \
             --manifest ../.external-analysis-areas/module.yaml \
@@ -115,10 +114,14 @@ jobs:
             --frontend ../.external-analysis-areas/frontend/dist/analysis-areas-1.4.0.tgz \
             --publisher oklabflensburg --source-reference pull/9 \
             --source-repository https://github.com/oklabflensburg/ocp-module-analysis-areas \
-            --source-commit fe6d11cb53575e0cbc383d8de714d5f9711f77c0 \
+            --source-commit 8951b36ce9334fc76fea502627b95e8a16b2e0bf \
             --build-workflow github-actions/module-contract --license AGPL-3.0-only \
             --output "${RUNNER_TEMP}/analysis-areas-1.4.0.ocp")
         working-directory: .
+      - name: Run the external module's own contract suites
+        run: |
+          (cd .external-analysis-areas/backend && uv run ruff check src tests && uv run pytest)
+          (cd .external-analysis-areas/frontend && pnpm test && pnpm typecheck)
       - name: Prove the planned public polygon-port consumer flow
         working-directory: backend
         run: |
@@ -153,7 +156,24 @@ jobs:
           eval "$(.venv/bin/python -m app.cli.modules env --format shell)"
           .venv/bin/python -m app.cli.module_migrations upgrade
           .venv/bin/python tests/e2e_seed.py
-          .venv/bin/python -m pytest tests/test_analysis_area_public_api.py tests/test_analysis_areas_characterization.py
+          .venv/bin/python - <<'PY'
+          import asyncio
+          import httpx
+          from app.main import app, module_runtime
+
+          async def prove_api():
+              assert "analysis-areas" in module_runtime.module_ids
+              paths = {route.path for route in app.routes}
+              assert "/api/v1/analysis-areas" in paths
+              assert "/api/v1/analysis-areas/by-slug/{slug}/statistics" in paths
+              async with httpx.AsyncClient(
+                  transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+              ) as client:
+                  response = await client.get("/api/v1/analysis-areas")
+                  assert response.status_code == 200, response.text
+
+          asyncio.run(prove_api())
+          PY
           backend_inventory="$(../scripts/backend-module-inventory --format env)"
           (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm modules:check)
           (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm typecheck)

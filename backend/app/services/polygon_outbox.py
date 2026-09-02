@@ -17,7 +17,6 @@ from app.services.notifications import (
     subscription_recipient_ids,
 )
 from app.services.polygons import enrich_polygon_address
-from app.services.social_publishing import cancel_pending_polygon_publications
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +114,6 @@ async def _process_deleted_event(session: AsyncSession, event: PolygonOutbox) ->
             resource_title=payload.get("name"),
         ),
     )
-    await cancel_pending_polygon_publications(session, polygon_id)
     publish_notifications(notifications)
 
 async def process_due_polygon_outbox(session: AsyncSession, *, limit: int = 50) -> dict[str, int]:

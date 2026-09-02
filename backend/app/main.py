@@ -52,9 +52,7 @@ from app.platform.modules.permissions import (
 from app.platform.modules.persistence import HostDatabaseSessionProvider
 from app.platform.modules.sdk import PermissionDefinition
 from app.security.request_limits import RequestBodyLimitMiddleware
-from app.services.assistant_provider import close_assistant_provider
 from app.services.map_previews import MapPreviewError, map_preview_service
-from app.services.social_permissions import SOCIAL_PERMISSION_DEFINITIONS
 
 settings = get_settings()
 event_bus = InProcessEventBus()
@@ -72,7 +70,6 @@ for definition in (
         description="Bestehende Verwaltungsrolle verwenden",
         category="platform",
     ),
-    *SOCIAL_PERMISSION_DEFINITIONS,
 ):
     if definition.module_id == "platform":
         permission_registry.register_platform(definition)
@@ -157,24 +154,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         try:
             await module_runtime.shutdown()
         finally:
-            await close_assistant_provider()
             await close_redis()
             tracing_runtime.shutdown()
 
 
 OPENAPI_TAGS = [
-    {
-        "name": "Analysis Areas",
-        "description": "Öffentliche Gemeinde-, Stadtteil- und Quartiersdaten mit räumlichen Aggregationen.",
-    },
-    {"name": "Analytics", "description": "Kennzahlen, Benchmarks und Zeitreihen des Stadtplaners."},
-    {
-        "name": "Assistant",
-        "description": (
-            "Optionale KI-Sprachinterpretation über eine explizite read-only Tool-Allowlist. "
-            "Kein Datenbankzugriff, keine administrativen Daten und keine Schreiboperationen."
-        ),
-    },
     {
         "name": "Polygons",
         "description": "Öffentliche Verkaufsflächen sowie berechtigungsgeschützte Pflegeoperationen.",
@@ -203,8 +187,8 @@ OPENAPI_TAGS = [
 app = FastAPI(
     title="Stadtplaner API",
     description=(
-        "Öffentliche GIS- und Analyse-API für Verkaufsflächen, räumliche Analysegebiete "
-        "und lokale OpenStreetMap-Referenzdaten. Schreiboperationen verwenden sichere "
+        "Öffentliche GIS- und Analyse-API für Verkaufsflächen und lokale "
+        "OpenStreetMap-Referenzdaten. Schreiboperationen verwenden sichere "
         "HttpOnly-Cookies und CSRF-Schutz; Verwaltungsdaten sind rollenbeschränkt."
     ),
     version=settings.api_version,

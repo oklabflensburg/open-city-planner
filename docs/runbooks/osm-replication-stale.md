@@ -6,7 +6,7 @@ Meaning: the newest locally published OSM snapshot is more than two hours behind
 
 First checks: inspect `stadtplaner-osm-update.timer/service`, free disk, network access to the configured replication URL and the last successful job timestamp.
 
-Diagnosis: inspect OSM update JSON logs and phase output, replication state files, PostgreSQL staging/import health and Wikidata provider errors. Confirm the upstream replication feed itself is current.
+Diagnosis: inspect OSM update JSON logs and phase output, replication state files and PostgreSQL staging/import health. Confirm the upstream replication feed itself is current. Module-owned postprocessing has separate job status.
 
 Mitigation: fix disk/network/database issues and run one non-overlapping update. Use the documented initial import only when replication state cannot be recovered; take a backup before destructive reinitialization.
 

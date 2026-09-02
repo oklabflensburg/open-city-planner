@@ -10,9 +10,9 @@ const repositoryFile = (path: string) => readFileSync(
 describe('E2E workflow module configuration', () => {
   const workflow = repositoryFile('.github/workflows/e2e.yml')
 
-  it('starts both webservers with the production module inventory', () => {
-    expect(workflow).toMatch(/^  ENABLED_MODULES: analysis-areas$/m)
-    expect(workflow).toMatch(/^  OCP_FRONTEND_MODULES: analysis-areas$/m)
+  it('starts both webservers with the domain-free Host inventory', () => {
+    expect(workflow).toMatch(/^  ENABLED_MODULES: ''$/m)
+    expect(workflow).toMatch(/^  OCP_FRONTEND_MODULES: ''$/m)
     expect(workflow).toMatch(/^  CORS_ORIGINS: http:\/\/127\.0\.0\.1:3010$/m)
     expect(workflow).not.toContain('analysis-areas@1.0.0')
     expect(workflow).toContain('scripts/backend-module-inventory --format env')
@@ -36,6 +36,6 @@ describe('E2E workflow module configuration', () => {
   })
 
   it('keeps backend CI independent from the Settings default', () => {
-    expect(repositoryFile('.github/workflows/backend.yml')).toMatch(/^  ENABLED_MODULES: analysis-areas$/m)
+    expect(repositoryFile('.github/workflows/backend.yml')).toMatch(/^  ENABLED_MODULES: ''$/m)
   })
 })

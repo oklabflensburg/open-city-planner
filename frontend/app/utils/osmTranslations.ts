@@ -116,7 +116,7 @@ const verbatimValueKeys = new Set([
   'name', 'name:de', 'official_name', 'alt_name', 'operator', 'brand',
   'addr:street', 'addr:city', 'addr:housenumber', 'addr:postcode',
   'opening_hours', 'service_times', 'website', 'contact:website', 'email', 'contact:email',
-  'phone', 'contact:phone', 'wikidata', 'wikipedia', 'description', 'ref'
+  'phone', 'contact:phone', 'wikipedia', 'description', 'ref'
 ])
 
 const categoryKeys = [

@@ -48,8 +48,8 @@ describe('Ansible deployment contract', () => {
   })
 
   it('documents module activation without a manually versioned backend inventory', () => {
-    expect(vault).toContain('  ENABLED_MODULES=analysis-areas')
-    expect(vault).toContain('  OCP_FRONTEND_MODULES=analysis-areas')
+    expect(vault).toContain('  ENABLED_MODULES=')
+    expect(vault).toContain('  OCP_FRONTEND_MODULES=')
     expect(vault).not.toContain('OCP_BACKEND_MODULES=')
   })
 

@@ -10,7 +10,6 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.city_metrics import CityMetrics
 from app.models.oauth_account import OAuthFlowGrant, UserOAuthAccount
 from app.models.password_reset_token import PasswordResetToken
-from app.models.social_publication import SocialPublishingSettings
 from app.models.user import AccountDeactivationReason, User
 from app.models.user_polygon import UserPolygon
 from app.models.user_session import UserSession
@@ -133,11 +132,6 @@ async def delete_own_account(
     await session.execute(
         update(CityMetrics)
         .where(CityMetrics.updated_by_user_id == user.id)
-        .values(updated_by_user_id=None)
-    )
-    await session.execute(
-        update(SocialPublishingSettings)
-        .where(SocialPublishingSettings.updated_by_user_id == user.id)
         .values(updated_by_user_id=None)
     )
     await session.execute(

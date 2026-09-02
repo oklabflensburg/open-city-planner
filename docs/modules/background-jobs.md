@@ -14,18 +14,20 @@ Legacy-Basis ergibt:
 | Flow | Start und Process Owner | Retry / Timeout | Observability | Status in #100 |
 | --- | --- | --- | --- | --- |
 | Domain-Event-Outbox | CLI `process_domain_event_outbox`, minütlicher systemd-Timer | persistente Delivery-Retries, Dead Letter und verwaiste DB-Claims | Event-Spans, Logs, Event-/Outbox- und Jobmetriken | Pilot über `host-events.outbox-dispatch` |
-| Social/Mastodon | CLI `publish_social_outbox`, optionaler minütlicher Timer | persistenter Provider-Backoff, Max Attempts, HTTP-/Screenshot-Timeouts | `observed_job`, Outbox- und Providermetriken | unverändert |
 | E-Mail-Outbox | CLI `process_email_outbox`, minütlicher Timer | persistente geplante Retries, Max Attempts und terminale Fehler | `observed_job`, Outbox-Metriken und Auditlog | unverändert |
 | Polygon-Outbox | CLI `process_polygon_outbox`; kein verwalteter Ansible-Timer in der aktuellen Rolle | acht Versuche, exponentieller Backoff, Dead Letter und stale Claim Recovery | Outbox-Metriken und Logs | unverändert; neue Events nutzen bereits die gemeinsame Event-Outbox |
 | Notification Cleanup | manuelle CLI `cleanup_notifications` | kein eigener Retry-/Timeout-Contract | Abschlusslog und CLI-Ergebnis | unverändert |
 | Cache Maintenance | manuelle CLIs für Status, Clear und Versions-Bump | kein eigener Retry-/Timeout-Contract | CLI-Ergebnis und Redis-Metriken | unverändert |
 | OSM/Open-Data | systemd-Timer startet das bestehende Sync-Skript; Postprocessing nutzt `observed_job` | systemd-Neustart beim nächsten Intervall, Provider-/DB-Timeouts im jeweiligen Schritt | Job-, OSM-, Provider- und DB-Metriken sowie Fortschrittslogs | unverändert |
-| Statistik-Refresh | CLI `import_flensburg_statistics`, wöchentlicher systemd-Timer | kein unmittelbarer Job-Retry; nächster Timerlauf, HTTP-Client-Timeouts | `observed_job` und Importbericht | unverändert |
 | Map Preview | synchron auf Cache Miss im API-Prozess; separater Renderer-Service | Renderer-HTTP-Timeout; kein Background-Schedule | Provider-Telemetrie und Cache | kein Job und unverändert |
 
 Es existiert keine zentrale Queue, kein Broker und kein produktiver In-Process-
 Scheduler. GitHub-Actions-Cronjobs betreffen Repositoryprüfungen und sind keine
 fachlichen Runtime-Jobs.
+
+Fachliche Social-, Statistik-, Gebiets- und Anreicherungsjobs gehören nicht zum
+Slim Host. Installierte Module können solche Jobs über den folgenden Contract
+registrieren; ohne Modul existiert dafür weder Handler noch Schedule oder Fallback.
 
 ## Öffentlicher SDK-Contract
 

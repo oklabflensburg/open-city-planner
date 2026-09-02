@@ -3,7 +3,7 @@ import { buildAbsoluteUrl } from '~/utils/seo'
 import { documentationPaths } from '~/config/documentation'
 import { buildSitemapXml, moduleSitemapPaths, type SitemapUrl } from '../utils/sitemap'
 
-const STATIC_PATHS = ['/', '/karte', '/vergleich', '/ueber-das-projekt', '/open-data', '/kontakt', ...documentationPaths]
+const STATIC_PATHS = ['/', '/karte', '/ueber-das-projekt', '/open-data', '/kontakt', ...documentationPaths]
 
 interface ModuleSitemapEntry {
   slug: string

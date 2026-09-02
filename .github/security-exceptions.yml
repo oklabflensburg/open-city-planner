@@ -1,19 +1,5 @@
 version: 1
 exceptions:
-  - id: generic-api-key@f0f6a914704eaf570513fee5873d0bbda7295e03:deploy/ansible/vault.example.yml:105
-    scanner: secret-scan
-    reason: Empty OPENAI_API_KEY and GROQ_API_KEY example variables match the generic assignment rule.
-    owner: security-maintainers
-    expires: '2027-02-23'
-    mitigation: The example contains no value and production values remain in Ansible Vault.
-    review_date: '2026-11-23'
-  - id: generic-api-key@394824ab92f21c4a230c7db5ad89a8cda9cfe42b:backend/app/services/assistant_knowledge.py:147
-    scanner: secret-scan
-    reason: A historical metric identifier matched the generic API key heuristic.
-    owner: security-maintainers
-    expires: '2027-02-23'
-    mitigation: The matched value is a public source-code identifier and not credential material.
-    review_date: '2026-11-23'
   - id: generic-api-key@fa7e9476fc369a0b7fe3e461099f25b7406b6945:backend/tests/test_auth_restart.py:36
     scanner: secret-scan
     reason: A deterministic JWT signing value is required to test key rotation behavior.

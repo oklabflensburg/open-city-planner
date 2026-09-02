@@ -18,6 +18,7 @@ from app.integrations.module_host_ports import (
     HostPolygonAnalytics,
     HostPolygonQueries,
     HostPublicQueries,
+    HostStatisticsQueries,
 )
 from app.platform.modules.sdk import (
     MapPreviewRequest,
@@ -25,7 +26,7 @@ from app.platform.modules.sdk import (
     PolygonFilterValues,
     PolygonScope,
 )
-from app.schemas.analytics import BenchmarkMetrics
+from app.schemas.polygon_analytics import BenchmarkMetrics
 from app.services.map_previews import MapPreview, MapPreviewError
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -217,6 +218,22 @@ def test_module_port_adapters_do_not_import_analysis_areas() -> None:
         ), f"{source} must not import app.modules.analysis_areas"
 
 
+@pytest.mark.asyncio
+async def test_statistics_compatibility_port_is_read_only_and_handles_unmapped_selection() -> None:
+    result = SimpleNamespace(mappings=lambda: SimpleNamespace(first=lambda: None))
+    session = SimpleNamespace(execute=AsyncMock(return_value=result))
+    selection = SimpleNamespace(
+        target=SimpleNamespace(name="Nord", area_type="DISTRICT"),
+        municipality=SimpleNamespace(name="Stadt", area_type="MUNICIPALITY"),
+    )
+
+    assert await HostStatisticsQueries().for_selection(session, selection) is None
+
+    statement = str(session.execute.await_args.args[0]).lower()
+    assert "external_area_mappings" in statement
+    assert not any(token in statement for token in ("insert ", "update ", "delete "))
+
+
 def test_module_host_ports_import_without_builtin_analysis_areas() -> None:
     code = """
 import importlib.abc
@@ -243,17 +260,3 @@ assert HostPolygonAnalytics and HostPolygonQueries
     )
 
     assert completed.returncode == 0, completed.stderr
-
-
-def test_statistics_runtime_has_no_analysis_areas_persistence_dependency() -> None:
-    sources = [
-        ROOT / "backend/app/models/statistics.py",
-        ROOT / "backend/app/services/area_statistics.py",
-        ROOT / "backend/app/services/flensburg_statistics_import.py",
-        ROOT / "backend/app/integrations/module_host_ports.py",
-    ]
-    combined = "\n".join(source.read_text(encoding="utf-8") for source in sources)
-
-    assert "analysis_areas" not in combined
-    assert "analysis_area_id" not in combined
-    assert "area_type == \"QUARTER\"" not in combined

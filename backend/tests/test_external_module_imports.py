@@ -25,11 +25,11 @@ def test_external_module_private_host_import_is_rejected(tmp_path: Path) -> None
     source = tmp_path / "legacy.py"
     source.write_text(
         "from app.models.user_polygon import UserPolygon\n"
-        "from app.services.analytics import _counts\n",
+        "from app.services.polygon_analytics import counts\n",
         encoding="utf-8",
     )
 
     assert [(item.imported, item.line) for item in checker.private_host_imports(tmp_path)] == [
         ("app.models.user_polygon", 1),
-        ("app.services.analytics", 2),
+        ("app.services.polygon_analytics", 2),
     ]

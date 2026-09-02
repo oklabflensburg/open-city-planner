@@ -9,10 +9,6 @@ class NotificationEventType(StrEnum):
     GIS_AREA_ADOPTED_FROM_OSM = "GIS_AREA_ADOPTED_FROM_OSM"
     GIS_AREA_STATUS_CHANGED = "GIS_AREA_STATUS_CHANGED"
     OSM_FEATURE_MAJOR_CHANGE = "OSM_FEATURE_MAJOR_CHANGE"
-    AREA_STATISTICS_UPDATED = "AREA_STATISTICS_UPDATED"
-    SOCIAL_PUBLICATION_PUBLISHED = "SOCIAL_PUBLICATION_PUBLISHED"
-    SOCIAL_PUBLICATION_FAILED = "SOCIAL_PUBLICATION_FAILED"
-    SOCIAL_PUBLICATION_APPROVAL_REQUIRED = "SOCIAL_PUBLICATION_APPROVAL_REQUIRED"
     ROLE_ASSIGNED = "ROLE_ASSIGNED"
     ROLE_REMOVED = "ROLE_REMOVED"
     ACCOUNT_DEACTIVATED = "ACCOUNT_DEACTIVATED"
@@ -98,45 +94,6 @@ class NotificationPolicy:
                 polygon_url,
                 "Änderungen prüfen",
                 "osm-major-change",
-                email_eligible=True,
-            ),
-            NotificationEventType.AREA_STATISTICS_UPDATED: NotificationSpec(
-                "DATA",
-                "INFO",
-                "Gebietsdaten aktualisiert",
-                f"Für {name} sind neue Statistikdaten verfügbar.",
-                f"/gebiete/{event.resource_slug}" if event.resource_slug else "/gebiete",
-                "Gebiet ansehen",
-                "area-statistics",
-                email_eligible=True,
-            ),
-            NotificationEventType.SOCIAL_PUBLICATION_PUBLISHED: NotificationSpec(
-                "SOCIAL",
-                "SUCCESS",
-                "Social-Post veröffentlicht",
-                "Eine Veröffentlichung wurde erfolgreich publiziert.",
-                "/admin/social",
-                "Veröffentlichungen öffnen",
-                "social-published",
-            ),
-            NotificationEventType.SOCIAL_PUBLICATION_FAILED: NotificationSpec(
-                "SOCIAL",
-                "ERROR",
-                "Social-Veröffentlichung fehlgeschlagen",
-                "Eine Veröffentlichung konnte nicht gesendet werden.",
-                "/admin/social",
-                "Fehler prüfen",
-                "social-failed",
-                email_eligible=True,
-            ),
-            NotificationEventType.SOCIAL_PUBLICATION_APPROVAL_REQUIRED: NotificationSpec(
-                "SOCIAL",
-                "ACTION_REQUIRED",
-                "Social-Post wartet auf Freigabe",
-                "Eine vorbereitete Veröffentlichung muss geprüft werden.",
-                "/admin/social",
-                "Jetzt prüfen",
-                "social-approval",
                 email_eligible=True,
             ),
             NotificationEventType.ROLE_ASSIGNED: NotificationSpec(

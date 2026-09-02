@@ -4,17 +4,15 @@
       <div class="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,1fr)_22rem] lg:px-8">
         <div>
           <p class="text-sm font-bold uppercase tracking-[0.14em] text-[#086b78]">Offene Stadtentwicklung in Flensburg</p>
-          <h1 class="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Flächen und Stadtgebiete auf einen Blick</h1>
-          <p class="mt-5 max-w-3xl text-lg leading-8 text-slate-600">Der Stadtplaner macht öffentliche Verkaufsflächen, Stadtteile und statistische Bezirke direkt auffindbar. Alle Einträge dieser Seite werden serverseitig ausgegeben und sind ohne Kartenanwendung zugänglich.</p>
+          <h1 class="mt-3 max-w-4xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">Öffentliche Flächen auf einen Blick</h1>
+          <p class="mt-5 max-w-3xl text-lg leading-8 text-slate-600">Der Stadtplaner macht öffentliche Verkaufsflächen direkt auffindbar. Alle Einträge dieser Seite werden serverseitig ausgegeben und sind ohne Kartenanwendung zugänglich.</p>
           <div class="mt-7 flex flex-wrap gap-3">
             <NuxtLink class="inline-flex min-h-11 items-center rounded-xl bg-[#154d73] px-5 font-bold text-white hover:bg-[#0f3f61] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]" to="/karte">Interaktive Karte öffnen</NuxtLink>
-            <NuxtLink class="inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-5 font-bold text-slate-800 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]" to="/gebiete">Gebiete entdecken</NuxtLink>
             <NuxtLink class="inline-flex min-h-11 items-center px-2 font-bold text-[#154d73] underline-offset-4 hover:underline" to="/open-data">Open Data ansehen</NuxtLink>
           </div>
         </div>
-        <dl class="grid grid-cols-2 gap-3 self-end">
+        <dl class="grid gap-3 self-end">
           <div class="rounded-2xl bg-[#edf4f8] p-5"><dt class="text-sm text-slate-600">Flächen</dt><dd class="mt-1 text-3xl font-black text-[#154d73]">{{ polygons.length }}</dd></div>
-          <div class="rounded-2xl bg-[#edf4f8] p-5"><dt class="text-sm text-slate-600">Gebiete</dt><dd class="mt-1 text-3xl font-black text-[#154d73]">{{ publicAreas.length }}</dd></div>
         </dl>
       </div>
     </section>
@@ -58,25 +56,7 @@
           </ul>
         </nav>
 
-        <section aria-labelledby="areas-heading">
-          <div class="flex flex-wrap items-end justify-between gap-3">
-            <div><p class="text-sm font-bold text-[#086b78]">Räumliche Gliederung</p><h2 id="areas-heading" class="mt-1 text-3xl font-black text-slate-950">Stadtteile und Quartiere</h2></div>
-            <NuxtLink class="font-bold text-[#154d73] underline-offset-4 hover:underline" to="/gebiete">Alle Gebietsdetails</NuxtLink>
-          </div>
-          <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <article v-for="area in publicAreas" :key="area.id" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <img class="aspect-video w-full bg-slate-100 object-cover" :src="areaPreviewUrl(area.slug)" :srcset="areaPreviewSrcset(area.slug)" sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" :alt="`Kartendarstellung des Gebiets ${area.name} in Flensburg`" width="640" height="360" loading="lazy" decoding="async">
-              <div class="p-4">
-                <p class="text-xs font-bold uppercase tracking-wide text-slate-500">{{ areaTypeLabel(area.area_type) }}</p>
-                <h3 class="mt-1 text-lg font-black text-slate-950"><NuxtLink class="hover:text-[#154d73]" :to="`/gebiete/${area.slug}`">{{ area.name }}</NuxtLink></h3>
-                <p class="mt-2 text-sm text-slate-600">{{ formatArea(area.area_m2) }}<template v-if="area.child_count"> · {{ area.child_count }} untergeordnete Gebiete</template></p>
-                <NuxtLink class="mt-3 inline-flex min-h-10 items-center font-bold text-[#154d73]" :to="{ path: '/karte', query: { gebiet: area.slug } }">Auf der Karte anzeigen</NuxtLink>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="mt-14" aria-labelledby="polygons-heading">
+        <section aria-labelledby="polygons-heading">
           <p class="text-sm font-bold text-[#086b78]">Öffentliches Flächenverzeichnis</p>
           <h2 id="polygons-heading" class="mt-1 text-3xl font-black text-slate-950">Flächen nach Branche</h2>
           <p class="mt-3 max-w-3xl text-slate-600">{{ polygons.length }} öffentliche Flächen, vollständig und nach der bestehenden Branchentaxonomie gruppiert.</p>
@@ -93,7 +73,6 @@
                   <div class="p-4">
                     <h4 class="font-black leading-snug text-slate-950"><NuxtLink class="hover:text-[#154d73]" :to="`/flaechen/${polygon.slug}`">{{ polygon.name }}</NuxtLink></h4>
                     <p v-if="polygon.address_display_name" class="mt-2 line-clamp-2 text-sm text-slate-600">{{ polygon.address_display_name }}</p>
-                    <p v-if="polygon.quarter_name || polygon.district_name" class="mt-2 text-xs font-semibold text-slate-500">{{ polygon.quarter_name || polygon.district_name }}</p>
                     <div class="mt-3 flex flex-wrap gap-2 text-xs">
                       <span class="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">{{ occupancyLabel(polygon.occupancy_status) }}</span>
                       <span v-if="polygon.floor" class="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">Etage {{ polygon.floor }}</span>
@@ -128,7 +107,6 @@
 
 <script setup lang="ts">
 import { Check } from '@lucide/vue'
-import type { AnalysisArea, AnalysisAreaType } from '~/types/analysisArea'
 import type { OccupancyStatus, PolygonDirectoryItem } from '~/types/geo'
 import { buildApiUrl } from '~/utils/apiUrl'
 import { buildAbsoluteUrl } from '~/utils/seo'
@@ -139,16 +117,8 @@ const authStore = useAuthStore()
 const mounted = ref(false)
 const showSignupCta = computed(() => !mounted.value || !authStore.authenticated)
 onMounted(() => { mounted.value = true })
-const { data, error } = await useAsyncData('public-home-directory', async () => {
-  const [polygons, areas] = await Promise.all([
-    usePolygonApi().directoryAll(),
-    useApi().request<AnalysisArea[]>('/analysis-areas')
-  ])
-  return { polygons, areas }
-})
-const polygons = computed(() => data.value?.polygons || [] as PolygonDirectoryItem[])
-const areas = computed(() => data.value?.areas || [] as AnalysisArea[])
-const publicAreas = computed(() => areas.value.filter(area => area.area_type === 'DISTRICT' || area.area_type === 'QUARTER'))
+const { data, error } = await useAsyncData('public-home-directory', () => usePolygonApi().directoryAll())
+const polygons = computed(() => data.value || [] as PolygonDirectoryItem[])
 const polygonGroups = computed(() => {
   const order = new Map<string, number>(industries.map((industry, index) => [industry.key, index]))
   const grouped = new Map<string, PolygonDirectoryItem[]>()
@@ -160,13 +130,9 @@ const polygonGroups = computed(() => {
 
 const previewUrl = (path: string) => buildApiUrl(config.public.apiBaseUrl, `${path}?width=640&height=360`)
 const polygonPreviewUrl = (slug: string) => previewUrl(`/polygons/by-slug/${encodeURIComponent(slug)}/preview.webp`)
-const areaPreviewUrl = (slug: string) => previewUrl(`/analysis-areas/by-slug/${encodeURIComponent(slug)}/preview.webp`)
 const previewSrcset = (path: string) => `${buildApiUrl(config.public.apiBaseUrl, `${path}?width=320&height=180`)} 320w, ${buildApiUrl(config.public.apiBaseUrl, `${path}?width=640&height=360`)} 640w`
 const polygonPreviewSrcset = (slug: string) => previewSrcset(`/polygons/by-slug/${encodeURIComponent(slug)}/preview.webp`)
-const areaPreviewSrcset = (slug: string) => previewSrcset(`/analysis-areas/by-slug/${encodeURIComponent(slug)}/preview.webp`)
-const areaTypeLabel = (type: AnalysisAreaType) => ({ MUNICIPALITY: 'Stadt', DISTRICT: 'Stadtteil', QUARTER: 'Statistischer Bezirk' })[type]
 const occupancyLabel = (status: OccupancyStatus) => ({ OCCUPIED: 'Belegt', VACANT: 'Leerstehend', UNKNOWN: 'Status unbekannt' })[status]
-const formatArea = (area: number) => `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(area / 1_000_000)} km²`
 const accountBenefits = [
   'Eigene Flächen anlegen und speichern',
   'Gespeicherte Flächen wieder aufrufen',
@@ -174,26 +140,22 @@ const accountBenefits = [
 ]
 const topics = [
   { title: 'Flächen und Leerstände', text: 'Öffentliche Verkaufsflächen nach Status, Branche und Lage finden und ihre Detaildaten nachvollziehen.', to: '/karte', link: 'Flächen auf der Karte erkunden' },
-  { title: 'Gebiete vergleichen', text: 'Stadtteile und Quartiere anhand vorhandener Flächen-, Branchen- und Statistikdaten einordnen.', to: '/vergleich', link: 'Zum Gebietsvergleich' },
   { title: 'Open Data und Datenquellen', text: 'Herkunft, Lizenz, Aktualität und technische Bereitstellung der verwendeten Daten nachvollziehen.', to: '/open-data', link: 'Open Data ansehen' },
-  { title: 'Wie entstehen die Daten?', text: 'Methodik, räumliche Zuordnung und Grenzen der berechneten Kennzahlen transparent nachlesen.', to: '/dokumentation/methodik', link: 'Methodik lesen' },
-  { title: 'Stadtteile und Quartiere', text: 'Die räumliche Hierarchie Flensburgs über dauerhafte, öffentlich verlinkbare Gebietsprofile erschließen.', to: '/gebiete', link: 'Gebiete entdecken' },
   { title: 'Über das Projekt', text: 'Mehr über die Civic-Tech-Plattform und das OK Lab Flensburg erfahren.', to: '/ueber-das-projekt', link: 'Projekt kennenlernen' }
 ]
 const questions = [
-  { question: 'Was kann ich mit dem Stadtplaner tun?', answer: 'Sie können Flächen und Gebiete finden, auf der Karte untersuchen und vorhandene Kennzahlen vergleichen.' },
+  { question: 'Was kann ich mit dem Stadtplaner tun?', answer: 'Sie können Flächen finden, auf der Karte untersuchen und deren öffentliche Angaben nachvollziehen.' },
   { question: 'Welche Flächen sind erfasst?', answer: 'Das Verzeichnis zeigt alle derzeit öffentlich geführten Stadtplaner-Flächen. Fehlende Werte werden nicht geschätzt.' },
   { question: 'Wie finde ich Leerstände?', answer: 'In der interaktiven Karte lässt sich der öffentliche Belegungsstatus filtern; unbekannte Status bleiben als unbekannt gekennzeichnet.' },
-  { question: 'Woher stammen die Daten?', answer: 'Die Plattform verbindet gepflegte Stadtplaner-Daten, OpenStreetMap und veröffentlichte kommunale Statistik. Detailseiten nennen Quelle und Datenstand.' }
+  { question: 'Woher stammen die Daten?', answer: 'Die Plattform verbindet gepflegte Stadtplaner-Daten mit lokalen OpenStreetMap-Snapshots. Detailseiten nennen Quelle und Datenstand.' }
 ]
 
-const description = 'Öffentliches Verzeichnis der Verkaufsflächen, Stadtteile und statistischen Bezirke in Flensburg.'
+const description = 'Öffentliches Verzeichnis der Verkaufsflächen in Flensburg.'
 usePageSeo({
-  title: 'Flächen und Stadtgebiete in Flensburg', description, path: '/',
+  title: 'Öffentliche Flächen in Flensburg', description, path: '/',
   structuredData: [
     { '@context': 'https://schema.org', '@type': 'WebSite', '@id': `${buildAbsoluteUrl(config.public.siteUrl, '/')}#website`, name: config.public.siteName, url: buildAbsoluteUrl(config.public.siteUrl, '/'), description },
-    { '@context': 'https://schema.org', '@type': 'CollectionPage', name: 'Flächen und Stadtgebiete in Flensburg', url: buildAbsoluteUrl(config.public.siteUrl, '/'), description },
-    { '@context': 'https://schema.org', '@type': 'ItemList', name: 'Stadtteile und Quartiere in Flensburg', numberOfItems: publicAreas.value.length, itemListElement: publicAreas.value.map((area, index) => ({ '@type': 'ListItem', position: index + 1, name: area.name, url: buildAbsoluteUrl(config.public.siteUrl, `/gebiete/${area.slug}`) })) }
+    { '@context': 'https://schema.org', '@type': 'CollectionPage', name: 'Öffentliche Flächen in Flensburg', url: buildAbsoluteUrl(config.public.siteUrl, '/'), description }
   ]
 })
 </script>

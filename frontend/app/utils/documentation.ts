@@ -62,10 +62,7 @@ export function searchDocumentation(rawQuery: string): DocumentationSearchResult
 const searchSynonyms: Record<string, string[]> = {
   aktuell: ['aktuell', 'aktualitat', 'datenstand'],
   aktualitat: ['aktualitat', 'aktuell', 'datenstand'],
-  assistant: ['assistant', 'assistent', 'suche', 'ki'],
-  assitent: ['assistent', 'assistant', 'suche'],
   gebaude: ['gebaude', 'building'],
-  ki: ['ki', 'intelligent', 'assistant', 'assistent'],
   pois: ['pois', 'poi'],
   stadtviertel: ['stadtviertel', 'quartier'],
 }

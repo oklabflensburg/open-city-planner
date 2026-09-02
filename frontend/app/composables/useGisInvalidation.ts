@@ -8,14 +8,12 @@ export type GisPolygonMutation =
 export function useGisInvalidation() {
   const polygonStore = usePolygonStore()
   const osmStore = useOsmViewportStore()
-  const analyticsStore = useAnalyticsStore()
   const mapStore = useMapStore()
   const notifications = useNotificationsStore()
 
   function invalidateAfterPolygonMutation(mutation: GisPolygonMutation) {
     polygonStore.invalidateForPolygonMutation(mutation.type === 'DELETE' ? mutation.polygonId : undefined)
     osmStore.invalidateForPolygonMutation()
-    analyticsStore.invalidateGisData()
     if (mapStore.selectedMapEntity?.type === 'polygon'
       && mapStore.selectedMapEntity.id === mutation.polygonId
       && mutation.type === 'DELETE') {

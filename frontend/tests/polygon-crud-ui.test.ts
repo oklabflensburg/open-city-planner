@@ -95,12 +95,11 @@ describe('central category presentation', () => {
     expect(getIndustryColor('historical-category')).toBe(fallbackIndustryColor)
   })
 
-  it('uses category colors on overview, detail map, badge, filter and analytics', () => {
+  it('uses category colors on overview, detail map, badge and filter', () => {
     expect(mapHostSource()).toContain('industryColorExpression')
     expect(appFile('components/polygon/PolygonDetailMap.vue')).toContain("'fill-color': props.color")
     expect(appFile('components/polygon/PolygonCategoryBadge.vue')).toContain('getIndustryColor')
     expect(appFile('components/filters/IndustryFilter.vue')).toContain('industryColors[industry.key]')
-    expect(appFile('components/analysis/IndustryChart.vue')).toContain('industryColors[industry.key]')
   })
 
   it('keeps the overview map read-only and confines drawing to the create route', () => {

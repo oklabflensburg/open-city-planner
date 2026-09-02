@@ -1,7 +1,5 @@
 <template>
   <div class="relative h-full min-h-0 min-w-0 overflow-hidden rounded-[var(--radius-panel)] border border-white bg-[var(--c-surface-muted)] shadow-[var(--shadow-card)] lg:min-h-[420px]">
-    <span v-if="socialPreview" class="sr-only" :data-social-preview-ready="gisPreviewReady ? 'true' : 'false'">Kartenvorschau bereit</span>
-    <span class="sr-only" :data-search-layer-count="mapStore.searchAction?.data?.features.length || 0">Suchergebnisse auf der Karte</span>
     <div ref="mapEl" class="absolute inset-0 h-full w-full" role="region" aria-label="Interaktive Stadtkarte von Flensburg" />
     <div v-if="!mapStore.mapLoaded && !mapError" class="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-slate-100/90" role="status" aria-live="polite">
       <div class="flex items-center gap-3 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
@@ -43,8 +41,6 @@ const {
   mapEl,
   map,
   mapError,
-  socialPreview,
-  gisPreviewReady,
   mapStore,
   polygonStore,
   showEmptyState,

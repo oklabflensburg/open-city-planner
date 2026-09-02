@@ -1,10 +1,9 @@
-import type { FeatureCollection, Geometry } from 'geojson'
+import type { FeatureCollection } from 'geojson'
 import type { FillLayerSpecification, GeoJSONSource, Map, MapMouseEvent } from 'maplibre-gl'
 import type { OsmViewportResult } from '~/types/osm'
 import { getIndustryColor, industryColorExpression } from '~/utils/industries'
 import { thematicColor, thematicColorExpression } from '~/utils/mapThemes'
 import { osmCategoryColors, osmColorExpression } from '~/utils/osmCategories'
-import { isPoiCategoryToken, withoutPoiQuery } from '~/utils/poiCategories'
 import { shouldExcludeOsmFeature } from '~/utils/osmExclusions'
 import { pickMapEntityAtPoint, type InteractivePolygonFeature } from '~/utils/mapFeaturePicking'
 import { ensureStadtplanerLayerOrder, getStadtplanerLayerOrder, hasValidStadtplanerLayerOrder } from '~/utils/mapLayerOrder'
@@ -22,15 +21,11 @@ import { createMapRuntime, resolveMapExtensionSnapshot } from '~/map-runtime/Map
 export function useMapCanvasHost() {
   const config = useRuntimeConfig()
   const mapStore = useMapStore()
-  const searchStore = useSearchStore()
   const polygonStore = usePolygonStore()
   const filterStore = useFilterStore()
   const osmStore = useOsmViewportStore()
   const mapSelection = useMapSelection()
   const route = useRoute()
-  const router = useRouter()
-  const socialPreview = computed(() => route.query['social-preview'] === '1')
-  const gisPreviewReady = ref(false)
   const mapEl = ref<HTMLDivElement | null>(null)
   const map = shallowRef<Map | null>(null)
   const mapError = ref('')
@@ -42,7 +37,6 @@ export function useMapCanvasHost() {
   let osmViewportTimer: ReturnType<typeof setTimeout> | undefined
   let forceNextOsmRefresh = false
   let hoverFrame: number | undefined
-  let layoutFrame: number | undefined
   let mapDragging = false
   let pendingHoverPoint: { x: number, y: number } | null = null
   let hoveredPolygonId: string | null = null
@@ -59,7 +53,6 @@ export function useMapCanvasHost() {
   const performanceDebugEnabled = import.meta.dev || config.public.mapPerformanceDebug
 
   const configuredExtensions = resolveMapExtensionSnapshot(config.public.frontendMapContributions)
-  const emptyFeatureCollection: FeatureCollection = { type: 'FeatureCollection', features: [] }
   const runtime = createMapRuntime({
     onSelection: {
       onSelect: selection => {
@@ -71,35 +64,7 @@ export function useMapCanvasHost() {
       onClear: () => mapStore.setRuntimeSelection(null),
       onReveal: () => mapStore.openGisPanel('selection')
     },
-    extensions: {
-      sources: [
-        ...configuredExtensions.sources,
-        {
-          id: 'host.search-results',
-          moduleId: 'host',
-          moduleOrder: -1,
-          source: { type: 'geojson', data: mapStore.searchAction?.data || emptyFeatureCollection }
-        }
-      ],
-      layers: [
-        ...configuredExtensions.layers,
-        {
-          id: 'host.search-results-fill', moduleId: 'host', moduleOrder: -1,
-          sourceId: 'host.search-results', group: 'overlay', priority: 10,
-          layer: { type: 'fill', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': '#0b8190', 'fill-opacity': 0.28 } }
-        },
-        {
-          id: 'host.search-results-line', moduleId: 'host', moduleOrder: -1,
-          sourceId: 'host.search-results', group: 'overlay', priority: 20,
-          layer: { type: 'line', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'line-color': '#075985', 'line-width': 3, 'line-opacity': 0.9 } }
-        },
-        {
-          id: 'host.search-results-point', moduleId: 'host', moduleOrder: -1,
-          sourceId: 'host.search-results', group: 'overlay', priority: 30,
-          layer: { type: 'circle', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-color': '#0b8190', 'circle-radius': 7, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } }
-        }
-      ]
-    },
+    extensions: configuredExtensions,
     createResizeObserver: handler => new ResizeObserver(handler),
     createMap: async (container) => {
       const [maplibregl, mapStyle, , worker] = await Promise.all([
@@ -147,9 +112,7 @@ export function useMapCanvasHost() {
   })
 
   const visibleFeatureCollection = computed<FeatureCollection>(() => polygonStore.featureCollection as FeatureCollection)
-  const showEmptyState = computed(() => osmStore.areaPoiFilter
-    ? !osmStore.loading && (osmStore.data?.meta.count || 0) === 0
-    : filterStore.activeFilterCount > 0 && filterStore.selectedSources.length > 0
+  const showEmptyState = computed(() => filterStore.activeFilterCount > 0 && filterStore.selectedSources.length > 0
     && !polygonStore.loading && !osmStore.loading
     && polygonStore.polygons.length === 0 && (osmStore.data?.meta.business_count || 0) === 0)
 
@@ -161,7 +124,6 @@ export function useMapCanvasHost() {
       layersReady = true
       mapStore.mapLoaded = true
       mapError.value = ''
-      applyRequestedPoiFilter()
       await polygonStore.loadPolygons()
       updateSource(visibleFeatureCollection.value)
       const requested = await requestedPolygonId()
@@ -169,10 +131,6 @@ export function useMapCanvasHost() {
       await refreshOsmViewportForCurrentMap({ force: true })
       mapStore.markGisDataFresh()
       initialMapLoadComplete = true
-      if (socialPreview.value && requested && polygonStore.selectedPolygonId === requested) {
-        await waitForGisPreviewReady(instance)
-        gisPreviewReady.value = true
-      }
       return
     }
     ensureMapInfrastructure(instance)
@@ -247,7 +205,6 @@ export function useMapCanvasHost() {
     clearTimeout(osmViewportTimer)
     clearTimeout(polygonFilterTimer)
     if (hoverFrame !== undefined) cancelAnimationFrame(hoverFrame)
-    if (layoutFrame !== undefined) cancelAnimationFrame(layoutFrame)
     osmStore.dispose()
     mapStore.mapLoaded = false
     window.removeEventListener('resize', resizeMap)
@@ -290,14 +247,12 @@ export function useMapCanvasHost() {
     updateSelectedPolygonOverlay()
   })
   watch(() => mapStore.polygonsVisible, setPolygonVisibility)
-  watch(() => mapStore.searchActionGeneration, scheduleSearchMapAction)
   watch(
-    () => [osmStore.showPois, osmStore.showAreas, osmStore.showBuildings, osmStore.activeCategories.join(','), osmStore.areaPoiFilter?.areaSlug, osmStore.areaPoiFilter?.category],
+    () => [osmStore.showPois, osmStore.showAreas, osmStore.showBuildings, osmStore.activeCategories.join(',')],
     () => scheduleOsmViewportRefresh(0)
   )
-  watch(() => [route.query.area, route.query.gebiet, route.query.poi, route.query.polygon, route.query.flaeche], async () => {
+  watch(() => [route.query.polygon, route.query.flaeche], async () => {
     if (!mapStore.mapLoaded || !map.value) return
-    applyRequestedPoiFilter()
     const polygonId = await requestedPolygonId()
     if (polygonId) await selectPolygon(polygonId, true)
     await refreshOsmViewportForCurrentMap({ force: true })
@@ -500,58 +455,11 @@ export function useMapCanvasHost() {
   function ensureMapInfrastructure(instance: Map) {
     ensureOsmInfrastructure(instance)
     ensurePolygonInfrastructure(instance)
-    ensureSearchInfrastructure(instance)
     ensureSelectionInfrastructure(instance)
     ensureStadtplanerLayerOrder(instance)
     if (import.meta.dev && !hasValidStadtplanerLayerOrder(instance)) {
       console.warn('Stadtplaner overlay layer order is invalid', getStadtplanerLayerOrder(instance))
     }
-  }
-
-  function ensureSearchInfrastructure(instance: Map) {
-    // Pilot migration: definitions are owned and restored by LayerRegistry.
-    runtime.layers.ensureOrder()
-    applySearchMapAction()
-  }
-
-  function applySearchMapAction() {
-    const instance = map.value
-    const action = mapStore.searchAction
-    if (!instance || !action) return
-    const source = instance.getSource('host.search-results') as GeoJSONSource | undefined
-    if (action.type === 'REPLACE_SEARCH_LAYER' || action.type === 'SHOW_ANALYSIS_AREAS') {
-      source?.setData(action.data || { type: 'FeatureCollection', features: [] })
-    } else if (action.type === 'FIT_AREA') {
-      source?.setData({ type: 'FeatureCollection', features: [] })
-    }
-    if (action.type === 'HIGHLIGHT_AREAS' && instance.getLayer('analysis-areas.assistant-highlight')) {
-      instance.setFilter('analysis-areas.assistant-highlight', ['in', ['get', 'slug'], ['literal', action.areaSlugs]])
-    }
-    if (action.type === 'SHOW_ANALYSIS_AREAS' && action.areaType) {
-      for (const [type, suffix] of [['MUNICIPALITY', 'municipality'], ['DISTRICT', 'district'], ['QUARTER', 'quarter']] as const) {
-        for (const ending of ['-fill', '', '-label']) {
-          const layerId = `analysis-areas.${suffix}${ending}`
-          if (instance.getLayer(layerId)) instance.setLayoutProperty(layerId, 'visibility', action.areaType === type ? 'visible' : 'none')
-        }
-      }
-    }
-    const bounds = action.bounds || (action.fitBounds && action.data
-      ? geometryBounds(action.data.features.map(feature => geometryCoordinateTree(feature.geometry)))
-      : null)
-    if (action.fitBounds && bounds) {
-      instance.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], {
-        padding: currentViewportPadding(),
-        maxZoom: 16,
-        duration: 350
-      })
-    }
-  }
-
-  function geometryCoordinateTree(geometry: Geometry | null): unknown {
-    if (!geometry) return []
-    return geometry.type === 'GeometryCollection'
-      ? geometry.geometries.map(geometryCoordinateTree)
-      : geometry.coordinates
   }
 
   function ensurePolygonInfrastructure(instance: Map) {
@@ -663,7 +571,7 @@ export function useMapCanvasHost() {
       selectionKey: `${runtimeSelection.moduleId}:${runtimeSelection.layerId}:${runtimeSelection.featureId}`,
       geometry: runtimeSelection.geometry,
       properties: runtimeSelection.properties || null,
-      target: { type: 'analysis-area', id: String(runtimeSelection.featureId) }
+      target: { type: 'module', id: String(runtimeSelection.featureId) }
     })
   }
 
@@ -686,9 +594,6 @@ export function useMapCanvasHost() {
   }
 
   function interactivePolygonColor(polygon: InteractivePolygonFeature) {
-    if (polygon.source === 'analysis-areas.data') {
-      return polygon.featureType === 'MUNICIPALITY' ? '#2563eb' : polygon.featureType === 'DISTRICT' ? '#15803d' : '#b45309'
-    }
     const canonicalCategory = polygon.properties?.canonical_category
     if (typeof canonicalCategory === 'string') return getIndustryColor(canonicalCategory)
     const category = polygon.properties?.category
@@ -709,21 +614,6 @@ export function useMapCanvasHost() {
       maxZoom: 18,
       duration: 0
     })
-  }
-
-  function applyRequestedPoiFilter() {
-    const areaSlug = requestedAreaSlug()
-    const poiCategory = route.query.poi
-    if (areaSlug && isPoiCategoryToken(poiCategory)) {
-      osmStore.setAreaPoiFilter(areaSlug, poiCategory)
-    } else if (osmStore.areaPoiFilter) {
-      osmStore.clearAreaPoiFilter()
-    }
-  }
-
-  function requestedAreaSlug() {
-    if (typeof route.query.gebiet === 'string') return route.query.gebiet
-    return typeof route.query.area === 'string' ? route.query.area : ''
   }
 
   async function requestedPolygonId() {
@@ -756,40 +646,7 @@ export function useMapCanvasHost() {
   }
 
   function resetVisibleFilters() {
-    if (!osmStore.areaPoiFilter) {
-      filterStore.reset()
-      return
-    }
-    osmStore.clearAreaPoiFilter()
-    void router.push({ query: withoutPoiQuery(route.query) })
-  }
-
-  function geometryBounds(coordinates: unknown): [number, number, number, number] | null {
-    const bounds: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity]
-    const visit = (value: unknown) => {
-      if (!Array.isArray(value)) return
-      if (typeof value[0] === 'number' && typeof value[1] === 'number') {
-        bounds[0] = Math.min(bounds[0], value[0])
-        bounds[1] = Math.min(bounds[1], value[1])
-        bounds[2] = Math.max(bounds[2], value[0])
-        bounds[3] = Math.max(bounds[3], value[1])
-        return
-      }
-      value.forEach(visit)
-    }
-    visit(coordinates)
-    return Number.isFinite(bounds[0]) ? bounds : null
-  }
-
-  async function waitForGisPreviewReady(instance: Map) {
-    await nextTick()
-    await new Promise<void>((resolve) => {
-      if (!instance.isMoving()) {
-        requestAnimationFrame(() => resolve())
-        return
-      }
-      instance.once('moveend', () => requestAnimationFrame(() => resolve()))
-    })
+    filterStore.reset()
   }
 
   function applyFeatureStyles() {
@@ -904,22 +761,10 @@ export function useMapCanvasHost() {
     return getMapViewportPadding({
       viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
-      assistantOpen: searchStore.assistantOpen,
+      leftPanelExpanded: false,
       bottomSheetOpen: !compactPanel && window.innerWidth < 1280 && mapStore.activeGisPanel !== null,
       compactPanelOpen: compactPanel && mapStore.activeGisPanel !== null,
       analysisPanelVisible: window.innerWidth >= 1280
-    })
-  }
-
-  function scheduleSearchMapAction() {
-    if (!import.meta.client) return
-    nextTick(() => {
-      if (layoutFrame !== undefined) cancelAnimationFrame(layoutFrame)
-      layoutFrame = requestAnimationFrame(() => {
-        layoutFrame = undefined
-        runtime.resize()
-        applySearchMapAction()
-      })
     })
   }
 
@@ -939,8 +784,6 @@ export function useMapCanvasHost() {
     mapEl,
     map,
     mapError,
-    socialPreview,
-    gisPreviewReady,
     mapStore,
     polygonStore,
     showEmptyState,

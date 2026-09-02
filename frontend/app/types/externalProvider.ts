@@ -3,8 +3,7 @@ export const externalProviders = [
   'github',
   'mastodon',
   'openstreetmap',
-  'wikipedia',
-  'wikidata'
+  'wikipedia'
 ] as const
 
 export type ExternalProvider = typeof externalProviders[number]

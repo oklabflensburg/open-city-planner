@@ -18,34 +18,23 @@ describe('integrated documentation', () => {
     expect(documentationPaths).toEqual([
       '/dokumentation',
       '/dokumentation/erste-schritte',
-      '/dokumentation/suche',
       '/dokumentation/karte',
       '/dokumentation/filter',
       '/dokumentation/openstreetmap',
       '/dokumentation/flaechen',
       '/dokumentation/flaechen-bearbeiten',
-      '/dokumentation/statistik',
-      '/dokumentation/datenquellen',
-      '/dokumentation/leerstand',
-      '/dokumentation/branchen-und-pois',
-      '/dokumentation/fast-facts',
       '/dokumentation/benutzerkonto',
       '/dokumentation/benachrichtigungen',
-      '/dokumentation/oauth',
       '/dokumentation/rollen',
-      '/dokumentation/verwaltung',
       '/dokumentation/administration',
-      '/dokumentation/gebiete',
-      '/dokumentation/methodik',
-      '/dokumentation/api',
-      '/dokumentation/faq'
+      '/dokumentation/api'
     ])
     expect(findDocumentationPage('karte')?.title).toBe('Karte bedienen')
   })
 
   it('groups navigation and resolves active page paths', () => {
     expect(getDocumentationGroups().map(group => group.label)).toEqual([
-      'Einstieg', 'Karte und Daten', 'Analyse', 'Konto und Bearbeitung', 'Hilfe', 'Quellcode und Entwicklung'
+      'Einstieg', 'Karte und Daten', 'Konto und Bearbeitung', 'Hilfe', 'Quellcode und Entwicklung'
     ])
     const page = findDocumentationPage('rollen')!
     expect(documentationPath(page)).toBe('/dokumentation/rollen')
@@ -61,12 +50,9 @@ describe('integrated documentation', () => {
   })
 
   it('findet zentrale Themen mit deutschen Suchbegriffen und Synonymen', () => {
-    expect(searchDocumentation('Statistik').some(result => result.page.slug === 'statistik')).toBe(true)
     expect(searchDocumentation('Gebäude').some(result => result.page.slug === 'openstreetmap')).toBe(true)
-    expect(searchDocumentation('Leerstand').some(result => result.page.slug === 'leerstand')).toBe(true)
-    expect(searchDocumentation('KI Suche').some(result => result.page.slug === 'suche')).toBe(true)
-    expect(searchDocumentation('Daten aktuell').some(result => result.page.slug === 'datenquellen')).toBe(true)
-    expect(searchDocumentation('Quartier').some(result => result.page.slug === 'gebiete')).toBe(true)
+    expect(searchDocumentation('Leerstand').some(result => result.page.slug === 'flaechen')).toBe(true)
+    expect(searchDocumentation('lokale Datenbank').some(result => result.page.slug === 'openstreetmap')).toBe(true)
   })
 
   it('hält Slugs, Metadaten, Gruppen und interne Dokumentationslinks gültig', () => {
@@ -111,7 +97,7 @@ describe('integrated documentation', () => {
 
   it('provides breadcrumbs and previous/next navigation', () => {
     const first = documentationPages[0]!
-    const middle = findDocumentationPage('fast-facts')!
+    const middle = findDocumentationPage('flaechen')!
     const last = documentationPages.at(-1)!
     expect(getDocumentationNeighbors(first).previous).toBeUndefined()
     expect(getDocumentationNeighbors(middle).previous).toBeDefined()
@@ -125,7 +111,7 @@ describe('integrated documentation', () => {
   })
 
   it('marks protected content with reusable role badges', () => {
-    expect(findDocumentationPage('verwaltung')?.audience).toBe('verwaltung')
+    expect(findDocumentationPage('rollen')?.audience).toBe('verwaltung')
     expect(findDocumentationPage('benutzerkonto')?.audience).toBe('login')
     expect(findDocumentationPage('administration')?.audience).toBe('superuser')
     const badge = appFile('components/docs/DocsRoleBadge.vue')

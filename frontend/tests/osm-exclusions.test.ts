@@ -10,7 +10,7 @@ function feature(natural?: string): OsmViewportFeature {
       name: null, primary_type: natural || null, natural, feature_type: 'polygon',
       source: 'OSM', canonical_category: null, canonical_floor: null, mapped_area_m2: null,
       occupancy_status: 'UNKNOWN', occupancy_source: null, stadtplaner: [],
-      external_links: { wikidata: null, wikipedia: null }
+      external_links: { wikipedia: null }
     }
   }
 }

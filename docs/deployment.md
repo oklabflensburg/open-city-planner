@@ -10,7 +10,7 @@ Diese Anleitung bündelt den produktiven Betrieb des aktuellen Repositorys. Spez
 - PostgreSQL mit PostGIS ist die fachliche Datenbank.
 - Redis dient als Cache und als gemeinsames Backend für produktive Sicherheitszähler. Er ist keine fachliche Datenquelle.
 - Ein Reverse Proxy veröffentlicht Frontend und API über HTTPS.
-- systemd-Timer starten OSM-Sync, Statistikimport, E-Mail-/Domain-Event-Outbox und optional Social Publishing.
+- systemd-Timer starten OSM-Sync sowie E-Mail-/Domain-Event-Outbox. Fachliche Jobs werden von aktivierten Modulen beigetragen.
 
 Moduljobs deklarieren fachliche Intervalle über die
 [Job-Registry](modules/background-jobs.md). In V1 bleibt systemd der technische,
@@ -157,10 +157,8 @@ Wichtige Backend-Gruppen:
 - E-Mail und Kontakt: `EMAIL_BACKEND`, `SMTP_*`, `CONTACT_*`, optional `TURNSTILE_*`;
 - Cache und Limitierung: `REDIS_*`, `CACHE_PREFIX`, `AUTH_RATE_LIMIT_BACKEND`, `RATE_LIMIT_FAIL_CLOSED`;
 - OSM und Geocoding: `OSM_*`, `OVERPASS_*`, `NOMINATIM_*`;
-- Statistik: `FLENSBURG_SUPERSET_*`;
-- Assistant: `AI_SEARCH_*`, `GROQ_*`;
-- Integrationen: `MASTODON_*`, optionale OAuth-Provider und `MASTODON_SSO_*`;
-- Dateien: `AVATAR_UPLOAD_DIR`, `MEDIA_BASE_URL`, `MASTODON_SCREENSHOT_DIRECTORY`.
+- Integrationen: optionale OAuth-Provider und `MASTODON_SSO_*`;
+- Dateien: `AVATAR_UPLOAD_DIR`, `MEDIA_BASE_URL`.
 
 Wichtige öffentliche Frontend-Variablen beginnen mit `NUXT_PUBLIC_` und sind per
 Definition öffentlich. Menschen konfigurieren Module mit `ENABLED_MODULES` für das
@@ -231,7 +229,7 @@ Das Repository enthält keine fertige Nginx-Site. Der eingesetzte Proxy muss:
 
 Setzen Sie `TRUSTED_PROXIES`, Origins, Cookie- und WebAuthn-Werte exakt passend zur öffentlichen HTTPS-Origin. Einzelheiten stehen in [security/production-checklist.md](security/production-checklist.md).
 
-## OpenStreetMap und Analysegebiete
+## OpenStreetMap
 
 Initialimport, Replikationszustand, systemd-Timer, Monitoring und Recovery sind vollständig in [osm-hourly-sync.md](osm-hourly-sync.md) beschrieben. Kurzprüfung:
 
@@ -241,45 +239,14 @@ sudo journalctl -u stadtplaner-osm-update.service -n 100 --no-pager
 scripts/osm/status.sh
 ```
 
-Nach dem lokalen OSM-Import aktualisiert das Postprocessing die anwendungsseitigen Tabellen und Cache-Versionen. Analysegebiete werden mit dem CLI-Modul `app.cli.sync_analysis_areas` synchronisiert; Details stehen in [osm-data.md](osm-data.md).
+Nach dem lokalen OSM-Import aktualisiert das Postprocessing generische Snapshots und Cache-Versionen. Fachliche Ableitungen gehören in installierte Module; Details stehen in [osm-data.md](osm-data.md).
 
-## Kommunale Statistik
+## E-Mail- und Domain-Event-Outbox
 
-Die Statistik setzt vorhandene Gemeinde- und Stadtteil-Analysegebiete voraus:
-
-```bash
-cd /opt/git/open-city-planner/backend
-.venv/bin/python -m app.cli.import_flensburg_statistics --discover-only
-.venv/bin/python -m app.cli.import_flensburg_statistics
-```
-
-Die mitgelieferte Timer-Unit prüft die Quelle wöchentlich. Vor Installation müssen ihr Pfad und Service-Benutzer an die gewählte Umgebung angepasst werden. Importvertrag, Fehlerverhalten und Datenmapping stehen in [flensburg-statistics.md](flensburg-statistics.md).
-
-## Assistant und Groq
-
-Die erweiterte Sprachinterpretation ist optional. Tatsächlich verwendete Variablen sind:
-
-```env
-AI_SEARCH_ENABLED=false
-AI_SEARCH_PROVIDER=groq
-AI_SEARCH_MODEL=
-GROQ_API_KEY=
-GROQ_BASE_URL=https://api.groq.com/openai/v1
-GROQ_TIMEOUT_SECONDS=8
-GROQ_MAX_RETRIES=1
-GROQ_TEMPERATURE=0.1
-ASSISTANT_QUERY_LOGGING=false
-```
-
-`GROQ_API_KEY` bleibt ausschließlich im Backend. Ohne Aktivierung, Modell oder Schlüssel bleiben die deterministischen Suchbefehle verfügbar; nur die erweiterte Sprachinterpretation entfällt. Prüfen Sie Provider-Limits und das verwendete Modell vor der Aktivierung. Feste Preise werden nicht im Repository dokumentiert.
-
-## Mastodon und E-Mail-Outbox
-
-Social Publishing ist optional und wird in [social-publishing.md](social-publishing.md) beschrieben. Die E-Mail-Outbox verarbeitet unter anderem retryfähige Willkommensmails. Die Polygon-Outbox verarbeitet Seiteneffekte nach Flächenmutationen (Adressanreicherung, Cache-Invalidierung, Benachrichtigungen) zuverlässig asynchron. Mitgelieferte Timer:
+Die E-Mail-Outbox verarbeitet unter anderem retryfähige Willkommensmails. Die Polygon-Outbox verarbeitet Seiteneffekte nach Flächenmutationen (Adressanreicherung, Cache-Invalidierung, Benachrichtigungen) zuverlässig asynchron. Mitgelieferte Timer:
 
 ```bash
 sudo systemctl enable --now stadtplaner-polygon-outbox.timer
-sudo systemctl enable --now stadtplaner-social-publisher.timer
 sudo systemctl enable --now stadtplaner-email-outbox.timer
 sudo systemctl enable --now stadtplaner-domain-event-outbox.timer
 systemctl list-timers 'stadtplaner-*'
@@ -334,13 +301,11 @@ Typische Prüfungen:
 - Backend startet nicht: Production-Settings, Datenbank und Redis anhand der Startmeldung prüfen.
 - HTTP 502: lokalen Frontend-/API-Prozess und Proxyziel prüfen.
 - Karte bleibt leer: API-Origin, Kartenstil, Browserkonsole und OSM-Datenstand prüfen.
-- Statistik fehlt: letzten Importlauf und vorausgesetzte Analysegebiete prüfen.
-- Assistant fällt zurück: `AI_SEARCH_ENABLED`, Modell, Backend-Key und bereinigte Provider-Warnings prüfen.
-- E-Mail oder Mastodon bleibt liegen: Timer, Outboxstatus und letzte Worker-Logs prüfen.
+- E-Mail oder ein Domain-Event bleibt liegen: Timer, Outboxstatus und letzte Worker-Logs prüfen.
 
 ## Observability anbinden
 
-Ansible bindet den exakt ausgecheckten Git-SHA als `STADTPLANER_RELEASE_SHA` an die versionierten Backend- und Frontend-Environment-Snapshots. Backend-basierte One-shot-Jobs lesen denselben aktiven Snapshot. Behalten Sie `LOG_FORMAT=json`, `METRICS_ENABLED=true` und `ASSISTANT_QUERY_LOGGING=false` in Produktion. OpenTelemetry ist für den produktiven Deploy verpflichtend:
+Ansible bindet den exakt ausgecheckten Git-SHA als `STADTPLANER_RELEASE_SHA` an die versionierten Backend- und Frontend-Environment-Snapshots. Backend-basierte One-shot-Jobs lesen denselben aktiven Snapshot. Behalten Sie `LOG_FORMAT=json` und `METRICS_ENABLED=true` in Produktion. OpenTelemetry ist für den produktiven Deploy verpflichtend:
 
 ```env
 OTEL_ENABLED=true
@@ -413,7 +378,7 @@ Runbooks sind in [observability.md](observability.md) beschrieben.
 ## Sicherheitscheckliste
 
 - [ ] Keine Produktions-Secrets oder `.env`-Dateien sind im Repository.
-- [ ] `DATABASE_URL`, `GROQ_API_KEY`, SMTP-, OAuth- und Mastodon-Secrets bleiben serverseitig.
+- [ ] `DATABASE_URL`, SMTP- und OAuth-Secrets bleiben serverseitig.
 - [ ] PostgreSQL und Redis sind nicht öffentlich erreichbar.
 - [ ] Cookies, Origins, WebAuthn und Proxyvertrauen stimmen mit HTTPS überein.
 - [ ] Ein aktuelles Datenbankbackup und ein geprüfter Recovery-Plan sind vorhanden.

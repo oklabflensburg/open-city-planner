@@ -6,7 +6,7 @@ Das Benachrichtigungssystem übersetzt fachliche Ereignisse in persönliche, per
 
 - `notifications`: Empfänger, optionaler Akteur, Ereignistyp, Kategorie, Priorität, kontrollierter Text, Ressourcenbezug, internes Aktionsziel, gelesen/ungelesen, Ablauf- und Deduplizierungsdaten
 - `notification_preferences`: kontoweite Themenpräferenzen; sicherheitsrelevante Kontohinweise bleiben serverseitig aktiv
-- `notification_subscriptions`: explizites Folgen einer `POLYGON`- oder `AREA`-Ressource mit optionaler Ereignisauswahl
+- `notification_subscriptions`: explizites Folgen einer generisch bezeichneten Ressource mit optionaler Ereignisauswahl
 
 Migration: `20260817_0022_notifications`. PostgreSQL-Indizes optimieren Empfänger-Zeitachse, ungelesene Zähler und Deduplizierung.
 
@@ -15,8 +15,7 @@ Migration: `20260817_0022_notifications`. PostgreSQL-Indizes optimieren Empfäng
 `backend/app/services/notification_policy.py` enthält die zentrale Taxonomie und die einzige Übersetzung von Fachereignissen in Kategorie, Priorität, neutralen Text und erlaubte interne Route. Derzeit unterstützt sind:
 
 - GIS: Fläche geändert, gelöscht, aus OSM übernommen oder Status geändert
-- OSM und Daten: wesentliche OSM-Änderung sowie aktualisierte Gebietsstatistik
-- Social Publishing: veröffentlicht, fehlgeschlagen oder Freigabe erforderlich
+- OSM und Daten: wesentliche Änderungen an technischen Datenquellen
 - Konto/Administration: Rolle vergeben oder entfernt, Konto deaktiviert oder reaktiviert
 - Import: abgeschlossen oder fehlgeschlagen
 

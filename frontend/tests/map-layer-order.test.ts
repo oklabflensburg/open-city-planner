@@ -21,7 +21,6 @@ describe('Stadtplaner MapLibre layer order', () => {
     const scrambled = [
       'basemap-label',
       ...MAP_LAYER_GROUPS.pois,
-      ...MAP_LAYER_GROUPS.analysisAreas,
       ...MAP_LAYER_GROUPS.poiLabels,
       ...MAP_LAYER_GROUPS.cityplannerPolygons,
       ...MAP_LAYER_GROUPS.poiClusters,
@@ -36,7 +35,6 @@ describe('Stadtplaner MapLibre layer order', () => {
     expect(hasValidStadtplanerLayerOrder(map)).toBe(true)
     const order = getStadtplanerLayerOrder(map)
     const polygonIds = [
-      ...MAP_LAYER_GROUPS.analysisAreas,
       ...MAP_LAYER_GROUPS.osmPolygons,
       ...MAP_LAYER_GROUPS.cityplannerPolygons,
       ...MAP_LAYER_GROUPS.polygonHighlights

@@ -28,7 +28,7 @@ stadtplaner_backend_env_content: |
   APP_ENVIRONMENT=production
   APP_BASE_URL=https://stadtplaner.oklabflensburg.de
   API_BASE_URL=https://api.stadtplaner.oklabflensburg.de
-  ENABLED_MODULES=analysis-areas
+  ENABLED_MODULES=
   # Single source for backend and frontend built-in composition cutovers.
   OCP_EXCLUDED_BUILTIN_MODULES=
   OCP_ENABLED_INSTALLED_BACKEND_PATHS=
@@ -120,17 +120,6 @@ stadtplaner_backend_env_content: |
   PUBLIC_QUERY_RATE_LIMIT_ATTEMPTS=120
   PUBLIC_QUERY_RATE_LIMIT_WINDOW_SECONDS=60
 
-  AI_SEARCH_ENABLED=false
-  AI_SEARCH_PROVIDER=groq
-  AI_SEARCH_MODEL=
-  OPENAI_API_KEY=
-  GROQ_API_KEY=
-  GROQ_BASE_URL=https://api.groq.com/openai/v1
-  GROQ_TIMEOUT_SECONDS=8
-  GROQ_MAX_RETRIES=1
-  GROQ_TEMPERATURE=0.1
-  ASSISTANT_QUERY_LOGGING=false
-
   AVATAR_OUTPUT_SIZE=512
   AVATAR_WEBP_QUALITY=85
   MEDIA_BASE_URL=https://api.stadtplaner.oklabflensburg.de
@@ -164,46 +153,17 @@ stadtplaner_backend_env_content: |
   CACHE_DEBUG_HEADERS=false
   CACHE_LOCK_TTL_SECONDS=15
   OSM_VIEWPORT_CACHE_TTL=1800
-  ANALYTICS_CACHE_TTL=600
-  ANALYSIS_AREA_CACHE_TTL=3600
-  WIKIDATA_API_URL=https://www.wikidata.org/w/api.php
-  WIKIDATA_USER_AGENT="Stadtplaner/1.0 (https://stadtplaner.oklabflensburg.de; OK Lab Flensburg)"
-  WIKIDATA_TIMEOUT_SECONDS=10
-  WIKIDATA_CACHE_TTL_SECONDS=604800
-  WIKIDATA_NEGATIVE_CACHE_TTL_SECONDS=86400
-  WIKIDATA_STALE_DAYS=90
-  WIKIDATA_SEARCH_LIMIT=8
-  STATISTICS_CACHE_TTL=3600
   POLYGON_CACHE_TTL=60
-  COMPARABLE_CACHE_TTL=600
   CACHE_PAYLOAD_WARNING_BYTES=2000000
 
   DATABASE_POOL_SIZE=10
   DATABASE_MAX_OVERFLOW=20
   DATABASE_POOL_TIMEOUT_SECONDS=15
-  FLENSBURG_SUPERSET_BASE_URL=https://superset.flensburg.de
-  FLENSBURG_SUPERSET_DASHBOARD_ID=3b53ff0b-6e8c-435e-83f6-666f8a7cc158
-  FLENSBURG_SUPERSET_TIMEOUT_SECONDS=60
 
-  MASTODON_ENABLED=false
-  MASTODON_BASE_URL=https://norden.social
-  MASTODON_ACCESS_TOKEN=
-  MASTODON_ACCOUNT_URL=https://norden.social/@oklabflensburg
-  MASTODON_ACCOUNT_HANDLE=@oklabflensburg@norden.social
-  MASTODON_DEFAULT_VISIBILITY=public
-  MASTODON_AREA_UPDATES_ENABLED=true
-  MASTODON_AREA_UPDATE_DEBOUNCE_SECONDS=300
-  MASTODON_DRY_RUN=false
-  MASTODON_TIMEOUT_SECONDS=10
-  MASTODON_HASHTAGS=Flensburg,OpenData,Stadtplaner
-  MASTODON_MAX_ATTEMPTS=5
-  MASTODON_BOUNDARY_CHANGE_MIN_RATIO=0.01
-  MASTODON_SCREENSHOT_DIRECTORY=/data/stadtplaner-social
-  MASTODON_SCREENSHOT_TIMEOUT_SECONDS=30
 
 # Complete frontend/.env, snapshotted below /etc/stadtplaner/releases/<sha>/.
 stadtplaner_frontend_env_content: |
-  OCP_FRONTEND_MODULES=analysis-areas
+  OCP_FRONTEND_MODULES=
   # Wird beim Deploy aus dem Backend-Input validiert und überschrieben.
   OCP_EXCLUDED_BUILTIN_MODULES=
   OCP_INSTALLED_FRONTEND_MODULE_ROOTS=
@@ -280,7 +240,6 @@ stadtplaner_service_group: oklab
 stadtplaner_config_dir: /etc/stadtplaner
 stadtplaner_data_dir: /data/stadtplaner
 stadtplaner_module_install_root: /var/lib/stadtplaner/modules
-stadtplaner_social_dir: /data/stadtplaner-social
 stadtplaner_avatar_upload_dir: /data/uploads
 stadtplaner_observability_dir: /data/stadtplaner/observability
 stadtplaner_metrics_allowed_cidrs: []
@@ -320,10 +279,8 @@ stadtplaner_osm_env_file: /etc/stadtplaner/osm-sync.env
 stadtplaner_manage_nginx: true
 stadtplaner_manage_background_timers: true
 stadtplaner_enable_osm_timer: true
-stadtplaner_enable_statistics_timer: true
 stadtplaner_enable_email_outbox_timer: true
 stadtplaner_enable_domain_event_outbox_timer: true
-stadtplaner_enable_social_publisher_timer: false
 stadtplaner_public_host: stadtplaner.oklabflensburg.de
 stadtplaner_api_host: api.stadtplaner.oklabflensburg.de
 stadtplaner_developer_host: developer.stadtplaner.oklabflensburg.de

@@ -45,9 +45,6 @@ def disable_nominatim_enrichment(monkeypatch) -> None:
         "app.services.osm_import.enrich_polygon_address", AsyncMock(return_value=False)
     )
     monkeypatch.setattr(
-        "app.services.osm_import.refresh_polygon_area_assignments", AsyncMock(return_value=0)
-    )
-    monkeypatch.setattr(
         "app.services.osm_import.invalidate_gis_after_mutation", AsyncMock(return_value=None)
     )
     monkeypatch.setattr(
@@ -147,7 +144,7 @@ async def test_peninsula_cannot_be_imported_as_stadtplaner_polygon() -> None:
 
 
 @pytest.mark.asyncio
-async def test_polygon_import_uses_authoritative_geometry_and_osm_vacancy(monkeypatch) -> None:
+async def test_polygon_import_uses_authoritative_geometry_and_osm_vacancy() -> None:
     session = AsyncMock()
     session.add = MagicMock()
     session.add = MagicMock()
@@ -156,8 +153,6 @@ async def test_polygon_import_uses_authoritative_geometry_and_osm_vacancy(monkey
         MappingRows(None),
     ]
     session.add.side_effect = lambda model: setattr(model, "id", 7) if isinstance(model, UserPolygon) else None
-    enqueue = AsyncMock(return_value=None)
-    monkeypatch.setattr("app.services.osm_import.enqueue_polygon_adoption", enqueue)
 
     result = await create_polygon_from_osm(
         session,
@@ -175,7 +170,6 @@ async def test_polygon_import_uses_authoritative_geometry_and_osm_vacancy(monkey
     assert polygon.owner_name is None
     assert relation.osm_type == "way" and relation.osm_id == 42
     assert relation.osm_snapshot["shop"] == "vacant"
-    enqueue.assert_awaited_once_with(session, polygon, osm_type="way", osm_id=42)
     assert session.commit.await_count == 2
 
 

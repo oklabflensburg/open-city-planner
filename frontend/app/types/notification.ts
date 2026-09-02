@@ -1,4 +1,4 @@
-export type NotificationCategory = 'GIS' | 'DATA' | 'OSM' | 'SOCIAL' | 'ACCOUNT' | 'ADMIN' | 'SYSTEM'
+export type NotificationCategory = 'GIS' | 'DATA' | 'OSM' | 'ACCOUNT' | 'ADMIN' | 'SYSTEM'
 export type NotificationPriority = 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' | 'ACTION_REQUIRED'
 
 export interface AppNotification {
@@ -33,21 +33,19 @@ export interface NotificationPreferences {
   notify_gis: boolean
   notify_osm: boolean
   notify_area_updates: boolean
-  notify_social: boolean
   notify_account: boolean
   notify_system: boolean
   email_enabled: boolean
   email_notify_gis: boolean
   email_notify_osm: boolean
   email_notify_area_updates: boolean
-  email_notify_social: boolean
   email_notify_system: boolean
   newsletter_enabled: boolean
   updated_at: string | null
 }
 
 export interface NotificationSubscription {
-  resource_type: 'POLYGON' | 'AREA'
+  resource_type: string
   resource_id: string
   event_types: string[]
   created_at: string

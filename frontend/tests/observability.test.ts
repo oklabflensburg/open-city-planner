@@ -11,7 +11,7 @@ describe('frontend request correlation', () => {
   it('uses low-cardinality templates for dynamic SSR routes', () => {
     expect(routeTemplate('/flaechen/innenstadt')).toBe('/flaechen/{slug}')
     expect(routeTemplate('/flaechen/hafen')).toBe('/flaechen/{slug}')
-    expect(routeTemplate('/gebiete/nordstadt')).toBe('/gebiete/{slug}')
+    expect(routeTemplate('/flaechen/testflaeche')).toBe('/flaechen/{slug}')
     expect(routeTemplate('/admin/users/123')).toBe('/admin/users/{id}')
   })
 

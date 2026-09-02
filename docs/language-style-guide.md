@@ -30,7 +30,7 @@ Login, Registrierung, Passwort-Wiederherstellung und Kontoverwaltung verwenden d
 
 ## 7. GIS und öffentliche Seiten
 
-Kartenaktionen, Filter, Layer und Tooltips verwenden überwiegend neutrale Funktionsbezeichnungen. Anleitungen verwenden die Sie-Form. Externe Namen, OpenStreetMap-Tags, Wikidata-Titel und GeoJSON-Inhalte werden nicht sprachlich verändert.
+Kartenaktionen, Filter, Layer und Tooltips verwenden überwiegend neutrale Funktionsbezeichnungen. Anleitungen verwenden die Sie-Form. Externe Namen, OpenStreetMap-Tags, Wikipedia-Titel und GeoJSON-Inhalte werden nicht sprachlich verändert.
 
 ## 8. Administration und Historie
 
@@ -42,7 +42,7 @@ Administrationshilfen verwenden neutrale Sprache oder die Sie-Form. Auditlog und
 
 ## 10. Technische Begriffe und Typografie
 
-Etablierte Begriffe wie API, OpenStreetMap, Wikidata, GeoJSON und JWT bleiben erhalten. In der deutschen UI werden typografische Anführungszeichen („…“), die Ellipse (…) sowie deutsche Zahlen-, Datums- und Zeitformate verwendet.
+Etablierte Begriffe wie API, OpenStreetMap, Wikipedia, GeoJSON und JWT bleiben erhalten. In der deutschen UI werden typografische Anführungszeichen („…“), die Ellipse (…) sowie deutsche Zahlen-, Datums- und Zeitformate verwendet.
 
 ## Glossar
 

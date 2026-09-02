@@ -1,7 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useGisInvalidation } from '~/composables/useGisInvalidation'
-import { useAnalyticsStore } from '~/stores/analytics'
 import { useMapStore } from '~/stores/map'
 import { useNotificationsStore } from '~/stores/notifications'
 import { useOsmViewportStore } from '~/stores/osmViewport'
@@ -12,15 +11,13 @@ describe('central GIS mutation invalidation', () => {
     setActivePinia(createPinia())
     vi.stubGlobal('usePolygonStore', usePolygonStore)
     vi.stubGlobal('useOsmViewportStore', useOsmViewportStore)
-    vi.stubGlobal('useAnalyticsStore', useAnalyticsStore)
     vi.stubGlobal('useMapStore', useMapStore)
     vi.stubGlobal('useNotificationsStore', useNotificationsStore)
   })
 
-  it('invalidates polygon, OSM, analytics and stale selection after OSM adoption', () => {
+  it('invalidates polygon, OSM and stale selection after OSM adoption', () => {
     const polygons = usePolygonStore()
     const osm = useOsmViewportStore()
-    const analytics = useAnalyticsStore()
     const map = useMapStore()
     polygons.loadedFilterKey = 'same-filter'
     osm.data = { type: 'FeatureCollection', features: [], meta: {
@@ -31,7 +28,6 @@ describe('central GIS mutation invalidation', () => {
       data: osm.data, bounds: { west: 9.4, south: 54.7, east: 9.5, north: 54.8 },
       zoomBucket: 17, filterKey: 'same-filter', payloadBytes: 100
     })
-    analytics.data = { fast_facts: { polygon_count: 46 } } as never
     map.selectedMapEntity = { type: 'osm', feature: {
       type: 'Feature', id: 'way/123', geometry: { type: 'Point', coordinates: [9.43, 54.78] },
       properties: {
@@ -50,7 +46,6 @@ describe('central GIS mutation invalidation', () => {
     expect(polygons.loadedFilterKey).toBeNull()
     expect(osm.data).toBeNull()
     expect(osm.viewportCache.size).toBe(0)
-    expect(analytics.data).toBeNull()
     expect(map.selectedMapEntity).toBeNull()
     expect(map.gisDataDirty).toBe(true)
     expect(map.gisDataGeneration).toBe(generation + 1)
@@ -69,4 +64,3 @@ describe('central GIS mutation invalidation', () => {
     expect(polygons.loadedFilterKey).toBeNull()
   })
 })
-

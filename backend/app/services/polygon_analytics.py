@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user_polygon import UserPolygon
-from app.schemas.analytics import (
+from app.schemas.polygon_analytics import (
     BenchmarkMetrics,
     CompletenessMetric,
     DimensionCount,

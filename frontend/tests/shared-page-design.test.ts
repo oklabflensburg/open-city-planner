@@ -64,7 +64,7 @@ describe('shared content page design', () => {
   })
 
   it('migrates profile, owned polygons and supporting content pages', () => {
-    for (const page of ['pages/profil/index.vue', 'pages/profil/sicherheit.vue', 'pages/meine-flaechen.vue', 'pages/kontakt.vue', 'pages/open-data.vue', 'pages/verwaltung/kennzahlen.vue']) {
+    for (const page of ['pages/profil/index.vue', 'pages/profil/sicherheit.vue', 'pages/meine-flaechen.vue', 'pages/kontakt.vue', 'pages/open-data.vue']) {
       expect(appFile(page)).toContain('<ContentPageShell')
     }
     expect(appFile('pages/meine-flaechen.vue')).toContain('Flächen konnten nicht geladen werden.')

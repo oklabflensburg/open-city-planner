@@ -70,15 +70,11 @@ class OsmViewportQuery(BaseModel):
     north: float = Field(ge=-90, le=90)
     zoom: float = Field(ge=0, le=24)
     osm_categories: str | None = None
-    analysis_area: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9-]{0,254}$")
-    poi_category: str | None = Field(default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$")
     buildings: bool = False
     limit: int = Field(default=2_000, ge=1, le=2_500)
 
     @model_validator(mode="after")
     def validate_bbox(self) -> "OsmViewportQuery":
-        if bool(self.analysis_area) != bool(self.poi_category):
-            raise ValueError("Gebiet und Kategorie müssen gemeinsam angegeben werden")
         if self.west >= self.east:
             raise ValueError("West muss kleiner als Ost sein; Grenzen über den Antimeridian werden nicht unterstützt")
         if self.south >= self.north:

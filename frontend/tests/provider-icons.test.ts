@@ -7,7 +7,7 @@ const appFile = (path: string) => readFileSync(resolve(process.cwd(), 'app', pat
 describe('external provider icons', () => {
   it('defines every provider in one decorative, non-focusable component', () => {
     const icon = appFile('components/external/ProviderIcon.vue')
-    for (const provider of ['google', 'github', 'mastodon', 'openstreetmap', 'wikipedia', 'wikidata']) {
+    for (const provider of ['google', 'github', 'mastodon', 'openstreetmap', 'wikipedia']) {
       expect(icon).toContain(`'${provider}'`)
     }
     expect(icon).toContain('aria-hidden="true"')

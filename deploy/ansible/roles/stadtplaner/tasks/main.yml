@@ -10,7 +10,6 @@
     - { path: "{{ stadtplaner_config_dir }}", owner: root, group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_env_releases_dir }}", owner: root, group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_data_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
-    - { path: "{{ stadtplaner_social_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_avatar_upload_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_avatar_upload_dir }}/avatars", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
     - { path: "{{ stadtplaner_observability_dir }}", owner: "{{ stadtplaner_service_user }}", group: "{{ stadtplaner_service_group }}", mode: '0750' }
@@ -918,19 +917,6 @@
         on_calendar: ''
         accuracy: 1m
         randomized_delay: 5m
-      - name: stadtplaner-flensburg-statistics-sync
-        description: Stadtplaner Flensburg statistics synchronization
-        enabled: "{{ stadtplaner_enable_statistics_timer }}"
-        working_directory: "{{ stadtplaner_current_path }}/backend"
-        environment_file: "{{ stadtplaner_backend_env_file }}"
-        exec_start: "{{ stadtplaner_current_path }}/backend/.venv/bin/python -m app.cli.import_flensburg_statistics"
-        read_write_paths: ["{{ stadtplaner_current_path }}/backend/data", "{{ stadtplaner_observability_dir }}"]
-        timer_description: Weekly check for updated Flensburg statistics
-        on_boot: ''
-        on_unit_active: ''
-        on_calendar: 'Mon *-*-* 03:15:00 Europe/Berlin'
-        accuracy: 1m
-        randomized_delay: 30m
       - name: stadtplaner-email-outbox
         description: Stadtplaner E-Mail-Outbox verarbeiten
         enabled: "{{ stadtplaner_enable_email_outbox_timer }}"
@@ -953,19 +939,6 @@
         read_write_paths: ["{{ stadtplaner_observability_dir }}"]
         timer_description: Fällige Stadtplaner Domain Events regelmäßig zustellen
         on_boot: 1m
-        on_unit_active: 1m
-        on_calendar: ''
-        accuracy: 10s
-        randomized_delay: ''
-      - name: stadtplaner-social-publisher
-        description: Stadtplaner Mastodon outbox publisher
-        enabled: "{{ stadtplaner_enable_social_publisher_timer }}"
-        working_directory: "{{ stadtplaner_current_path }}/backend"
-        environment_file: "{{ stadtplaner_backend_env_file }}"
-        exec_start: "{{ stadtplaner_current_path }}/backend/.venv/bin/python -m app.cli.publish_social_outbox --limit 20"
-        read_write_paths: ["{{ stadtplaner_social_dir }}", "{{ stadtplaner_observability_dir }}"]
-        timer_description: Publish due Stadtplaner Mastodon outbox events
-        on_boot: 2m
         on_unit_active: 1m
         on_calendar: ''
         accuracy: 10s

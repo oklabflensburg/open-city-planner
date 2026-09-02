@@ -16,7 +16,6 @@ from app.auth.dependencies import (
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.models.user import User
-from app.schemas.analytics import ComparableResult, LocationAnalysis
 from app.schemas.geojson import (
     FeatureCollection,
     PolygonCreate,
@@ -34,9 +33,7 @@ from app.schemas.geojson import (
 from app.schemas.osm import OsmPolygonImportRead, OsmPolygonImportRequest, PolygonOsmInfo
 from app.schemas.polygon_directory import PolygonDirectoryPage
 from app.schemas.polygon_filters import PolygonFilterParams, polygon_filter_query
-from app.services.comparables import comparable_polygons
 from app.services.geometry import GeometryValidationError
-from app.services.location_analytics import polygon_location_analysis
 from app.services.map_previews import MapPreviewError, map_preview_service
 from app.services.osm_import import (
     OsmImportAlreadyExists,
@@ -258,34 +255,6 @@ async def get_polygon_osm_by_slug(slug: str, session: SessionDep) -> PolygonOsmI
         raise HTTPException(
             status_code=503, detail="Die OpenStreetMap-Abfrage ist fehlgeschlagen."
         ) from exc
-    if result is None:
-        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
-    return result
-
-
-@router.get("/by-slug/{slug}/location", response_model=LocationAnalysis)
-async def get_polygon_location_analysis(
-    slug: str,
-    session: SessionDep,
-    request: Request,
-    radius_m: Annotated[int, Query(ge=100, le=2000)] = 500,
-) -> LocationAnalysis:
-    await guard_public_query(request, session, "polygon-location")
-    result = await polygon_location_analysis(session, slug=slug, radius_m=radius_m)
-    if result is None:
-        raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
-    return result
-
-
-@router.get("/by-slug/{slug}/comparables", response_model=ComparableResult)
-async def get_polygon_comparables(
-    slug: str,
-    session: SessionDep,
-    request: Request,
-    limit: Annotated[int, Query(ge=1, le=10)] = 5,
-) -> ComparableResult:
-    await guard_public_query(request, session, "polygon-comparables")
-    result = await comparable_polygons(session, slug=slug, limit=limit)
     if result is None:
         raise HTTPException(status_code=404, detail="Die Fläche wurde nicht gefunden.")
     return result

@@ -15,12 +15,11 @@ env:
   APP_ENVIRONMENT: test
   DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/open_city_map_e2e
   CORS_ORIGINS: http://127.0.0.1:3010
-  ENABLED_MODULES: analysis-areas
+  ENABLED_MODULES: ''
   REDIS_ENABLED: "false"
-  MASTODON_ENABLED: "false"
   MASTODON_SSO_ENABLED: "false"
   OSM_EXTERNAL_FALLBACK_ENABLED: "false"
-  OCP_FRONTEND_MODULES: analysis-areas
+  OCP_FRONTEND_MODULES: ''
   NUXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8010/api/v1
   NUXT_PUBLIC_SITE_URL: http://127.0.0.1:3010
 

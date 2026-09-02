@@ -43,7 +43,6 @@ describe('central OSM presentation translations', () => {
     expect(localizedOsmName(tags)).toBe('St. Nikolai')
     expect(translateOsmValue('name', 'Mürwik & Sønderborg')).toBe('Mürwik & Sønderborg')
     expect(translateOsmValue('operator', 'Stadt Flensburg')).toBe('Stadt Flensburg')
-    expect(translateOsmValue('wikidata', 'Q19965387')).toBe('Q19965387')
     expect(translateOsmValue('wikipedia', 'de:Lutherpark (Flensburg)')).toBe('de:Lutherpark (Flensburg)')
   })
 

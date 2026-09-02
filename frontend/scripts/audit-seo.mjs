@@ -17,8 +17,7 @@ import {
   NOT_FOUND_ROUTES,
   REDIRECT_ROUTES,
   SEO_AUDIT_PUBLIC_API_ORIGIN,
-  SEO_AUDIT_SITE_ORIGIN,
-  SOCIAL_PREVIEW_ROUTES
+  SEO_AUDIT_SITE_ORIGIN
 } from './seo-route-matrix.mjs'
 
 const outputEntry = new URL('../.output/server/index.mjs', import.meta.url)
@@ -106,12 +105,6 @@ async function auditApplication(baseUrl) {
       expectedRobots: route.robots || 'noindex,nofollow'
     }))
     if (locations.includes(`${SEO_AUDIT_SITE_ORIGIN}${route.path}`)) fail('/sitemap.xml', `contains ${route.type} route ${route.path}`)
-  }
-
-  for (const route of SOCIAL_PREVIEW_ROUTES) {
-    const response = await fetch(`${baseUrl}${route.path}`, { redirect: 'manual' })
-    if (response.status !== 200) fail(route.path, `expected HTTP 200, received ${response.status}`)
-    else report(route.path, auditNoindexHtml(await response.text(), { canonicalUrl: `${SEO_AUDIT_SITE_ORIGIN}${route.canonicalPath}` }))
   }
 
   for (const path of NOT_FOUND_ROUTES) {

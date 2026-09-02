@@ -31,13 +31,6 @@ async function mockOverview(page: Page, session = { authenticated: true }) {
   await page.route('**/api/v1/notifications/subscriptions', route => route.fulfill({ json: [] }))
   await page.route('**/api/v1/notifications?*', route => route.fulfill({ json: { items: [], total: 0, unread_count: 0, page: 1, page_size: 30, pages: 1 } }))
   await page.route('**/api/v1/polygons/overview**', route => route.fulfill({ json: [] }))
-  await page.route('**/api/v1/analytics/overview**', route => route.fulfill({ json: {
-    fast_facts: { shops: 0, polygon_count: 0, total_area_m2: null, average_area_m2: null, median_area_m2: null, vacant_area_m2: null, vacancy_area_rate: null, calculated_vacancy_rate: null, calculated_chain_store_rate: null, known_occupancy_count: 0, known_business_structure_count: 0, data_updated_at: null, vacancy_rate: null, chain_store_rate: null, centrality_index: null, purchasing_power_index: null, reference_date: null, source: null, updated_at: null },
-    industry_distribution: [], category_counts: [], size_distribution: [], floor_distribution: [], status_distribution: [], business_structure_distribution: [], data_completeness: [],
-    prime_rents: { unit: 'EUR_PER_SQM', period: null, rows: [] }
-  } }))
-  await page.route('**/api/v1/analysis-areas', route => route.fulfill({ json: [] }))
-  await page.route(/\/api\/v1\/analysis-areas\/geojson(?:\?.*)?$/, route => route.fulfill({ json: { type: 'FeatureCollection', features: [] } }))
   await page.route('**/api/v1/osm/features?**', route => route.fulfill({ json: {
     type: 'FeatureCollection', features: [], meta: { count: 0, summary: {}, canonical_summary: {}, canonical_facets: {}, business_count: 0, context_count: 0, deduplicated_linked_count: 0, truncated: false, zoom: 17, osm_data_updated_at: null }
   } }))
@@ -105,7 +98,7 @@ test('mobile exposes authenticated creation as a floating action without coverin
     await expect(page.locator('[data-header-create-cta]')).toBeHidden()
     const actionBar = page.locator('[data-mobile-map-actions]')
     const createFab = page.locator('[data-mobile-create-fab]')
-    await expect(actionBar.getByRole('button')).toHaveCount(3)
+    await expect(actionBar.getByRole('button')).toHaveCount(1)
     await expect(createFab).toBeVisible()
     await expect(createFab).toHaveAttribute('href', '/flaechen/neu')
     await expect(createFab).toHaveAttribute('aria-label', 'Neue Fläche anlegen')
@@ -121,7 +114,7 @@ test('mobile exposes authenticated creation as a floating action without coverin
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.screenshot({ path: 'test-results/mobile-create-fab-390.png' })
-  await page.getByRole('button', { name: 'Suche öffnen' }).click()
+  await page.getByRole('button', { name: 'Filter öffnen' }).click()
   await expect(page.locator('[data-mobile-create-fab]')).toHaveCount(0)
   await page.goBack()
   await expect(page.locator('[data-mobile-create-fab]')).toBeVisible()
@@ -143,7 +136,7 @@ test('homepage navigation and signup CTA adapt to viewport and session', async (
   await expect(logo).toHaveAttribute('href', '/')
   const desktopNavigation = page.getByRole('navigation', { name: 'Hauptnavigation' })
   await expect(desktopNavigation.getByRole('link', { name: 'Start', exact: true })).toHaveCount(0)
-  for (const label of ['Karte', 'Gebiete', 'Über das Projekt', 'Dokumentation']) {
+  for (const label of ['Karte', 'Über das Projekt', 'Dokumentation']) {
     await expect(desktopNavigation.getByRole('link', { name: label, exact: true })).toHaveCount(1)
   }
 

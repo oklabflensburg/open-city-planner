@@ -29,8 +29,7 @@ describe('MapCanvas legacy behavior characterization', () => {
     for (const sourceId of ['osm-pois', 'osm-polygons', 'overview-polygons', 'selected-polygon-source']) {
       expect(source).toContain(`addSource('${sourceId}'`)
     }
-    expect(source).toContain("id: 'host.search-results'")
-    for (const layerId of ['osm-poi-circle', 'osm-polygons-fill', 'overview-polygons-fill', 'selected-polygon-outline', 'host.search-results-point']) {
+    for (const layerId of ['osm-poi-circle', 'osm-polygons-fill', 'overview-polygons-fill', 'selected-polygon-outline']) {
       expect(source).toContain(`id: '${layerId}'`)
     }
     expect(source).toContain('ensureStadtplanerLayerOrder(instance)')
@@ -45,21 +44,17 @@ describe('MapCanvas legacy behavior characterization', () => {
     expect(source).toContain("mapStore.openGisPanel('selection')")
   })
 
-  it('keeps Analysis Areas out of MapCanvas and contributes it through the Map SDK', () => {
+  it('keeps module-owned layers out of the generic MapCanvas host', () => {
     const canvas = readFileSync(resolve(process.cwd(), 'app/components/map/MapCanvas.vue'), 'utf8')
-    const manifest = readFileSync(resolve(process.cwd(), 'frontend-modules/analysis-areas/module.json'), 'utf8')
     expect(canvas).not.toContain('analysis-areas')
-    expect(manifest).toContain('analysis-areas.data')
-    expect(manifest).toContain('analysis-areas.quarter-fill')
   })
 
-  it('retains viewport debounce, stale-result guard, resize and preview readiness', () => {
+  it('retains viewport debounce, stale-result guard and resize handling', () => {
     expect(source).toContain('clearTimeout(osmViewportTimer)')
     expect(source).toContain('osmStore.covers(viewport, zoom)')
     expect(source).toContain('map.value === instance')
     expect(source).toContain('this.#resizeObserver.observe(container)')
     expect(source).toContain("map.value.once('idle'")
-    expect(source).toContain('waitForGisPreviewReady(instance)')
   })
 
   it('keeps Terra Draw client-only in the existing polygon editor maps', () => {

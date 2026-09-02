@@ -12,10 +12,6 @@ class PolygonDirectoryItem(BaseModel):
     address_display_name: str | None = None
     occupancy_status: Literal["OCCUPIED", "VACANT", "UNKNOWN"] = "UNKNOWN"
     business_structure: Literal["CHAIN", "INDEPENDENT", "UNKNOWN"] = "UNKNOWN"
-    district_slug: str | None = None
-    district_name: str | None = None
-    quarter_slug: str | None = None
-    quarter_name: str | None = None
     updated_at: datetime
 
 

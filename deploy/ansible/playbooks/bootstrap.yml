@@ -44,4 +44,3 @@
         mode: '0750'
       loop:
         - "{{ stadtplaner_data_dir }}"
-        - "{{ stadtplaner_social_dir }}"

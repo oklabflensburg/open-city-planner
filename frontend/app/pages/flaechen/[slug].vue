@@ -1,27 +1,6 @@
 <template>
   <article class="bg-slate-50 py-8 sm:py-12">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-    <section
-      v-if="socialPreview"
-      data-social-preview-capture
-      :data-social-preview-ready="previewReady ? 'true' : 'false'"
-      class="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 p-6"
-    >
-      <div v-if="previewBranding" class="mb-5 flex items-center justify-between gap-4">
-        <div><p class="text-sm font-black uppercase tracking-widest text-[#154d73]">Stadtplaner</p><p class="text-sm text-slate-600">OK Lab Flensburg</p></div>
-        <PolygonCategoryBadge :category="polygonData.category" />
-      </div>
-      <h1 class="text-4xl font-black text-slate-950">{{ polygonData.name }}</h1>
-      <p class="mt-2 flex items-center gap-2 text-lg text-slate-600"><MapPin class="size-5 shrink-0" aria-hidden="true" />{{ publicAddress }}</p>
-      <dl v-if="previewFacts" class="my-5 grid grid-cols-3 gap-3">
-        <PolygonMetricCard label="Fläche" :value="`${formatMetric(polygonData.area_m2)} m²`" :icon="Ruler" />
-        <PolygonMetricCard label="Kategorie" :value="categoryLabel" :icon="Tags" />
-        <PolygonMetricCard label="Etage" :value="polygonData.floor || 'Nicht angegeben'" :icon="Layers3" />
-      </dl>
-      <PolygonDetailMap v-if="previewMap" :geometry="polygonData.geometry" :bbox="polygonData.bbox" :editable="false" :color="categoryColor" @ready="mapReady = true" />
-    </section>
-
-    <template v-else>
     <PageBreadcrumbs :items="[{ label: 'Karte', to: '/karte' }, { label: polygonData.name }]" />
 
     <div v-if="canEditPublicFields || canEditVerwaltung" class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
@@ -152,18 +131,6 @@
       </ul>
     </section>
 
-    <section
-      v-if="polygonData.external_links.wikipedia || polygonData.external_links.wikidata"
-      class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
-      aria-labelledby="polygon-external-sources"
-    >
-      <h2 id="polygon-external-sources" class="text-lg font-bold text-slate-950">Externe Quellen</h2>
-      <AreaExternalLinks class="mt-4" :area-name="polygonData.name" :links="polygonData.external_links" variant="card" />
-    </section>
-
-    <LocationAnalysis class="mt-8" :slug="slug" />
-    <ComparableList class="mt-8" :slug="slug" />
-
     <PolygonManagementForm
       v-if="verwaltungData && canViewVerwaltung"
       v-model="verwaltungData"
@@ -174,7 +141,6 @@
     <PolygonDeleteSection v-if="canDelete" class="mt-8" :name="polygonData.name" :loading="deleting" :error="deleteError" @confirm="removePolygon" />
 
     <p class="mt-8 text-sm text-[#687176]">Zuletzt aktualisiert: {{ formatDate(polygonData.updated_at) }}</p>
-    </template>
     </div>
   </article>
 </template>
@@ -186,12 +152,6 @@ import { getIndustryColor, getIndustryLabel, industries } from '~/utils/industri
 import { getOsmObjectUrl } from '~/utils/osmLinks'
 
 const route = useRoute()
-const socialPreview = computed(() => route.query['social-preview'] === '1')
-const previewMap = computed(() => route.query.map !== '0')
-const previewFacts = computed(() => route.query.facts !== '0')
-const previewBranding = computed(() => route.query.branding !== '0')
-const mapReady = ref(false)
-const previewReady = computed(() => !previewMap.value || mapReady.value)
 const slugParam = Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug
 if (typeof slugParam !== 'string' || !slugParam) {
   throw createError({ statusCode: 404, statusMessage: 'Fläche nicht gefunden' })
@@ -219,7 +179,6 @@ const verwaltungData = ref<PolygonVerwaltungDetail | null>(null)
 const updatedAt = ref(polygonData.value.updated_at)
 const { canEditPublicFields, canDelete, canViewVerwaltung, canEditVerwaltung } = usePolygonPermissions(editorData)
 usePolygonSeo(polygonData)
-if (socialPreview.value) useSeoMeta({ robots: 'noindex,nofollow' })
 const deleting = ref(false)
 const deleteError = ref('')
 

@@ -20,22 +20,22 @@ class GitHubSecretValidationTest(unittest.TestCase):
     def test_rejects_secret_with_trailing_carriage_return(self) -> None:
         with mock.patch.dict(
             os.environ,
-            {"STADTPLANER_MASTODON_ACCESS_TOKEN": "token-value\r"},
+            {"STADTPLANER_SMTP_PASSWORD": "token-value\r"},
             clear=False,
         ):
             with self.assertRaisesRegex(
                 SystemExit,
-                "STADTPLANER_MASTODON_ACCESS_TOKEN",
+                "STADTPLANER_SMTP_PASSWORD",
             ):
                 BUILDER.validate_secret_values()
 
     def test_rejects_multiline_secret(self) -> None:
         with mock.patch.dict(
             os.environ,
-            {"STADTPLANER_GROQ_API_KEY": "first-line\nsecond-line"},
+            {"STADTPLANER_SMTP_PASSWORD": "first-line\nsecond-line"},
             clear=False,
         ):
-            with self.assertRaisesRegex(SystemExit, "STADTPLANER_GROQ_API_KEY"):
+            with self.assertRaisesRegex(SystemExit, "STADTPLANER_SMTP_PASSWORD"):
                 BUILDER.validate_secret_values()
 
     def test_accepts_single_line_secret(self) -> None:

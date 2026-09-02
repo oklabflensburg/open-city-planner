@@ -3,7 +3,6 @@
     class="max-w-full min-w-0"
     :class="embedded ? 'bg-transparent' : 'flex h-full min-h-0 flex-col gap-3 overflow-hidden'"
   >
-    <IntelligentSearch v-if="!embedded" class="shrink-0" />
     <section :class="embedded ? '' : 'civic-card min-h-0 flex-1 overflow-y-auto overscroll-contain'">
       <header
         data-filter-summary
@@ -15,12 +14,12 @@
           <ListFilter class="size-4 text-[#154d73]" aria-hidden="true" />
           <h2 class="text-sm font-bold text-slate-800">Filter</h2>
           <span v-if="activeFilterCount" class="rounded-full bg-[#e2edf4] px-2 py-0.5 text-[11px] font-black text-[#154d73]">{{ activeFilterCount }} aktiv</span>
-          <button v-if="filter.canReset || osmStore.areaPoiFilter" class="ml-auto min-h-8 cursor-pointer rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="resetAll">Zurücksetzen</button>
+          <button v-if="filter.canReset" class="ml-auto min-h-8 cursor-pointer rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="resetAll">Zurücksetzen</button>
         </div>
         <template v-if="compact">
           <div class="flex min-w-0 items-start gap-2">
             <p class="min-w-0 flex-1 text-xs font-semibold leading-5 text-slate-700">{{ compactFilterStatus }}</p>
-            <button v-if="filter.canReset || osmStore.areaPoiFilter" class="min-h-8 shrink-0 cursor-pointer rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="resetAll">Zurücksetzen</button>
+            <button v-if="filter.canReset" class="min-h-8 shrink-0 cursor-pointer rounded-md px-2 text-xs font-bold text-[#154d73] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#154d73]" type="button" @click="resetAll">Zurücksetzen</button>
           </div>
           <p class="mt-0.5 text-xs font-bold text-slate-600">{{ compactResultSummary }}</p>
           <details class="mt-1 text-[11px] leading-4 text-slate-500">
@@ -69,7 +68,7 @@
             <Info class="size-4" aria-hidden="true" />
             <h2 id="filter-hint-title" class="text-sm font-bold">Hinweis</h2>
           </div>
-          <p class="mt-2 text-xs leading-5 text-slate-600">Wählen Sie eine Verkaufsfläche, ein OpenStreetMap-Objekt oder ein Gebiet aus, um rechts Details anzusehen.</p>
+          <p class="mt-2 text-xs leading-5 text-slate-600">Wählen Sie eine Verkaufsfläche, ein OpenStreetMap-Objekt oder einen Modul-Layer aus, um rechts Details anzusehen.</p>
         </section>
       </div>
     </section>
@@ -79,7 +78,6 @@
 <script setup lang="ts">
 import { Info, ListFilter } from '@lucide/vue'
 import { mapThemes } from '~/utils/mapThemes'
-import { getPoiCategoryLabel, withoutPoiQuery } from '~/utils/poiCategories'
 
 withDefaults(defineProps<{ embedded?: boolean, compact?: boolean }>(), { embedded: false, compact: false })
 
@@ -87,35 +85,29 @@ const mapStore = useMapStore()
 const filter = useFilterStore()
 const polygonStore = usePolygonStore()
 const osmStore = useOsmViewportStore()
-const router = useRouter()
-const route = useRoute()
-const activeFilterCount = computed(() => filter.activeFilterCount + (osmStore.areaPoiFilter ? 1 : 0))
+const activeFilterCount = computed(() => filter.activeFilterCount)
 const filterStatus = computed(() => {
   const descriptions = [...filter.activeFilterDescriptions]
-  if (osmStore.areaPoiFilter) descriptions.push(`Orte: ${getPoiCategoryLabel(osmStore.areaPoiFilter.category)}`)
   return descriptions.length
     ? `${descriptions.length} Filter aktiv · ${descriptions.join(' · ')}`
     : 'Alle passenden Objekte werden angezeigt.'
 })
 const resultSummary = computed(() => {
   const polygonCount = polygonStore.polygons.length
-  const osmCount = osmStore.areaPoiFilter ? osmStore.data?.meta.count || 0 : osmStore.data?.meta.business_count || 0
+  const osmCount = osmStore.data?.meta.business_count || 0
   return `${polygonCount} Stadtplaner · ${osmCount} OSM im Ausschnitt`
 })
 const compactFilterStatus = computed(() => {
   const descriptions = [...filter.activeFilterDescriptions]
-  if (osmStore.areaPoiFilter) descriptions.push(`Orte: ${getPoiCategoryLabel(osmStore.areaPoiFilter.category)}`)
   return descriptions.length ? descriptions.join(' · ') : 'Alle passenden Objekte'
 })
 const compactResultSummary = computed(() => {
   const polygonCount = polygonStore.polygons.length
-  const osmCount = osmStore.areaPoiFilter ? osmStore.data?.meta.count || 0 : osmStore.data?.meta.business_count || 0
+  const osmCount = osmStore.data?.meta.business_count || 0
   return `${polygonCount} Flächen · ${osmCount} OSM`
 })
 function resetAll() {
   filter.reset()
   osmStore.reset()
-  if (!route.query.poi) return
-  void router.push({ query: withoutPoiQuery(route.query) })
 }
 </script>

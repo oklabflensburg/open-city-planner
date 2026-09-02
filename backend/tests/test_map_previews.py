@@ -1,5 +1,4 @@
 from datetime import UTC, datetime, timedelta
-from importlib import import_module
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
@@ -9,8 +8,6 @@ from fastapi import HTTPException
 from starlette.requests import Request
 
 import app.api.polygons as polygon_api
-
-analysis_area_api = import_module("app.modules.analysis_areas.api.router")
 from app.schemas.polygon_directory import PolygonDirectoryItem
 from app.services.map_previews import (
     MapPreview,
@@ -260,46 +257,3 @@ async def test_polygon_preview_endpoint_returns_404_when_public_lookup_rejects_s
 
     assert error.value.status_code == 404
     assert error.value.detail == "Die Fläche wurde nicht gefunden."
-
-
-@pytest.mark.asyncio
-async def test_area_preview_endpoint_returns_webp_and_unknown_slug_is_404(monkeypatch) -> None:
-    area = SimpleNamespace(
-        slug="altstadt",
-        updated_at=datetime.now(UTC),
-        geometry=SimpleNamespace(model_dump=lambda: GEOMETRY),
-        bbox=(9.43, 54.78, 9.44, 54.79),
-    )
-    monkeypatch.setattr(analysis_area_api, "guard_public_query", AsyncMock())
-    detail = AsyncMock(return_value=area)
-    monkeypatch.setattr(analysis_area_api, "area_detail_by_slug", detail)
-    monkeypatch.setattr(
-        analysis_area_api.map_preview_service,
-        "get",
-        AsyncMock(return_value=MapPreview(b"RIFFxxxxWEBP", '"area-etag"', False)),
-    )
-
-    response = await analysis_area_api.get_area_preview(
-        "altstadt", object(), request(), 1200, 630
-    )
-    assert response.status_code == 200
-    assert response.media_type == "image/webp"
-    assert response.headers["etag"] == '"area-etag"'
-    assert response.headers["cache-control"] == (
-        "public, max-age=86400, stale-while-revalidate=604800"
-    )
-    analysis_area_api.map_preview_service.get.assert_awaited_with(
-        slug="altstadt",
-        updated_at=area.updated_at,
-        geometry=GEOMETRY,
-        bbox=area.bbox,
-        width=1200,
-        height=630,
-        category=None,
-        feature_kind="area",
-    )
-
-    detail.return_value = None
-    with pytest.raises(HTTPException) as error:
-        await analysis_area_api.get_area_preview("missing", object(), request(), 1200, 630)
-    assert error.value.status_code == 404

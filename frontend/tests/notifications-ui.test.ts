@@ -3,7 +3,6 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const appFile = (path: string) => readFileSync(fileURLToPath(new URL(`../app/${path}`, import.meta.url)), 'utf8')
-const moduleFile = (path: string) => readFileSync(fileURLToPath(new URL(`../frontend-modules/analysis-areas/layer/app/${path}`, import.meta.url)), 'utf8')
 
 describe('notification center UI', () => {
   it('places an accessible unread bell in desktop and mobile headers', () => {
@@ -35,7 +34,6 @@ describe('notification center UI', () => {
     expect(preferences).toContain('Konto- und Sicherheitsmeldungen')
     expect(appFile('pages/profil/index.vue')).toContain('<NotificationPreferencesCard')
     expect(appFile('pages/flaechen/[slug].vue')).toContain('resource-type="POLYGON"')
-    expect(moduleFile('pages/gebiete/[slug].vue')).toContain('resource-type="AREA"')
   })
 
   it('keeps polygon follow as a stable secondary action after title and address on mobile', () => {

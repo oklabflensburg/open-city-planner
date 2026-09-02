@@ -36,11 +36,8 @@ SECRET_KEYS = {
     "STADTPLANER_GITHUB_CLIENT_SECRET": "GITHUB_CLIENT_SECRET",
     "STADTPLANER_GOOGLE_CLIENT_SECRET": "GOOGLE_CLIENT_SECRET",
     "STADTPLANER_MASTODON_SSO_ENCRYPTION_KEY": "MASTODON_SSO_ENCRYPTION_KEY",
-    "STADTPLANER_OPENAI_API_KEY": "OPENAI_API_KEY",
-    "STADTPLANER_GROQ_API_KEY": "GROQ_API_KEY",
     "STADTPLANER_NOMINATIM_BASE_URL": "NOMINATIM_BASE_URL",
     "STADTPLANER_NOMINATIM_EMAIL": "NOMINATIM_EMAIL",
-    "STADTPLANER_MASTODON_ACCESS_TOKEN": "MASTODON_ACCESS_TOKEN",
 }
 
 ALWAYS_REQUIRED_SECRETS = {
@@ -239,11 +236,6 @@ def main() -> None:
         required.add("STADTPLANER_GOOGLE_CLIENT_SECRET")
     if truthy(backend_values.get("MASTODON_SSO_ENABLED")):
         required.add("STADTPLANER_MASTODON_SSO_ENCRYPTION_KEY")
-    if truthy(backend_values.get("MASTODON_ENABLED")):
-        required.add("STADTPLANER_MASTODON_ACCESS_TOKEN")
-    if truthy(backend_values.get("AI_SEARCH_ENABLED")):
-        provider = backend_values.get("AI_SEARCH_PROVIDER", "").strip('"').lower()
-        required.add("STADTPLANER_OPENAI_API_KEY" if provider == "openai" else "STADTPLANER_GROQ_API_KEY")
 
     absent = sorted(name for name in required if not os.environ.get(name))
     if absent:

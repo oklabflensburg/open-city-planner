@@ -11,8 +11,7 @@ import {
   DYNAMIC_PUBLIC_ROUTES,
   NOINDEX_ROUTES,
   NOT_FOUND_ROUTES,
-  REDIRECT_ROUTES,
-  SOCIAL_PREVIEW_ROUTES
+  REDIRECT_ROUTES
 } from '../scripts/seo-route-matrix.mjs'
 
 const expectedUrl = 'https://stadtplaner.example.test/test'
@@ -111,12 +110,10 @@ describe('SEO audit helpers', () => {
 })
 
 describe('SEO route inventory', () => {
-  it('classifies representative dynamic, noindex, social, error and redirect routes', () => {
-    expect(DYNAMIC_PUBLIC_ROUTES).toHaveLength(2)
-    expect(new Set(NOINDEX_ROUTES.map(route => route.type))).toEqual(new Set(['public-noindex', 'auth', 'admin/internal']))
-    expect(SOCIAL_PREVIEW_ROUTES.length).toBeGreaterThanOrEqual(3)
+  it('classifies representative dynamic, noindex, error and redirect routes', () => {
+    expect(DYNAMIC_PUBLIC_ROUTES).toHaveLength(1)
+    expect(new Set(NOINDEX_ROUTES.map(route => route.type))).toEqual(new Set(['public-noindex', 'auth']))
     expect(NOT_FOUND_ROUTES).toEqual(expect.arrayContaining([
-      expect.stringMatching(/^\/gebiete\//),
       expect.stringMatching(/^\/flaechen\//)
     ]))
     expect(REDIRECT_ROUTES.length).toBeGreaterThanOrEqual(1)

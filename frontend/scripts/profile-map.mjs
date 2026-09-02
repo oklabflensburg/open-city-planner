@@ -108,7 +108,7 @@ async function dragFor(durationMs = 3000) {
   const featureStats = await evaluate(`(() => {
     const map = window.__stadtplanerMapPerformance.map;
     const layers = map.getStyle().layers.map(layer => layer.id);
-    const custom = layers.filter(id => id.startsWith('osm-') || id.startsWith('analysis-areas') || id.startsWith('overview-'));
+    const custom = layers.filter(id => id.startsWith('osm-') || id.startsWith('overview-'));
     return {
       osmSourceFeatures: map.querySourceFeatures('osm-pois').length + map.querySourceFeatures('osm-polygons').length,
       renderedCustomFeatures: map.queryRenderedFeatures({ layers: custom }).length
@@ -171,12 +171,11 @@ for (const zoom of zooms) {
     await evaluate(`(() => {
       const map = window.__stadtplanerMapPerformance.map;
       for (const layer of map.getStyle().layers) {
-        const custom = layer.id.startsWith('osm-') || layer.id.startsWith('analysis-areas') || layer.id.startsWith('overview-');
+        const custom = layer.id.startsWith('osm-') || layer.id.startsWith('overview-');
         const group = ${JSON.stringify(hiddenLayerGroup)};
         const hide = group === 'custom' ? custom
           : group === 'osm' ? layer.id.startsWith('osm-')
-            : group === 'areas' ? layer.id.startsWith('analysis-areas')
-              : group === 'overview' && layer.id.startsWith('overview-');
+            : group === 'overview' && layer.id.startsWith('overview-');
         if (hide) map.setLayoutProperty(layer.id, 'visibility', 'none');
       }
       return true;
