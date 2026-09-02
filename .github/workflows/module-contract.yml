@@ -74,7 +74,6 @@ jobs:
       APP_ENVIRONMENT: test
       ENABLED_MODULES: ""
       OCP_FRONTEND_MODULES: ""
-      OCP_EXCLUDED_BUILTIN_MODULES: analysis-areas
       REDIS_ENABLED: "false"
       OSM_EXTERNAL_FALLBACK_ENABLED: "false"
     steps:
@@ -133,7 +132,7 @@ jobs:
           .venv/bin/python -m app.cli.modules verify "${RUNNER_TEMP}/analysis-areas-1.4.0.ocp"
           .venv/bin/python -m app.cli.modules install "${RUNNER_TEMP}/analysis-areas-1.4.0.ocp"
           .venv/bin/python -m app.cli.modules env --format json | tee "${RUNNER_TEMP}/disabled-env.json"
-          .venv/bin/python -c 'import json,sys; value=json.load(open(sys.argv[1])); assert value["ENABLED_MODULES"] == ""; assert value["OCP_ENABLED_INSTALLED_BACKEND_PATHS"] == ""; assert value["OCP_EXCLUDED_BUILTIN_MODULES"] == "analysis-areas"' "${RUNNER_TEMP}/disabled-env.json"
+          .venv/bin/python -c 'import json,sys; value=json.load(open(sys.argv[1])); assert value["ENABLED_MODULES"] == ""; assert value["OCP_ENABLED_INSTALLED_BACKEND_PATHS"] == ""' "${RUNNER_TEMP}/disabled-env.json"
           migration_root="${OCP_MODULE_INSTALL_ROOT}/installed/analysis-areas/1.4.0/backend/site-packages/ocp_module_analysis_areas/migrations/history"
           for file in 20260814_0014_analysis_areas.py 20260817_0023_area_wikidata.py 20260818_0025_osm_external_links.py 20260819_0032_optimize_area_poi_analytics.py; do
             cmp "alembic/versions/${file}" "${migration_root}/${file}"
@@ -163,7 +162,7 @@ jobs:
 
           async def prove_api():
               assert "analysis-areas" in module_runtime.module_ids
-              paths = {route.path for route in app.routes}
+              paths = set(app.openapi()["paths"])
               assert "/api/v1/analysis-areas" in paths
               assert "/api/v1/analysis-areas/by-slug/{slug}/statistics" in paths
               async with httpx.AsyncClient(
