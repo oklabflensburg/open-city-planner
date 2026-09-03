@@ -24,6 +24,6 @@ Vor der Migration einen eigenen Schlüssel je Umgebung erzeugen:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Den Wert ausschließlich als `MFA_ENCRYPTION_KEY` im Backend-Environment setzen. Ein Verlust des Schlüssels macht eingerichtete TOTP-Secrets unlesbar; der Schlüssel gehört daher in das verschlüsselte Secret-Backup. Danach `alembic upgrade head` ausführen und Backend sowie Frontend neu starten.
+Den Wert ausschließlich als `MFA_ENCRYPTION_KEY` im Backend-Environment setzen. Ein Verlust des Schlüssels macht eingerichtete TOTP-Secrets unlesbar; der Schlüssel gehört daher in das verschlüsselte Secret-Backup. Danach `python -m app.cli.module_migrations preflight` und anschließend `upgrade` ausführen und Backend sowie Frontend neu starten.
 
 Die Tabellen `user_mfa_methods`, `user_mfa_recovery_codes` und `auth_mfa_challenges` werden über Migration `20260819_0026` angelegt. Offene abgelaufene Challenges können später durch einen periodischen Cleanup gelöscht werden; ihre Ablaufprüfung erfolgt unabhängig davon bei jeder Verwendung.

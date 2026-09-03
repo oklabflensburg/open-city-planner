@@ -27,9 +27,14 @@ cd backend
 cp .env.example .env
 python -m pip install 'uv==0.12.5'
 uv sync --frozen --extra dev
-uv run alembic upgrade head
+uv run python -m app.cli.module_migrations preflight
+uv run python -m app.cli.module_migrations upgrade
 uv run uvicorn app.main:app --reload
 ```
+
+Der modulbewusste CLI berücksichtigt auch die passiv verfügbare
+Migrationshistorie installierter, derzeit deaktivierter Module. Ein direkter
+Host-Alembic-Aufruf reicht für den gemeinsamen Graphen nicht aus.
 
 Frontend anschließend in einem zweiten Terminal einrichten:
 
@@ -110,7 +115,8 @@ pytest
 python -c "from app.main import app; assert app.title"
 ```
 
-Eine neue Migration lässt sich im Backend beispielsweise so erzeugen und prüfen:
+Eine neue, bewusst isolierte Host-Migration lässt sich während der Entwicklung
+beispielsweise so erzeugen und prüfen:
 
 ```bash
 alembic revision --autogenerate -m "kurze beschreibung"
@@ -121,6 +127,8 @@ alembic upgrade head
 ```
 
 Prüfe die automatisch erzeugte Migration immer manuell, besonders bei PostGIS-Typen, Constraints und Datenmigrationen.
+Für den gemeinsamen produktionsnahen Host-/Modulgraphen gelten dagegen immer
+`python -m app.cli.module_migrations preflight` und anschließend `upgrade`.
 
 Eine vollständige Übersicht der CI-Jobs und der als Required Checks empfohlenen
 Job-Namen steht in [docs/ci.md](docs/ci.md).

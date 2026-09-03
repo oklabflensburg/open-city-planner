@@ -1,5 +1,6 @@
 import json
 import logging
+import shutil
 from dataclasses import replace
 from pathlib import Path
 
@@ -160,9 +161,7 @@ def test_migration_cli_validates_active_module_settings_before_coordinator(
     monkeypatch.setattr(
         migration_cli,
         "read_module_environment",
-        lambda **_kwargs: {
-            "OCP_MODULE_SETTINGS_FIXTURE_ENDPOINT_URL": "https://example.org/api"
-        },
+        lambda **_kwargs: {"OCP_MODULE_SETTINGS_FIXTURE_ENDPOINT_URL": "https://example.org/api"},
     )
     monkeypatch.setattr(
         migration_cli,
@@ -191,9 +190,7 @@ def test_migration_cli_stops_incompatible_manifest_before_coordinator(
             module_id="future-module",
         )
 
-    monkeypatch.setattr(
-        migration_cli, "resolve_module_definitions", reject_incompatible
-    )
+    monkeypatch.setattr(migration_cli, "resolve_module_definitions", reject_incompatible)
     monkeypatch.setattr(
         migration_cli,
         "MigrationCoordinator",
@@ -210,6 +207,7 @@ def test_migration_cli_stops_incompatible_manifest_before_coordinator(
 
 def test_disabled_available_migration_does_not_validate_required_settings(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     class DisabledReferenceSettings(BaseModel):
         api_token: SecretStr
@@ -245,7 +243,18 @@ def test_disabled_available_migration_does_not_validate_required_settings(
         lambda **_kwargs: {},
     )
 
-    plan = migration_cli.coordinator().preflight()
+    complete_host_history = tmp_path / "host-versions"
+    complete_host_history.mkdir()
+    for source_root in (
+        Path(__file__).resolve().parents[1] / "alembic/versions",
+        Path(__file__).parent / "fixtures/module_migrations/analysis_areas_history",
+    ):
+        for source in source_root.glob("*.py"):
+            shutil.copy2(source, complete_host_history / source.name)
+
+    coordinator = migration_cli.coordinator()
+    monkeypatch.setattr(coordinator, "_host_versions_path", lambda: complete_host_history)
+    plan = coordinator.preflight()
 
     assert (plan[-1].module_id, plan[-1].revision) == (
         "reference",
@@ -271,9 +280,7 @@ def test_runtime_binds_validated_settings_before_module_registration() -> None:
 def test_first_party_discovery_preserves_passive_settings_contribution() -> None:
     runtime = create_module_runtime(
         enabled_module_ids=(DEFINITION.declared_id,),
-        discovery_providers=(
-            FirstPartyModuleDiscovery({DEFINITION.declared_id: DEFINITION}),
-        ),
+        discovery_providers=(FirstPartyModuleDiscovery({DEFINITION.declared_id: DEFINITION}),),
         host_version="0.2.0",
         context_factory=ModuleContextFactory(module_environment=VALID_ENVIRONMENT),
     )

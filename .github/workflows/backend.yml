@@ -71,6 +71,8 @@ jobs:
     name: Backend migrations
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      OCP_MODULE_INSTALL_ROOT: /tmp/ocp-modules
     services:
       postgres:
         image: postgis/postgis:16-3.5@sha256:19b6ffa248d2f864d29d6c338459f02d63c0d7ce341fa86b3bcba8484a130bff
@@ -95,14 +97,22 @@ jobs:
       - name: Install locked dependencies
         working-directory: backend
         run: uv sync --frozen --extra dev --no-editable
-      - name: Verify single migration head
+      - name: Build and install passive Analysis Areas migration fixture
         working-directory: backend
         run: |
-          uv run alembic heads
-          test "$(uv run alembic heads | sed '/^$/d' | wc -l)" -eq 1
+          uv run python tests/fixtures/build_module_migration_bundle.py \
+            --fixture tests/fixtures/module_migrations/analysis_areas.json \
+            --source-commit "${GITHUB_SHA}" \
+            --output "${RUNNER_TEMP}/analysis-areas-migrations.ocp"
+          uv run python -m app.cli.modules \
+            --root "${OCP_MODULE_INSTALL_ROOT}" \
+            install "${RUNNER_TEMP}/analysis-areas-migrations.ocp"
+      - name: Verify single migration head
+        working-directory: backend
+        run: uv run python -m app.cli.module_migrations preflight
       - name: Upgrade fresh database
         working-directory: backend
-        run: uv run alembic upgrade head
+        run: uv run python -m app.cli.module_migrations upgrade
       - name: Verify module persistence and migration contracts
         working-directory: backend
         run: uv run pytest tests/test_module_persistence.py

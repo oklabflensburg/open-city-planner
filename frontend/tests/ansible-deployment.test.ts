@@ -65,13 +65,19 @@ describe('Ansible deployment contract', () => {
     const dump = tasks.indexOf('name: Create managed pre-migration database backup')
     const validate = tasks.indexOf('name: Validate managed database backup archive')
     const publish = tasks.indexOf('name: Publish validated managed database backup atomically')
-    const migrate = tasks.indexOf('name: Apply Alembic migrations')
+    const preflight = tasks.indexOf('name: Preflight Host and module migrations')
+    const migrate = tasks.indexOf('name: Apply Host and module migrations')
 
     expect(tasks).toContain('become_user: postgres')
     expect(tasks).toContain('--lock-wait-timeout=30s')
+    expect(tasks).toContain('.venv/bin/python -m app.cli.module_migrations preflight')
+    expect(tasks).toContain('.venv/bin/python -m app.cli.module_migrations upgrade')
+    expect(tasks).not.toContain('.venv/bin/alembic upgrade head')
+    expect(tasks.match(/OCP_MODULE_INSTALL_ROOT: "{{ stadtplaner_module_install_root }}"/g)).toHaveLength(2)
     expect(dump).toBeLessThan(validate)
     expect(validate).toBeLessThan(publish)
-    expect(publish).toBeLessThan(migrate)
+    expect(publish).toBeLessThan(preflight)
+    expect(preflight).toBeLessThan(migrate)
   })
 
   it('prepares rollback state and releases ports before activating managed services', () => {

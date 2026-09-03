@@ -39,7 +39,7 @@ Die Anwendung setzt ihre eigenen Größenlimits auch dann durch, wenn `Content-L
 
 ## Daten und Betrieb
 
-- [ ] Vor dem Start des neuen Backends wurde `alembic upgrade head` ausgeführt und der aktuelle einzelne Migration-Head geprüft.
+- [ ] Vor dem Start des neuen Backends wurden `python -m app.cli.module_migrations preflight` und anschließend `upgrade` mit dem produktiven Modul-Installationspfad ausgeführt.
 - [ ] Die Redis-Konfiguration für Persistenz und Verdrängung eignet sich für Sicherheitszähler. Das konfigurierte Präfix ist für jede Umgebung eindeutig.
 - [ ] Automatisierte und verschlüsselte Sicherungen der Datenbank und Geheimnisse sind vorhanden. Wiederherstellungstests sind geplant und die Aufbewahrungsdauer ist dokumentiert.
 - [ ] Protokolle sind zugriffsgeschützt, werden rotiert und enthalten keine vertraulichen Werte. Tokens, Passwörter, MFA-Werte, OAuth-Codes und Autorisierungsheader gelangen nicht in die Protokolle.

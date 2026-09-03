@@ -158,10 +158,10 @@ aufgelösten Katalog und implementiert keine zweite Graphlogik. Sein Preflight p
 genau einen Head, auflösbare installierte Quellen, Revision-Namespaces und die
 Dependency-Reihenfolge der initialen Modulrevisionen.
 
-Der aktuelle Production-Pfad `alembic upgrade head` bleibt für die bestehende
-Host-/Legacy-Historie unverändert. Sobald ein deploytes Modul echte Migrationen
-liefert, muss der Deployment-Schritt dessen installierte Quellen in den Coordinator
-geben und den Preflight vor dem Upgrade ausführen. Die Migrationsinventur umfasst
+Der Production-Pfad verwendet den `module_migrations`-Coordinator und führt
+zwingend den Preflight vor dem Upgrade aus. Der Deployment-Schritt gibt ihm über
+den expliziten Modul-Installationspfad alle installierten Quellen. Die
+Migrationsinventur umfasst
 dabei auch installierte, aber deaktivierte Module, deren Revisionen bereits in der
 Datenbank stehen; Deaktivierung entfernt weder Paket noch Historie.
 

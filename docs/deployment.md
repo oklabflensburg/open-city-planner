@@ -73,18 +73,17 @@ python3 -m pip install 'uv==0.12.5'
 uv python install 3.12.14
 uv sync --frozen --no-dev --no-editable --python 3.12.14 --managed-python
 export OCP_MODULE_INSTALL_ROOT=/var/lib/stadtplaner/modules
-uv run python -m app.cli.modules install-registry analysis-areas \
-  --version 1.0.0 \
-  --expected-sha256 7006f31ea73f40e38f63d2065652c27ad5d3391ddcc8cfad2f149993efef3dcf
+# Optional: ein vorab geprüftes und exakt gepinntes Modul-Bundle installieren.
+uv run python -m app.cli.modules install /sicherer/pfad/modul-version.ocp
 eval "$(uv run python -m app.cli.modules env --format shell)"
-uv run alembic heads
-uv run alembic upgrade head
 uv run python -m app.cli.module_migrations preflight
 uv run python -m app.cli.module_migrations upgrade
 ```
 
-Die Alembic-Befehle bleiben für die veröffentlichte Host-/Legacy-Historie maßgeblich.
-Der anschließende generische Modul-CLI löst die in `ENABLED_MODULES` konfigurierten,
+Der generische Modul-CLI ist für den gemeinsamen Host-/Modul-Alembic-Graphen
+maßgeblich. Ein roher Aufruf nur auf `backend/alembic/versions` kann die exklusiv
+modul-owned, aber in die globale History verschachtelten Revisionen nicht
+auflösen. Der CLI löst die in `ENABLED_MODULES` konfigurierten,
 aktiven Module für Compatibility, Dependencies und Settings auf. Fehlende oder
 ungültige Settings eines aktiven Moduls stoppen damit vor dem Migrations-Preflight.
 Für den gemeinsamen linearen Alembic-Graphen entdeckt der CLI davon getrennt alle
@@ -270,7 +269,7 @@ Installieren Sie nur Integrationen, die konfiguriert und benötigt werden. Die `
 1. Wartungsfenster und Backup prüfen.
 2. Code aktualisieren und Diff beziehungsweise Release kontrollieren.
 3. Backend-Abhängigkeiten installieren.
-4. Alembic-Head und Migrationen prüfen und ausführen.
+4. Den gemeinsamen Host-/Modul-Migrationsgraphen per Preflight prüfen und upgraden.
 5. Frontend-Abhängigkeiten installieren und Produktions-Build erzeugen.
 6. Hauptprozesse nach der lokalen Servicekonfiguration neu starten.
 7. benötigte Worker und Timer prüfen.
@@ -286,7 +285,7 @@ curl --fail --silent https://<frontend-origin>/
 curl --fail --silent https://<frontend-origin>/dokumentation
 ```
 
-`/health/live` prüft ausschließlich den Prozesszustand, `/health/ready` prüft PostgreSQL und alle gemäß Konfiguration erforderlichen Abhängigkeiten. Der Readiness-Endpunkt liefert nur strukturierte Zustände, keine Verbindungsdetails oder Secrets. Prüfen Sie anschließend im Browser Karte, Gebietsseite, Dokumentationssuche und ausschließlich lesende Suchanfragen wie „Alle Stadtteile anzeigen“ oder „Wie viele POIs gibt es in der Altstadt?“. Führen Sie keine mutierenden E2E-Tests gegen Produktion aus.
+`/health/live` prüft ausschließlich den Prozesszustand, `/health/ready` prüft PostgreSQL und alle gemäß Konfiguration erforderlichen Abhängigkeiten. Der Readiness-Endpunkt liefert nur strukturierte Zustände, keine Verbindungsdetails oder Secrets. Prüfen Sie anschließend im Browser Karte und Dokumentationssuche. Bei aktiviertem Analysis-Areas-Modul gehören außerdem Gebietsseite und ausschließlich lesende Suchanfragen wie „Alle Stadtteile anzeigen“ oder „Wie viele POIs gibt es in der Altstadt?“ in den Smoke-Test. Führen Sie keine mutierenden E2E-Tests gegen Produktion aus.
 
 ## Rollback
 

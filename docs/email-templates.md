@@ -109,7 +109,7 @@ steht im [Deployment- und Betriebsleitfaden](deployment.md). Für das E-Mail-Sys
 sind zusätzlich zu prüfen:
 
 1. `APP_BASE_URL` auf die öffentliche Frontend-Origin setzen, produktiv beispielsweise `https://stadtplaner.oklabflensburg.de`.
-2. `alembic upgrade head` im Backend ausführen.
+2. `python -m app.cli.module_migrations preflight` und anschließend `upgrade` im Backend mit dem produktiven Modul-Installationspfad ausführen.
 3. Die zum auszurollenden Commit gehörenden Units `stadtplaner-email-outbox.service` und `.timer` installieren und den Timer aktivieren. Derselbe Worker verarbeitet Welcome-, Notification- und Kampagnenmails.
 4. Backend und Frontend neu bauen und neu starten.
 5. Erreichbarkeit von Logo, Impressum und Datenschutz über die öffentliche Domain prüfen.

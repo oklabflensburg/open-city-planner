@@ -39,7 +39,7 @@ Restore, Clean noch Stash ausgeführt.
 | Social Publishing einschließlich Mastodon-Outbox, Screenshots und Admin-UI | `REMOVE` | entfernt; Mastodon-SSO bleibt Auth-Funktion |
 | Wikidata-Anreicherung und Wikidata-Linkaufbereitung | `REMOVE` | entfernt; rohe OSM-Snapshots bleiben neutral |
 | Historische Statistics-, City-Metrics- und Social-Publishing-Tabellen | `DATA_SHELL` | ORM-Metadaten und veröffentlichte Migrationen bleiben zur verlustfreien Bestandsführung |
-| Adoptierte Analysis-Areas-Migrationen `0014`, `0023`, `0025`, `0032` | `DATA_SHELL` | unverändert erhalten, da spätere globale Revisionen darauf aufbauen |
+| Adoptierte Analysis-Areas-Migrationen `0014`, `0023`, `0025`, `0032` | `MOVE_TO_MODULE` | IDs und Kanten unverändert, aber ausschließlich aus dem installierten Modul passiv discoverbar; spätere Hostrevisionen bauen weiter darauf auf |
 
 ## Audit-Matrix der extrahierten Fachbereiche
 
@@ -81,7 +81,8 @@ Berechtigungen und Migrationen beitragen.
 ## Daten- und Migrationsstrategie
 
 Diese Änderung löscht keine produktiven Daten und führt keine destruktive Migration
-ein. Veröffentlichte Host-Migrationen bleiben unverändert. Die noch registrierten
+ein. Die vier adoptierten Analysis-Areas-Revisionsdateien werden ohne Änderung
+ihrer IDs, Kanten oder Operationen exklusiv vom externen Modul geliefert. Die noch registrierten
 ORM-Modelle für historische Statistics-, City-Metrics- und Social-Publishing-Tabellen
 sind ausschließlich ein Persistence-/Compatibility-Shell; kein Host-Router, Worker
 oder UI besitzt diese Fachdomänen mehr. Eine spätere physische Datenmigration oder
@@ -103,6 +104,8 @@ installiert das Bundle, prüft dessen historische Migrationen sowie öffentliche
 SDK-/Port-Grenzen und startet die übernommenen Charakterisierungstests. Die
 zugehörige Extraktionsänderung wurde mit Pull Request
 `oklabflensburg/ocp-module-analysis-areas#9` zusammengeführt.
+Den abschließenden Treffer-, Ownership-, Bundle- und Paritätsabgleich dokumentiert
+der [Analysis-Areas-Host-Cleanup](analysis-areas-host-cleanup.md).
 
 ## Noch bewusst generische Kompatibilität
 

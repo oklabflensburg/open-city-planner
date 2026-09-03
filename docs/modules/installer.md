@@ -197,6 +197,12 @@ uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
   env --format shell
 ```
 
+Der konkrete Analysis-Areas-Pin `1.0.0` dient hier ausschließlich als
+historisches Beispiel für Digestprüfung, Installation und passive
+Migrationsverfügbarkeit. Er ist mit dem aktuellen Host nicht runtime-kompatibel
+und darf nicht aktiviert werden. Veröffentlichung und Live-Registry-E2E eines
+vollständigen kompatiblen Bundles bleiben #197.
+
 `verify` verändert nichts. `install` verifiziert und installiert atomar und setzt
 `enabled: false`. `enable` prüft erneut die gespeicherten Artefakte und führt die
 bestehenden Manifest-, Host-/SDK-, Dependency-, Settings-, Migrations- und

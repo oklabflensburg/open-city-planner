@@ -85,7 +85,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: oklabflensburg/ocp-module-analysis-areas
-          ref: de7e1bcc02064288392530109776662f5eb36c8b
+          ref: df8b067757b9bf20fbc54efc9555f3388bd951ff
           path: .external-analysis-areas
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -118,7 +118,7 @@ jobs:
           (cd .external-statistics/frontend && pnpm test && pnpm typecheck)
       - name: Build the pinned real OCP bundle
         run: |
-          (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct de7e1bcc02064288392530109776662f5eb36c8b)" uv build --wheel --clear)
+          (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct df8b067757b9bf20fbc54efc9555f3388bd951ff)" uv build --wheel --clear)
           (cd .external-analysis-areas/frontend && pnpm build)
           (cd .external-statistics/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct 09adbc48cbfd2b21f67c4ac72720c460bebd7fc0)" uv build --wheel --clear)
           (cd .external-statistics/frontend && pnpm build)
@@ -137,7 +137,7 @@ jobs:
             --frontend ../.external-analysis-areas/frontend/dist/analysis-areas-1.5.0.tgz \
             --publisher oklabflensburg --source-reference statistics-service-registry \
             --source-repository https://github.com/oklabflensburg/ocp-module-analysis-areas \
-            --source-commit de7e1bcc02064288392530109776662f5eb36c8b \
+            --source-commit df8b067757b9bf20fbc54efc9555f3388bd951ff \
             --build-workflow github-actions/module-contract --license AGPL-3.0-only \
             --output "${RUNNER_TEMP}/analysis-areas-1.5.0.ocp")
         working-directory: .
@@ -157,21 +157,11 @@ jobs:
           .venv/bin/python -c 'import json,sys; value=json.load(open(sys.argv[1])); assert value["ENABLED_MODULES"] == ""; assert value["OCP_ENABLED_INSTALLED_BACKEND_PATHS"] == ""' "${RUNNER_TEMP}/disabled-env.json"
           migration_root="${OCP_MODULE_INSTALL_ROOT}/installed/analysis-areas/1.5.0/backend/site-packages/ocp_module_analysis_areas/migrations/history"
           for file in 20260814_0014_analysis_areas.py 20260817_0023_area_wikidata.py 20260818_0025_osm_external_links.py 20260819_0032_optimize_area_poi_analytics.py; do
-            cmp "alembic/versions/${file}" "${migration_root}/${file}"
+            cmp "tests/fixtures/module_migrations/analysis_areas_history/${file}" "${migration_root}/${file}"
           done
-      - name: Model exclusive migration ownership and run the full lifecycle
+      - name: Run the full lifecycle with exclusive module migration ownership
         working-directory: backend
         run: |
-          .venv/bin/python - <<'PY'
-          from pathlib import Path
-          for name in (
-              "20260814_0014_analysis_areas.py",
-              "20260817_0023_area_wikidata.py",
-              "20260818_0025_osm_external_links.py",
-              "20260819_0032_optimize_area_poi_analytics.py",
-          ):
-              Path("alembic/versions", name).unlink()
-          PY
           .venv/bin/python -m app.cli.module_migrations preflight
           .venv/bin/python -m app.cli.modules enable statistics
           .venv/bin/python -m app.cli.modules enable analysis-areas

@@ -337,6 +337,7 @@ describe('frontend build-time module host', () => {
     expect(nuxtConfig).toContain('extends: frontendModules.length')
     expect(nuxtConfig).toContain('frontendModules.map(module => module.layerPath)')
     expect(nuxtConfig).not.toContain('example-module')
-    expect(`${nuxtConfig}\n${discovery}`).not.toMatch(/(?:https?:\/\/.*\.m?js|module federation|createElement\(['"]script|\beval\(|new Function\()/i)
+    expect(discovery).not.toMatch(/https?:\/\//i)
+    expect(`${nuxtConfig}\n${discovery}`).not.toMatch(/(?:\bimport\s*\(\s*['"]https?:\/\/|module federation|createElement\(['"]script|\beval\(|new Function\()/i)
   })
 })

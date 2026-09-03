@@ -895,10 +895,22 @@
   changed_when: true
   no_log: true
 
-- name: Apply Alembic migrations
+- name: Preflight Host and module migrations
   ansible.builtin.command:
-    cmd: .venv/bin/alembic upgrade head
+    cmd: .venv/bin/python -m app.cli.module_migrations preflight
     chdir: "{{ stadtplaner_release_path }}/backend"
+  environment:
+    OCP_MODULE_INSTALL_ROOT: "{{ stadtplaner_module_install_root }}"
+  become_user: "{{ stadtplaner_service_user }}"
+  changed_when: false
+  when: stadtplaner_run_migrations
+
+- name: Apply Host and module migrations
+  ansible.builtin.command:
+    cmd: .venv/bin/python -m app.cli.module_migrations upgrade
+    chdir: "{{ stadtplaner_release_path }}/backend"
+  environment:
+    OCP_MODULE_INSTALL_ROOT: "{{ stadtplaner_module_install_root }}"
   become_user: "{{ stadtplaner_service_user }}"
   when: stadtplaner_run_migrations
   notify: Restart Stadtplaner API

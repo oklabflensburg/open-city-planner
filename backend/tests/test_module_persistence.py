@@ -24,8 +24,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.cli import module_migrations as migration_cli
-from app.core.config import Settings, get_settings
+from app.cli import module_migrations as module_migration_cli
+from app.core.config import get_settings
 from app.db.base import Base
 from app.integrations.module_host_ports import HostCacheGenerations
 from app.models.cache_version import CacheVersion
@@ -42,6 +42,8 @@ from app.platform.modules import (
     validate_manifests,
 )
 from app.platform.modules import migrations as module_migrations
+from app.platform.modules.bundle import staged_ocp_bundle
+from app.platform.modules.installer import ModuleInstaller
 from app.platform.modules.migrations import MigrationCoordinator
 from app.platform.modules.persistence import (
     HostDatabaseSessionProvider,
@@ -53,6 +55,7 @@ from app.platform.modules.persistence import (
     revision_namespace_for,
 )
 from app.services import cache_versions
+from tests.fixtures.build_module_migration_bundle import build_bundle, load_fixture
 from tests.fixtures.example_backend_module import DEFINITION as EXAMPLE_DEFINITION
 from tests.fixtures.example_persistence_module import DEFINITION as DEPENDENT_DEFINITION
 from tests.test_module_runtime import FakeDiscovery, definition, runtime_for
@@ -163,9 +166,7 @@ def test_registry_aggregates_legacy_and_two_metadata_sets_in_dependency_order() 
 def test_public_sdk_fixture_modules_register_two_persistence_sets() -> None:
     resolved = resolve_module_definitions(
         enabled_module_ids=("test-persistence-dependent", "test-example-module"),
-        discovery_providers=(
-            FakeDiscovery((DEPENDENT_DEFINITION, EXAMPLE_DEFINITION)),
-        ),
+        discovery_providers=(FakeDiscovery((DEPENDENT_DEFINITION, EXAMPLE_DEFINITION)),),
         host_version="0.2.0",
     )
 
@@ -212,9 +213,7 @@ def test_available_migration_resolution_ignores_disabled_runtime_compatibility()
     }
     incompatible = replace(REFERENCE_DEFINITION, manifest=manifest_data)
 
-    resolved = resolve_available_persistence_definitions(
-        (FakeAvailableDiscovery((incompatible,)),)
-    )
+    resolved = resolve_available_persistence_definitions((FakeAvailableDiscovery((incompatible,)),))
 
     assert [(definition.declared_id, manifest.id) for definition, manifest in resolved] == [
         ("reference", "reference")
@@ -334,9 +333,7 @@ def test_revision_namespace_is_stable_and_namespaced() -> None:
 def adopted_migration_registry(
     resource: str = "module_migrations/example_adopted",
     *,
-    adopted_revisions: frozenset[str] = frozenset(
-        {"historical_001", "historical_002"}
-    ),
+    adopted_revisions: frozenset[str] = frozenset({"historical_001", "historical_002"}),
 ) -> PersistenceRegistry:
     manifest = module_manifest(
         "example-adopted-module",
@@ -372,6 +369,36 @@ ADOPTED_REVISION_FILES = {
     "20260818_0025_osm_external_links.py",
     "20260819_0032_optimize_area_poi_analytics.py",
 }
+ANALYSIS_AREAS_HISTORY_FIXTURE = (
+    BACKEND_ROOT / "tests/fixtures/module_migrations/analysis_areas_history"
+)
+ANALYSIS_AREAS_HISTORY_DEFINITION = module_definition(
+    module_manifest("analysis-areas", "analysis_areas", migrations=True),
+    module_metadata("analysis_areas"),
+    migration_resource="module_migrations/analysis_areas_history",
+    adopted_revisions=frozenset(
+        {"20260814_0014", "20260817_0023", "20260818_0025", "20260819_0032"}
+    ),
+)
+
+
+def alembic_config_with_analysis_history(
+    database_url: str | None = None,
+) -> Config:
+    config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    config.set_main_option(
+        "version_locations",
+        "\n".join(
+            (
+                str(BACKEND_ROOT / "alembic/versions"),
+                str(ANALYSIS_AREAS_HISTORY_FIXTURE),
+            )
+        ),
+    )
+    config.set_main_option("path_separator", "newline")
+    if database_url is not None:
+        config.attributes["database_url"] = database_url
+    return config
 
 
 def interleaved_sources(tmp_path: Path) -> tuple[Path, Path]:
@@ -380,8 +407,10 @@ def interleaved_sources(tmp_path: Path) -> tuple[Path, Path]:
     host_versions.mkdir()
     module_versions.mkdir()
     for source in (BACKEND_ROOT / "alembic" / "versions").glob("*.py"):
-        target = module_versions if source.name in ADOPTED_REVISION_FILES else host_versions
-        shutil.copy2(source, target / source.name)
+        shutil.copy2(source, host_versions / source.name)
+    for source in ANALYSIS_AREAS_HISTORY_FIXTURE.glob("*.py"):
+        shutil.copy2(source, module_versions / source.name)
+    assert {source.name for source in module_versions.glob("*.py")} == ADOPTED_REVISION_FILES
     return host_versions, module_versions
 
 
@@ -463,9 +492,7 @@ def test_interleaved_adopted_history_has_one_host_head_and_alternating_steps(
     scripts = ScriptDirectory.from_config(coordinator._config)
     host_versions, module_versions = (
         Path(location)
-        for location in coordinator._config.get_main_option(
-            "version_locations"
-        ).splitlines()
+        for location in coordinator._config.get_main_option("version_locations").splitlines()
     )
 
     assert scripts.get_heads() == ["20260901_0035"]
@@ -493,18 +520,13 @@ def test_interleaved_adopted_history_has_one_host_head_and_alternating_steps(
 def test_future_module_revision_must_extend_current_global_head(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    coordinator = interleaved_coordinator(
-        tmp_path, monkeypatch, future_parent="20260901_0035"
-    )
+    coordinator = interleaved_coordinator(tmp_path, monkeypatch, future_parent="20260901_0035")
 
     plan = coordinator.preflight()
     scripts = ScriptDirectory.from_config(coordinator._config)
 
     assert scripts.get_heads() == ["mod_example_adopted_module_0001"]
-    assert (
-        scripts.get_revision("mod_example_adopted_module_0001").down_revision
-        == "20260901_0035"
-    )
+    assert scripts.get_revision("mod_example_adopted_module_0001").down_revision == "20260901_0035"
     assert [
         revision.revision
         for revision in scripts.iterate_revisions(
@@ -525,9 +547,7 @@ def test_future_module_revision_must_extend_current_global_head(
 def test_future_module_revision_on_old_adopted_revision_fails_with_multiple_heads(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    coordinator = interleaved_coordinator(
-        tmp_path, monkeypatch, future_parent="20260819_0032"
-    )
+    coordinator = interleaved_coordinator(tmp_path, monkeypatch, future_parent="20260819_0032")
 
     with pytest.raises(
         ModulePersistenceError,
@@ -538,9 +558,7 @@ def test_future_module_revision_on_old_adopted_revision_fails_with_multiple_head
 
 def test_declared_adopted_revision_must_exist_in_module_source() -> None:
     registry = adopted_migration_registry(
-        adopted_revisions=frozenset(
-            {"historical_001", "historical_002", "missing_historical_003"}
-        )
+        adopted_revisions=frozenset({"historical_001", "historical_002", "missing_historical_003"})
     )
 
     with pytest.raises(ModulePersistenceError, match="declared but missing") as captured:
@@ -620,15 +638,11 @@ def test_disabled_available_module_retains_static_adoption_metadata() -> None:
         adopted_revisions=frozenset({"historical_001", "historical_002"}),
     )
 
-    resolved = resolve_available_persistence_definitions(
-        (FakeAvailableDiscovery((definition,)),)
-    )
+    resolved = resolve_available_persistence_definitions((FakeAvailableDiscovery((definition,)),))
 
     migration_source = resolved[0][0].persistence.migration_source
     assert migration_source is not None
-    assert migration_source.adopted_revisions == frozenset(
-        {"historical_001", "historical_002"}
-    )
+    assert migration_source.adopted_revisions == frozenset({"historical_001", "historical_002"})
 
 
 @pytest.mark.parametrize(
@@ -667,8 +681,8 @@ def test_migration_preflight_combines_host_and_modules_in_dependency_order() -> 
         ),
     )
     resolved = resolve_module_definitions(
-        enabled_module_ids=("example-b", "example-a"),
-        discovery_providers=(FakeDiscovery(definitions),),
+        enabled_module_ids=("analysis-areas", "example-b", "example-a"),
+        discovery_providers=(FakeDiscovery((*definitions, ANALYSIS_AREAS_HISTORY_DEFINITION)),),
         host_version="0.2.0",
     )
     registry = build_persistence_registry(resolved, include_legacy=False)
@@ -743,8 +757,8 @@ def migration_registry(*, module_b_resource: str) -> PersistenceRegistry:
         ),
     )
     resolved = resolve_module_definitions(
-        enabled_module_ids=("example-b", "example-a"),
-        discovery_providers=(FakeDiscovery(definitions),),
+        enabled_module_ids=("analysis-areas", "example-b", "example-a"),
+        discovery_providers=(FakeDiscovery((*definitions, ANALYSIS_AREAS_HISTORY_DEFINITION)),),
         host_version="0.2.0",
     )
     return build_persistence_registry(resolved, include_legacy=False)
@@ -854,9 +868,7 @@ async def test_existing_database_at_host_head_only_runs_future_module_revision(
     await asyncio.to_thread(historical.upgrade)
 
     async with engine.connect() as connection:
-        final_revision = await connection.scalar(
-            text("SELECT version_num FROM alembic_version")
-        )
+        final_revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
         final_marker = await connection.scalar(
             text("SELECT revision FROM example_adopted_module.migration_markers")
         )
@@ -870,8 +882,7 @@ async def test_existing_database_at_host_head_only_runs_future_module_revision(
 async def test_statistics_area_migration_preserves_existing_rows_and_round_trips(
     fresh_database_url: str,
 ) -> None:
-    config = Config(str(BACKEND_ROOT / "alembic.ini"))
-    config.attributes["database_url"] = fresh_database_url
+    config = alembic_config_with_analysis_history(fresh_database_url)
     await asyncio.to_thread(module_migrations.command.upgrade, config, "20260825_0034")
 
     engine = create_async_engine(fresh_database_url)
@@ -1000,8 +1011,10 @@ async def test_reference_module_migration_up_down_and_seed_data(
     fresh_database_url: str,
 ) -> None:
     resolved = resolve_module_definitions(
-        enabled_module_ids=("reference",),
-        discovery_providers=(FakeDiscovery((REFERENCE_DEFINITION,)),),
+        enabled_module_ids=("analysis-areas", "reference"),
+        discovery_providers=(
+            FakeDiscovery((ANALYSIS_AREAS_HISTORY_DEFINITION, REFERENCE_DEFINITION)),
+        ),
         host_version="0.2.0",
     )
     config = Config(str(BACKEND_ROOT / "alembic.ini"))
@@ -1034,13 +1047,59 @@ async def test_reference_module_migration_up_down_and_seed_data(
 
 
 @pytest.mark.asyncio
+async def test_disabled_installed_analysis_fixture_upgrades_fresh_database(
+    fresh_database_url: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = load_fixture(BACKEND_ROOT / "tests/fixtures/module_migrations/analysis_areas.json")
+    bundle = tmp_path / "analysis-history.ocp"
+    build_bundle(bundle, fixture, source_commit="c" * 40)
+    installer = ModuleInstaller(tmp_path / "modules", host_version="0.2.0")
+    with staged_ocp_bundle(bundle) as (package_root, _package):
+        installed = installer.install(package_root)
+    assert installed.enabled is False
+
+    monkeypatch.setenv("DATABASE_URL", fresh_database_url)
+    monkeypatch.setenv("ENABLED_MODULES", "")
+    get_settings.cache_clear()
+    try:
+        preflight = await asyncio.to_thread(
+            module_migration_cli.run,
+            "preflight",
+            install_root=installer.root,
+            enabled_module_ids=(),
+        )
+        upgraded = await asyncio.to_thread(
+            module_migration_cli.run,
+            "upgrade",
+            install_root=installer.root,
+            enabled_module_ids=(),
+        )
+    finally:
+        get_settings.cache_clear()
+
+    assert preflight is not None
+    assert upgraded is not None
+    assert preflight[-1].revision == "mod_reference_20260901_0002"
+    assert upgraded[-1].revision == "mod_reference_20260901_0002"
+    engine = create_async_engine(fresh_database_url)
+    async with engine.connect() as connection:
+        revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
+    assert revision == "mod_reference_20260901_0002"
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_reference_module_disable_and_reenable_keep_graph_revision_and_data(
     fresh_database_url: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     enabled = resolve_module_definitions(
-        enabled_module_ids=("reference",),
-        discovery_providers=(FakeDiscovery((REFERENCE_DEFINITION,)),),
+        enabled_module_ids=("analysis-areas", "reference"),
+        discovery_providers=(
+            FakeDiscovery((ANALYSIS_AREAS_HISTORY_DEFINITION, REFERENCE_DEFINITION)),
+        ),
         host_version="0.2.0",
     )
     config = Config(str(BACKEND_ROOT / "alembic.ini"))
@@ -1054,32 +1113,33 @@ async def test_reference_module_disable_and_reenable_keep_graph_revision_and_dat
         enabled_revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
 
     monkeypatch.setattr(
-        migration_cli,
-        "get_settings",
-        lambda: Settings(enabled_modules="", database_url=fresh_database_url),
-    )
-    monkeypatch.setattr(
         "app.platform.modules.migrations.command.downgrade",
         lambda *_args, **_kwargs: pytest.fail("Disable must never invoke downgrade"),
     )
-    disabled_coordinator = migration_cli.coordinator()
+    available = resolve_available_persistence_definitions(
+        (FakeAvailableDiscovery((ANALYSIS_AREAS_HISTORY_DEFINITION, REFERENCE_DEFINITION)),)
+    )
+    disabled_config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    disabled_config.attributes["database_url"] = fresh_database_url
+    disabled_coordinator = MigrationCoordinator(
+        disabled_config, build_persistence_registry(available)
+    )
     disabled_plan = await asyncio.to_thread(disabled_coordinator.preflight)
     await asyncio.to_thread(disabled_coordinator.upgrade)
     async with engine.connect() as connection:
         while_disabled = await connection.scalar(text("SELECT count(*) FROM reference.items"))
         disabled_revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
 
-    monkeypatch.setattr(
-        migration_cli,
-        "get_settings",
-        lambda: Settings(
-            enabled_modules="reference", database_url=fresh_database_url
-        ),
+    reenabled_config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    reenabled_config.attributes["database_url"] = fresh_database_url
+    await asyncio.to_thread(
+        MigrationCoordinator(reenabled_config, build_persistence_registry(available)).upgrade
     )
-    await asyncio.to_thread(migration_cli.coordinator().upgrade)
     async with engine.connect() as connection:
         after_reenable = await connection.scalar(text("SELECT count(*) FROM reference.items"))
-        reenabled_revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
+        reenabled_revision = await connection.scalar(
+            text("SELECT version_num FROM alembic_version")
+        )
 
     assert (disabled_plan[-1].module_id, disabled_plan[-1].revision) == (
         "reference",
@@ -1095,8 +1155,10 @@ async def test_successful_migration_then_startup_failure_does_not_downgrade(
     fresh_database_url: str,
 ) -> None:
     resolved = resolve_module_definitions(
-        enabled_module_ids=("reference",),
-        discovery_providers=(FakeDiscovery((REFERENCE_DEFINITION,)),),
+        enabled_module_ids=("analysis-areas", "reference"),
+        discovery_providers=(
+            FakeDiscovery((ANALYSIS_AREAS_HISTORY_DEFINITION, REFERENCE_DEFINITION)),
+        ),
         host_version="0.2.0",
     )
     config = Config(str(BACKEND_ROOT / "alembic.ini"))
@@ -1327,9 +1389,7 @@ async def _create_cache_generation_test_tables(
     fixture: SchemaFixture,
 ) -> tuple[Table, Table]:
     metadata = MetaData()
-    generations = CacheVersion.__table__.to_metadata(
-        metadata, schema=fixture.schema_a
-    )
+    generations = CacheVersion.__table__.to_metadata(metadata, schema=fixture.schema_a)
     facts = Table(
         "cache_generation_test_facts",
         metadata,
@@ -1343,9 +1403,7 @@ async def _create_cache_generation_test_tables(
 
 
 async def _use_test_schema(session: AsyncSession, fixture: SchemaFixture) -> None:
-    await session.execute(
-        text(f'SET LOCAL search_path TO "{fixture.schema_a}", public')
-    )
+    await session.execute(text(f'SET LOCAL search_path TO "{fixture.schema_a}", public'))
 
 
 @pytest.mark.asyncio
@@ -1371,15 +1429,19 @@ async def test_cache_generation_port_current_and_committed_bumps(
         await _use_test_schema(writer, postgres_schemas)
         assert await port.current(writer, "single") == 4
         await port.bump(writer, ("single",))
-        assert await writer.scalar(
-            select(generations.c.version).where(generations.c.namespace == "single")
-        ) == 5
+        assert (
+            await writer.scalar(
+                select(generations.c.version).where(generations.c.namespace == "single")
+            )
+            == 5
+        )
         async with postgres_schemas.sessions() as observer:
-            assert await observer.scalar(
-                select(generations.c.version).where(
-                    generations.c.namespace == "single"
+            assert (
+                await observer.scalar(
+                    select(generations.c.version).where(generations.c.namespace == "single")
                 )
-            ) == 4
+                == 4
+            )
         await writer.commit()
 
     async with postgres_schemas.sessions() as writer:
@@ -1407,9 +1469,7 @@ async def test_cache_generation_current_does_not_publish_rolled_back_bump(
     cache_versions._local_versions.clear()
     port = HostCacheGenerations()
     async with postgres_schemas.engine.begin() as connection:
-        await connection.execute(
-            insert(generations).values(namespace="domain", version=3)
-        )
+        await connection.execute(insert(generations).values(namespace="domain", version=3))
 
     async with postgres_schemas.sessions() as writer:
         await _use_test_schema(writer, postgres_schemas)
@@ -1434,9 +1494,7 @@ async def test_cache_generation_current_after_bump_is_visible_after_commit(
     cache_versions._local_versions.clear()
     port = HostCacheGenerations()
     async with postgres_schemas.engine.begin() as connection:
-        await connection.execute(
-            insert(generations).values(namespace="domain", version=3)
-        )
+        await connection.execute(insert(generations).values(namespace="domain", version=3))
 
     async with postgres_schemas.sessions() as writer:
         await _use_test_schema(writer, postgres_schemas)
@@ -1461,9 +1519,7 @@ async def test_cache_generation_commit_invalidates_concurrently_recached_value(
     cache_versions._local_versions.clear()
     port = HostCacheGenerations()
     async with postgres_schemas.engine.begin() as connection:
-        await connection.execute(
-            insert(generations).values(namespace="domain", version=3)
-        )
+        await connection.execute(insert(generations).values(namespace="domain", version=3))
 
     async with postgres_schemas.sessions() as writer:
         await _use_test_schema(writer, postgres_schemas)
@@ -1491,9 +1547,7 @@ async def test_cache_generation_savepoint_is_not_a_commit_boundary(
     cache_versions._local_versions.clear()
     port = HostCacheGenerations()
     async with postgres_schemas.engine.begin() as connection:
-        await connection.execute(
-            insert(generations).values(namespace="domain", version=3)
-        )
+        await connection.execute(insert(generations).values(namespace="domain", version=3))
 
     async with postgres_schemas.sessions() as writer:
         await _use_test_schema(writer, postgres_schemas)
@@ -1522,9 +1576,7 @@ async def test_cache_generation_port_rolls_back_and_commits_with_domain_write(
     generations, facts = await _create_cache_generation_test_tables(postgres_schemas)
     port = HostCacheGenerations()
     async with postgres_schemas.engine.begin() as connection:
-        await connection.execute(
-            insert(generations).values(namespace="domain", version=3)
-        )
+        await connection.execute(insert(generations).values(namespace="domain", version=3))
 
     async with postgres_schemas.sessions() as writer:
         await _use_test_schema(writer, postgres_schemas)
@@ -1534,9 +1586,12 @@ async def test_cache_generation_port_rolls_back_and_commits_with_domain_write(
 
     async with postgres_schemas.sessions() as observer:
         assert await observer.scalar(select(func.count()).select_from(facts)) == 0
-        assert await observer.scalar(
-            select(generations.c.version).where(generations.c.namespace == "domain")
-        ) == 3
+        assert (
+            await observer.scalar(
+                select(generations.c.version).where(generations.c.namespace == "domain")
+            )
+            == 3
+        )
 
     async with postgres_schemas.sessions() as writer:
         await _use_test_schema(writer, postgres_schemas)
@@ -1546,9 +1601,12 @@ async def test_cache_generation_port_rolls_back_and_commits_with_domain_write(
 
     async with postgres_schemas.sessions() as observer:
         assert tuple(await observer.scalars(select(facts.c.value))) == ("committed",)
-        assert await observer.scalar(
-            select(generations.c.version).where(generations.c.namespace == "domain")
-        ) == 4
+        assert (
+            await observer.scalar(
+                select(generations.c.version).where(generations.c.namespace == "domain")
+            )
+            == 4
+        )
 
 
 @pytest.mark.asyncio

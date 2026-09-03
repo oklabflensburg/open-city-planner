@@ -10,7 +10,7 @@ const removedPaths = [
   'app/stores/analytics.ts',
   'app/stores/comparison.ts',
   'app/stores/search.ts',
-  'frontend-modules/analysis-areas/module.json'
+  'frontend-modules/analysis-areas'
 ]
 const forbiddenRuntimeTokens = [
   '/api/v1/analysis-areas',
@@ -30,8 +30,10 @@ const forbiddenRuntimeTokens = [
 ]
 
 function runtimeSources() {
-  const glob = import.meta.glob('../app/**/*.{ts,vue}', { query: '?raw', import: 'default', eager: true })
-  return Object.entries(glob) as Array<[string, string]>
+  const app = import.meta.glob('../app/**/*.{ts,vue}', { query: '?raw', import: 'default', eager: true })
+  const server = import.meta.glob('../server/**/*.ts', { query: '?raw', import: 'default', eager: true })
+  const moduleHost = import.meta.glob('../module-host/**/*.ts', { query: '?raw', import: 'default', eager: true })
+  return Object.entries({ ...app, ...server, ...moduleHost }) as Array<[string, string]>
 }
 
 describe('slim Host frontend boundary', () => {

@@ -35,8 +35,8 @@ Frontend-Snapshot ein. Aktivierung bleibt ausschließlich in `modules.lock`.
 7. Einmal `disable`, Deploy/Restart, passive Migration Discovery und anschließend
    `enable` mit erneutem Deploy/Restart prüfen.
 
-Für `analysis-areas` ist der geprüfte externe Contract auf Commit
-`fe6d11cb53575e0cbc383d8de714d5f9711f77c0` gepinnt. Er liefert die Revisionen
+Für `analysis-areas` ist der vollständige externe Contract als v1.5.0 auf Commit
+`df8b067757b9bf20fbc54efc9555f3388bd951ff` gepinnt. Er liefert die Revisionen
 `20260814_0014`, `20260817_0023`, `20260818_0025` und `20260819_0032` mit
 unveränderten Kanten. Seine Host-Capabilities sind vollständig in
 [öffentliche Backend-Service-Ports](backend-service-ports.md) inventarisiert.
@@ -48,6 +48,11 @@ Modul löst Gebiet und `polygon_analysis_areas` über seine eigenen ORM-Modelle 
 den bestehenden `DatabaseSessionProvider` auf, baut daraus einen neutralen
 `PolygonScope` und ruft erst danach den Host-Polygon-Port auf. Die
 Statistikhierarchie wird ebenso vor dem neutralen Host-Port im Modul aufgelöst.
+Die Registry-Version 1.0.0 bleibt ein gültiger Installer-/Migrations-Pin, ist aber
+mit dem aktuellen `ModuleContext` nicht backend-runtime-kompatibel und enthält
+noch nicht die später ergänzte OSM-/Wikidata-/Polygon-Parität. Details und die
+klare Grenze zum finalen Produktionsnachweis stehen im
+[Host-Cleanup-Nachweis](analysis-areas-host-cleanup.md).
 
 ## Rollback
 

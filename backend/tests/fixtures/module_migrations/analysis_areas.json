@@ -1,0 +1,32 @@
+{
+  "module_id": "analysis-areas",
+  "display_name": "Analysis Areas passive migration regression fixture",
+  "module_version": "0.0.0",
+  "python_distribution": "ocp-module-analysis-areas",
+  "python_package": "ocp_module_analysis_areas",
+  "persistence_schema": "analysis_areas",
+  "revision_namespace": "mod_analysis_areas",
+  "migration_history": "analysis_areas_history",
+  "adopted_revisions": [
+    "20260814_0014",
+    "20260817_0023",
+    "20260818_0025",
+    "20260819_0032"
+  ],
+  "host_requirement": ">=0.2.0,<1.0.0",
+  "sdk_requirement": ">=1.15.0,<2.0.0",
+  "publisher": "open-city-planner-test-fixture",
+  "source": {
+    "type": "local",
+    "reference": "backend/tests/fixtures/module_migrations/analysis_areas_history"
+  },
+  "provenance": {
+    "source_repository": "https://github.com/oklabflensburg/open-city-planner",
+    "source_commit": "94d0cfbaa1b11bd0f007a9e2fd98340ba7e2b7d5",
+    "source_tag": null,
+    "build_workflow": "tests/passive-module-migration-fixture",
+    "license": "AGPL-3.0-only",
+    "sbom_reference": null,
+    "attestation_reference": null
+  }
+}
