@@ -181,8 +181,8 @@ uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
   install-registry analysis-areas --channel stable
 
 uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
-  install-registry analysis-areas --version 1.5.2 \
-  --expected-sha256 835a2745da15cdc17587324e451ea1b922ae0628738603c7a061d62407d08d58
+  install-registry analysis-areas --version 1.5.3 \
+  --expected-sha256 88ead403d89209c155b78101676b691a642139991cf9fd0787115ccfe0338f6b
 
 uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
   enable energy-analysis
@@ -197,10 +197,10 @@ uv run python -m app.cli.modules --root /var/lib/stadtplaner/modules \
   env --format shell
 ```
 
-Der konkrete Analysis-Areas-Pin `1.5.2` dient hier ausschließlich als
+Der konkrete Analysis-Areas-Pin `1.5.3` dient hier ausschließlich als
 Beispiel für den produktiven, digest-gepinnten Registry-Pfad. Der vollständige
 Installations-, Enable-/Disable-/Re-enable- und Runtime-Nachweis steht im
-[Cutover-Bericht zu v1.5.2](analysis-areas-cutover-v1.5.2.md).
+[Cutover-Bericht zu v1.5.3](analysis-areas-cutover-v1.5.3.md).
 
 `verify` verändert nichts. `install` verifiziert und installiert atomar und setzt
 `enabled: false`. `enable` prüft erneut die gespeicherten Artefakte und führt die

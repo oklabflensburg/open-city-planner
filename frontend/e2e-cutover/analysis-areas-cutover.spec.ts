@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test.describe('installed Analysis Areas v1.5.2', () => {
+test.describe('installed Analysis Areas v1.5.3', () => {
   test('renders overview, navigation, sitemap and SSR metadata', async ({ page, request }) => {
     const response = await page.goto('/gebiete')
     expect(response?.status()).toBe(200)

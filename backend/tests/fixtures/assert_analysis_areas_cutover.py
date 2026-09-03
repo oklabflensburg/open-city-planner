@@ -3,6 +3,7 @@
 import asyncio
 import os
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 import httpx
@@ -11,9 +12,9 @@ from sqlalchemy import text
 from app.db.session import AsyncSessionLocal
 from app.platform.modules.installer import read_modules_lock
 
-VERSION = "1.5.2"
-DIGEST = "835a2745da15cdc17587324e451ea1b922ae0628738603c7a061d62407d08d58"
-SOURCE_COMMIT = "89103403382ecd4fee992611f1011b58a0562d98"
+VERSION = "1.5.3"
+DIGEST = "88ead403d89209c155b78101676b691a642139991cf9fd0787115ccfe0338f6b"
+SOURCE_COMMIT = "06a675a4237fca397b37c0aeb935ecd60557073a"
 
 
 def analysis_entry():
@@ -27,7 +28,7 @@ def analysis_entry():
     assert entry.provenance.source_repository == (
         "https://github.com/oklabflensburg/ocp-module-analysis-areas"
     )
-    assert entry.provenance.source_tag == "v1.5.2"
+    assert entry.provenance.source_tag == "v1.5.3"
     assert entry.provenance.source_commit == SOURCE_COMMIT
     assert entry.backend.present and entry.frontend.present
     return entry
@@ -94,7 +95,27 @@ async def prove_enabled() -> None:
             "/api/v1/analysis-areas/by-slug/innenstadt-test/statistics"
         )
         assert statistics_response.status_code == 200, statistics_response.text
-        assert statistics_response.json()["latest"]
+        statistics = statistics_response.json()
+        assert statistics["area"]["id"] == "11111111-1111-4111-8111-222222222222"
+        assert statistics["statistics_area"]["id"] == (
+            "11111111-1111-4111-8111-222222222222"
+        )
+        assert statistics["latest"]
+
+        series_response = await client.get(
+            "/api/v1/analysis-areas/by-slug/innenstadt-test/statistics/"
+            "cutover_population"
+        )
+        assert series_response.status_code == 200, series_response.text
+        series = series_response.json()
+        assert series["area"]["id"] == "11111111-1111-4111-8111-222222222222"
+        assert series["statistics_area"]["id"] == (
+            "11111111-1111-4111-8111-222222222222"
+        )
+        assert series["metric"]["key"] == "cutover_population"
+        assert series["series"]
+        assert series["series"][0]["period_start"] == "2025-01-01"
+        assert Decimal(str(series["series"][0]["value"])) == Decimal(12000)
 
 
 def prove_disabled(entry, *, migrated: bool) -> None:
