@@ -7,7 +7,6 @@ from geoalchemy2.elements import WKTElement
 
 from app.auth.passwords import hash_password
 from app.db.session import AsyncSessionLocal
-from app.models.osm_feature import OsmFeature
 from app.models.user import User
 from app.models.user_polygon import UserPolygon
 
@@ -58,18 +57,6 @@ async def seed() -> None:
                         srid=4326,
                     ),
                     properties={"source": "e2e"},
-                ),
-                OsmFeature(
-                    osm_type="node",
-                    osm_id=216001,
-                    geometry=WKTElement("POINT(9.435 54.783)", srid=4326),
-                    tags={"name": "E2E Café", "amenity": "cafe"},
-                ),
-                OsmFeature(
-                    osm_type="node",
-                    osm_id=216002,
-                    geometry=WKTElement("POINT(9.436 54.7835)", srid=4326),
-                    tags={"name": "E2E Restaurant", "amenity": "restaurant"},
                 ),
             ]
         )
