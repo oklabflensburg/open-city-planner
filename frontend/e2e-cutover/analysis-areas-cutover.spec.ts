@@ -41,8 +41,25 @@ test.describe('installed Analysis Areas v1.5.3', () => {
     )
     const poi = page.getByRole('link', { name: /Café.*auf der Karte anzeigen/ })
     await expect(poi).toBeVisible()
+    await page.waitForFunction(() => Boolean(
+      (document.querySelector('#__nuxt') as HTMLElement & { __vue_app__?: unknown })?.__vue_app__
+    ))
+    const viewportResponse = page.waitForResponse(response => {
+      const url = new URL(response.url())
+      return url.pathname === '/api/v1/osm/features' && url.searchParams.get('poi') === 'cafe'
+    })
     await poi.click()
-    await expect(page).toHaveURL(/\/karte\?.*gebiet=innenstadt-test.*osm_kategorie=cafe/)
+    await expect.poll(() => new URL(page.url()).searchParams.get('gebiet')).toBe('innenstadt-test')
+    await expect.poll(() => new URL(page.url()).searchParams.get('poi')).toBe('cafe')
+    const retiredQueryKey = ['osm', 'kategorie'].join('_')
+    expect(new URL(page.url()).searchParams.has(retiredQueryKey)).toBe(false)
+
+    const backendResult = await (await viewportResponse).json() as {
+      features: Array<{ properties: { primary_type?: string | null } }>
+    }
+    expect(backendResult.features.length).toBeGreaterThan(0)
+    expect(backendResult.features.every(feature => feature.properties.primary_type === 'cafe')).toBe(true)
+    await expect.poll(() => renderedPoiTypes(page)).toEqual(['cafe'])
     await expect.poll(() => page.evaluate(() =>
       document.documentElement.scrollWidth <= document.documentElement.clientWidth
     )).toBe(true)
@@ -63,3 +80,14 @@ test.describe('installed Analysis Areas v1.5.3', () => {
     await expect(districtToggle).toBeChecked()
   })
 })
+
+async function renderedPoiTypes(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const map = window.__stadtplanerMapPerformance?.map
+    if (!map?.getSource('osm-pois')) return []
+    return [...new Set(map.querySourceFeatures('osm-pois')
+      .map(feature => String(feature.properties.primary_type || ''))
+      .filter(Boolean))]
+      .sort()
+  })
+}
