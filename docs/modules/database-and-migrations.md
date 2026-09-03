@@ -117,10 +117,10 @@ Die Analysis-Areas-Referenzdateien heißen beispielsweise
 Alembic-IDs sind `20260814_0014`, `20260817_0023`, `20260818_0025` und
 `20260819_0032`.
 
-Während der Contract-Einführung verbleiben diese Dateien noch beim Host. Beim
-späteren Cutover wird jede adoptierte Datei übertragen, nicht kopiert: Danach
-gehört sie ausschließlich zum Modulpaket und darf nicht zusätzlich im Host-
-`versions`-Verzeichnis verbleiben. Eine bereits auf einer adoptierten Revision
+Seit dem Analysis-Areas-Cutover gehört jede adoptierte Datei ausschließlich zum
+Modulpaket und darf nicht zusätzlich im Host-`versions`-Verzeichnis verbleiben.
+Der installierte Zustand wird auch bei deaktivierter Runtime passiv aus
+`modules.lock` entdeckt. Eine bereits auf einer adoptierten Revision
 stehende Datenbank benötigt weder `stamp`, Baseline noch Reparatur und führt die
 Revision nicht erneut aus.
 

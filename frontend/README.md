@@ -25,11 +25,18 @@ Alle `NUXT_PUBLIC_*`-Werte sind im Browser sichtbar und dürfen keine Secrets en
 
 Die aus dem vorhandenen OK-Lab-Branding abgeleiteten PNG-Icons und die Standard-Social-Karte lassen sich mit `pnpm assets:seo` reproduzierbar neu erzeugen.
 
-## Gebiete, SEO und Sitemap
+## Optionale Gebiete, SEO und Sitemap
 
-`/gebiete` rendert die reale Gemeinde-/Stadtteil-/Quartierhierarchie. `/gebiete/[slug]` lädt Detail, Analytics, Vergleich und Flächen serverseitig, setzt Canonical-, Open-Graph-, Twitter- und JSON-LD-Daten und verlinkt bidirektional zur GIS-Auswahl `/?area=<slug>`. Interaktive Kartendaten werden erst clientseitig geladen.
+Die Routen `/gebiete` und `/gebiete/[slug]` gehören nicht zum Host. Ein aktiviertes
+Analysis-Areas-Modul kann sie als Nuxt-Layer beitragen, Daten serverseitig laden,
+Canonical-, Open-Graph-, Twitter- und JSON-LD-Daten setzen und zur GIS-Auswahl
+verlinken. Ohne aktiviertes Modul existieren weder die Routen noch ihre
+Kartenbeiträge.
 
-Die XML-Sitemap kombiniert statische Seiten mit dynamischen Polygon- und Analysis-Area-Einträgen aus dem Backend. Nur Gebiete mit valider Geometrie werden geliefert; `updated_at` wird als `lastmod` verwendet.
+Die XML-Sitemap kombiniert statische Seiten und dynamische Polygoneinträge mit den
+Beiträgen aktivierter Module. Nur deklarierte Sitemap-Contributions lösen ihre
+jeweiligen Backend-Abfragen aus; ohne Analysis-Areas-Modul gibt es weder
+Gebietseinträge noch einen Gebiets-Sitemap-Fetch.
 
 ## Dokumentation
 
@@ -39,6 +46,5 @@ Die öffentliche Dokumentation wird in `app/config/documentation.ts` gepflegt. N
 
 Die nicht indexierbare Route `/admin/audit-log` zeigt das administrative Auditlog ausschließlich Superusern. Sie nutzt den zentralen API-Client, hält Suche, Aktions-, Akteur-, Datums- und Seitenfilter in der URL und zeigt auf kleinen Viewports Cards statt der Desktop-Tabelle. Ereignisdetails öffnen im gemeinsamen Modal und bleiben vollständig read-only; normale Benutzer und reine `VERWALTUNG`-Konten sehen weder den Kontomenüeintrag noch die Seite.
 
-## Kommunale Statistik
-
-Gebietsdetailseiten laden Zahlenspiegel-Kernwerte und die Bevölkerungszeitreihe während SSR aus der lokalen Stadtplaner-API. Gemeinde und Stadtteile zeigen ihre eigene Ebene; Quartiere kennzeichnen ausschließlich die geerbten Werte ihres Parent-Stadtteils. Quelle, Datenstand, Importzeit, Lizenz und der Hinweis zur nicht belegten geometrischen Identität von OSM- und Statistikgrenzen bleiben sichtbar. Die GIS-Sidebar zeigt nur Bevölkerung und Haushalte kompakt an.
+Kommunale Statistik ist ebenfalls kein Hostbestandteil. Fachmodule können sie über
+die dokumentierten öffentlichen Service- und UI-Verträge zusammensetzen.

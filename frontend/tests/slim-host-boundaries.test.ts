@@ -30,8 +30,10 @@ const forbiddenRuntimeTokens = [
 ]
 
 function runtimeSources() {
-  const glob = import.meta.glob('../app/**/*.{ts,vue}', { query: '?raw', import: 'default', eager: true })
-  return Object.entries(glob) as Array<[string, string]>
+  const app = import.meta.glob('../app/**/*.{ts,vue}', { query: '?raw', import: 'default', eager: true })
+  const server = import.meta.glob('../server/**/*.ts', { query: '?raw', import: 'default', eager: true })
+  const moduleHost = import.meta.glob('../module-host/**/*.ts', { query: '?raw', import: 'default', eager: true })
+  return Object.entries({ ...app, ...server, ...moduleHost }) as Array<[string, string]>
 }
 
 describe('slim Host frontend boundary', () => {
