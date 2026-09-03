@@ -90,6 +90,7 @@ jobs:
         run: |
           uv run python -m app.cli.module_migrations upgrade
           uv run python tests/e2e_seed.py
+          uv run python tests/fixtures/poi_query_e2e_seed.py
       - name: Install Chromium
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium

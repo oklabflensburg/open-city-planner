@@ -26,6 +26,32 @@ Die fachlichen Filter `area_sizes`, `floors`, `categories`, `occupancy_statuses`
 
 Für jede fachliche Dimension gilt derselbe öffentliche Vertrag: Ein fehlender Query-Parameter bedeutet „alle Werte“, der alleinstehende Sentinel `NONE` bedeutet „keine Werte“. `NONE` darf nicht mit realen Werten kombiniert werden. Die Oberfläche startet deshalb mit sichtbar ausgewählten Optionen, lässt die vollständige Auswahl zur kompakten Standard-URL weg und schreibt eine vollständig abgewählte Gruppe ausdrücklich als `NONE`. Fehlende Angaben bleiben in der ungefilterten Gesamtsicht enthalten; bei einer Teilmenge werden sie nicht geschätzt und erfüllen den Filter nicht.
 
+### Öffentlicher POI-Query-Vertrag
+
+Der einzige öffentliche URL-Parameter für eine semantische POI-Kategorie ist
+`poi=<category>`, zum Beispiel `/karte?poi=cafe` oder
+`/karte?poi=restaurant`. Der Wert wird beim initialen SSR-/Hydration-Lauf und
+bei Vor-/Zurück-Navigation in den vorhandenen Viewport-Store übernommen. Der
+Store gibt ihn an den Karten-Viewport weiter; dort wird er vor der
+Ergebnislimitierung auf den vorhandenen semantischen POI-Typ angewandt. Die
+lang lebende MapLibre-Quelle erhält dadurch nur die passenden POIs.
+
+Der frühere öffentliche Name `osm_kategorie` ist entfernt und wird weder
+erzeugt noch ausgewertet. `poi` beschreibt die fachliche Nutzerabsicht und
+nicht die Datenquelle. Interne Bezeichner wie `osm_categories`, OSM-Tagfelder
+und `osm-pois` bleiben reine Provider- beziehungsweise Layerdetails.
+
+Der Repository-Audit für #216 klassifiziert die Fundstellen wie folgt:
+
+| Fundgruppe | Klassifikation | Begründung |
+| --- | --- | --- |
+| `useGisFilterHistory`, `poiCategories`, `legacy-map` | `PUBLIC_QUERY_CONTRACT` | Lesen, Schreiben, Validieren und Legacy-Routing des einzigen URL-Schlüssels `poi` |
+| `osmViewport`, Backend-Viewport und `primary_type` | `INTERNAL_OSM_DETAIL` | Übersetzung des semantischen Werts auf den vorhandenen Datenprovider |
+| MapLibre-IDs wie `osm-pois` und `osm-poi-circle` | `INTERNAL_OSM_DETAIL` | Stabile Source-/Layer-Namen, keine URL-Schlüssel |
+| Unit-, Contract- und Playwright-Dateien | `TEST_FIXTURE` | Sichern Deep Link, Reload, Änderung, Entfernen und gerenderten Filter |
+| diese Seite und die Benutzerdokumentation | `DOCUMENTATION` | Beschreiben den kanonischen Vertrag und die entfernte Altbezeichnung |
+| frühere öffentliche Auswertung von `osm_kategorie` | `OBSOLETE` | Auf der Epic-91-Basis bereits ohne Runtime-Fund; negativer Guard verhindert die Rückkehr |
+
 OSM-Tags werden in `app/services/osm_canonical.py` serverseitig auf die bestehenden Stadtplaner-Kategorien normalisiert. Das Mapping basiert auf dem lokal importierten Flensburger Tagbestand. Beispiele:
 
 | Stadtplaner-Kategorie | OSM-Tags, auszugsweise |

@@ -44,6 +44,7 @@ export const useOsmViewportStore = defineStore('osmViewport', {
     showAreas: true,
     showBuildings: false,
     activeCategories: osmPoiCategories.map(item => item.key) as OsmFeatureCategory[],
+    poi: null as string | null,
     data: null as OsmViewportResult | null,
     loading: false,
     error: null as string | null,
@@ -68,6 +69,7 @@ export const useOsmViewportStore = defineStore('osmViewport', {
       return entity?.type === 'osm' ? entity.feature : null
     },
     requestedCategories(state): OsmFeatureCategory[] {
+      if (state.poi) return osmPoiCategories.map(item => item.key)
       return [
         ...(state.showPois ? state.activeCategories : []),
         ...(state.showAreas ? ['landuse' as const] : []),
@@ -86,6 +88,7 @@ export const useOsmViewportStore = defineStore('osmViewport', {
       const mobile = import.meta.client && window.matchMedia('(max-width: 767px)').matches
       const limit = mobile ? 800 : zoom < 15 ? 800 : zoom < 17 ? 1200 : 2000
       const query = gisFilterQuery(useFilterStore().filterState)
+      if (this.poi) query.delete('sources')
       query.set('west', bounds.west.toFixed(6))
       query.set('south', bounds.south.toFixed(6))
       query.set('east', bounds.east.toFixed(6))
@@ -94,10 +97,11 @@ export const useOsmViewportStore = defineStore('osmViewport', {
       query.set('osm_categories', categories.join(','))
       query.set('buildings', String(this.showBuildings))
       query.set('limit', String(limit))
+      if (this.poi) query.set('poi', this.poi)
       return query.toString()
     },
     viewportFilterKey() {
-      return `${this.requestedCategories.slice().sort().join(',')}|${this.showBuildings}|${useFilterStore().filterKey}`
+      return `${this.requestedCategories.slice().sort().join(',')}|${this.showBuildings}|${this.poi || ''}|${useFilterStore().filterKey}`
     },
     hasCacheFor(bounds: OsmBounds, zoom: number) {
       return Boolean(this.data && this.dataRequestKey === this.viewportRequestKey(bounds, zoom))
@@ -110,7 +114,7 @@ export const useOsmViewportStore = defineStore('osmViewport', {
     },
     async load(bounds: OsmBounds, zoom: number, options: { force?: boolean } = {}) {
       const categories = this.requestedCategories
-      const osmEnabled = useFilterStore().selectedSources.includes('OSM')
+      const osmEnabled = Boolean(this.poi) || useFilterStore().selectedSources.includes('OSM')
       const key = this.viewportRequestKey(bounds, zoom)
       const filterKey = this.viewportFilterKey()
       const bucket = zoomBucket(zoom)
@@ -229,7 +233,14 @@ export const useOsmViewportStore = defineStore('osmViewport', {
     setRenderDuration(value: number) {
       this.lastRenderDurationMs = Math.round(value)
     },
+    setPoi(category: string | null) {
+      this.poi = category
+    },
+    clearPoi() {
+      this.poi = null
+    },
     reset() {
+      this.poi = null
       this.showPois = true
       this.showAreas = true
       this.showBuildings = false

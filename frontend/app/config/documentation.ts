@@ -22,9 +22,13 @@ export const documentationPages: DocumentationPage[] = [
   },
   {
     slug: 'karte', title: 'Karte bedienen', navTitle: 'Karte', description: 'Kartennavigation, Auswahl und Ebenen.',
-    group: 'Karte und Daten', keywords: ['Karte', 'MapLibre', 'Zoom'], audience: 'public', sections: [
+    group: 'Karte und Daten', keywords: ['Karte', 'MapLibre', 'Zoom', 'POI', 'Deep Link'], audience: 'public', sections: [
       { id: 'navigation', title: 'Navigation', blocks: [{ type: 'paragraph', text: 'Die Karte lässt sich mit Maus, Tastatur und Touch-Gesten bedienen. Die öffentliche Übersicht bleibt schreibgeschützt.' }] },
-      { id: 'auswahl', title: 'Auswahl', blocks: [{ type: 'paragraph', text: 'Ausgewählte Polygone, OSM-Objekte und Modulobjekte erscheinen in derselben generischen Auswahloberfläche.' }] }
+      { id: 'auswahl', title: 'Auswahl', blocks: [{ type: 'paragraph', text: 'Ausgewählte Polygone, OSM-Objekte und Modulobjekte erscheinen in derselben generischen Auswahloberfläche.' }] },
+      { id: 'poi-deep-links', title: 'POI-Deep-Links', blocks: [
+        { type: 'paragraph', text: 'Der Parameter poi grenzt die Karte auf eine semantische Kategorie für Orte und Einrichtungen ein. Ein Link wie /karte?poi=cafe aktiviert den Café-Filter auch nach einem Neuladen. Die konkrete Datenquelle ist nicht Teil dieses öffentlichen Vertrags.' },
+        { type: 'code', language: 'text', code: '/karte?poi=cafe\n/karte?poi=restaurant' }
+      ] }
     ]
   },
   {

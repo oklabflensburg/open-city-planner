@@ -70,6 +70,12 @@ class OsmViewportQuery(BaseModel):
     north: float = Field(ge=-90, le=90)
     zoom: float = Field(ge=0, le=24)
     osm_categories: str | None = None
+    poi: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=80,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$",
+    )
     buildings: bool = False
     limit: int = Field(default=2_000, ge=1, le=2_500)
 

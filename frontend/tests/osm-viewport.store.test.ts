@@ -97,4 +97,21 @@ describe('OSM viewport store lifecycle', () => {
     expect(store.generation).toBe(generation + 1)
     expect(store.lastRequestKey).toBe('')
   })
+
+  it('uses the semantic POI filter for viewport requests without leaking provider URL state', () => {
+    const store = useOsmViewportStore()
+    store.setPoi('cafe')
+
+    const query = new URLSearchParams(store.viewportRequestKey(bounds, 16))
+    expect(store.poi).toBe('cafe')
+    expect(query.get('poi')).toBe('cafe')
+    expect(query.get('osm_categories')).toContain('gastronomy')
+    expect(query.get('sources')).toBeNull()
+
+    store.setPoi('restaurant')
+    expect(new URLSearchParams(store.viewportRequestKey(bounds, 16)).get('poi')).toBe('restaurant')
+    store.clearPoi()
+    expect(store.poi).toBeNull()
+    expect(new URLSearchParams(store.viewportRequestKey(bounds, 16)).has('poi')).toBe(false)
+  })
 })
