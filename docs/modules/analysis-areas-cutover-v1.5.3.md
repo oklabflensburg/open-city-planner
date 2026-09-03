@@ -15,7 +15,7 @@ ausgerollt.
 | Feld | Wert |
 | --- | --- |
 | Kanonische Host-Basis | `3f6fe2ffd132ed011b0dac01d814c8e55cbb7414` (`staging/epic-91-modular-host`) |
-| Getesteter Cutover-Code | `e6e987f3a758e30e1d04d70282a69d44b248eefa` (dieser Nachweis folgt als separater Dokumentations-Commit) |
+| Getesteter Cutover-Code | `81b099a054884f47fd7a21f70af264852f714118` (Lifecycle-Renderer), einschließlich `e6e987f3a758e30e1d04d70282a69d44b248eefa` (POI-Browservertrag) |
 | Analysis Areas Version | `1.5.3` |
 | Analysis Areas SHA-256 | `88ead403d89209c155b78101676b691a642139991cf9fd0787115ccfe0338f6b` |
 | Source Repository | `https://github.com/oklabflensburg/ocp-module-analysis-areas` |
@@ -66,6 +66,13 @@ Build blieben grün; Daten und Migrationsstand wurden nicht zurückgesetzt. Die
 anschließende Reaktivierung erfolgte ohne Neuinstallation oder Reimport. Danach
 bestanden Runtime-, API-, Analytics-, Statistics-, Frontend- und Browser-Smoke-
 Prüfungen erneut.
+
+Der abschließende Remote-Lauf deckte dabei eine Lifecycle-Lücke im Host auf:
+Beim Rendern der neuen Deployment-Umgebung konnte die noch aktive Umgebung des
+laufenden Prozesses ein soeben deaktiviertes installiertes Modul erneut
+einschleusen. Der Host-Renderer behandelt installierte IDs nun ausschließlich
+nach `modules.lock`, während echte Built-ins erhalten bleiben. Ein dedizierter
+Regressionstest und der reale Disable/Re-enable-Lauf sichern dieses Verhalten.
 
 ## Gate-Matrix
 
