@@ -261,7 +261,8 @@ Migrationen zuerst gegen die Anwendungsdatenbank einspielen:
 
 ```bash
 cd /opt/git/open-city-planner/backend
-.venv/bin/alembic upgrade head
+.venv/bin/python -m app.cli.module_migrations preflight
+.venv/bin/python -m app.cli.module_migrations upgrade
 sudo -u postgres psql open_city_map -c \
   'GRANT SELECT ON TABLE public.osm_sync_state TO osm;'
 ```

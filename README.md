@@ -98,9 +98,14 @@ cd backend
 cp .env.example .env
 python3 -m pip install 'uv==0.12.5'
 uv sync --frozen --extra dev
-uv run alembic upgrade head
+uv run python -m app.cli.module_migrations preflight
+uv run python -m app.cli.module_migrations upgrade
 uv run uvicorn app.main:app --reload
 ```
+
+The module-aware migration CLI includes passive migration history from every
+installed module. A raw Host-only Alembic invocation is insufficient once a
+module owns revisions in the shared graph.
 
 Start the frontend in a second terminal:
 

@@ -196,7 +196,18 @@ Den Host-Key vor dem Hochladen gegen einen bereits vertrauenswürdig bekannten F
 
 ## Datenbankbackup vor Migrationen
 
-Vor `alembic upgrade head` erstellt Ansible standardmäßig einen Custom-Format-Dump unter `/var/backups/stadtplaner`. `pg_dump` läuft als lokaler PostgreSQL-Systembenutzer `postgres` über Peer-Authentifizierung und liest die Datenbank nur; Datenbankzugangsdaten werden weder ausgelesen noch auf der Kommandozeile offengelegt. Ein 30-sekündiges Lock-Limit verhindert unbegrenztes Warten auf konkurrierende DDL. Der Lauf schreibt zunächst eine restriktiv berechtigte `.partial`-Datei, verlangt einen nicht leeren Dump, validiert ihn mit `pg_restore --list` und benennt ihn erst danach atomar zum endgültigen Archiv um. Nur ein erfolgreich veröffentlichtes Archiv gibt die Migration frei.
+Vor dem modulbewussten Migrations-Preflight und Upgrade erstellt Ansible
+standardmäßig einen Custom-Format-Dump unter `/var/backups/stadtplaner`.
+`pg_dump` läuft als lokaler PostgreSQL-Systembenutzer `postgres` über
+Peer-Authentifizierung und liest die Datenbank nur; Datenbankzugangsdaten werden
+weder ausgelesen noch auf der Kommandozeile offengelegt. Ein 30-sekündiges
+Lock-Limit verhindert unbegrenztes Warten auf konkurrierende DDL. Der Lauf
+schreibt zunächst eine restriktiv berechtigte `.partial`-Datei, verlangt einen
+nicht leeren Dump, validiert ihn mit `pg_restore --list` und benennt ihn erst
+danach atomar zum endgültigen Archiv um. Nur ein erfolgreich veröffentlichtes
+Archiv gibt `python -m app.cli.module_migrations preflight` und das anschließende
+`upgrade` frei. Beide Schritte erhalten den konfigurierten
+`OCP_MODULE_INSTALL_ROOT` explizit.
 
 Standardmäßig werden die drei neuesten validierten Dumps aufbewahrt (`stadtplaner_database_backup_retention`). Vor einem neuen Dump werden ältere Archive so bereinigt, dass bei einem fehlgeschlagenen Backup noch zwei validierte Sicherungen verbleiben. Verwaiste `.partial`-Dateien entfernt Ansible nach zehn Minuten.
 
@@ -251,7 +262,7 @@ Der Ablauf ist:
 5. Backend-Venv per `uv sync --frozen` exakt aus `backend/uv.lock` materialisieren;
 6. Frontend-Abhängigkeiten per Lockfile installieren, Nuxt bauen und optional Tests/Typecheck ausführen;
 7. das versionierte Release vollständig assemblieren;
-8. Backup-Guard und Alembic-Migrationen;
+8. Backup-Guard, modulbewusster Migrations-Preflight und Upgrade;
 9. systemd-Units installieren/aktualisieren;
 10. Hintergrund-Timer synchronisieren;
 11. Stadtplaner-Nginx-Konfiguration installieren und mit `nginx -t` validieren;

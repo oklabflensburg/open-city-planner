@@ -11,7 +11,8 @@ persistente Datenbank; Redis cached ausschließlich wiederberechenbare Leseantwo
 cp .env.example .env
 python3 -m pip install 'uv==0.12.5'
 uv sync --frozen --extra dev
-uv run alembic upgrade head
+uv run python -m app.cli.module_migrations preflight
+uv run python -m app.cli.module_migrations upgrade
 uv run uvicorn app.main:app --reload
 ```
 
@@ -47,7 +48,9 @@ uv run pytest
 uv run ruff check app tests
 ```
 
-Migrationen werden mit `uv run alembic upgrade head` eingespielt. Cache-Versionen
+Migrationen werden nach erfolgreichem
+`uv run python -m app.cli.module_migrations preflight` mit
+`uv run python -m app.cli.module_migrations upgrade` eingespielt. Cache-Versionen
 werden nach generischen Polygon- und OSM-Änderungen durch die zuständigen Services
 erhöht; Module besitzen ihre fachliche Invalidierung.
 
