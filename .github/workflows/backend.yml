@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      OCP_MODULE_INSTALL_ROOT: ${{ runner.temp }}/ocp-modules
+      OCP_MODULE_INSTALL_ROOT: /tmp/ocp-modules
     services:
       postgres:
         image: postgis/postgis:16-3.5@sha256:19b6ffa248d2f864d29d6c338459f02d63c0d7ce341fa86b3bcba8484a130bff
