@@ -71,6 +71,8 @@ jobs:
     name: Backend migrations
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      OCP_MODULE_INSTALL_ROOT: ${{ runner.temp }}/ocp-modules
     services:
       postgres:
         image: postgis/postgis:16-3.5@sha256:19b6ffa248d2f864d29d6c338459f02d63c0d7ce341fa86b3bcba8484a130bff
@@ -90,19 +92,32 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: .python-version
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.22.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install pinned uv
         run: python -m pip install 'uv==0.12.5'
       - name: Install locked dependencies
         working-directory: backend
         run: uv sync --frozen --extra dev --no-editable
+      - name: Install passive Analysis Areas migration history
+        run: |
+          (cd frontend && pnpm install --frozen-lockfile)
+          (cd backend && uv run python -m app.cli.modules \
+            --root "${OCP_MODULE_INSTALL_ROOT}" install-registry analysis-areas \
+            --version 1.0.0 \
+            --expected-sha256 7006f31ea73f40e38f63d2065652c27ad5d3391ddcc8cfad2f149993efef3dcf)
       - name: Verify single migration head
         working-directory: backend
-        run: |
-          uv run alembic heads
-          test "$(uv run alembic heads | sed '/^$/d' | wc -l)" -eq 1
+        run: uv run python -m app.cli.module_migrations preflight
       - name: Upgrade fresh database
         working-directory: backend
-        run: uv run alembic upgrade head
+        run: uv run python -m app.cli.module_migrations upgrade
       - name: Verify module persistence and migration contracts
         working-directory: backend
         run: uv run pytest tests/test_module_persistence.py

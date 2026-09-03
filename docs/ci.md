@@ -27,9 +27,8 @@ bei reinen Dokumentationsänderungen nicht.
 | Module Contract Gate | `Module contract gate` | Backend-/Frontend-Importgrenzen, Manifest-, Dependency-, Registry-, Map- und SSR-Verträge ohne Playwright |
 
 Der Cross-Repo-Teil des Module Contract Gate baut `ocp-module-analysis-areas`
-reproduzierbar vom aktuellen `main`-Commit
-`8951b36ce9334fc76fea502627b95e8a16b2e0bf` (einschließlich PR #9 und dessen
-Staging-Pin aus PR #10), prüft Bundle, deaktivierte
+reproduzierbar vom v1.5.0-Commit
+`df8b067757b9bf20fbc54efc9555f3388bd951ff`, prüft Bundle, deaktivierte
 Installation, Migration Ownership, Enable/Disable/Re-enable und die bestehenden
 API-Characterization-Tests. Eine zusätzliche Consumer-Probe liest die
 Area→Polygon-Relation ausschließlich über die Persistenzmodelle des externen
@@ -83,8 +82,12 @@ uv sync --frozen --extra dev --no-editable
 uv run ruff check app tests
 uv run pytest
 uv run python -c "from app.main import app; assert app.title"
-uv run alembic heads
-uv run alembic upgrade head
+export OCP_MODULE_INSTALL_ROOT=/tmp/ocp-ci-modules
+uv run python -m app.cli.modules --root "$OCP_MODULE_INSTALL_ROOT" install-registry analysis-areas \
+  --version 1.0.0 \
+  --expected-sha256 7006f31ea73f40e38f63d2065652c27ad5d3391ddcc8cfad2f149993efef3dcf
+uv run python -m app.cli.module_migrations preflight
+uv run python -m app.cli.module_migrations upgrade
 ```
 
 Frontend:
@@ -134,7 +137,11 @@ Testdatenbank zeigen:
 cd backend
 uv sync --frozen --extra dev --no-editable
 export ENABLED_MODULES=
-uv run alembic upgrade head
+export OCP_MODULE_INSTALL_ROOT=/tmp/ocp-e2e-modules
+uv run python -m app.cli.modules --root "$OCP_MODULE_INSTALL_ROOT" install-registry analysis-areas \
+  --version 1.0.0 \
+  --expected-sha256 7006f31ea73f40e38f63d2065652c27ad5d3391ddcc8cfad2f149993efef3dcf
+uv run python -m app.cli.module_migrations upgrade
 uv run python tests/e2e_seed.py
 uv run python -m app.cli.module_migrations preflight
 export OCP_BACKEND_MODULES="$(../scripts/backend-module-inventory --format env)"
