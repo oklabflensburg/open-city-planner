@@ -11,9 +11,9 @@ from sqlalchemy import text
 from app.db.session import AsyncSessionLocal
 from app.platform.modules.installer import read_modules_lock
 
-VERSION = "1.5.1"
-DIGEST = "8fd4b21c2da820f2d036f126848293395d4da772201f8473c07c0ef38e068bc9"
-SOURCE_COMMIT = "e190c4c5a70df6dbbe1f538f82e68d30260fe071"
+VERSION = "1.5.2"
+DIGEST = "835a2745da15cdc17587324e451ea1b922ae0628738603c7a061d62407d08d58"
+SOURCE_COMMIT = "89103403382ecd4fee992611f1011b58a0562d98"
 
 
 def analysis_entry():
@@ -27,7 +27,7 @@ def analysis_entry():
     assert entry.provenance.source_repository == (
         "https://github.com/oklabflensburg/ocp-module-analysis-areas"
     )
-    assert entry.provenance.source_tag == "v1.5.1"
+    assert entry.provenance.source_tag == "v1.5.2"
     assert entry.provenance.source_commit == SOURCE_COMMIT
     assert entry.backend.present and entry.frontend.present
     return entry
@@ -54,6 +54,7 @@ async def prove_enabled() -> None:
         "/api/v1/analysis-areas/sitemap",
         "/api/v1/analysis-areas/by-slug/{slug}",
         "/api/v1/analysis-areas/by-slug/{slug}/analytics",
+        "/api/v1/analysis-areas/{area_id}/analytics",
         "/api/v1/analysis-areas/by-slug/{slug}/comparison",
         "/api/v1/analysis-areas/by-slug/{slug}/statistics",
     } <= paths
@@ -67,7 +68,6 @@ async def prove_enabled() -> None:
             "/api/v1/analysis-areas/by-slug/innenstadt-test",
             "/api/v1/analysis-areas/by-slug/innenstadt-test/analytics",
             "/api/v1/analysis-areas/by-slug/innenstadt-test/comparison",
-            "/api/v1/analysis-areas/by-slug/innenstadt-test/statistics",
             "/api/v1/analysis-areas/by-slug/innenstadt-test/polygons",
         ):
             response = await client.get(endpoint)
@@ -77,6 +77,24 @@ async def prove_enabled() -> None:
         ).json()
         assert detail["external_links"]["wikidata"]["id"] == "Q12345"
         assert detail["external_links"]["wikipedia"]["title"] == "Flensburg-Altstadt"
+        assert detail["bbox"] == [9.42, 54.78, 9.45, 54.8]
+
+        analytics_response = await client.get(
+            "/api/v1/analysis-areas/11111111-1111-4111-8111-222222222222/analytics"
+        )
+        assert analytics_response.status_code == 200, analytics_response.text
+        analytics = analytics_response.json()
+        assert analytics["area"]["id"] == "11111111-1111-4111-8111-222222222222"
+        assert analytics["poi_count"] == 1
+        assert {item["category"]: item["count"] for item in analytics["poi_categories"]} == {
+            "cafe": 1
+        }
+
+        statistics_response = await client.get(
+            "/api/v1/analysis-areas/by-slug/innenstadt-test/statistics"
+        )
+        assert statistics_response.status_code == 200, statistics_response.text
+        assert statistics_response.json()["latest"]
 
 
 def prove_disabled(entry, *, migrated: bool) -> None:

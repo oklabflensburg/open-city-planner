@@ -61,6 +61,63 @@ async def seed() -> None:
         await session.execute(
             text(
                 """
+                INSERT INTO external_area_mappings (
+                  id, source, external_area_id, external_area_name, level
+                ) VALUES
+                  (19701, 'CUTOVER_TEST', 'municipality', 'Flensburg Test', 'MUNICIPALITY'),
+                  (19702, 'CUTOVER_TEST', 'district', 'Innenstadt Test', 'DISTRICT')
+                ON CONFLICT (source, external_area_id) DO NOTHING
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                INSERT INTO statistical_datasets (
+                  id, source, external_dataset_id, name, source_url, license,
+                  update_frequency, last_import_at, source_updated_at
+                ) VALUES (
+                  197, 'CUTOVER_TEST', 'population', 'Cutover-Bevölkerung',
+                  'https://example.test/statistics', 'DL-DE-Zero-2.0', 'annual',
+                  now(), now()
+                )
+                ON CONFLICT (source, external_dataset_id) DO NOTHING
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                INSERT INTO statistical_metrics (
+                  id, dataset_id, key, name, unit, category, public
+                ) VALUES (
+                  197, 197, 'cutover_population', 'Bevölkerung', 'Personen',
+                  'Bevölkerung', true
+                )
+                ON CONFLICT (key) DO NOTHING
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                INSERT INTO statistical_observations (
+                  id, metric_id, statistical_area_id, period_start, period_end,
+                  value_numeric, source_area_id, source_row_hash
+                ) VALUES
+                  (19701, 197, 19701, '2025-01-01', '2025-12-31', 95000,
+                   'municipality', repeat('a', 64)),
+                  (19702, 197, 19702, '2025-01-01', '2025-12-31', 12000,
+                   'district', repeat('b', 64))
+                ON CONFLICT (
+                  metric_id, statistical_area_id, period_start, source_area_id
+                ) DO NOTHING
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
                 INSERT INTO osm_features (osm_type, osm_id, geometry, tags, imported_at)
                 VALUES (
                   'node', 197,

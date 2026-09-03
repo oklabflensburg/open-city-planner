@@ -12,9 +12,9 @@ describe('Analysis Areas final cutover workflow', () => {
   const consumerProbe = repositoryFile('scripts/check_analysis_areas_port_consumer.py')
 
   it('installs the immutable release through Registry and the production installer', () => {
-    expect(workflow).toContain('OCP_ANALYSIS_AREAS_VERSION: "1.5.1"')
+    expect(workflow).toContain('OCP_ANALYSIS_AREAS_VERSION: "1.5.2"')
     expect(workflow).toContain(
-      'OCP_ANALYSIS_AREAS_SHA256: 8fd4b21c2da820f2d036f126848293395d4da772201f8473c07c0ef38e068bc9'
+      'OCP_ANALYSIS_AREAS_SHA256: 835a2745da15cdc17587324e451ea1b922ae0628738603c7a061d62407d08d58'
     )
     expect(workflow).toContain('OCP_MODULE_REGISTRY_URL: https://packages.stadtplaner.oklabflensburg.de')
     expect(workflow).toContain('install-registry analysis-areas')

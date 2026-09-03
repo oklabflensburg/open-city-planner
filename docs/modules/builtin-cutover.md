@@ -35,9 +35,9 @@ Frontend-Snapshot ein. Aktivierung bleibt ausschließlich in `modules.lock`.
 7. Einmal `disable`, Deploy/Restart, passive Migration Discovery und anschließend
    `enable` mit erneutem Deploy/Restart prüfen.
 
-Für `analysis-areas` ist der vollständige externe Release als v1.5.1 mit SHA-256
-`8fd4b21c2da820f2d036f126848293395d4da772201f8473c07c0ef38e068bc9`
-und Source-Commit `e190c4c5a70df6dbbe1f538f82e68d30260fe071` gepinnt. Er liefert die Revisionen
+Für `analysis-areas` ist der vollständige externe Release als v1.5.2 mit SHA-256
+`835a2745da15cdc17587324e451ea1b922ae0628738603c7a061d62407d08d58`
+und Source-Commit `89103403382ecd4fee992611f1011b58a0562d98` gepinnt. Er liefert die Revisionen
 `20260814_0014`, `20260817_0023`, `20260818_0025` und `20260819_0032` mit
 unveränderten Kanten. Seine Host-Capabilities sind vollständig in
 [öffentliche Backend-Service-Ports](backend-service-ports.md) inventarisiert.

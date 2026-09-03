@@ -53,7 +53,7 @@ jobs:
         run: scripts/module-contract-gate frontend
 
   analysis-areas-cutover:
-    name: Analysis Areas v1.5.1 Registry cutover
+    name: Analysis Areas v1.5.2 Registry cutover
     runs-on: ubuntu-latest
     timeout-minutes: 35
     services:
@@ -74,8 +74,8 @@ jobs:
       APP_ENVIRONMENT: test
       ENABLED_MODULES: ""
       OCP_ANALYSIS_AREAS_CUTOVER: "1"
-      OCP_ANALYSIS_AREAS_VERSION: "1.5.1"
-      OCP_ANALYSIS_AREAS_SHA256: 8fd4b21c2da820f2d036f126848293395d4da772201f8473c07c0ef38e068bc9
+      OCP_ANALYSIS_AREAS_VERSION: "1.5.2"
+      OCP_ANALYSIS_AREAS_SHA256: 835a2745da15cdc17587324e451ea1b922ae0628738603c7a061d62407d08d58
       OCP_FRONTEND_MODULES: ""
       OCP_MODULE_REGISTRY_URL: https://packages.stadtplaner.oklabflensburg.de
       OCP_STATISTICS_VERSION: "0.2.0"

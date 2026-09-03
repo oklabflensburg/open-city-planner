@@ -26,9 +26,9 @@ bei reinen Dokumentationsänderungen nicht.
 | Supply Chain | `sbom` | transitive CycloneDX-SBOMs für Backend und Frontend |
 | Module Contract Gate | `Module contract gate` | Backend-/Frontend-Importgrenzen, Manifest-, Dependency-, Registry-, Map- und SSR-Verträge ohne Playwright |
 
-Der Cutover-Teil des Module Contract Gate installiert `analysis-areas` v1.5.1
+Der Cutover-Teil des Module Contract Gate installiert `analysis-areas` v1.5.2
 mit dem exakten SHA-256
-`8fd4b21c2da820f2d036f126848293395d4da772201f8473c07c0ef38e068bc9`
+`835a2745da15cdc17587324e451ea1b922ae0628738603c7a061d62407d08d58`
 über die produktive Registry und den normalen Installer. Er prüft Bundle,
 deaktivierte Installation, Migration Ownership, Enable/Disable/Re-enable,
 API-Characterization und die relevanten Playwright-Flows. Eine zusätzliche Consumer-Probe liest die

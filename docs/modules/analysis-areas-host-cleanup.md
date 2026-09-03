@@ -13,7 +13,7 @@ Installationsverzeichnisse sind keine Hostquellen.
 
 | Fundgruppe | Klassifikation | Zielzustand und Nachweis |
 | --- | --- | --- |
-| ehemalige Backend-Router, DTOs, ORM-Modelle, Services, Sync-/Wikidata-CLI und Jobs | `module-owned` | keine Runtimequelle mehr unter `backend/app`; OSM-Sync, Wikidata-Maintenance, Polygon-Reconcile, API und Cache-Invalidierung liegen in `ocp-module-analysis-areas` v1.5.1 und verwenden öffentliche SDK-Ports |
+| ehemalige Backend-Router, DTOs, ORM-Modelle, Services, Sync-/Wikidata-CLI und Jobs | `module-owned` | keine Runtimequelle mehr unter `backend/app`; OSM-Sync, Wikidata-Maintenance, Polygon-Reconcile, API und Cache-Invalidierung liegen in `ocp-module-analysis-areas` v1.5.2 und verwenden öffentliche SDK-Ports |
 | ehemalige Nuxt-Routen, Store, Komponenten, Layer, Actions und API-Aufrufe | `module-owned` | keine Host-Runtimequelle mehr; `/gebiete`, SEO/Structured Data, Sitemap, Kartenbeiträge und Interaktionen kommen aus dem installierbaren Frontend-Layer |
 | Revisionen `20260814_0014`, `20260817_0023`, `20260818_0025`, `20260819_0032` | `module-owned` | unveränderte Revision-IDs, Kanten und Bytes werden ausschließlich aus der passiv discoverten Modulmigrationsquelle geladen; Host-Nachfolger behalten ihre bestehenden `down_revision`-Werte |
 | DB-Session, Cache-Generation, HTTP, Jobs, Events, OSM-Snapshots, Map Preview und öffentliche Query-Limits | `generic host capability` | bleiben als `ModuleContext`-/SDK-Ports; sie kennen weder Analysis-Areas-DTOs noch Tabellen |
@@ -38,8 +38,8 @@ und bricht bei der Registrierung mit `AttributeError` ab.
 
 Die vollständige Sync-/Wikidata-/Polygon-Parität aus
 `ocp-module-analysis-areas#5` kam erst in den nachfolgenden Releases hinzu. Der
-veröffentlichte Fachstand ist v1.5.1 auf Commit
-`e190c4c5a70df6dbbe1f538f82e68d30260fe071`; er ergänzt insbesondere:
+kanonische Fachstand ist v1.5.2 auf Commit
+`89103403382ecd4fee992611f1011b58a0562d98`; er umfasst insbesondere:
 
 - OSM-Synchronisierung über `platform.osm-snapshot-query@1` und das Event
   `osm.postprocessing-completed@1`;
@@ -53,7 +53,7 @@ Damit ist v1.0.0 ein gültiges Installer-/Migrationsartefakt, aber weder ein
 kompatibler Backend-Runtime- noch ein vollständiger Produktions-Paritätsnachweis
 für #196. Das finale Gate
 [#197](https://github.com/oklabflensburg/open-city-planner/issues/197) installiert
-deshalb ausschließlich v1.5.1 über die Registry und prüft den vollständigen
+deshalb ausschließlich v1.5.2 über die Registry und prüft den vollständigen
 Lifecycle gemeinsam mit dem gepinnten Statistics-Modul.
 
 ## Verhalten ohne und mit Modul

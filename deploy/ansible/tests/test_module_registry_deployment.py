@@ -38,10 +38,10 @@ class ModuleRegistryDeploymentTest(unittest.TestCase):
         example = (ANSIBLE / "vault.example.yml").read_text(encoding="utf-8")
 
         self.assertIn("#   - id: analysis-areas", example)
-        self.assertIn("#     version: 1.5.1", example)
+        self.assertIn("#     version: 1.5.2", example)
         self.assertIn(
             "#     expected_sha256: "
-            "8fd4b21c2da820f2d036f126848293395d4da772201f8473c07c0ef38e068bc9",
+            "835a2745da15cdc17587324e451ea1b922ae0628738603c7a061d62407d08d58",
             example,
         )
 
