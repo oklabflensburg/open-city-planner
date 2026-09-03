@@ -15,7 +15,7 @@ ausgerollt.
 | Feld | Wert |
 | --- | --- |
 | Kanonische Host-Basis | `3f6fe2ffd132ed011b0dac01d814c8e55cbb7414` (`staging/epic-91-modular-host`) |
-| Getesteter Cutover-Code | `81b099a054884f47fd7a21f70af264852f714118` (Lifecycle-Renderer), einschließlich `e6e987f3a758e30e1d04d70282a69d44b248eefa` (POI-Browservertrag) |
+| Getesteter Cutover-Code | `3146e4441b690e2ff35d2e3b3c5db901a9616294` (hydratisierte Browser-Interaktionen), `81b099a054884f47fd7a21f70af264852f714118` (Lifecycle-Renderer) und `e6e987f3a758e30e1d04d70282a69d44b248eefa` (POI-Browservertrag) |
 | Analysis Areas Version | `1.5.3` |
 | Analysis Areas SHA-256 | `88ead403d89209c155b78101676b691a642139991cf9fd0787115ccfe0338f6b` |
 | Source Repository | `https://github.com/oklabflensburg/ocp-module-analysis-areas` |
