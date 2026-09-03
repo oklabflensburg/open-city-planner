@@ -34,6 +34,17 @@ class ModuleRegistryDeploymentTest(unittest.TestCase):
         self.assertIn("--registry-url", arguments)
         self.assertNotIn("enable", arguments)
 
+    def test_documented_analysis_areas_pin_is_the_reviewed_release(self) -> None:
+        example = (ANSIBLE / "vault.example.yml").read_text(encoding="utf-8")
+
+        self.assertIn("#   - id: analysis-areas", example)
+        self.assertIn("#     version: 1.5.1", example)
+        self.assertIn(
+            "#     expected_sha256: "
+            "8fd4b21c2da820f2d036f126848293395d4da772201f8473c07c0ef38e068bc9",
+            example,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
