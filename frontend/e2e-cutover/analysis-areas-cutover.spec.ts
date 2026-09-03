@@ -41,9 +41,7 @@ test.describe('installed Analysis Areas v1.5.3', () => {
     )
     const poi = page.getByRole('link', { name: /Café.*auf der Karte anzeigen/ })
     await expect(poi).toBeVisible()
-    await page.waitForFunction(() => Boolean(
-      (document.querySelector('#__nuxt') as HTMLElement & { __vue_app__?: unknown })?.__vue_app__
-    ))
+    await waitForNuxtHydration(page)
     const viewportResponse = page.waitForResponse(response => {
       const url = new URL(response.url())
       return url.pathname === '/api/v1/osm/features' && url.searchParams.get('poi') === 'cafe'
@@ -69,10 +67,13 @@ test.describe('installed Analysis Areas v1.5.3', () => {
     await page.setViewportSize({ width: 1024, height: 768 })
     await page.goto('/karte?gebiet=innenstadt-test')
     await expect(page.getByText('Analysegebiete sind auf der Karte verfügbar.')).toBeAttached()
+    await waitForNuxtHydration(page)
     await expect(page.locator('[data-gis-layout]')).toHaveAttribute('data-gis-layout', 'compact')
-    await page.getByRole('button', { name: 'Filter öffnen' }).click()
+    const filterButton = page.getByRole('button', { name: 'Filter öffnen' })
+    await filterButton.click()
+    await expect(filterButton).toHaveAttribute('aria-pressed', 'true')
     const districtToggle = page.getByRole('checkbox', { name: 'Stadtteile anzeigen' })
-    await expect(districtToggle).toBeVisible()
+    await expect(districtToggle).toBeVisible({ timeout: 15_000 })
     await expect(districtToggle).toBeChecked()
     await districtToggle.uncheck()
     await expect(districtToggle).not.toBeChecked()
@@ -80,6 +81,12 @@ test.describe('installed Analysis Areas v1.5.3', () => {
     await expect(districtToggle).toBeChecked()
   })
 })
+
+async function waitForNuxtHydration(page: import('@playwright/test').Page) {
+  await page.waitForFunction(() => Boolean(
+    (document.querySelector('#__nuxt') as HTMLElement & { __vue_app__?: unknown })?.__vue_app__
+  ))
+}
 
 async function renderedPoiTypes(page: import('@playwright/test').Page) {
   return page.evaluate(() => {
