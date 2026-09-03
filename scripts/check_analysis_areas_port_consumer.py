@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.platform.modules.discovery import activate_enabled_module_python_paths
 from app.platform.modules.sdk import PolygonQueryPort, PolygonScope
 
 
@@ -71,6 +72,7 @@ class _PolygonConsumer:
 
 
 async def check() -> None:
+    activate_enabled_module_python_paths()
     session = _ContractSession()
     scope = await module_owned_polygon_scope(  # type: ignore[arg-type]
         session, UUID("b0773da4-4782-4dca-8d49-d2db77bba055")

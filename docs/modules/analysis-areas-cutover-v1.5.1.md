@@ -1,10 +1,13 @@
-# Analysis Areas v1.5.1: finaler Cutover-Nachweis
+# Analysis Areas v1.5.1: historischer fehlgeschlagener Cutover-Nachweis
 
 Stand: 2026-09-03 · Issue
 [#197](https://github.com/oklabflensburg/open-city-planner/issues/197)
 
-Dieser Bericht trennt implementierte Gates von tatsächlich ausgeführten
-Nachweisen. Ein blockiertes Gate wird nicht als erfolgreich gewertet.
+Dieser historische Bericht trennt implementierte Gates von tatsächlich
+ausgeführten Nachweisen. v1.5.1 wurde nicht nachträglich verändert und bleibt
+wegen des unten dokumentierten `ST_Box3D(geometry)`-Fehlers ein fehlgeschlagener
+Gate-Nachweis. Der aktive Abschlussnachweis steht in
+[`analysis-areas-cutover-v1.5.2.md`](analysis-areas-cutover-v1.5.2.md).
 
 ## Release-Pin
 

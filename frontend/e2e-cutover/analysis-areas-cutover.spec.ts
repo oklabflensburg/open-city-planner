@@ -49,9 +49,11 @@ test.describe('installed Analysis Areas v1.5.2', () => {
   })
 
   test('contributes visible and interactive map layers', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.setViewportSize({ width: 1024, height: 768 })
     await page.goto('/karte?gebiet=innenstadt-test')
     await expect(page.getByText('Analysegebiete sind auf der Karte verfügbar.')).toBeAttached()
+    await expect(page.locator('[data-gis-layout]')).toHaveAttribute('data-gis-layout', 'compact')
+    await page.getByRole('button', { name: 'Filter öffnen' }).click()
     const districtToggle = page.getByRole('checkbox', { name: 'Stadtteile anzeigen' })
     await expect(districtToggle).toBeVisible()
     await expect(districtToggle).toBeChecked()
