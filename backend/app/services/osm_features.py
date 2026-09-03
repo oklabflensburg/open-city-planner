@@ -28,7 +28,11 @@ from app.services.osm_canonical import (
 from app.services.osm_exclusions import should_exclude_osm_feature
 from app.services.osm_lookup import normalize_osm_tags
 from app.services.osm_occupancy import detect_osm_occupancy_status
-from app.services.poi_categories import OSM_FEATURE_CATEGORIES, OSM_FEATURE_CATEGORY_SQL
+from app.services.poi_categories import (
+    OSM_FEATURE_CATEGORIES,
+    OSM_FEATURE_CATEGORY_SQL,
+    POI_TYPE_SQL,
+)
 
 OSM_VIEWPORT_CACHE_RESOURCE = "osm:viewport:v5"
 
@@ -43,6 +47,7 @@ WITH bounds AS (
   SELECT osm.osm_type, osm.osm_id, osm.tags, osm.geometry, osm.imported_at,
          ST_Dimension(osm.geometry) AS dimension,
          {OSM_FEATURE_CATEGORY_SQL} AS category,
+         {POI_TYPE_SQL} AS poi,
          {CANONICAL_CATEGORY_SQL} AS canonical_category,
          {CANONICAL_FLOOR_SQL} AS canonical_floor,
          {CANONICAL_STATUS_SQL} AS canonical_status,
@@ -79,6 +84,7 @@ WITH bounds AS (
     END AS output_geometry
   FROM categorized
   WHERE category IS NOT NULL
+    AND (CAST(:poi AS text) IS NULL OR poi = CAST(:poi AS text))
     AND (NOT :deduplicate_linked OR NOT is_linked)
     AND (cardinality(CAST(:osm_categories AS text[])) = 0 OR category = ANY(CAST(:osm_categories AS text[])))
     AND (canonical_category IS NULL OR (
@@ -117,10 +123,7 @@ SELECT selected.osm_type, selected.osm_id, selected.tags, selected.category,
        facets.canonical_facets,
        COALESCE(linked.polygons, '[]'::json) AS linked_polygons,
        ST_AsGeoJSON(output_geometry, 6)::json AS geometry,
-       COALESCE(tags->>'shop', tags->>'amenity', tags->>'office', tags->>'craft',
-                tags->>'tourism', tags->>'leisure', tags->>'healthcare',
-                tags->>'public_transport', tags->>'building', tags->>'landuse',
-                tags->>'natural') AS primary_type
+       selected.poi AS primary_type
 FROM facets
 LEFT JOIN limited selected ON true
 LEFT JOIN LATERAL (
@@ -168,6 +171,7 @@ def osm_viewport_cache_params(
         "y_range": [bucket["y_min"], bucket["y_max"]],
         "zoom": round(query.zoom, 1),
         "categories": sorted(categories),
+        "poi": query.poi,
         "buildings": query.buildings,
         "limit": query.limit,
         "filters": filters.cache_params(),
@@ -257,6 +261,7 @@ async def viewport_features_json(
                     "east": bucket["east"],
                     "north": bucket["north"],
                     "zoom": query.zoom,
+                    "poi": query.poi,
                     "osm_categories": list(categories),
                     "gis_categories": list(filters.categories),
                     "floors": list(filters.floors),
@@ -284,6 +289,7 @@ async def viewport_features_json(
         rows = [
             row for row in rows
             if not should_exclude_osm_feature(row["tags"] or {})
+            and (query.poi is None or row.get("primary_type") == query.poi)
             and (not deduplicate_linked or not row.get("linked_polygons"))
             and _matches_business_filters(
                 row["tags"] or {}, filters,

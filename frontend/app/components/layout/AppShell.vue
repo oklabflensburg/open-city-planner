@@ -75,7 +75,7 @@ useGisFilterHistory()
 const isDesktop = ref(false)
 const isCompact = ref(false)
 const isMobile = computed(() => !isDesktop.value && !isCompact.value)
-const activeFilterCount = computed(() => filterStore.activeFilterCount)
+const activeFilterCount = computed(() => filterStore.activeFilterCount + (osmStore.poi ? 1 : 0))
 const resultCount = computed(() => usePolygonStore().polygons.length + (osmStore.data?.meta.business_count || 0))
 const resultLabel = computed(() => resultCount.value ? `${resultCount.value} Ergebnisse anzeigen` : 'Keine Ergebnisse')
 const activePanelTitle = computed(() => {

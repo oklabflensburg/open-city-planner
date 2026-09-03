@@ -1,6 +1,10 @@
 <template>
   <section aria-labelledby="osm-filter-title">
     <h3 id="osm-filter-title" class="text-xs font-bold uppercase tracking-wide text-slate-500">OpenStreetMap</h3>
+    <div v-if="osm.poi" class="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[#8baabd] bg-[#edf5f8] p-3">
+      <p class="min-w-0 text-xs font-semibold text-[#154d73]">POI-Kategorie: {{ getPoiCategoryLabel(osm.poi) }}</p>
+      <button class="min-h-8 shrink-0 cursor-pointer rounded-lg px-2 text-xs font-bold text-[#154d73] hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#154d73]" type="button" @click="osm.clearPoi()">Entfernen</button>
+    </div>
     <div class="mt-3 grid gap-1 text-sm text-slate-700" :class="{ 'opacity-60': !osmEnabled }">
       <GisFilterToggleRow v-model="osm.showPois" label="Orte und Einrichtungen anzeigen" aria-label="Orte und Einrichtungen aus OpenStreetMap anzeigen" :disabled="!osmEnabled" />
       <GisFilterToggleRow v-model="osm.showAreas" label="Flächenobjekte anzeigen" aria-label="OpenStreetMap-Flächenobjekte anzeigen" :disabled="!osmEnabled" />
@@ -26,6 +30,7 @@
 
 <script setup lang="ts">
 import { osmPoiCategories } from '~/utils/osmCategories'
+import { getPoiCategoryLabel } from '~/utils/poiCategories'
 
 const osm = useOsmViewportStore()
 const filter = useFilterStore()
