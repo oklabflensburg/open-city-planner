@@ -10,7 +10,7 @@ const removedPaths = [
   'app/stores/analytics.ts',
   'app/stores/comparison.ts',
   'app/stores/search.ts',
-  'frontend-modules/analysis-areas/module.json'
+  'frontend-modules/analysis-areas'
 ]
 const forbiddenRuntimeTokens = [
   '/api/v1/analysis-areas',
