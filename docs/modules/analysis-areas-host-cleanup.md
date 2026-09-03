@@ -78,4 +78,8 @@ Die regulären Required-Jobs bauen daraus deterministisch ein minimales
 backend-only `.ocp`-Bundle und installieren es deaktiviert über den lokalen
 Installer. Sie hängen dadurch nicht von der Live-Registry ab und prüfen dennoch
 den echten Bundle-, Installer- und Migrationspfad. Dieses Fixture enthält bewusst
-keine Fachruntime.
+keine Fachruntime. Seine modulspezifischen Metadaten stehen ausschließlich in
+`backend/tests/fixtures/module_migrations/analysis_areas.json`. Der generische
+Builder `build_module_migration_bundle.py` kennt weder Modul-ID noch Schema,
+Paket oder Revisions-Namespace und kann mit einer zweiten Fixture-Definition
+dieselbe passive Bundle-Struktur für ein beliebiges anderes Modul erzeugen.

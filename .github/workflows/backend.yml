@@ -100,7 +100,8 @@ jobs:
       - name: Build and install passive Analysis Areas migration fixture
         working-directory: backend
         run: |
-          uv run python tests/fixtures/build_analysis_areas_migration_bundle.py \
+          uv run python tests/fixtures/build_module_migration_bundle.py \
+            --fixture tests/fixtures/module_migrations/analysis_areas.json \
             --source-commit "${GITHUB_SHA}" \
             --output "${RUNNER_TEMP}/analysis-areas-migrations.ocp"
           uv run python -m app.cli.modules \

@@ -50,13 +50,18 @@ Cache nicht benötigen. Externe Netzwerkzugriffe sind in der E2E-Umgebung
 deaktiviert beziehungsweise in den betroffenen Tests gemockt.
 
 Die Required-Jobs `backend-migrations` und `e2e` beziehen keine Module aus der
-Live-Registry. Sie erzeugen aus den eingecheckten, bytegleichen
-Analysis-Areas-Migrations-Fixtures deterministisch ein minimales backend-only
-`.ocp`-Bundle und installieren es deaktiviert über den normalen lokalen
-Installerpfad. Dieses Fixture stellt ausschließlich die passive gemeinsame
-Alembic-Historie bereit und ist keine Analysis-Areas-Runtime. Der vollständige
-Runtime-Cutover wird separat im Cross-Repo-Contract mit dem gepinnten v1.5.0-
-Quellstand geprüft; Veröffentlichung und Live-Registry-E2E bleiben #197.
+Live-Registry. Der generische Test-Builder
+`backend/tests/fixtures/build_module_migration_bundle.py` liest eine strikt
+validierte Fixture-Definition und erzeugt daraus deterministisch ein minimales
+backend-only `.ocp`-Bundle. Für den historischen Graphen verweist die konkrete
+Definition `module_migrations/analysis_areas.json` auf die eingecheckten,
+bytegleichen Revisionen. Das Bundle wird deaktiviert über den normalen lokalen
+Installerpfad installiert. Es stellt ausschließlich die passive gemeinsame
+Alembic-Historie bereit und ist keine Analysis-Areas-Runtime. Ein weiteres Modul
+kann denselben Builder mit einer eigenen Definition und einem eigenen
+Migrationsverzeichnis verwenden. Der vollständige Runtime-Cutover wird separat
+im Cross-Repo-Contract mit dem gepinnten v1.5.0-Quellstand geprüft;
+Veröffentlichung und Live-Registry-E2E bleiben #197.
 
 Playwright installiert sein eigenes Chromium. Fehlgeschlagene Läufe laden Traces,
 Screenshots und den HTML-Bericht für sieben Tage als Artefakt hoch. Retries bleiben
@@ -92,7 +97,8 @@ uv run ruff check app tests
 uv run pytest
 uv run python -c "from app.main import app; assert app.title"
 export OCP_MODULE_INSTALL_ROOT=/tmp/ocp-ci-modules
-uv run python tests/fixtures/build_analysis_areas_migration_bundle.py \
+uv run python tests/fixtures/build_module_migration_bundle.py \
+  --fixture tests/fixtures/module_migrations/analysis_areas.json \
   --source-commit "$(git rev-parse HEAD)" \
   --output /tmp/analysis-areas-migrations.ocp
 uv run python -m app.cli.modules --root "$OCP_MODULE_INSTALL_ROOT" \
@@ -149,7 +155,8 @@ cd backend
 uv sync --frozen --extra dev --no-editable
 export ENABLED_MODULES=
 export OCP_MODULE_INSTALL_ROOT=/tmp/ocp-e2e-modules
-uv run python tests/fixtures/build_analysis_areas_migration_bundle.py \
+uv run python tests/fixtures/build_module_migration_bundle.py \
+  --fixture tests/fixtures/module_migrations/analysis_areas.json \
   --source-commit "$(git rev-parse HEAD)" \
   --output /tmp/analysis-areas-migrations.ocp
 uv run python -m app.cli.modules --root "$OCP_MODULE_INSTALL_ROOT" \

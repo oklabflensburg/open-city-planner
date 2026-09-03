@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from app.cli import module_migrations as module_migration_cli
 from app.core.config import get_settings
 from app.db.base import Base
 from app.integrations.module_host_ports import HostCacheGenerations
@@ -41,6 +42,8 @@ from app.platform.modules import (
     validate_manifests,
 )
 from app.platform.modules import migrations as module_migrations
+from app.platform.modules.bundle import staged_ocp_bundle
+from app.platform.modules.installer import ModuleInstaller
 from app.platform.modules.migrations import MigrationCoordinator
 from app.platform.modules.persistence import (
     HostDatabaseSessionProvider,
@@ -52,6 +55,7 @@ from app.platform.modules.persistence import (
     revision_namespace_for,
 )
 from app.services import cache_versions
+from tests.fixtures.build_module_migration_bundle import build_bundle, load_fixture
 from tests.fixtures.example_backend_module import DEFINITION as EXAMPLE_DEFINITION
 from tests.fixtures.example_persistence_module import DEFINITION as DEPENDENT_DEFINITION
 from tests.test_module_runtime import FakeDiscovery, definition, runtime_for
@@ -1036,6 +1040,50 @@ async def test_reference_module_migration_up_down_and_seed_data(
     assert schema is None
 
     await asyncio.to_thread(coordinator.upgrade)
+    async with engine.connect() as connection:
+        revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
+    assert revision == "mod_reference_20260901_0002"
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disabled_installed_analysis_fixture_upgrades_fresh_database(
+    fresh_database_url: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = load_fixture(BACKEND_ROOT / "tests/fixtures/module_migrations/analysis_areas.json")
+    bundle = tmp_path / "analysis-history.ocp"
+    build_bundle(bundle, fixture, source_commit="c" * 40)
+    installer = ModuleInstaller(tmp_path / "modules", host_version="0.2.0")
+    with staged_ocp_bundle(bundle) as (package_root, _package):
+        installed = installer.install(package_root)
+    assert installed.enabled is False
+
+    monkeypatch.setenv("DATABASE_URL", fresh_database_url)
+    monkeypatch.setenv("ENABLED_MODULES", "")
+    get_settings.cache_clear()
+    try:
+        preflight = await asyncio.to_thread(
+            module_migration_cli.run,
+            "preflight",
+            install_root=installer.root,
+            enabled_module_ids=(),
+        )
+        upgraded = await asyncio.to_thread(
+            module_migration_cli.run,
+            "upgrade",
+            install_root=installer.root,
+            enabled_module_ids=(),
+        )
+    finally:
+        get_settings.cache_clear()
+
+    assert preflight is not None
+    assert upgraded is not None
+    assert preflight[-1].revision == "mod_reference_20260901_0002"
+    assert upgraded[-1].revision == "mod_reference_20260901_0002"
+    engine = create_async_engine(fresh_database_url)
     async with engine.connect() as connection:
         revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
     assert revision == "mod_reference_20260901_0002"
