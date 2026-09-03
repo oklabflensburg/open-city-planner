@@ -26,11 +26,12 @@ bei reinen Dokumentationsänderungen nicht.
 | Supply Chain | `sbom` | transitive CycloneDX-SBOMs für Backend und Frontend |
 | Module Contract Gate | `Module contract gate` | Backend-/Frontend-Importgrenzen, Manifest-, Dependency-, Registry-, Map- und SSR-Verträge ohne Playwright |
 
-Der Cross-Repo-Teil des Module Contract Gate baut `ocp-module-analysis-areas`
-reproduzierbar vom v1.5.0-Commit
-`df8b067757b9bf20fbc54efc9555f3388bd951ff`, prüft Bundle, deaktivierte
-Installation, Migration Ownership, Enable/Disable/Re-enable und die bestehenden
-API-Characterization-Tests. Eine zusätzliche Consumer-Probe liest die
+Der Cutover-Teil des Module Contract Gate installiert `analysis-areas` v1.5.1
+mit dem exakten SHA-256
+`8fd4b21c2da820f2d036f126848293395d4da772201f8473c07c0ef38e068bc9`
+über die produktive Registry und den normalen Installer. Er prüft Bundle,
+deaktivierte Installation, Migration Ownership, Enable/Disable/Re-enable,
+API-Characterization und die relevanten Playwright-Flows. Eine zusätzliche Consumer-Probe liest die
 Area→Polygon-Relation ausschließlich über die Persistenzmodelle des externen
 Moduls und übergibt einen neutralen `PolygonScope` an den Host-Port.
 `scripts/check_external_module_imports.py` verbietet im installierbaren Paket
@@ -60,8 +61,8 @@ Installerpfad installiert. Es stellt ausschließlich die passive gemeinsame
 Alembic-Historie bereit und ist keine Analysis-Areas-Runtime. Ein weiteres Modul
 kann denselben Builder mit einer eigenen Definition und einem eigenen
 Migrationsverzeichnis verwenden. Der vollständige Runtime-Cutover wird separat
-im Cross-Repo-Contract mit dem gepinnten v1.5.0-Quellstand geprüft;
-Veröffentlichung und Live-Registry-E2E bleiben #197.
+im Registry-Cutover-Job geprüft. Die regulären Backend- und E2E-Jobs bleiben
+absichtlich netzwerkunabhängig.
 
 Playwright installiert sein eigenes Chromium. Fehlgeschlagene Läufe laden Traces,
 Screenshots und den HTML-Bericht für sieben Tage als Artefakt hoch. Retries bleiben
