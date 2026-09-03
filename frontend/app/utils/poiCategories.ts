@@ -67,6 +67,17 @@ export function isPoiCategoryToken(category: unknown): category is string {
   return typeof category === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$/.test(category)
 }
 
+export function poiFromQuery(value: unknown): string | null {
+  return isPoiCategoryToken(value) ? value : null
+}
+
+export function withPoiQuery(url: URL, poi: string | null): URL {
+  const next = new URL(url)
+  next.searchParams.delete('poi')
+  if (poi) next.searchParams.set('poi', poi)
+  return next
+}
+
 export function withoutPoiQuery<T extends Record<string, unknown>>(query: T) {
   const result = { ...query }
   delete result.poi

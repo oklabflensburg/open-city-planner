@@ -112,7 +112,9 @@ export function useMapCanvasHost() {
   })
 
   const visibleFeatureCollection = computed<FeatureCollection>(() => polygonStore.featureCollection as FeatureCollection)
-  const showEmptyState = computed(() => filterStore.activeFilterCount > 0 && filterStore.selectedSources.length > 0
+  const showEmptyState = computed(() => osmStore.poi
+    ? !osmStore.loading && (osmStore.data?.meta.count || 0) === 0
+    : filterStore.activeFilterCount > 0 && filterStore.selectedSources.length > 0
     && !polygonStore.loading && !osmStore.loading
     && polygonStore.polygons.length === 0 && (osmStore.data?.meta.business_count || 0) === 0)
 
@@ -248,7 +250,7 @@ export function useMapCanvasHost() {
   })
   watch(() => mapStore.polygonsVisible, setPolygonVisibility)
   watch(
-    () => [osmStore.showPois, osmStore.showAreas, osmStore.showBuildings, osmStore.activeCategories.join(',')],
+    () => [osmStore.showPois, osmStore.showAreas, osmStore.showBuildings, osmStore.activeCategories.join(','), osmStore.poi],
     () => scheduleOsmViewportRefresh(0)
   )
   watch(() => [route.query.polygon, route.query.flaeche], async () => {
@@ -646,6 +648,7 @@ export function useMapCanvasHost() {
   }
 
   function resetVisibleFilters() {
+    osmStore.clearPoi()
     filterStore.reset()
   }
 

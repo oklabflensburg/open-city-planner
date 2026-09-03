@@ -57,6 +57,14 @@ def test_category_filter_is_allowlisted() -> None:
         selected_categories("retail,drop table")
 
 
+def test_poi_filter_accepts_only_a_single_safe_semantic_category() -> None:
+    assert query(poi="cafe").poi == "cafe"
+    with pytest.raises(ValidationError):
+        query(poi="cafe,restaurant")
+    with pytest.raises(ValidationError):
+        query(poi="drop table")
+
+
 def test_central_exclusion_policy_only_rejects_peninsulas() -> None:
     assert should_exclude_osm_feature({"natural": "peninsula"}) is True
     assert should_exclude_osm_feature({"natural": "wood"}) is False
@@ -145,6 +153,7 @@ def test_viewport_sql_preserves_spatial_index_and_zoom_policy() -> None:
     assert "group_rank <= :polygon_limit" in sql
     assert "group_rank <= :building_limit" in sql
     assert "canonical_category" in sql
+    assert "CAST(:poi AS text) IS NULL OR poi = CAST(:poi AS text)" in sql
     assert "canonical_floor" in sql
     assert "canonical_status" in sql
     assert "polygon_osm_sources" in sql
@@ -171,6 +180,23 @@ async def test_business_filters_apply_to_osm_while_context_pois_remain_visible()
     assert result.meta.business_count == 1
     assert result.meta.context_count == 1
     assert result.meta.canonical_summary == {"fashion": 1}
+
+
+@pytest.mark.asyncio
+async def test_semantic_poi_filter_is_applied_before_viewport_results_are_limited() -> None:
+    imported_at = datetime(2026, 8, 13, tzinfo=UTC)
+    rows = [
+        {"osm_type": "node", "osm_id": 30, "tags": {"amenity": "restaurant"}, "category": "gastronomy", "dimension": 0, "imported_at": imported_at, "geometry": {"type": "Point", "coordinates": [9.43, 54.78]}, "primary_type": "restaurant"},
+        {"osm_type": "node", "osm_id": 31, "tags": {"amenity": "cafe"}, "category": "gastronomy", "dimension": 0, "imported_at": imported_at, "geometry": {"type": "Point", "coordinates": [9.431, 54.781]}, "primary_type": "cafe"},
+    ]
+    session = AsyncMock()
+    session.execute.return_value = MappingRows(rows)
+
+    result = await viewport_features(session, query(limit=10, poi="cafe"))
+
+    assert [feature.id for feature in result.features] == ["node/31"]
+    params = session.execute.await_args.args[1]
+    assert params["poi"] == "cafe"
 
 
 @pytest.mark.asyncio

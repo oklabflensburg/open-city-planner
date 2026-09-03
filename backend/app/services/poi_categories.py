@@ -63,3 +63,13 @@ END
 """
 
 OSM_FEATURE_CATEGORIES = frozenset(POI_CATEGORY_LABELS)
+
+# Semantic POI type exposed to map consumers. The precedence mirrors the
+# existing ``primary_type`` response property while keeping OSM tag names an
+# implementation detail of this provider.
+POI_TYPE_SQL = """
+COALESCE(tags->>'shop', tags->>'amenity', tags->>'office', tags->>'craft',
+         tags->>'tourism', tags->>'leisure', tags->>'healthcare',
+         tags->>'public_transport', tags->>'building', tags->>'landuse',
+         tags->>'natural')
+"""
