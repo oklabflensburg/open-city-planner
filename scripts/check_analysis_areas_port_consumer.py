@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import sys
-from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy import select
@@ -16,13 +14,7 @@ from app.platform.modules.sdk import PolygonQueryPort, PolygonScope
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "module_source",
-        type=Path,
-        help="Path containing the ocp_module_analysis_areas Python package",
-    )
-    return parser.parse_args()
+    return argparse.ArgumentParser().parse_args()
 
 
 async def module_owned_polygon_scope(
@@ -93,11 +85,7 @@ async def check() -> None:
 
 
 def main() -> int:
-    args = parse_args()
-    source = args.module_source.resolve()
-    if not (source / "ocp_module_analysis_areas").is_dir():
-        raise SystemExit(f"Analysis Areas package not found below {source}")
-    sys.path.insert(0, str(source))
+    parse_args()
     asyncio.run(check())
     return 0
 
