@@ -1,126 +1,144 @@
-# Analysis Areas v1.5.3: blockierter finaler Cutover-Nachweis
+# Analysis Areas v1.5.3: finaler Cutover-Nachweis
 
 Stand: 2026-09-03 · Issue
-[#197](https://github.com/oklabflensburg/open-city-planner/issues/197)
+[#197](https://github.com/oklabflensburg/open-city-planner/issues/197) · **PASS**
 
-Der produktive Registry-Cutover wurde mit dem unveränderten Release v1.5.3
-durchgeführt. Der Statistics-Fehler aus v1.5.2 ist behoben: Analytics,
-Statistics Summary und Statistics Series liefern mit dem installierten Release
-HTTP 200. Der finale Cutover bleibt wegen einer nicht wirksamen
-POI-Kartenfilter-Navigation im veröffentlichten Frontend-Artefakt blockiert. Es
-wurde kein Release-Inhalt ersetzt oder gepatcht.
+Der finale produktionsnahe Registry-Cutover wurde mit dem unveränderten Release
+v1.5.3 vollständig bestanden. Der kanonische Host-Vertrag aus #216 / PR #217
+verwendet `poi` durchgängig; Analytics, Statistics Summary, Statistics Series,
+der reale POI-Kartenflow sowie Disable und Re-enable sind grün. Es wurde weder
+ein Modul-Artefakt verändert noch ein neues Modul-Release erzeugt oder
+ausgerollt.
 
 ## Release-Pin und Testkontext
 
 | Feld | Wert |
 | --- | --- |
-| Host-Basis-SHA | `f99ca70131fa3787d618c89d8a09ea6d64a74286` |
-| Getesteter Host-SHA | `9d46e365fcbc21cf23bbea82502a98374b4b5caa` (Cutover-Code; dieser Nachweis folgt als separater Dokumentations-Commit) |
+| Kanonische Host-Basis | `3f6fe2ffd132ed011b0dac01d814c8e55cbb7414` (`staging/epic-91-modular-host`) |
+| Getesteter Cutover-Code | `e6e987f3a758e30e1d04d70282a69d44b248eefa` (dieser Nachweis folgt als separater Dokumentations-Commit) |
 | Analysis Areas Version | `1.5.3` |
-| Analysis Areas Release SHA-256 | `88ead403d89209c155b78101676b691a642139991cf9fd0787115ccfe0338f6b` |
+| Analysis Areas SHA-256 | `88ead403d89209c155b78101676b691a642139991cf9fd0787115ccfe0338f6b` |
 | Source Repository | `https://github.com/oklabflensburg/ocp-module-analysis-areas` |
 | Source Tag | `v1.5.3` |
 | Source Commit | `06a675a4237fca397b37c0aeb935ecd60557073a` |
-| Registry | `https://packages.stadtplaner.oklabflensburg.de` |
-| Registry Channel | `stable` |
+| Registry / Channel | `https://packages.stadtplaner.oklabflensburg.de` / `stable` |
 | Statistics-Abhängigkeit | `0.2.0`, SHA-256 `cbefa3309642f4b06e8600c56552143d6b53d76472ddc574d889a67d3147e193` |
 | Migration Head | `mod_reference_20260901_0002` |
-| Datenbank | frisches `postgis/postgis:16-3.5` aus dem CI-Digest-Pin |
+| Datenbank | frisches `postgis/postgis:16-3.5` mit dem in CI gepinnten Image-Digest |
 
-Der Lauf verwendete ausschließlich `app.cli.modules install-registry` gegen
-die produktive Registry. Weder das Modul-Repository noch ein lokaler Modul-Build,
-ein Ersatz-Wheel, eine direkte Wheel-Installation oder ein `PYTHONPATH`-Workaround
-kamen zum Einsatz. Registry-Index und Modulmetadaten lieferten Version, Digest,
-Source Tag und Source Commit passend zum Pin.
+Registry-Index und Modulmetadaten wurden live gegen die produktive Registry
+aufgelöst. Installation und Lifecycle verwendeten ausschließlich den normalen
+Pfad `app.cli.modules install-registry`. Es gab keinen lokalen Modul-Checkout,
+keinen lokalen Modul-Build, kein Ersatz-Wheel, keine direkte Wheel-Injektion,
+keinen `PYTHONPATH`- oder Host-/Modul-Workaround und keinen parallelen alten
+Query-Vertrag. Registry, Tags, Releases und Produktionssysteme wurden nicht
+verändert.
 
-## Ausgeführter Lifecycle und Regressionen
+## Vollständiger Lifecycle
 
-Statistics 0.2.0 und Analysis Areas 1.5.3 wurden disabled installiert. In
-diesem Zustand fehlten API-, Job-, Runtime-, Navigations-, Map- und
-Sitemap-Contributions, während die vier externen Analysis-Areas-Migrationen
-passiv gefunden und bytegleich mit den Host-Fixtures geprüft wurden. Der
-Disabled-Frontend-Build war erfolgreich.
+Statistics 0.2.0 und Analysis Areas 1.5.3 wurden zunächst disabled in einen
+leeren Modul-Root installiert. Ein absichtlich falscher Digest wurde abgelehnt,
+ohne das Lockfile zu verändern; die erneute Installation des korrekten Pins war
+idempotent. Im Disabled-Zustand gab es keine Runtime-, API-, Job-, Navigations-,
+Map- oder Sitemap-Contributions. Die externen Migrationen blieben passiv
+auffindbar und waren bytegleich mit den Host-Fixtures. Modulprüfung und
+Production Build waren disabled erfolgreich.
 
-Danach wurden beide Module über das normale CLI aktiviert. Der modulbewusste
-Preflight und zwei idempotente Upgrades liefen auf einer frischen PostGIS-
-Datenbank bis zum gemeinsamen Head `mod_reference_20260901_0002`. Die
-deterministischen Seeds enthielten danach zwei Analysegebiete und zwei
-Statistikbeobachtungen.
+Anschließend wurden Statistics und Analysis Areas über das normale CLI
+aktiviert. Preflight und zwei aufeinanderfolgende Upgrades waren idempotent und
+endeten bei `mod_reference_20260901_0002`. Die deterministischen Host- und
+Cutover-Seeds erzeugten zwei Analysegebiete und zwei Statistikbeobachtungen.
+Es wurden keine Migrationen gestempelt, neu gebaselined oder heruntergestuft und
+die Datenbank wurde während des Lifecycle nicht zurückgesetzt.
 
-Der produktive UUID-Pfad
-`/api/v1/analysis-areas/11111111-1111-4111-8111-222222222222/analytics`
-lieferte HTTP 200, eine gültige Bounding Box, genau einen POI und die Kategorie
-`cafe`; der historische `ST_Box3D`-Fehler trat nicht auf. Sowohl
-`/api/v1/analysis-areas/by-slug/innenstadt-test/statistics` als auch
-`/api/v1/analysis-areas/by-slug/innenstadt-test/statistics/cutover_population`
-lieferten HTTP 200. `area.id` und `statistics_area.id` waren in beiden JSON-
-Antworten Strings; Series-Datum und Dezimalwert waren korrekt serialisiert.
+Der UUID-Analytics-Endpunkt lieferte HTTP 200, die erwartete Bounding Box und
+genau einen POI mit `primary_type=cafe`. Statistics Summary und Series lieferten
+HTTP 200; IDs wurden als Strings sowie Datum und Dezimalwert vertragsgemäß
+serialisiert. Der Browserflow öffnete
+`/karte?gebiet=innenstadt-test&poi=cafe`, beobachtete den realen Request
+`/api/v1/osm/features?...&poi=cafe`, erhielt ausschließlich Cafe-Features und
+prüfte dieselben Daten in der MapLibre-Quelle `osm-pois`. Der ausgemusterte
+öffentliche Query-Key ist weder im URL-Vertrag noch im Request erforderlich.
+
+Nach dem aktiven Gesamtlauf wurde Analysis Areas normal deaktiviert. Statistics
+blieb aktiv, passive Migration Discovery, Disabled-Assertions, Modulprüfung und
+Build blieben grün; Daten und Migrationsstand wurden nicht zurückgesetzt. Die
+anschließende Reaktivierung erfolgte ohne Neuinstallation oder Reimport. Danach
+bestanden Runtime-, API-, Analytics-, Statistics-, Frontend- und Browser-Smoke-
+Prüfungen erneut.
 
 ## Gate-Matrix
 
 | Gate | Ergebnis | Nachweis |
 | --- | --- | --- |
-| Registry resolution | PASS | produktiver Stable-Channel löst `analysis-areas@1.5.3` auf |
-| Digest | PASS | Registry- und heruntergeladener Bundle-Digest entsprechen exakt dem Pin |
-| Bundle verify | PASS | Manifest, Publisher, Provenienz sowie Backend- und Frontend-Artefakte verifiziert |
-| Install disabled | PASS | normaler produktiver Registry-/Installerpfad, keine implizite Aktivierung |
-| `modules.lock` | PASS | Version 1.5.3, exakter Digest, Provenienz und `enabled: false` korrekt |
-| Passive migration discovery | PASS | vier historische Migrationen bytegleich und disabled discoverbar |
-| Enable | PASS | Statistics und Analysis Areas über das normale CLI aktiviert |
-| Migration preflight | PASS | eine zusammenhängende globale Lineage |
-| Migration upgrade | PASS | zweimal idempotent bis `mod_reference_20260901_0002` |
-| Backend | PASS für #197 | installierte Runtime, API-Characterization und Port-Consumer grün |
-| Analytics HTTP | PASS | HTTP 200, POI-Analytics und Bounding Box gültig |
-| Statistics Summary HTTP | PASS | HTTP 200, beide IDs als JSON-Strings, Daten vorhanden |
-| Statistics Series HTTP | PASS | HTTP 200, beide IDs als JSON-Strings, Datum/Decimal und Series vorhanden |
-| OSM Sync | PASS (Vertrag) | OSM-Daten und öffentlicher Port-Consumer im installierten Runtime-Vertrag geprüft |
-| Wikidata | PASS (Vertrag) | Job-Capability sowie Wikidata-/Wikipedia-Links geprüft |
-| Frontend | PASS | Modul-Preflight, Typecheck, SSR-Contract und aktiver Production Build grün |
-| SSR | PASS | Modul-SSR-Contract und reale Gebietsdetailseite grün |
-| Map | PASS | Layer-Contribution sichtbar und im Browser bedienbar |
-| SEO | PASS | Overview, Canonical und JSON-LD im Browserlauf geprüft |
-| Sitemap | PASS | `/gebiete` und `/gebiete/innenstadt-test` enthalten |
-| Playwright | **FAIL (Release)** | 2 von 3 Flows PASS; POI-Link setzt keinen wirksamen Kartenfilter |
-| Security | PASS (lokale Policy-Gates) | externe Importgrenze und Security-Policy-Tests grün |
-| Supply Chain | PASS | lokale Supply-Chain-Prüfungen und exakter Release-Pin grün |
-| Ansible | PASS | Unit- und Syntaxprüfungen grün |
-| Deployment smoke | **BLOCKED** | Build/Start/API grün; vollständiger Nutzerflow ist wegen POI-Navigation rot |
-| Disable | **NOT RUN** | laut Ablauf erst nach vollständig grünem aktivem Zustand |
-| Re-enable | **NOT RUN** | wegen blockiertem Disable-Schritt nicht begonnen |
-| Rollback | PASS (Runbook), **BLOCKED** (Release) | deaktivierungsbasierter Ablauf dokumentiert; v1.5.3-Abschluss nicht freigegeben |
+| Registry-Auflösung / Metadaten | PASS | Stable löst beide exakten Versionen, Digests und die v1.5.3-Provenienz auf |
+| Digest / Bundle-Verifikation | PASS | absichtlich falscher Digest abgelehnt; Manifest, Publisher, Provenienz und Artefakte des korrekten Bundles verifiziert |
+| Install disabled / Lockfile | PASS | normaler Registry-Installer, `enabled: false`, zweite Installation idempotent |
+| Passive Migration Discovery | PASS | externe Migrationen disabled auffindbar und bytegleich mit den Host-Fixtures |
+| Enable / Migration | PASS | normales CLI, Preflight und zwei idempotente Upgrades bis zum exakten Head |
+| Analytics HTTP | PASS | HTTP 200, Bounding Box und genau ein Cafe-POI |
+| Statistics Summary HTTP | PASS | HTTP 200, String-IDs und erwartete Daten |
+| Statistics Series HTTP | PASS | HTTP 200, String-IDs sowie korrektes Datum/Decimal |
+| POI-Vertrag und reale Map-Daten | PASS | `poi=cafe` in URL, echtem Backend-Request, Response und MapLibre-Quelle; kein alter öffentlicher Query-Vertrag |
+| Deep-Link / Reload / Änderung / Entfernen / History | PASS | isolierter #217-POI-E2E gegen frische PostGIS-Datenbank: 1/1 |
+| Cutover Playwright | PASS | 3/3 reale Registry-Cutover-Flows |
+| Standard Playwright | PASS | 55/55 auf frischer PostGIS-Datenbank, einschließlich #217-Regression |
+| Backend Contracts | PASS | Architektur-Gate sowie 432 Tests; 8 erwartete DB-Skips im DB-losen Contract-Workflow |
+| Backend Gesamt | PASS für den Cutover | 835/837 im Gesamtlauf; beide übrigen Tests exakt auf unveränderter Base reproduziert und isoliert grün |
+| Frontend Unit | PASS | 80 Dateien, 462 Tests |
+| Frontend Typecheck / Build | PASS | TypeScript, disabled/enabled Production Builds und finaler Build grün |
+| Frontend Modul-Contracts / SSR | PASS | 7 Dateien, 59 Tests; SSR-Modulvertrag 3/3 |
+| Map / SEO / Sitemap / Sprache | PASS | reale Karte, SEO-Audit, Sitemap-Verträge und 487 Ressourcen ohne unerlaubten Sprachfund |
+| Security | PASS | Importgrenze, 6 Policy-Tests, Backend-/Frontend-Audits, negative Vulnerability-Fixture sowie Gitleaks-Historie/SARIF/Fixtures |
+| Supply Chain | PASS | Policy-Verifikation, 8 Unit-Tests und Online-Prüfung sämtlicher Action-Pins |
+| Ansible | PASS | 41 Unit-Tests und 7 Syntaxprüfungen |
+| Deployment Smoke | PASS | Build, Start, APIs, Overview und reale Browserflows im lokalen produktionsnahen Stack |
+| Disable | PASS | normale Deaktivierung ohne Downgrade oder Datenreset; disabled Verträge und Build grün |
+| Re-enable | PASS | ohne Reinstall/Reimport; aktive Verträge, Analytics, Statistics und Overview erneut grün |
+| Rollback | PASS | deaktivierungsbasierter Ablauf praktisch geprüft und unten dokumentiert |
 
-Die vollständige Backend-Suite auf einer korrekt initialisierten frischen
-PostGIS-Datenbank ergab 828 PASS und sieben FAIL. Fünf Admin-/Audit-Fehler bei
-`REQUIRE_MFA_FOR_SUPERUSERS=true` sind auf der unveränderten Base identisch
-reproduzierbar, weil deren `AuthSession`-Fixtures keine `scalar()`-Methode
-bereitstellen. Zwei Observability-Tests sind auf Cutover und Base nur im
-Gesamtlauf rot und laufen isoliert grün. Diese sieben Baselinefehler sind
-unabhängig vom Cutover. Der Frontend-Gesamtlauf ergab 457 PASS; Typecheck,
-Disabled-/Enabled-Build, SSR-Contract, Sprach- und SEO-Audit waren grün.
+### Einordnung der Backend-Gesamtsuite
 
-## Historische Releaseblocker
+Auf dem Cutover-Branch ergab der korrekt initialisierte Gesamtlauf 835 PASS und
+zwei FAIL. Ausschließlich die beiden reihenfolgeabhängigen Observability-Tests
+`test_request_id_response_log_metrics_and_route_cardinality` und
+`test_fastapi_trace_contains_child_span_and_trace_id_in_log` waren betroffen;
+beide bestanden jeweils isoliert in einem eigenen Prozess.
 
-- v1.5.1 verwendete in PostGIS Analytics ungültig `ST_Box3D(...)`. Der Fehler
-  ist seit v1.5.2 behoben; v1.5.1 blieb unverändert.
-- v1.5.2 übergab UUID-Objekte des Statistics-SDK direkt an String-Felder seines
-  API-Vertrags. Der Fehler ist in v1.5.3 behoben; v1.5.2 blieb unverändert.
+Gemäß der Baseline-Regel wurde derselbe vollständige Lauf in einem separaten
+Worktree auf der unveränderten kanonischen Base
+`3f6fe2ffd132ed011b0dac01d814c8e55cbb7414` und einer eigenen frischen,
+vollständig initialisierten PostGIS-Datenbank wiederholt. Das Resultat war
+identisch: 835 PASS, dieselben zwei FAIL; isoliert bestanden beide Tests auch
+dort. Damit handelt es sich um exakt reproduzierte, bestehende
+Reihenfolgeausreißer der Base und nicht um eine Cutover-Regression. Assertions,
+Fixtures und Gates wurden nicht abgeschwächt.
 
-## Neuer Releaseblocker
+## Historische Blocker und Auflösung
 
-Der mobile reale Nutzerflow klickt auf den Link für die POI-Kategorie `cafe`.
-Das installierte Frontend-Artefakt erzeugt
-`/karte?gebiet=innenstadt-test&poi=cafe`. Die Analysis-Areas-Map-Contribution
-wertet `gebiet` beziehungsweise `area` aus, verarbeitet `poi` aber nicht. Der
-fachneutrale Slim Host besitzt nach dem abgeschlossenen Host-Cleanup bewusst
-keine Analysis-Areas-spezifische Query- oder Filterlogik. Die Kategorie wird
-daher nicht als OSM-Kartenfilter angewandt; der bestehende Playwright-Vertrag
-erwartet weiterhin die wirksame POI-Navigation und schlägt fehl.
+- v1.5.1 verwendete in PostGIS Analytics ungültig `ST_Box3D(...)`; der Fehler
+  wurde behoben.
+- v1.5.2 übergab UUID-Objekte des Statistics-SDK an String-Felder; der Fehler
+  wurde in v1.5.3 behoben.
+- Der erste v1.5.3-Cutover zeigte den Host-Query-Mismatch `poi` gegenüber dem
+  früheren Key. #216 / PR #217 korrigierte den kanonischen, fachneutralen
+  Host-Vertrag. Weil dies eine Host-Contract-Änderung war, blieb das immutable
+  Analysis-Areas-Release v1.5.3 unverändert; ein neues Modul-Release war nicht
+  erforderlich.
 
-Der Fehler liegt im veröffentlichten Modul-Release. Er darf nicht durch eine
-abgeschwächte Assertion, Host-Sonderlogik oder ein lokal verändertes Bundle
-verdeckt werden. Erforderlich ist ein korrigiertes, neu veröffentlichtes
-Analysis-Areas-Release mit immutablem Digest, das die POI-Auswahl über einen
-vorhandenen fachneutralen Kartenvertrag wirksam macht. Danach muss der
-vollständige Registry-Cutover erneut laufen. Bis alle Playwright-Flows sowie
-Disable und Re-enable grün sind, bleiben #197 und #184 offen; es wird kein Pull
-Request für den finalen Cutover erstellt.
+Die historischen Fehlläufe bleiben damit als Ursachen- und Release-Evidenz
+erhalten, blockieren den finalen Lauf aber nicht mehr.
+
+## Rollout und Rollback
+
+Dieser Nachweis hat **kein Production Deploy** ausgeführt. Für den späteren
+Rollout gelten weiterhin der exakte Host-Commit, die beiden Registry-Pins und
+der normale modulbewusste Preflight-/Upgrade-Pfad. Nach dem Rollout müssen die
+Analytics-, Statistics- und POI-Smokes erneut ausgeführt werden.
+
+Der praktisch geprüfte Rollback deaktiviert Analysis Areas über das normale
+Modul-CLI. Er verändert weder das Registry-Artefakt noch migriert er die
+Datenbank zurück oder löscht Moduldaten; passive Migration Discovery bleibt
+verfügbar und Statistics kann aktiv bleiben. Re-enable ohne Reinstall oder
+Reimport stellt den Dienst wieder her. Die allgemeinen atomaren Host-Release-
+und Symlink-Rollback-Schritte bleiben davon unberührt.
