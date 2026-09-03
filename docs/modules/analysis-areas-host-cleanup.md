@@ -74,3 +74,8 @@ Die vier fachlichen Revisionsdateien bleiben als bytegleiche, nicht discoverbare
 Fixtures unter `backend/tests/fixtures/module_migrations/analysis_areas_history`
 erhalten. Sie prüfen den verschachtelten globalen Graph und bestehende Daten; die
 Host-Runtime und das Host-`alembic/versions`-Verzeichnis besitzen sie nicht.
+Die regulären Required-Jobs bauen daraus deterministisch ein minimales
+backend-only `.ocp`-Bundle und installieren es deaktiviert über den lokalen
+Installer. Sie hängen dadurch nicht von der Live-Registry ab und prüfen dennoch
+den echten Bundle-, Installer- und Migrationspfad. Dieses Fixture enthält bewusst
+keine Fachruntime.

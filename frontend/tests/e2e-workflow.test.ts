@@ -14,9 +14,10 @@ describe('E2E workflow module configuration', () => {
     expect(workflow).toMatch(/^  ENABLED_MODULES: ''$/m)
     expect(workflow).toMatch(/^  OCP_FRONTEND_MODULES: ''$/m)
     expect(workflow).toMatch(/^  CORS_ORIGINS: http:\/\/127\.0\.0\.1:3010$/m)
-    expect(workflow).toContain('install-registry analysis-areas')
-    expect(workflow).toContain('--version 1.0.0')
-    expect(workflow).toContain('7006f31ea73f40e38f63d2065652c27ad5d3391ddcc8cfad2f149993efef3dcf')
+    expect(workflow).toContain('build_analysis_areas_migration_bundle.py')
+    expect(workflow).toContain('install "${RUNNER_TEMP}/analysis-areas-migrations.ocp"')
+    expect(workflow).not.toContain('install-registry analysis-areas')
+    expect(workflow).not.toContain('packages.stadtplaner.oklabflensburg.de')
     expect(workflow).toContain('scripts/backend-module-inventory --format env')
 
     const playwright = repositoryFile('frontend/playwright.config.ts')
@@ -42,8 +43,12 @@ describe('E2E workflow module configuration', () => {
   it('keeps backend CI independent from the Settings default', () => {
     const backendWorkflow = repositoryFile('.github/workflows/backend.yml')
     expect(backendWorkflow).toMatch(/^  ENABLED_MODULES: ''$/m)
-    expect(backendWorkflow).toContain('install-registry analysis-areas')
-    expect(backendWorkflow).toContain('--version 1.0.0')
+    expect(backendWorkflow).toContain('build_analysis_areas_migration_bundle.py')
+    expect(backendWorkflow).toContain(
+      'install "${RUNNER_TEMP}/analysis-areas-migrations.ocp"'
+    )
+    expect(backendWorkflow).not.toContain('install-registry analysis-areas')
+    expect(backendWorkflow).not.toContain('packages.stadtplaner.oklabflensburg.de')
     expect(backendWorkflow).toContain('app.cli.module_migrations preflight')
     expect(backendWorkflow).toContain('app.cli.module_migrations upgrade')
     expect(backendWorkflow).not.toContain('uv run alembic upgrade head')

@@ -69,13 +69,15 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
-      - name: Install passive Analysis Areas migration history
+      - name: Build and install passive Analysis Areas migration fixture
         working-directory: backend
         run: |
+          uv run python tests/fixtures/build_analysis_areas_migration_bundle.py \
+            --source-commit "${GITHUB_SHA}" \
+            --output "${RUNNER_TEMP}/analysis-areas-migrations.ocp"
           uv run python -m app.cli.modules \
-            --root "${OCP_MODULE_INSTALL_ROOT}" install-registry analysis-areas \
-            --version 1.0.0 \
-            --expected-sha256 7006f31ea73f40e38f63d2065652c27ad5d3391ddcc8cfad2f149993efef3dcf
+            --root "${OCP_MODULE_INSTALL_ROOT}" \
+            install "${RUNNER_TEMP}/analysis-areas-migrations.ocp"
       - name: Verify E2E frontend module configuration
         working-directory: frontend
         run: pnpm modules:check

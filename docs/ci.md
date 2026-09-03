@@ -11,12 +11,12 @@ bei reinen Dokumentationsänderungen nicht.
 | --- | --- | --- |
 | Backend CI | `backend-lint` | Ruff sowie Import- und Startkonfigurations-Smoke-Test |
 | Backend CI | `backend-tests` | vollständige Pytest-Suite |
-| Backend CI | `backend-migrations` | genau ein Alembic-Head, Upgrade einer frischen PostGIS-Datenbank sowie Modul-Persistence-, Schema- und Migrationscontracts |
+| Backend CI | `backend-migrations` | lokal gebautes passives Analysis-Areas-Migrationsbundle, genau ein Alembic-Head, Upgrade einer frischen PostGIS-Datenbank sowie Modul-Persistence-, Schema- und Migrationscontracts |
 | Frontend CI | `frontend-tests` | vollständige Vitest-Suite sowie explizite Frontend-Modul-, UI-Contribution- und SSR-Smoke-Tests |
 | Frontend CI | `frontend-typecheck` | Nuxt-/Vue-Typecheck ohne optionale Module und mit dem Example-Modul |
 | Frontend CI | `frontend-build` | Produktiver Modul-Preflight, Nuxt-Build mit Example-Modul sowie Build und SSR-/SEO-Audit des Slim Hosts ohne Fachmodule |
 | Frontend CI | `frontend-language-audit` | Audit der sichtbaren Sprache |
-| E2E Tests | `e2e` | vollständige Host-Playwright-Suite mit echtem Frontend, Backend, leerem Modul-Inventar und frischer PostGIS-Datenbank |
+| E2E Tests | `e2e` | vollständige Host-Playwright-Suite mit echtem Frontend, Backend, leerem Runtime-Modul-Inventar, passiver lokaler Analysis-Areas-Migrationshistorie und frischer PostGIS-Datenbank |
 | Security | `security-policy-validation` | Format, Vollständigkeit und Ablauf befristeter Security-Ausnahmen sowie negative Policy-Tests |
 | Security | `backend-audit` | `pip-audit 2.10.1` gegen den eingefrorenen Python-Produktionssatz |
 | Security | `frontend-audit` | `pnpm audit --prod` gegen das eingefrorene Frontend-Lockfile |
@@ -48,6 +48,15 @@ pnpm-Version 11.22.0. Backend-Abhängigkeiten stammen ausschließlich aus
 `--frozen-lockfile` installiert. Redis wird nicht gestartet, weil die Tests den optionalen
 Cache nicht benötigen. Externe Netzwerkzugriffe sind in der E2E-Umgebung
 deaktiviert beziehungsweise in den betroffenen Tests gemockt.
+
+Die Required-Jobs `backend-migrations` und `e2e` beziehen keine Module aus der
+Live-Registry. Sie erzeugen aus den eingecheckten, bytegleichen
+Analysis-Areas-Migrations-Fixtures deterministisch ein minimales backend-only
+`.ocp`-Bundle und installieren es deaktiviert über den normalen lokalen
+Installerpfad. Dieses Fixture stellt ausschließlich die passive gemeinsame
+Alembic-Historie bereit und ist keine Analysis-Areas-Runtime. Der vollständige
+Runtime-Cutover wird separat im Cross-Repo-Contract mit dem gepinnten v1.5.0-
+Quellstand geprüft; Veröffentlichung und Live-Registry-E2E bleiben #197.
 
 Playwright installiert sein eigenes Chromium. Fehlgeschlagene Läufe laden Traces,
 Screenshots und den HTML-Bericht für sieben Tage als Artefakt hoch. Retries bleiben
@@ -83,9 +92,11 @@ uv run ruff check app tests
 uv run pytest
 uv run python -c "from app.main import app; assert app.title"
 export OCP_MODULE_INSTALL_ROOT=/tmp/ocp-ci-modules
-uv run python -m app.cli.modules --root "$OCP_MODULE_INSTALL_ROOT" install-registry analysis-areas \
-  --version 1.0.0 \
-  --expected-sha256 7006f31ea73f40e38f63d2065652c27ad5d3391ddcc8cfad2f149993efef3dcf
+uv run python tests/fixtures/build_analysis_areas_migration_bundle.py \
+  --source-commit "$(git rev-parse HEAD)" \
+  --output /tmp/analysis-areas-migrations.ocp
+uv run python -m app.cli.modules --root "$OCP_MODULE_INSTALL_ROOT" \
+  install /tmp/analysis-areas-migrations.ocp
 uv run python -m app.cli.module_migrations preflight
 uv run python -m app.cli.module_migrations upgrade
 ```
@@ -138,9 +149,11 @@ cd backend
 uv sync --frozen --extra dev --no-editable
 export ENABLED_MODULES=
 export OCP_MODULE_INSTALL_ROOT=/tmp/ocp-e2e-modules
-uv run python -m app.cli.modules --root "$OCP_MODULE_INSTALL_ROOT" install-registry analysis-areas \
-  --version 1.0.0 \
-  --expected-sha256 7006f31ea73f40e38f63d2065652c27ad5d3391ddcc8cfad2f149993efef3dcf
+uv run python tests/fixtures/build_analysis_areas_migration_bundle.py \
+  --source-commit "$(git rev-parse HEAD)" \
+  --output /tmp/analysis-areas-migrations.ocp
+uv run python -m app.cli.modules --root "$OCP_MODULE_INSTALL_ROOT" \
+  install /tmp/analysis-areas-migrations.ocp
 uv run python -m app.cli.module_migrations upgrade
 uv run python tests/e2e_seed.py
 uv run python -m app.cli.module_migrations preflight
