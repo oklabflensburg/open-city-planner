@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.passwords import verify_password
 from app.models.admin_audit_log import AdminAuditLog
-from app.models.city_metrics import CityMetrics
 from app.models.oauth_account import OAuthFlowGrant, UserOAuthAccount
 from app.models.password_reset_token import PasswordResetToken
 from app.models.user import AccountDeactivationReason, User
@@ -127,11 +126,6 @@ async def delete_own_account(
     await session.execute(
         update(UserPolygon)
         .where(UserPolygon.updated_by_user_id == user.id)
-        .values(updated_by_user_id=None)
-    )
-    await session.execute(
-        update(CityMetrics)
-        .where(CityMetrics.updated_by_user_id == user.id)
         .values(updated_by_user_id=None)
     )
     await session.execute(

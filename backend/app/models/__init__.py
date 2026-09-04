@@ -1,6 +1,5 @@
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.cache_version import CacheVersion
-from app.models.city_metrics import CityMetrics
 from app.models.domain_event_outbox import DomainEventOutbox, EventDelivery
 from app.models.email_campaign import EmailCampaign, EmailCampaignDelivery
 from app.models.email_outbox import EmailOutbox
@@ -33,7 +32,6 @@ __all__ = [
     "AdminAuditLog",
     "AuthMfaChallenge",
     "CacheVersion",
-    "CityMetrics",
     "DomainEventOutbox",
     "EmailCampaign",
     "EmailCampaignDelivery",

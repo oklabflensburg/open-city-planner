@@ -3,6 +3,7 @@ import shutil
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from importlib.metadata import version as package_version
 from pathlib import Path
 
@@ -29,6 +30,7 @@ from app.core.config import get_settings
 from app.db.base import Base
 from app.integrations.module_host_ports import HostCacheGenerations
 from app.models.cache_version import CacheVersion
+from app.models.user import User
 from app.modules.reference.module import DEFINITION as REFERENCE_DEFINITION
 from app.platform.modules import (
     DuplicatePersistenceSchemaError,
@@ -55,6 +57,7 @@ from app.platform.modules.persistence import (
     revision_namespace_for,
 )
 from app.services import cache_versions
+from app.services.account_service import delete_own_account
 from tests.fixtures.build_module_migration_bundle import build_bundle, load_fixture
 from tests.fixtures.example_backend_module import DEFINITION as EXAMPLE_DEFINITION
 from tests.fixtures.example_persistence_module import DEFINITION as DEPENDENT_DEFINITION
@@ -1017,6 +1020,40 @@ async def test_legacy_city_metrics_fk_anonymizes_user_and_preserves_row_on_upgra
     assert tuple(legacy_row) == ("legacy-preservation-test", None)
 
     await asyncio.to_thread(module_migrations.command.upgrade, config, "20260901_0035")
+    account_id = uuid.uuid4()
+    account_metric_id = uuid.uuid4()
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    async with sessions() as session:
+        session.add(
+            User(
+                id=account_id,
+                email=f"account-{account_id}@example.org",
+                first_name="Account",
+                last_name="Owner",
+                is_active=True,
+                is_verified=True,
+                is_superuser=False,
+                roles=[],
+            )
+        )
+        await session.flush()
+        await session.execute(
+            text("""
+                INSERT INTO city_metrics (id, source, updated_by_user_id)
+                VALUES (:metric_id, 'account-delete-test', :user_id)
+            """),
+            {"metric_id": account_metric_id, "user_id": account_id},
+        )
+        await session.commit()
+        await delete_own_account(
+            session,
+            account_id,
+            confirmation_text="LÖSCHEN",
+            current_password=None,
+            authenticated_at=datetime.now(UTC),
+            recent_auth_seconds=600,
+        )
+
     async with engine.connect() as connection:
         preserved_row = (
             await connection.execute(
@@ -1028,7 +1065,23 @@ async def test_legacy_city_metrics_fk_anonymizes_user_and_preserves_row_on_upgra
                 {"metric_id": metric_id},
             )
         ).one()
+        account_row = (
+            await connection.execute(
+                text("""
+                    SELECT source, updated_by_user_id
+                    FROM city_metrics
+                    WHERE id = :metric_id
+                """),
+                {"metric_id": account_metric_id},
+            )
+        ).one()
+        account_exists = await connection.scalar(
+            text("SELECT EXISTS (SELECT 1 FROM users WHERE id = :user_id)"),
+            {"user_id": account_id},
+        )
     assert tuple(preserved_row) == ("legacy-preservation-test", None)
+    assert tuple(account_row) == ("account-delete-test", None)
+    assert account_exists is False
     await engine.dispose()
 
 
