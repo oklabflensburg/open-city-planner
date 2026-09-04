@@ -26,8 +26,8 @@ Im Host verbleiben drei unterschiedliche Dinge:
 1. öffentliche, fachneutral transportierbare SDK-Verträge;
 2. polygon-eigene Aggregation über die Host-Tabelle `user_polygons`, bis die
    Polygon-Domäne in #129 externalisiert wird;
-3. die inaktive `city_metrics`-Data-Shell und unveränderliche historische
-   Statistics-Migrationen.
+3. die inaktive `city_metrics`-Tabelle ohne Runtime-ORM sowie unveränderliche
+   historische Statistics-Migrationen.
 
 ## Audit-Methode und Klassifikation
 
@@ -45,7 +45,7 @@ Statistics-/Analytics-Domänenlogik.
 | `backend/app/services/polygon_analytics.py`, `schemas/polygon_analytics.py` | `OTHER_DOMAIN_CONSUMER` | Polygon-eigene Aggregate und private Abbildungsschemas. Zusammen mit Polygon-Persistence in #129 externalisieren, nicht in ein Statistics-Modul verschieben. |
 | `backend/app/api/polygons.py`, `services/polygons.py`, `schemas/geojson.py` (`/{polygon_id}/metrics`) | `OTHER_DOMAIN_CONSUMER` | Geometrische Kennzahlen einer einzelnen Fläche sind Bestandteil des öffentlichen Polygon-Vertrags. |
 | `backend/app/main.py`, `platform/modules/context.py` mit Polygon-Port-Injektion | `CROSS_MODULE_CONTRACT` | Fachneutrale Composition Root. Keine Modul-ID-Sonderlogik und keine kopierte Aggregation. |
-| `backend/app/models/city_metrics.py`, Export in `models/__init__.py`, explizites Anonymisieren in `services/account_service.py` | `LEGACY` | Verwaiste Data-Shell der entfernten Fast-Facts-Verwaltung. Kein Router, Service, Job oder UI liest/schreibt sie noch. Der FK besitzt bereits `ON DELETE SET NULL`. |
+| ehemalige `backend/app/models/city_metrics.py`, Export in `models/__init__.py` und explizites Anonymisieren in `services/account_service.py` | `LEGACY` | In #219 aus Runtime und Metadata entfernt. Kein Router, Service, Job oder UI liest/schreibt die Tabelle; PostgreSQL erzwingt die Anonymisierung über `ON DELETE SET NULL`. |
 | `20260813_0008_add_city_metrics.py` | `LEGACY` | Veröffentlichte, unveränderliche Migration; die Tabelle bleibt bis zu einer gesonderten Datenhaltungsentscheidung erhalten. |
 | `20260816_0016_flensburg_statistics.py`, `20260901_0035_decouple_statistics_areas.py` | `LEGACY` | Historische Production-Lineage. `0016` erzeugt Statistics-Tabellen, berührt aber auch Host-`cache_versions`; `0035` liest beim Upgrade und rekonstruiert beim Downgrade `analysis_areas`. Deshalb derzeit keine sichere exklusive Modul-Adoption. |
 | `20260813_0007_add_polygon_analytics_indexes.py` | `OTHER_DOMAIN_CONSUMER` | Historische Polygon-Migration; keine Statistics-Persistence. |
@@ -161,7 +161,7 @@ getrennt:
 | fünf `statistical_*`-/Mappingtabellen | `statistics` | Hostrevisionen `0016`, `0035` | Daten und IDs unverändert weiterverwenden; historische Dateien vorerst im Host belassen. |
 | `cache_versions` | Host | `0015`, zusätzlich Seed in gemischter `0016` | kein Statistics-Schema- oder Migrationseigentum ableiten. |
 | `analysis_areas` (nur Übergangslesen in `0035`) | `analysis-areas` | adoptierte Analysis-Areas-Historie | keine neue Statistics-Abhängigkeit; Upgrade hat die FK-Kopplung bereits entfernt. |
-| `city_metrics` | Legacy-Datenhaltung, keine aktive Domain | Hostrevision `0008` | ORM/Runtime-Kopplung entfernen, Tabelle und Migration nicht löschen. |
+| `city_metrics` | Legacy-Datenhaltung, keine aktive Domain | Hostrevision `0008` | ORM/Runtime-Kopplung ist mit #219 entfernt; Tabelle und Migration bleiben unverändert erhalten. |
 
 Eine Adoption von `0016` durch Statistics würde die Modulmigration Host-
 `cache_versions` verändern. Eine Adoption von `0035` würde im Downgrade eine fremde
@@ -185,11 +185,10 @@ Tabellen verändern.
 | 4 | [#222](https://github.com/oklabflensburg/open-city-planner/issues/222): immutable Bundle-/Registry-Aktualisierung und Disable/Re-enable-End-to-End-Gate mit Analysis Areas 1.5.3 | baut auf veröffentlichtem Modulrelease aus 2/3 |
 | 5 | [#223](https://github.com/oklabflensburg/open-city-planner/issues/223): finaler Host-Audit, schärfere negative Guards und #128-Abschluss | baut auf 1–4; Polygon-Code wird explizit an #129 übergeben |
 
-Der kleinste sichere Implementierungsschritt nach Review dieses Inventars ist
-Schritt 1. Er verändert weder Daten noch API, löst aber den letzten aktiven Import
-des fachlichen `CityMetrics`-ORM aus zentralem Hostcode. Die Statistics-Modularbeit
-beginnt danach im bestehenden externen Repository statt mit einer zweiten
-Hostimplementierung.
+Schritt 1 entfernt weder Daten noch API. Der PostgreSQL-Regressionstest beweist vor
+dem Cleanup den FK-Vertrag und danach den vollständigen Account-Delete-Flow. Die
+Statistics-Modularbeit beginnt anschließend im bestehenden externen Repository
+statt mit einer zweiten Hostimplementierung.
 
 ## Gates je Schritt
 

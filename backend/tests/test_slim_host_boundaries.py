@@ -18,6 +18,7 @@ FORBIDDEN_RUNTIME_PREFIXES = (
     "app.api.assistant",
     "app.api.data_sources",
     "app.api.search",
+    "app.models.city_metrics",
     "app.services.analytics",
     "app.services.area_statistics",
     "app.services.assistant",
@@ -35,6 +36,7 @@ REMOVED_RUNTIME_PATHS = (
     "api/assistant.py",
     "api/data_sources.py",
     "api/search.py",
+    "models/city_metrics.py",
     "modules/analysis_areas",
     "services/area_statistics.py",
     "services/assistant.py",
@@ -98,6 +100,21 @@ def test_analysis_areas_migrations_are_not_host_owned() -> None:
     assert [
         path.name for path in host_versions.glob("*.py") if path.name in ADOPTED_REVISION_FILES
     ] == []
+
+
+def test_city_metrics_remains_migration_only_and_outside_runtime_metadata() -> None:
+    import app.models  # noqa: F401
+    from app.db.base import Base
+
+    migration = ROOT / "backend/alembic/versions/20260813_0008_add_city_metrics.py"
+
+    assert not (BACKEND_APP / "models/city_metrics.py").exists()
+    assert "city_metrics" not in Base.metadata.tables
+    assert migration.is_file()
+    source = migration.read_text(encoding="utf-8")
+    assert 'revision = "20260813_0008"' in source
+    assert '"city_metrics"' in source
+    assert 'ondelete="SET NULL"' in source
 
 
 def test_notifications_remain_a_host_capability() -> None:
