@@ -967,6 +967,72 @@ async def test_statistics_area_migration_preserves_existing_rows_and_round_trips
 
 
 @pytest.mark.asyncio
+async def test_legacy_city_metrics_fk_anonymizes_user_and_preserves_row_on_upgrade(
+    fresh_database_url: str,
+) -> None:
+    config = alembic_config_with_analysis_history(fresh_database_url)
+    await asyncio.to_thread(module_migrations.command.upgrade, config, "20260813_0008")
+
+    user_id = uuid.uuid4()
+    metric_id = uuid.uuid4()
+    engine = create_async_engine(fresh_database_url)
+    async with engine.begin() as connection:
+        constraint = await connection.scalar(
+            text("""
+                SELECT pg_get_constraintdef(foreign_key.oid)
+                FROM pg_constraint foreign_key
+                JOIN pg_class source_table ON source_table.oid = foreign_key.conrelid
+                WHERE source_table.relname = 'city_metrics'
+                  AND foreign_key.contype = 'f'
+            """)
+        )
+        assert constraint == "FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL"
+        await connection.execute(
+            text("""
+                INSERT INTO users (id, email, first_name, last_name)
+                VALUES (:user_id, :email, 'Legacy', 'Owner')
+            """),
+            {"user_id": user_id, "email": f"legacy-{user_id}@example.org"},
+        )
+        await connection.execute(
+            text("""
+                INSERT INTO city_metrics (id, source, updated_by_user_id)
+                VALUES (:metric_id, 'legacy-preservation-test', :user_id)
+            """),
+            {"metric_id": metric_id, "user_id": user_id},
+        )
+        await connection.execute(text("DELETE FROM users WHERE id = :user_id"), {"user_id": user_id})
+
+    async with engine.connect() as connection:
+        legacy_row = (
+            await connection.execute(
+                text("""
+                    SELECT source, updated_by_user_id
+                    FROM city_metrics
+                    WHERE id = :metric_id
+                """),
+                {"metric_id": metric_id},
+            )
+        ).one()
+    assert tuple(legacy_row) == ("legacy-preservation-test", None)
+
+    await asyncio.to_thread(module_migrations.command.upgrade, config, "20260901_0035")
+    async with engine.connect() as connection:
+        preserved_row = (
+            await connection.execute(
+                text("""
+                    SELECT source, updated_by_user_id
+                    FROM city_metrics
+                    WHERE id = :metric_id
+                """),
+                {"metric_id": metric_id},
+            )
+        ).one()
+    assert tuple(preserved_row) == ("legacy-preservation-test", None)
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_fresh_upgrade_explicit_downgrade_and_reupgrade_module_migrations(
     fresh_database_url: str,
 ) -> None:
