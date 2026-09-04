@@ -48,6 +48,7 @@ Dieses Verzeichnis enthält die Entwickler-, Architektur- und Betriebsdokumentat
 
 ## Statistik und Daten
 
+- [Statistics-/Analytics-Ownership und Extraktionsplan](modules/statistics-analytics-ownership-inventory.md)
 - [Redis-Read-Cache und Invalidierung](redis-cache.md)
 
 ## Betrieb und Integrationen
