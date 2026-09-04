@@ -14,6 +14,7 @@ export default defineConfig({
     exclude: [
       ...configDefaults.exclude,
       'e2e/**',
+      'e2e-cutover/**',
       'tests/frontend-module-enabled-ssr.test.ts'
     ]
   }

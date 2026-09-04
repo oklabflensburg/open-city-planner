@@ -53,9 +53,9 @@ jobs:
         run: scripts/module-contract-gate frontend
 
   analysis-areas-cutover:
-    name: Statistics + Analysis Areas cross-repo cutover
+    name: Analysis Areas v1.5.3 Registry cutover
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     services:
       postgres:
         image: postgis/postgis:16-3.5@sha256:19b6ffa248d2f864d29d6c338459f02d63c0d7ce341fa86b3bcba8484a130bff
@@ -73,7 +73,13 @@ jobs:
     env:
       APP_ENVIRONMENT: test
       ENABLED_MODULES: ""
+      OCP_ANALYSIS_AREAS_CUTOVER: "1"
+      OCP_ANALYSIS_AREAS_VERSION: "1.5.3"
+      OCP_ANALYSIS_AREAS_SHA256: 88ead403d89209c155b78101676b691a642139991cf9fd0787115ccfe0338f6b
       OCP_FRONTEND_MODULES: ""
+      OCP_MODULE_REGISTRY_URL: https://packages.stadtplaner.oklabflensburg.de
+      OCP_STATISTICS_VERSION: "0.2.0"
+      OCP_STATISTICS_SHA256: cbefa3309642f4b06e8600c56552143d6b53d76472ddc574d889a67d3147e193
       REDIS_ENABLED: "false"
       OSM_EXTERNAL_FALLBACK_ENABLED: "false"
     steps:
@@ -82,16 +88,6 @@ jobs:
           echo "DATABASE_URL=postgresql+asyncpg://postgres:${OCP_CI_RUN_KEY}@127.0.0.1:5432/open_city_map_test" >> "${GITHUB_ENV}"
           echo "OCP_MODULE_INSTALL_ROOT=${RUNNER_TEMP}/ocp-modules" >> "${GITHUB_ENV}"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: oklabflensburg/ocp-module-analysis-areas
-          ref: df8b067757b9bf20fbc54efc9555f3388bd951ff
-          path: .external-analysis-areas
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: oklabflensburg/ocp-module-statistics
-          ref: 09adbc48cbfd2b21f67c4ac72720c460bebd7fc0
-          path: .external-statistics
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: .python-version
@@ -101,105 +97,96 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .node-version
-      - name: Install frozen host and module dependencies
+      - name: Install frozen Host dependencies
         run: |
           python -m pip install 'uv==0.12.5'
           (cd backend && uv sync --frozen --extra dev --no-editable)
           (cd frontend && pnpm install --frozen-lockfile)
-          (cd .external-analysis-areas/backend && uv sync --frozen --extra dev)
-          (cd .external-analysis-areas/frontend && pnpm install --frozen-lockfile)
-          (cd .external-statistics/backend && uv sync --frozen --extra dev)
-          (cd .external-statistics/frontend && pnpm install --frozen-lockfile)
-      - name: Run the external module's own contract suites
-        run: |
-          (cd .external-analysis-areas/backend && uv run ruff check src tests && uv run pytest)
-          (cd .external-analysis-areas/frontend && pnpm test && pnpm typecheck)
-          (cd .external-statistics/backend && uv run ruff check src tests && uv run pytest)
-          (cd .external-statistics/frontend && pnpm test && pnpm typecheck)
-      - name: Build the pinned real OCP bundle
-        run: |
-          (cd .external-analysis-areas/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct df8b067757b9bf20fbc54efc9555f3388bd951ff)" uv build --wheel --clear)
-          (cd .external-analysis-areas/frontend && pnpm build)
-          (cd .external-statistics/backend && SOURCE_DATE_EPOCH="$(git -C .. show -s --format=%ct 09adbc48cbfd2b21f67c4ac72720c460bebd7fc0)" uv build --wheel --clear)
-          (cd .external-statistics/frontend && pnpm build)
-          (cd backend && .venv/bin/python -m app.cli.modules bundle build \
-            --manifest ../.external-statistics/module.yaml \
-            --backend ../.external-statistics/backend/dist/ocp_module_statistics-0.2.0-py3-none-any.whl \
-            --frontend ../.external-statistics/frontend/dist/statistics-0.2.0.tgz \
-            --publisher oklabflensburg --source-reference pull/1 \
-            --source-repository https://github.com/oklabflensburg/ocp-module-statistics \
-            --source-commit 09adbc48cbfd2b21f67c4ac72720c460bebd7fc0 \
-            --build-workflow github-actions/module-contract --license AGPL-3.0-only \
-            --output "${RUNNER_TEMP}/statistics-0.2.0.ocp")
-          (cd backend && .venv/bin/python -m app.cli.modules bundle build \
-            --manifest ../.external-analysis-areas/module.yaml \
-            --backend ../.external-analysis-areas/backend/dist/ocp_module_analysis_areas-1.5.0-py3-none-any.whl \
-            --frontend ../.external-analysis-areas/frontend/dist/analysis-areas-1.5.0.tgz \
-            --publisher oklabflensburg --source-reference statistics-service-registry \
-            --source-repository https://github.com/oklabflensburg/ocp-module-analysis-areas \
-            --source-commit df8b067757b9bf20fbc54efc9555f3388bd951ff \
-            --build-workflow github-actions/module-contract --license AGPL-3.0-only \
-            --output "${RUNNER_TEMP}/analysis-areas-1.5.0.ocp")
-        working-directory: .
-      - name: Prove the planned public polygon-port consumer flow
+      - name: Install exact Registry releases through the production installer
         working-directory: backend
         run: |
-          .venv/bin/python ../scripts/check_analysis_areas_port_consumer.py \
-            ../.external-analysis-areas/backend/src
-      - name: Verify, install disabled and prove migration parity
+          .venv/bin/python -m app.cli.modules install-registry statistics \
+            --version "${OCP_STATISTICS_VERSION}" \
+            --expected-sha256 "${OCP_STATISTICS_SHA256}" \
+            --registry-url "${OCP_MODULE_REGISTRY_URL}"
+          .venv/bin/python -m app.cli.modules install-registry analysis-areas \
+            --version "${OCP_ANALYSIS_AREAS_VERSION}" \
+            --expected-sha256 "${OCP_ANALYSIS_AREAS_SHA256}" \
+            --registry-url "${OCP_MODULE_REGISTRY_URL}"
+          cp "${OCP_MODULE_INSTALL_ROOT}/modules.lock" "${RUNNER_TEMP}/modules.lock.before-rejection"
+          if .venv/bin/python -m app.cli.modules install-registry analysis-areas \
+            --version "${OCP_ANALYSIS_AREAS_VERSION}" \
+            --expected-sha256 0000000000000000000000000000000000000000000000000000000000000000 \
+            --registry-url "${OCP_MODULE_REGISTRY_URL}"; then
+            echo "Registry install accepted an incorrect deployment digest." >&2
+            exit 1
+          fi
+          cmp "${RUNNER_TEMP}/modules.lock.before-rejection" "${OCP_MODULE_INSTALL_ROOT}/modules.lock"
+          .venv/bin/python -m app.cli.modules install-registry analysis-areas \
+            --version "${OCP_ANALYSIS_AREAS_VERSION}" \
+            --expected-sha256 "${OCP_ANALYSIS_AREAS_SHA256}" \
+            --registry-url "${OCP_MODULE_REGISTRY_URL}" | grep '"status":"already-installed"'
+      - name: Prove disabled lock state, passive migrations and architecture
         working-directory: backend
         run: |
-          .venv/bin/python -m app.cli.modules verify "${RUNNER_TEMP}/statistics-0.2.0.ocp"
-          .venv/bin/python -m app.cli.modules install "${RUNNER_TEMP}/statistics-0.2.0.ocp"
-          .venv/bin/python -m app.cli.modules verify "${RUNNER_TEMP}/analysis-areas-1.5.0.ocp"
-          .venv/bin/python -m app.cli.modules install "${RUNNER_TEMP}/analysis-areas-1.5.0.ocp"
-          .venv/bin/python -m app.cli.modules env --format json | tee "${RUNNER_TEMP}/disabled-env.json"
-          .venv/bin/python -c 'import json,sys; value=json.load(open(sys.argv[1])); assert value["ENABLED_MODULES"] == ""; assert value["OCP_ENABLED_INSTALLED_BACKEND_PATHS"] == ""' "${RUNNER_TEMP}/disabled-env.json"
-          migration_root="${OCP_MODULE_INSTALL_ROOT}/installed/analysis-areas/1.5.0/backend/site-packages/ocp_module_analysis_areas/migrations/history"
+          .venv/bin/python tests/fixtures/assert_analysis_areas_cutover.py disabled
+          migration_root="${OCP_MODULE_INSTALL_ROOT}/installed/analysis-areas/${OCP_ANALYSIS_AREAS_VERSION}/backend/site-packages/ocp_module_analysis_areas/migrations/history"
           for file in 20260814_0014_analysis_areas.py 20260817_0023_area_wikidata.py 20260818_0025_osm_external_links.py 20260819_0032_optimize_area_poi_analytics.py; do
             cmp "tests/fixtures/module_migrations/analysis_areas_history/${file}" "${migration_root}/${file}"
           done
-      - name: Run the full lifecycle with exclusive module migration ownership
+          .venv/bin/python ../scripts/check_external_module_imports.py "${migration_root%/migrations/history}"
+          .venv/bin/python -m app.cli.module_migrations preflight
+          backend_inventory="$(../scripts/backend-module-inventory --format env)"
+          (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm modules:check)
+          (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm build)
+      - name: Enable and migrate through the normal lifecycle
         working-directory: backend
         run: |
-          .venv/bin/python -m app.cli.module_migrations preflight
           .venv/bin/python -m app.cli.modules enable statistics
           .venv/bin/python -m app.cli.modules enable analysis-areas
+          .venv/bin/python -m app.cli.modules env --format json \
+            | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> "${GITHUB_ENV}"
           eval "$(.venv/bin/python -m app.cli.modules env --format shell)"
           .venv/bin/python -m app.cli.module_migrations upgrade
+          .venv/bin/python -m app.cli.module_migrations upgrade
           .venv/bin/python tests/e2e_seed.py
-          .venv/bin/python - <<'PY'
-          import asyncio
-          import httpx
-          from app.main import app, module_runtime
-
-          async def prove_api():
-              assert "analysis-areas" in module_runtime.module_ids
-              assert "statistics" in module_runtime.module_ids
-              paths = set(app.openapi()["paths"])
-              assert "/api/v1/analysis-areas" in paths
-              assert "/api/v1/analysis-areas/by-slug/{slug}/statistics" in paths
-              async with httpx.AsyncClient(
-                  transport=httpx.ASGITransport(app=app), base_url="http://testserver"
-              ) as client:
-                  response = await client.get("/api/v1/analysis-areas")
-                  assert response.status_code == 200, response.text
-
-          asyncio.run(prove_api())
-          PY
+          .venv/bin/python tests/fixtures/seed_analysis_areas_cutover.py
+      - name: Prove enabled backend and frontend parity
+        working-directory: backend
+        run: |
+          .venv/bin/python tests/fixtures/assert_analysis_areas_cutover.py enabled
+          .venv/bin/python ../scripts/check_analysis_areas_port_consumer.py
           backend_inventory="$(../scripts/backend-module-inventory --format env)"
           (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm modules:check)
           (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm typecheck)
+          (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm test:modules:ssr)
           (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm build)
-          export ENABLED_MODULES=""
-          export OCP_BACKEND_MODULES=""
-          export OCP_FRONTEND_MODULES=""
-          export OCP_ENABLED_INSTALLED_BACKEND_PATHS=""
+      - name: Run installed Analysis Areas Playwright flows
+        working-directory: frontend
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm exec playwright test --config playwright.cutover.config.ts
+      - name: Disable without data or migration rollback
+        working-directory: backend
+        run: |
           .venv/bin/python -m app.cli.modules disable analysis-areas
           eval "$(.venv/bin/python -m app.cli.modules env --format shell)"
           test "${ENABLED_MODULES}" = "statistics"
           .venv/bin/python -m app.cli.module_migrations preflight
+          .venv/bin/python tests/fixtures/assert_analysis_areas_cutover.py disabled-after-migration
+          backend_inventory="$(../scripts/backend-module-inventory --format env)"
+          (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm modules:check)
+          (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm build)
+      - name: Re-enable without reinstall or data import
+        working-directory: backend
+        run: |
           .venv/bin/python -m app.cli.modules enable analysis-areas
+          eval "$(.venv/bin/python -m app.cli.modules env --format shell)"
+          .venv/bin/python tests/fixtures/assert_analysis_areas_cutover.py enabled
+          backend_inventory="$(../scripts/backend-module-inventory --format env)"
+          (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm modules:check)
+          (cd ../frontend && OCP_BACKEND_MODULES="${backend_inventory}" pnpm exec playwright test \
+            --config playwright.cutover.config.ts --grep 'renders overview')
 
   gate:
     name: Module contract gate

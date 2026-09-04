@@ -244,8 +244,8 @@ stadtplaner_module_registry_url: https://packages.stadtplaner.oklabflensburg.de
 # Example:
 # stadtplaner_registry_modules:
 #   - id: analysis-areas
-#     version: 1.0.0
-#     expected_sha256: 7006f31ea73f40e38f63d2065652c27ad5d3391ddcc8cfad2f149993efef3dcf
+#     version: 1.5.3
+#     expected_sha256: 88ead403d89209c155b78101676b691a642139991cf9fd0787115ccfe0338f6b
 stadtplaner_registry_modules: []
 stadtplaner_avatar_upload_dir: /data/uploads
 stadtplaner_observability_dir: /data/stadtplaner/observability

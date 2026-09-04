@@ -620,6 +620,24 @@ def test_disable_never_runs_preflight_or_removes_migration_resources(tmp_path: P
     )
 
 
+def test_disable_overrides_stale_deployment_enablement(tmp_path: Path) -> None:
+    installer = ModuleInstaller(
+        tmp_path / "state",
+        host_version="0.2.0",
+        builtin_enabled_ids=("installed-module", "reference"),
+        builtin_frontend_enabled_ids=("installed-module", "reference"),
+    )
+    installer.install(_package(tmp_path, "installed-module", backend=True))
+    installer.enable("installed-module")
+
+    installer.disable("installed-module")
+
+    environment = installer.enablement_environment()
+    assert environment.enabled_modules == "reference"
+    assert environment.frontend_modules == "reference"
+    assert environment.runtime_backend_paths == ""
+
+
 def test_runtime_paths_include_only_enabled_modules_and_follow_disable(
     tmp_path: Path,
 ) -> None:

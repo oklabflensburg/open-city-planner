@@ -1,5 +1,5 @@
 import tailwindcss from '@tailwindcss/vite'
-import { delimiter } from 'node:path'
+import { delimiter, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { discoverPageRoutes, resolveFrontendModules } from './module-host/discovery'
 import { createFrontendContributionRegistry } from './module-host/ui-registry'
@@ -187,6 +187,13 @@ export default defineNuxtConfig({
   },
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      // Installed Nuxt layers may resolve their own runtime dependencies from a
+      // package root outside the Host checkout during local and Playwright runs.
+      fs: {
+        allow: frontendModules.map(module => dirname(module.source))
+      }
+    },
     optimizeDeps: {
       exclude: ['terra-draw', 'terra-draw-maplibre-gl-adapter']
     }

@@ -504,8 +504,12 @@ class ModuleInstaller:
 
     def enablement_environment(self, lock: ModulesLock | None = None) -> EnablementEnvironment:
         active_lock = lock or read_modules_lock(self.lock_path)
-        backend_ids = set(self.builtin_enabled_ids)
-        frontend_ids = set(self.builtin_frontend_enabled_ids)
+        installed_ids = {entry.id for entry in active_lock.modules}
+        # The current process can still carry the previous deployment's module
+        # environment while a new one is rendered after enable/disable. Installed
+        # module IDs are governed by modules.lock, not by those stale values.
+        backend_ids = set(self.builtin_enabled_ids).difference(installed_ids)
+        frontend_ids = set(self.builtin_frontend_enabled_ids).difference(installed_ids)
         runtime_backend_paths: list[str] = []
         frontend_roots: list[str] = []
         for entry in active_lock.modules:

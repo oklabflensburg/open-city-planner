@@ -35,15 +35,16 @@ Frontend-Snapshot ein. Aktivierung bleibt ausschließlich in `modules.lock`.
 7. Einmal `disable`, Deploy/Restart, passive Migration Discovery und anschließend
    `enable` mit erneutem Deploy/Restart prüfen.
 
-Für `analysis-areas` ist der vollständige externe Contract als v1.5.0 auf Commit
-`df8b067757b9bf20fbc54efc9555f3388bd951ff` gepinnt. Er liefert die Revisionen
+Für `analysis-areas` ist der vollständige externe Release als v1.5.3 mit SHA-256
+`88ead403d89209c155b78101676b691a642139991cf9fd0787115ccfe0338f6b`
+und Source-Commit `06a675a4237fca397b37c0aeb935ecd60557073a` gepinnt. Er liefert die Revisionen
 `20260814_0014`, `20260817_0023`, `20260818_0025` und `20260819_0032` mit
 unveränderten Kanten. Seine Host-Capabilities sind vollständig in
 [öffentliche Backend-Service-Ports](backend-service-ports.md) inventarisiert.
 Das Paket importiert ausschließlich das öffentliche SDK; Gebietsfachlogik und
 Persistenz bleiben im Modul.
 
-Der Cross-Repo-Contract prüft den produktiven Flow: Das externe
+Der Registry-Cutover-Contract prüft den produktiven Flow: Das externe
 Modul löst Gebiet und `polygon_analysis_areas` über seine eigenen ORM-Modelle und
 den bestehenden `DatabaseSessionProvider` auf, baut daraus einen neutralen
 `PolygonScope` und ruft erst danach den Host-Polygon-Port auf. Die
