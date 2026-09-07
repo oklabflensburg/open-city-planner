@@ -138,14 +138,14 @@ jobs:
           python -m pip install 'uv==0.12.5'
           uv sync --frozen --extra security --no-editable
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           languages: ${{ matrix.language }}
           build-mode: none
           queries: security-extended
       - name: Analyze and upload SARIF
         id: codeql-analyze
-        uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           category: /language:${{ matrix.language }}
           output: codeql-results
@@ -193,7 +193,7 @@ jobs:
             --report-path gitleaks.sarif .
       - name: Upload secret findings to Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           sarif_file: gitleaks.sarif
           category: gitleaks
